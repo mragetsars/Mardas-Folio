@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mardas.dev/schemas/sidecar/v1/notification.schema.json",
+  "title": "Mardas Sidecar Notification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jsonrpc", "method", "params"],
+  "properties": {
+    "jsonrpc": {"const": "2.0"},
+    "method": {"enum": ["system.ready", "job.progress"]},
+    "params": {"type": "object"}
+  }
+}

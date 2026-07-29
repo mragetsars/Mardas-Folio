@@ -2,9 +2,18 @@
   "include": [
     "src/mardas_md2pdf/quality.py",
     "src/mardas_md2pdf/pdf_navigation.py",
-    "scripts/check_visual_contracts.py"
+    "scripts/check_visual_contracts.py",
+    "src/mardas_md2pdf/protocol.py",
+    "src/mardas_md2pdf/runtime.py",
+    "src/mardas_md2pdf/application.py",
+    "src/mardas_md2pdf/sidecar.py",
+    "scripts/build_standalone_runtime.py",
+    "scripts/verify_standalone_runtime.py"
   ],
-  "extraPaths": ["src", "scripts"],
+  "extraPaths": [
+    "src",
+    "scripts"
+  ],
   "pythonVersion": "3.10",
   "typeCheckingMode": "basic",
   "reportMissingTypeStubs": false,
