@@ -1278,3 +1278,44 @@ def test_studio_first_run_state_is_not_reported_as_error():
     assert "Could not restore state" not in html
     assert "Saved state ignored" not in html
     assert "localStorage.removeItem(MARDAS_STUDIO_STATE_KEY)" in html
+
+
+def test_studio_exposes_and_validates_publication_quality_controls():
+    import pytest
+
+    from mardas_md2pdf import gui
+
+    html = GUI_HTML.read_text(encoding="utf-8")
+    for control in (
+        "qualityProfileInput",
+        "mathErrorPolicyInput",
+        "fontErrorPolicyInput",
+        "navigationErrorPolicyInput",
+        "requiredFontsInput",
+    ):
+        assert f'id="{control}"' in html
+    assert "--quality-profile" in html
+    assert "--require-font" in html
+
+    options = gui._validated_render_options(
+        {
+            "qualityProfile": "strict-publication",
+            "mathErrorPolicy": "error",
+            "fontErrorPolicy": "warn",
+            "navigationErrorPolicy": "ignore",
+            "requiredFonts": "Vazirmatn, JetBrains Mono, Vazirmatn",
+        }
+    )
+    assert options["quality_profile"] == "strict-publication"
+    assert options["math_error_policy"] == "error"
+    assert options["font_error_policy"] == "warn"
+    assert options["navigation_error_policy"] == "ignore"
+    assert options["required_fonts"] == ("Vazirmatn", "JetBrains Mono")
+
+    with pytest.raises(gui.StudioRequestError) as exc_info:
+        gui._validated_render_options({"qualityProfile": "maximum"})
+    assert exc_info.value.code == "invalid_quality_profile"
+
+    with pytest.raises(gui.StudioRequestError) as exc_info:
+        gui._validated_render_options({"mathErrorPolicy": "continue"})
+    assert exc_info.value.code == "invalid_math_error_policy"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 from contextlib import contextmanager
 from functools import lru_cache
+import hashlib
 import html
 import logging
 import mimetypes
@@ -15,22 +16,18 @@ import tempfile
 import threading
 import unicodedata
 import warnings
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path
 from typing import Any, Callable, Iterator
-from urllib.parse import quote, unquote
 
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import (
-    ArrayObject,
     BooleanObject,
     DictionaryObject,
-    Fit,
     NameObject,
-    NumberObject,
     TextStringObject,
 )
 
@@ -47,6 +44,28 @@ from .appearance import (
 from .brand_assets import product_logo_path
 from .diagnostics import format_diagnostic, has_errors
 from .markdown import MarkdownInputError, MarkdownRenderResult, render_markdown_file
+from .pdf_navigation import (
+    NamedDestinationMap,
+    NavigationTracker,
+    OutlineSourceEntry,
+    add_pdf_outline as _add_pdf_outline,
+    add_pdf_page_labels as _navigation_add_pdf_page_labels,
+    copy_pdf_named_destinations as _copy_pdf_named_destinations,
+    enforce_navigation_quality,
+    heading_destination_names as _heading_destination_names,  # noqa: F401 - compatibility
+    locate_outline_pages as _locate_outline_pages,
+    pdf_page_texts as _pdf_page_texts,
+    rewrite_pdf_link_annotation_destinations as _rewrite_pdf_link_annotation_destinations,
+)
+from .quality import (
+    FontValidationError,
+    MathJaxRenderError,
+    RenderQualityError,
+    RenderQualityLog,
+    handle_quality_issue,
+    profile_policy,
+    validate_quality_profile,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -159,6 +178,13 @@ class PdfOptions:
     citation_style: str | None = None
     bibliography_title: str | None = None
     bibliography_include_uncited: bool | None = None
+    quality_profile: str = "standard"
+    math_error_policy: str | None = None
+    font_error_policy: str | None = None
+    navigation_error_policy: str | None = None
+    required_fonts: tuple[str, ...] = ()
+    quality_report: Path | None = None
+    quality_log: RenderQualityLog = field(default_factory=RenderQualityLog, repr=False)
     progress: ProgressCallback | None = None
     cancelled: CancellationCallback | None = None
 
@@ -226,6 +252,63 @@ def _mathjax_script() -> str:
     if path.exists():
         return path.read_text(encoding="utf-8")
     return ""
+
+
+def _resolve_quality_options(options: PdfOptions) -> None:
+    profile = validate_quality_profile(options.quality_profile)
+    options.quality_profile = profile
+    options.math_error_policy = profile_policy(profile, options.math_error_policy)
+    options.font_error_policy = profile_policy(profile, options.font_error_policy)
+    options.navigation_error_policy = profile_policy(profile, options.navigation_error_policy)
+    required = tuple(dict.fromkeys(name.strip() for name in options.required_fonts if name.strip()))
+    if profile == "strict-publication" and not required:
+        required = ("Vazirmatn",)
+    options.required_fonts = required
+    options.quality_log.profile = profile
+
+
+def _write_quality_report(options: PdfOptions) -> None:
+    if options.quality_report is not None:
+        options.quality_log.write(Path(options.quality_report))
+
+
+def _enforce_quality_issue(
+    options: PdfOptions,
+    *,
+    category: str,
+    policy: str,
+    message: str,
+    details: dict[str, Any] | None = None,
+    error_type: type[RenderQualityError] = RenderQualityError,
+) -> None:
+    try:
+        handle_quality_issue(
+            options.quality_log,
+            category=category,
+            policy=policy,
+            message=message,
+            details=details,
+            error_type=error_type,
+        )
+    finally:
+        _write_quality_report(options)
+
+
+def _font_directory_manifest(font_dir: Path | None) -> list[dict[str, Any]]:
+    if not font_dir or not Path(font_dir).is_dir():
+        return []
+    records: list[dict[str, Any]] = []
+    for path in sorted(Path(font_dir).iterdir(), key=lambda item: item.name.casefold()):
+        if not path.is_file() or path.suffix.lower() not in {".ttf", ".otf", ".woff", ".woff2"}:
+            continue
+        records.append(
+            {
+                "name": path.name,
+                "size": path.stat().st_size,
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+    return records
 
 
 
@@ -2084,10 +2167,14 @@ def _mathjax_block(options: PdfOptions) -> str:
     mathjax_js = _mathjax_script()
     if mathjax_js:
         return f"{mathjax_config}<script>{mathjax_js}</script>"
-    warnings.warn(
-        "Bundled MathJax asset missing; equations will remain in TeX form.",
-        RuntimeWarning,
-        stacklevel=2,
+    message = "Bundled MathJax asset missing; equations will remain in TeX form."
+    _enforce_quality_issue(
+        options,
+        category="mathjax",
+        policy=options.math_error_policy or "warn",
+        message=message,
+        details={"asset": "assets/mathjax/tex-svg-full.js"},
+        error_type=MathJaxRenderError,
     )
     return "<!-- MathJax asset missing: equations will remain in TeX form. -->"
 
@@ -2305,27 +2392,191 @@ def _footer_template(
     """
 
 
-def _render_pdf(page: Page, html_text: str, options: PdfOptions, path: Path, *, display_footer: bool, footer_context: FooterContext | str) -> None:
+_FONT_REPORT_SCRIPT = r"""
+(requiredFonts) => {
+  const normalize = value => String(value || '').replace(/["']/g, '').trim().toLowerCase();
+  const loadedFaces = Array.from(document.fonts || []).map(face => ({
+    family: String(face.family || '').replace(/["']/g, ''),
+    status: String(face.status || ''),
+    weight: String(face.weight || ''),
+    style: String(face.style || ''),
+  }));
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  const sample = 'mmmmmmmmmmlliWW00۱۲۳۴۵۶۷۸۹';
+  const width = font => {
+    context.font = `72px ${font}`;
+    return context.measureText(sample).width;
+  };
+  const fontAvailable = family => {
+    const target = normalize(family);
+    if (loadedFaces.some(face => normalize(face.family) === target && face.status === 'loaded')) {
+      return true;
+    }
+    return ['monospace', 'serif', 'sans-serif'].some(fallback => {
+      const baseline = width(fallback);
+      const candidate = width(`"${family}",${fallback}`);
+      return Math.abs(candidate - baseline) > 0.01;
+    });
+  };
+  const computed = selector => {
+    const node = document.querySelector(selector);
+    return node ? getComputedStyle(node).fontFamily : '';
+  };
+  const required = Array.from(requiredFonts || []);
+  const availability = Object.fromEntries(required.map(name => [name, fontAvailable(name)]));
+  return {
+    status: document.fonts ? document.fonts.status : 'unsupported',
+    required: availability,
+    missing: required.filter(name => !availability[name]),
+    computed: {
+      body: computed('body'),
+      article: computed('.md2pdf-article'),
+      persian: computed('[lang^="fa"], [dir="rtl"]'),
+      code: computed('code, pre'),
+    },
+    loaded_faces: loadedFaces,
+  };
+}
+"""
+
+
+_MATHJAX_REPORT_SCRIPT = r"""
+async () => {
+  const nodes = Array.from(document.querySelectorAll('.math'));
+  const report = {
+    detected: nodes.length,
+    rendered: 0,
+    unresolved: 0,
+    available: Boolean(window.MathJax && window.MathJax.typesetPromise),
+    errors: [],
+    unresolved_samples: [],
+    exception: '',
+  };
+  try {
+    if (window.MathJax && window.MathJax.startup && window.MathJax.startup.promise) {
+      await window.MathJax.startup.promise;
+    }
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      await window.MathJax.typesetPromise();
+    }
+  } catch (error) {
+    report.exception = String(error && (error.stack || error.message) || error);
+  }
+  for (const node of nodes) {
+    if (node.querySelector('mjx-container')) {
+      report.rendered += 1;
+    } else {
+      report.unresolved += 1;
+      if (report.unresolved_samples.length < 5) {
+        report.unresolved_samples.push(String(node.textContent || '').trim().slice(0, 160));
+      }
+    }
+  }
+  report.errors = Array.from(document.querySelectorAll('mjx-merror, [data-mjx-error]'))
+    .slice(0, 10)
+    .map(node => String(node.textContent || node.getAttribute('data-mjx-error') || '').trim().slice(0, 240));
+  return report;
+}
+"""
+
+
+def _validate_browser_fonts(page: Page, options: PdfOptions, *, artifact: Path) -> None:
+    if not options.required_fonts and options.quality_report is None:
+        return
+    try:
+        report = page.evaluate(_FONT_REPORT_SCRIPT, list(options.required_fonts))
+    except Exception as exc:
+        _enforce_quality_issue(
+            options,
+            category="fonts",
+            policy=options.font_error_policy or "warn",
+            message=f"Browser font validation failed: {exc}",
+            details={"artifact": artifact.name, "required_fonts": list(options.required_fonts)},
+            error_type=FontValidationError,
+        )
+        return
+    details = dict(report or {})
+    details["artifact"] = artifact.name
+    details["font_directory"] = str(options.font_dir) if options.font_dir else None
+    details["font_files"] = _font_directory_manifest(options.font_dir)
+    missing = [str(name) for name in details.get("missing") or []]
+    if missing:
+        _enforce_quality_issue(
+            options,
+            category="fonts",
+            policy=options.font_error_policy or "warn",
+            message=f"Required publication fonts are unavailable: {', '.join(missing)}",
+            details=details,
+            error_type=FontValidationError,
+        )
+        return
+    options.quality_log.record(
+        "fonts",
+        "passed",
+        "Required publication fonts are available." if options.required_fonts else "Browser font evidence collected.",
+        details=details,
+    )
+
+
+def _typeset_and_validate_mathjax(page: Page, options: PdfOptions, *, artifact: Path) -> None:
+    try:
+        report = page.evaluate(_MATHJAX_REPORT_SCRIPT)
+    except Exception as exc:
+        _enforce_quality_issue(
+            options,
+            category="mathjax",
+            policy=options.math_error_policy or "warn",
+            message=f"MathJax rendering failed; equations may remain in TeX form: {exc}",
+            details={"artifact": artifact.name, "exception": str(exc)},
+            error_type=MathJaxRenderError,
+        )
+        return
+    details = dict(report or {})
+    details["artifact"] = artifact.name
+    detected = int(details.get("detected") or 0)
+    rendered = int(details.get("rendered") or 0)
+    unresolved = int(details.get("unresolved") or 0)
+    errors = list(details.get("errors") or [])
+    exception = str(details.get("exception") or "")
+    available = bool(details.get("available"))
+    failed = bool(exception or errors or unresolved or (detected and not available) or rendered != detected)
+    if failed:
+        _enforce_quality_issue(
+            options,
+            category="mathjax",
+            policy=options.math_error_policy or "warn",
+            message=(
+                "MathJax did not render every detected expression "
+                f"(detected={detected}, rendered={rendered}, unresolved={unresolved})."
+            ),
+            details=details,
+            error_type=MathJaxRenderError,
+        )
+        return
+    options.quality_log.record(
+        "mathjax",
+        "passed",
+        f"MathJax rendered {rendered} of {detected} detected expressions.",
+        details=details,
+    )
+
+
+def _render_pdf(
+    page: Page,
+    html_text: str,
+    options: PdfOptions,
+    path: Path,
+    *,
+    display_footer: bool,
+    footer_context: FooterContext | str,
+) -> None:
+    _resolve_quality_options(options)
     page.set_content(html_text, wait_until="load")
     page.evaluate("() => document.fonts && document.fonts.ready")
+    _validate_browser_fonts(page, options, artifact=path)
     if not options.no_mathjax:
-        try:
-            page.evaluate(
-                """async () => {
-                  if (window.MathJax && window.MathJax.startup && window.MathJax.startup.promise) {
-                    await window.MathJax.startup.promise;
-                  }
-                  if (window.MathJax && window.MathJax.typesetPromise) {
-                    await window.MathJax.typesetPromise();
-                  }
-                }"""
-            )
-        except Exception as exc:
-            warnings.warn(
-                f"MathJax rendering failed; equations may remain in TeX form: {exc}",
-                RuntimeWarning,
-                stacklevel=2,
-            )
+        _typeset_and_validate_mathjax(page, options, artifact=path)
     page.emulate_media(media="print")
     pdf_kwargs: dict[str, Any] = {
         "path": str(path),
@@ -2492,11 +2743,6 @@ def _pdf_metadata(result: MarkdownRenderResult, options: PdfOptions, title: str)
     return data
 
 
-OutlineSourceEntry = tuple[int, str, str]
-LocatedOutlineEntry = tuple[int, str, int, float | None]
-NamedDestinationMap = dict[str, tuple[int, float | None, ArrayObject]]
-
-
 def _outline_source_entries(result: MarkdownRenderResult) -> list[OutlineSourceEntry]:
     """Return clean heading entries for PDF outline creation."""
     entries: list[OutlineSourceEntry] = []
@@ -2509,308 +2755,6 @@ def _outline_source_entries(result: MarkdownRenderResult) -> list[OutlineSourceE
         if title and heading_id:
             entries.append((level, title, heading_id))
     return entries
-
-
-def _destination_object(value: Any) -> Any:
-    return value.get_object() if hasattr(value, "get_object") else value
-
-
-def _destination_array(value: Any) -> ArrayObject | None:
-    """Resolve a PDF named-destination value to a destination array."""
-    value = _destination_object(value)
-    if isinstance(value, ArrayObject):
-        return value
-    if isinstance(value, dict):
-        destination = value.get(NameObject("/D")) or value.get("/D")
-        destination = _destination_object(destination)
-        if isinstance(destination, ArrayObject):
-            return destination
-    return None
-
-
-def _walk_destination_name_tree(node: Any) -> list[tuple[str, ArrayObject]]:
-    """Return named destinations from a PDF /Names tree."""
-    node = _destination_object(node)
-    if not isinstance(node, dict):
-        return []
-    results: list[tuple[str, ArrayObject]] = []
-    names = node.get(NameObject("/Names")) or node.get("/Names")
-    if isinstance(names, list):
-        for index in range(0, len(names), 2):
-            try:
-                name = str(names[index])
-                destination = _destination_array(names[index + 1])
-            except Exception:  # nosec B112
-                continue
-            if destination is not None:
-                results.append((name, destination))
-    kids = node.get(NameObject("/Kids")) or node.get("/Kids")
-    if isinstance(kids, list):
-        for kid in kids:
-            results.extend(_walk_destination_name_tree(kid))
-    return results
-
-
-def _iter_pdf_named_destinations(reader: PdfReader) -> list[tuple[str, ArrayObject]]:
-    """Collect Chromium/PDF named destinations from /Dests and /Names."""
-    root = reader.trailer.get("/Root", {})
-    destinations: list[tuple[str, ArrayObject]] = []
-
-    legacy_dests = _destination_object(root.get(NameObject("/Dests")) or root.get("/Dests"))
-    if isinstance(legacy_dests, dict):
-        for name, value in legacy_dests.items():
-            destination = _destination_array(value)
-            if destination is not None:
-                destinations.append((str(name), destination))
-
-    names_root = _destination_object(root.get(NameObject("/Names")) or root.get("/Names"))
-    if isinstance(names_root, dict):
-        dest_tree = names_root.get(NameObject("/Dests")) or names_root.get("/Dests")
-        destinations.extend(_walk_destination_name_tree(dest_tree))
-
-    return destinations
-
-
-def _reader_page_index(reader: PdfReader, page_reference: Any) -> int | None:
-    """Map a source page indirect reference back to its page index."""
-    ref_id = getattr(page_reference, "idnum", None)
-    ref_generation = getattr(page_reference, "generation", None)
-    for index, page in enumerate(reader.pages):
-        reference = getattr(page, "indirect_reference", None)
-        if reference is None:
-            continue
-        if getattr(reference, "idnum", None) == ref_id and getattr(reference, "generation", None) == ref_generation:
-            return index
-        if ref_id is None and _destination_object(page_reference) == page:
-            return index
-    return None
-
-
-def _destination_top(destination: ArrayObject) -> float | None:
-    """Extract the top coordinate from common PDF destination arrays."""
-    if len(destination) < 2:
-        return None
-    fit = str(destination[1])
-    coordinate_index = 3 if fit == "/XYZ" else 2 if fit in {"/FitH", "/FitBH"} else None
-    if coordinate_index is None or coordinate_index >= len(destination):
-        return None
-    try:
-        return float(destination[coordinate_index])
-    except Exception:
-        return None
-
-
-def _copy_pdf_named_destinations(
-    writer: PdfWriter,
-    reader: PdfReader,
-    *,
-    page_offset: int = 0,
-) -> NamedDestinationMap:
-    """Preserve internal PDF destinations while copying/merging pages.
-
-    Chromium emits TOC links as link annotations that point at named
-    destinations in the source PDF catalog.  pypdf does not automatically clone
-    those catalog-level destinations when pages are copied, leaving the visible
-    TOC links present but inert.  This helper recreates the destination name tree
-    against the writer's page references and returns a map used by outline
-    creation, so viewer bookmarks land on real headings instead of TOC rows.
-    """
-    copied: NamedDestinationMap = {}
-    destinations = _iter_pdf_named_destinations(reader)
-    if not destinations:
-        return copied
-
-    page_refs = writer.get_object(writer._pages)[NameObject("/Kids")]  # type: ignore[index]
-    page_count = len(page_refs)
-    for name, destination in destinations:
-        if not destination:
-            continue
-        source_page_index = _reader_page_index(reader, destination[0])
-        if source_page_index is None:
-            continue
-        target_page_index = page_offset + source_page_index
-        if target_page_index < 0 or target_page_index >= page_count:
-            continue
-        copied_destination = ArrayObject([page_refs[target_page_index]])
-        copied_destination.extend(destination[1:])
-        try:
-            writer.add_named_destination_array(TextStringObject(name), copied_destination)
-        except Exception:  # nosec B112
-            continue
-        copied[name] = (target_page_index, _destination_top(copied_destination), copied_destination)
-    return copied
-
-
-def _annotation_destination_lookup_names(value: Any) -> list[str]:
-    """Return destination-name variants used by PDF link annotations."""
-    value = _destination_object(value)
-    if isinstance(value, ArrayObject):
-        return []
-    text = str(value or "").strip()
-    if not text:
-        return []
-    bare = text[1:] if text.startswith("/") else text
-    encoded = quote(bare, safe="-._~")
-    decoded = unquote(bare)
-    names = [text, bare, f"/{bare}", encoded, f"/{encoded}", decoded, f"/{decoded}"]
-    unique: list[str] = []
-    for name in names:
-        if name and name not in unique:
-            unique.append(name)
-    return unique
-
-
-def _clone_destination_array(destination: ArrayObject) -> ArrayObject:
-    """Return a shallow destination-array copy safe for annotations."""
-    clone = ArrayObject()
-    clone.extend(destination)
-    return clone
-
-
-def _resolve_named_destination_for_annotation(
-    destination: Any,
-    named_destinations: NamedDestinationMap,
-) -> ArrayObject | None:
-    """Resolve a PDF annotation destination name to an explicit array."""
-    for name in _annotation_destination_lookup_names(destination):
-        record = named_destinations.get(name)
-        if record is not None:
-            return _clone_destination_array(record[2])
-    return None
-
-
-def _rewrite_pdf_link_annotation_destinations(
-    writer: PdfWriter,
-    named_destinations: NamedDestinationMap,
-) -> None:
-    """Rewrite copied TOC link annotations from names to explicit arrays.
-
-    Chromium writes visible TOC links as ``/Dest /heading-id`` annotations.
-    After pypdf copies pages and rewrites the catalog, some viewers resolve the
-    preserved name tree for bookmarks but leave page annotations inert or point
-    them at the original source context.  Replacing annotation destinations with
-    explicit destination arrays makes visible TOC links independent of name-tree
-    lookup and keeps them aligned with the same real heading coordinates used by
-    PDF outline entries.
-    """
-    if not named_destinations:
-        return
-    for page in writer.pages:
-        annotations = page.get(NameObject("/Annots")) or page.get("/Annots")
-        if not annotations:
-            continue
-        for annotation_ref in annotations:
-            try:
-                annotation = annotation_ref.get_object()
-            except Exception:  # nosec B112
-                continue
-            if str(annotation.get(NameObject("/Subtype")) or annotation.get("/Subtype") or "") != "/Link":
-                continue
-
-            direct_destination = annotation.get(NameObject("/Dest")) or annotation.get("/Dest")
-            resolved = _resolve_named_destination_for_annotation(direct_destination, named_destinations)
-            if resolved is not None:
-                annotation[NameObject("/Dest")] = resolved
-                continue
-
-            action = annotation.get(NameObject("/A")) or annotation.get("/A")
-            action = _destination_object(action)
-            if not isinstance(action, dict):
-                continue
-            if str(action.get(NameObject("/S")) or action.get("/S") or "") != "/GoTo":
-                continue
-            action_destination = action.get(NameObject("/D")) or action.get("/D")
-            resolved = _resolve_named_destination_for_annotation(action_destination, named_destinations)
-            if resolved is not None:
-                action[NameObject("/D")] = resolved
-
-
-def _heading_destination_names(heading_id: str) -> list[str]:
-    """Return destination-name variants emitted by Chromium for a heading id."""
-    heading_id = str(heading_id or "").strip()
-    if not heading_id:
-        return []
-    encoded = quote(heading_id, safe="-._~")
-    names = [f"/{encoded}", f"/{heading_id}", encoded, heading_id]
-    unique: list[str] = []
-    for name in names:
-        if name not in unique:
-            unique.append(name)
-    return unique
-
-
-def _normalize_pdf_search_text(value: str) -> str:
-    """Normalize extracted PDF text and heading titles for fuzzy page lookup."""
-    text = unicodedata.normalize("NFKC", value or "")
-    text = text.replace("\u200c", " ").replace("\u200f", " ").replace("\u200e", " ")
-    text = re.sub(r"[\s\W_]+", "", text, flags=re.UNICODE)
-    return text.casefold()
-
-
-def _pdf_page_texts(reader: PdfReader) -> list[str]:
-    texts: list[str] = []
-    for page in reader.pages:
-        try:
-            text = page.extract_text() or ""
-        except Exception:
-            text = ""
-        texts.append(_normalize_pdf_search_text(text))
-    return texts
-
-
-def _locate_outline_pages(
-    page_texts: list[str],
-    outline_entries: list[OutlineSourceEntry],
-    *,
-    named_destinations: NamedDestinationMap | None = None,
-    start_page: int = 0,
-) -> list[LocatedOutlineEntry]:
-    """Map outline headings to best-effort PDF page indexes.
-
-    Prefer Chromium named destinations because they are the same anchors used by
-    the visible TOC links.  Text extraction remains as a fallback for older PDFs
-    or unusual readers, but it intentionally comes after destination lookup so
-    PDF bookmarks do not accidentally resolve to matching text inside the TOC.
-    """
-    if not page_texts and not named_destinations:
-        return []
-    page_count = len(page_texts)
-    current_page = max(0, min(start_page, page_count - 1)) if page_count else max(0, start_page)
-    located: list[LocatedOutlineEntry] = []
-
-    for level, title, heading_id in outline_entries:
-        destination_page: int | None = None
-        destination_top: float | None = None
-        for destination_name in _heading_destination_names(heading_id):
-            if named_destinations and destination_name in named_destinations:
-                destination_page, destination_top, _destination = named_destinations[destination_name]
-                break
-
-        needle = _normalize_pdf_search_text(title)
-        page_index = destination_page if destination_page is not None else current_page
-        if destination_page is None and needle and page_texts:
-            for index in range(current_page, page_count):
-                if needle in page_texts[index]:
-                    page_index = index
-                    break
-        current_page = page_index
-        located.append((max(1, min(level, 6)), title, page_index, destination_top))
-    return located
-
-
-def _add_pdf_outline(writer: PdfWriter, outline_entries: list[LocatedOutlineEntry]) -> None:
-    """Attach a nested PDF outline to ``writer`` from located heading entries."""
-    parents: dict[int, Any] = {}
-    page_count = len(writer.pages)
-    for level, title, page_index, top in outline_entries:
-        if not title or page_index < 0 or page_index >= page_count:
-            continue
-        parent = parents.get(level - 1)
-        fit = Fit.xyz(left=0, top=top, zoom=None) if top is not None else Fit.fit()
-        item = writer.add_outline_item(title, page_index, parent=parent, fit=fit)
-        parents[level] = item
-        for child_level in [key for key in parents if key > level]:
-            del parents[child_level]
 
 
 def _should_disable_chromium_sandbox(mode: str) -> bool:
@@ -2959,26 +2903,11 @@ def _add_pdf_page_labels(
     content_start_page: int = 0,
     lang: str | None = None,
 ) -> None:
-    """Add viewer page labels so content numbering restarts after a cover."""
-    page_count = len(writer.pages)
-    if page_count <= 0:
-        return
-    start = max(0, min(int(content_start_page or 0), page_count - 1))
-    nums = ArrayObject()
-    if start > 0:
-        nums.append(NumberObject(0))
-        nums.append(
-            DictionaryObject(
-                {
-                    NameObject("/S"): NameObject("/D"),
-                    NameObject("/St"): NumberObject(1),
-                    NameObject("/P"): TextStringObject(_pdf_cover_page_prefix(lang)),
-                }
-            )
-        )
-    nums.append(NumberObject(start))
-    nums.append(DictionaryObject({NameObject("/S"): NameObject("/D"), NameObject("/St"): NumberObject(1)}))
-    writer._root_object[NameObject("/PageLabels")] = DictionaryObject({NameObject("/Nums"): nums})
+    _navigation_add_pdf_page_labels(
+        writer,
+        content_start_page=content_start_page,
+        cover_prefix=_pdf_cover_page_prefix(lang),
+    )
 
 
 def _path_identity_key(path: Path) -> str:
@@ -3002,6 +2931,7 @@ def _validate_conversion_paths(options: PdfOptions) -> None:
     input_path = Path(options.input_path)
     output_path = Path(options.output_path)
     debug_html = Path(options.debug_html) if options.debug_html else None
+    quality_report = Path(options.quality_report) if options.quality_report else None
 
     if not input_path.exists():
         raise OutputPathError(f"Input Markdown file not found: {input_path}")
@@ -3011,6 +2941,8 @@ def _validate_conversion_paths(options: PdfOptions) -> None:
         raise OutputPathError(f"Output PDF path is a directory: {output_path}")
     if debug_html and debug_html.exists() and debug_html.is_dir():
         raise OutputPathError(f"Debug HTML path is a directory: {debug_html}")
+    if quality_report and quality_report.exists() and quality_report.is_dir():
+        raise OutputPathError(f"Quality report path is a directory: {quality_report}")
 
     pairs = [("input Markdown", input_path, "output PDF", output_path)]
     if debug_html:
@@ -3020,6 +2952,15 @@ def _validate_conversion_paths(options: PdfOptions) -> None:
                 ("output PDF", output_path, "debug HTML", debug_html),
             ]
         )
+    if quality_report:
+        pairs.extend(
+            [
+                ("input Markdown", input_path, "quality report", quality_report),
+                ("output PDF", output_path, "quality report", quality_report),
+            ]
+        )
+        if debug_html:
+            pairs.append(("debug HTML", debug_html, "quality report", quality_report))
     for source in options.bibliography_sources:
         bibliography_path = Path(source)
         pairs.append(("bibliography source", bibliography_path, "output PDF", output_path))
@@ -3104,6 +3045,17 @@ def _atomic_write_text(path: Path, text: str, *, encoding: str = "utf-8") -> Non
         raise
 
 
+def _enforce_navigation_report(options: PdfOptions, tracker: NavigationTracker) -> None:
+    try:
+        enforce_navigation_quality(
+            tracker,
+            log=options.quality_log,
+            policy=options.navigation_error_policy or "warn",
+        )
+    finally:
+        _write_quality_report(options)
+
+
 def _copy_pdf_with_metadata(
     input_path: Path,
     output_path: Path,
@@ -3112,15 +3064,17 @@ def _copy_pdf_with_metadata(
     *,
     outline_start_page: int = 0,
     page_label_lang: str | None = None,
+    quality_options: PdfOptions | None = None,
 ) -> None:
     reader = PdfReader(str(input_path))
-    page_texts = _pdf_page_texts(reader) if outline_source_entries else []
+    tracker = NavigationTracker()
+    page_texts = _pdf_page_texts(reader, tracker=tracker) if outline_source_entries else []
     writer = PdfWriter()
     try:
         for page in reader.pages:
             writer.add_page(page)
-        named_destinations = _copy_pdf_named_destinations(writer, reader)
-        _rewrite_pdf_link_annotation_destinations(writer, named_destinations)
+        named_destinations = _copy_pdf_named_destinations(writer, reader, tracker=tracker)
+        _rewrite_pdf_link_annotation_destinations(writer, named_destinations, tracker=tracker)
         _add_pdf_page_labels(writer, content_start_page=outline_start_page, lang=page_label_lang)
         writer.add_metadata(metadata)
         _apply_pdf_catalog_metadata(writer, metadata, lang=page_label_lang)
@@ -3132,8 +3086,11 @@ def _copy_pdf_with_metadata(
                     outline_source_entries,
                     named_destinations=named_destinations,
                     start_page=outline_start_page,
+                    tracker=tracker,
                 ),
             )
+        if quality_options is not None:
+            _enforce_navigation_report(quality_options, tracker)
         _atomic_write_pdf(writer, output_path)
     finally:
         writer.close()
@@ -3153,8 +3110,10 @@ def _merge_pdfs(
     *,
     outline_start_page: int = 0,
     page_label_lang: str | None = None,
+    quality_options: PdfOptions | None = None,
 ) -> None:
     writer = PdfWriter()
+    tracker = NavigationTracker()
     try:
         page_texts: list[str] = []
         named_destinations: NamedDestinationMap = {}
@@ -3162,11 +3121,15 @@ def _merge_pdfs(
             reader = PdfReader(str(part))
             page_offset = len(writer.pages)
             if outline_source_entries:
-                page_texts.extend(_pdf_page_texts(reader))
+                page_texts.extend(_pdf_page_texts(reader, tracker=tracker))
             for page in reader.pages:
                 writer.add_page(page)
-            named_destinations.update(_copy_pdf_named_destinations(writer, reader, page_offset=page_offset))
-        _rewrite_pdf_link_annotation_destinations(writer, named_destinations)
+            named_destinations.update(
+                _copy_pdf_named_destinations(
+                    writer, reader, page_offset=page_offset, tracker=tracker
+                )
+            )
+        _rewrite_pdf_link_annotation_destinations(writer, named_destinations, tracker=tracker)
         _add_pdf_page_labels(writer, content_start_page=outline_start_page, lang=page_label_lang)
         if metadata:
             writer.add_metadata(metadata)
@@ -3179,8 +3142,11 @@ def _merge_pdfs(
                     outline_source_entries,
                     named_destinations=named_destinations,
                     start_page=outline_start_page,
+                    tracker=tracker,
                 ),
             )
+        if quality_options is not None:
+            _enforce_navigation_report(quality_options, tracker)
         _atomic_write_pdf(writer, output_path)
     finally:
         writer.close()
@@ -3197,6 +3163,8 @@ def convert_render_result(
     options.input_path = Path(options.input_path)
     options.output_path = Path(options.output_path)
     options.debug_html = Path(options.debug_html) if options.debug_html else None
+    options.quality_report = Path(options.quality_report) if options.quality_report else None
+    _resolve_quality_options(options)
     _validate_conversion_paths(options)
     _apply_resolved_appearance(result.metadata, options)
     _check_cancel(options)
@@ -3303,6 +3271,7 @@ def convert_render_result(
                 outline_source_entries,
                 outline_start_page=cover_page_count,
                 page_label_lang=footer_context.lang,
+                quality_options=options,
             )
         else:
             _report_progress(progress, "Writing metadata", 0.91)
@@ -3312,8 +3281,16 @@ def convert_render_result(
                 pdf_metadata,
                 outline_source_entries,
                 page_label_lang=footer_context.lang,
+                quality_options=options,
             )
     _check_cancel(options)
+    options.quality_log.record(
+        "render",
+        "passed",
+        "PDF rendering and post-processing completed.",
+        details={"output": str(options.output_path)},
+    )
+    _write_quality_report(options)
     _report_progress(progress, "PDF created", 1.0)
     return options.output_path
 

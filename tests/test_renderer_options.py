@@ -632,3 +632,160 @@ def test_cover_branding_subtle_is_not_a_large_brand_block(tmp_path):
     assert "md2pdf-cover__brand--subtle" in html
     assert "Generated with Mardas MD2PDF" in html
     assert '<span class="md2pdf-cover__mark"' not in html
+
+
+def test_strict_publication_fails_when_required_font_is_missing(tmp_path):
+    import pytest
+
+    from mardas_md2pdf.quality import FontValidationError
+    from mardas_md2pdf.renderer import PdfOptions, _render_pdf
+
+    class FakePage:
+        def set_content(self, html_text, wait_until):
+            self.html_text = html_text
+
+        def evaluate(self, expression, argument=None):
+            if argument is not None:
+                return {
+                    "status": "loaded",
+                    "required": {"Vazirmatn": False},
+                    "missing": ["Vazirmatn"],
+                    "computed": {},
+                    "loaded_faces": [],
+                }
+            return None
+
+        def emulate_media(self, media):
+            self.media = media
+
+        def pdf(self, **kwargs):
+            raise AssertionError("PDF export must not run after strict font validation fails")
+
+    options = PdfOptions(
+        input_path=tmp_path / "in.md",
+        output_path=tmp_path / "out.pdf",
+        quality_profile="strict-publication",
+    )
+    with pytest.raises(FontValidationError, match="Vazirmatn"):
+        _render_pdf(
+            FakePage(),
+            "<html><body></body></html>",
+            options,
+            tmp_path / "out.pdf",
+            display_footer=False,
+            footer_context="T",
+        )
+    assert options.quality_log.payload()["summary"]["error"] == 1
+
+
+def test_strict_publication_fails_when_mathjax_is_unresolved(tmp_path):
+    import pytest
+
+    from mardas_md2pdf.quality import MathJaxRenderError
+    from mardas_md2pdf.renderer import PdfOptions, _render_pdf
+
+    class FakePage:
+        def set_content(self, html_text, wait_until):
+            self.html_text = html_text
+
+        def evaluate(self, expression, argument=None):
+            if argument is not None:
+                return {
+                    "status": "loaded",
+                    "required": {"Vazirmatn": True},
+                    "missing": [],
+                    "computed": {},
+                    "loaded_faces": [{"family": "Vazirmatn", "status": "loaded"}],
+                }
+            if "document.fonts" in expression and "async" not in expression:
+                return None
+            return {
+                "detected": 1,
+                "rendered": 0,
+                "unresolved": 1,
+                "available": True,
+                "errors": [],
+                "unresolved_samples": ["x^2"],
+                "exception": "",
+            }
+
+        def emulate_media(self, media):
+            self.media = media
+
+        def pdf(self, **kwargs):
+            raise AssertionError("PDF export must not run after strict MathJax validation fails")
+
+    options = PdfOptions(
+        input_path=tmp_path / "in.md",
+        output_path=tmp_path / "out.pdf",
+        quality_profile="strict-publication",
+    )
+    with pytest.raises(MathJaxRenderError, match="detected=1"):
+        _render_pdf(
+            FakePage(),
+            "<html><body><span class='math'>x^2</span></body></html>",
+            options,
+            tmp_path / "out.pdf",
+            display_footer=False,
+            footer_context="T",
+        )
+
+
+def test_quality_report_serializes_font_and_math_evidence(tmp_path):
+    import json
+
+    from mardas_md2pdf.renderer import PdfOptions, _render_pdf, _write_quality_report
+
+    class FakePage:
+        def __init__(self):
+            self.calls = 0
+
+        def set_content(self, html_text, wait_until):
+            self.html_text = html_text
+
+        def evaluate(self, expression, argument=None):
+            self.calls += 1
+            if argument is not None:
+                return {
+                    "status": "loaded",
+                    "required": {},
+                    "missing": [],
+                    "computed": {"body": "Arial"},
+                    "loaded_faces": [],
+                }
+            if self.calls == 1:
+                return None
+            return {
+                "detected": 1,
+                "rendered": 1,
+                "unresolved": 0,
+                "available": True,
+                "errors": [],
+                "unresolved_samples": [],
+                "exception": "",
+            }
+
+        def emulate_media(self, media):
+            self.media = media
+
+        def pdf(self, **kwargs):
+            self.kwargs = kwargs
+
+    report_path = tmp_path / "quality.json"
+    options = PdfOptions(
+        input_path=tmp_path / "in.md",
+        output_path=tmp_path / "out.pdf",
+        quality_report=report_path,
+    )
+    _render_pdf(
+        FakePage(),
+        "<html><body><span class='math'>x</span></body></html>",
+        options,
+        tmp_path / "out.pdf",
+        display_footer=False,
+        footer_context="T",
+    )
+    _write_quality_report(options)
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert payload["ok"] is True
+    assert {event["category"] for event in payload["events"]} == {"fonts", "mathjax"}

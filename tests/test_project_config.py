@@ -511,3 +511,26 @@ sources = [{str(absolute)!r}, "../outside.bib"]
     result = load_project_config(start=tmp_path, explicit_path=config_path)
 
     assert {item.code for item in result.diagnostics} == {"MARDAS-E118", "MARDAS-E119"}
+
+
+def test_quality_configuration_supports_strict_publication(tmp_path: Path) -> None:
+    config_path = tmp_path / "mardas.toml"
+    config_path.write_text(
+        """schema_version = 1
+[quality]
+profile = "strict-publication"
+math_errors = "error"
+font_errors = "error"
+navigation_errors = "error"
+required_fonts = ["Vazirmatn", "JetBrains Mono"]
+report = "build/quality.json"
+""",
+        encoding="utf-8",
+    )
+
+    result = load_project_config(start=tmp_path, explicit_path=config_path)
+
+    assert not result.diagnostics
+    assert result.config.values["quality_profile"] == "strict-publication"
+    assert result.config.values["required_fonts"] == ("Vazirmatn", "JetBrains Mono")
+    assert result.config.values["quality_report"] == (tmp_path / "build/quality.json").resolve()

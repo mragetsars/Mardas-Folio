@@ -534,6 +534,20 @@
             <label class="switch"><span>No cover page</span><input id="noCoverInput" type="checkbox"></label>
           </div></details>
 
+          <details class="card settings-section" id="publicationQualitySection">
+            <summary><h3><svg class="icon" aria-hidden="true"><use href="#icon-shield-check"></use></svg><span>Publication quality<small>Math, fonts, and PDF navigation gates</small></span></h3></summary>
+            <div class="settings-body">
+              <p class="section-kicker">Standard mode reports quality problems. Strict publication stops export when math, required fonts, or internal PDF navigation cannot be verified.</p>
+              <div class="field"><label for="qualityProfileInput">Quality profile</label><select id="qualityProfileInput"><option value="standard" selected>standard</option><option value="strict-publication">strict-publication</option></select></div>
+              <div class="setting-row">
+                <div class="field"><label for="mathErrorPolicyInput">Math errors</label><select id="mathErrorPolicyInput"><option value="" selected>profile default</option><option value="error">error</option><option value="warn">warn</option><option value="ignore">ignore</option></select></div>
+                <div class="field"><label for="fontErrorPolicyInput">Font errors</label><select id="fontErrorPolicyInput"><option value="" selected>profile default</option><option value="error">error</option><option value="warn">warn</option><option value="ignore">ignore</option></select></div>
+              </div>
+              <div class="field"><label for="navigationErrorPolicyInput">Navigation errors</label><select id="navigationErrorPolicyInput"><option value="" selected>profile default</option><option value="error">error</option><option value="warn">warn</option><option value="ignore">ignore</option></select></div>
+              <div class="field"><label for="requiredFontsInput">Required fonts</label><input id="requiredFontsInput" type="text" placeholder="Vazirmatn, JetBrains Mono"><p class="hint">Comma-separated family names. Strict publication defaults to Vazirmatn when this field is empty.</p></div>
+            </div>
+          </details>
+
           <details class="card advanced-card settings-section">
             <summary><h3><svg class="icon" aria-hidden="true"><use href="#icon-settings"></use></svg><span>Advanced<small>Watermark, page footer, local assets</small></span></h3></summary>
             <div class="settings-body">
@@ -1080,7 +1094,12 @@ function getOptions(){
     tocPageBreak: $('tocPageBreakInput').checked,
     h1PageBreak: $('h1PageBreakInput').checked,
     watermark: $('watermarkInput').value,
-    watermarkOpacity: Number($('watermarkOpacityInput').value || 0.065)
+    watermarkOpacity: Number($('watermarkOpacityInput').value || 0.065),
+    qualityProfile: $('qualityProfileInput').value,
+    mathErrorPolicy: $('mathErrorPolicyInput').value,
+    fontErrorPolicy: $('fontErrorPolicyInput').value,
+    navigationErrorPolicy: $('navigationErrorPolicyInput').value,
+    requiredFonts: $('requiredFontsInput').value
   };
 }
 
@@ -1131,6 +1150,11 @@ function setOptions(options){
   if (hasOwnOption(options, 'h1PageBreak')) setFieldChecked('h1PageBreakInput', options.h1PageBreak);
   if (hasOwnOption(options, 'watermark')) setFieldValue('watermarkInput', options.watermark);
   if (hasOwnOption(options, 'watermarkOpacity')) setFieldValue('watermarkOpacityInput', options.watermarkOpacity);
+  if (hasOwnOption(options, 'qualityProfile')) setSelectValue('qualityProfileInput', options.qualityProfile);
+  if (hasOwnOption(options, 'mathErrorPolicy')) setSelectValue('mathErrorPolicyInput', options.mathErrorPolicy);
+  if (hasOwnOption(options, 'fontErrorPolicy')) setSelectValue('fontErrorPolicyInput', options.fontErrorPolicy);
+  if (hasOwnOption(options, 'navigationErrorPolicy')) setSelectValue('navigationErrorPolicyInput', options.navigationErrorPolicy);
+  if (hasOwnOption(options, 'requiredFonts')) setFieldValue('requiredFontsInput', Array.isArray(options.requiredFonts) ? options.requiredFonts.join(', ') : options.requiredFonts);
   updateAppearanceName();
   applyDocumentDirection();
 }
@@ -2416,7 +2440,12 @@ async function runQueuedExport(payload, fallbackFilename){
         if (!result.ok) throw new Error(await readRenderError(result));
         const blob = await result.blob();
         downloadBlob(responseAttachmentFilename(result, fallbackFilename), blob, 'application/pdf');
-        finishExportProgress('PDF downloaded');
+        const qualitySummary = status.quality && status.quality.summary ? status.quality.summary : {};
+        const qualityWarnings = Number(qualitySummary.warning || 0);
+        const qualityLabel = status.quality
+          ? (status.quality.ok ? (qualityWarnings ? ' · ' + qualityWarnings + ' quality warning(s)' : ' · quality passed') : ' · quality failed')
+          : '';
+        finishExportProgress('PDF downloaded' + qualityLabel);
         return status;
       }
       if (status.status === 'failed' || status.status === 'cancelled') {
@@ -2519,6 +2548,11 @@ function copyCommand(){
   if (options.h1PageBreak) cmd.push('--h1-page-break');
   if (options.noCover) cmd.push('--no-cover');
   if (options.noHeaderFooter) cmd.push('--no-header-footer');
+  if (options.qualityProfile && options.qualityProfile !== 'standard') cmd.push('--quality-profile', shellQuote(options.qualityProfile));
+  if (options.mathErrorPolicy && options.mathErrorPolicy !== 'warn') cmd.push('--math-error-policy', shellQuote(options.mathErrorPolicy));
+  if (options.fontErrorPolicy && options.fontErrorPolicy !== 'warn') cmd.push('--font-error-policy', shellQuote(options.fontErrorPolicy));
+  if (options.navigationErrorPolicy && options.navigationErrorPolicy !== 'warn') cmd.push('--navigation-error-policy', shellQuote(options.navigationErrorPolicy));
+  String(options.requiredFonts || '').split(',').map(value => value.trim()).filter(Boolean).forEach(font => cmd.push('--require-font', shellQuote(font)));
   if (options.direction && options.direction !== 'auto') cmd.push('--dir', shellQuote(options.direction));
   if (options.branding && options.branding !== 'off') cmd.push('--branding', shellQuote(options.branding));
   pushOption(cmd, '--brand-name', options.brandName);

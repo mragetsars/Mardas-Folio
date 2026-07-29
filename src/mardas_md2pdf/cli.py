@@ -22,6 +22,7 @@ from .config import (
 )
 from .diagnostics import format_diagnostic, has_errors
 from .project_commands import PROJECT_COMMANDS, run_project_command
+from .quality import ERROR_POLICIES, QUALITY_PROFILES
 from .renderer import (
     BRANDING_MODES,
     PdfOptions,
@@ -163,6 +164,47 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--margin-bottom", default="20mm", help="Bottom CSS page margin")
     parser.add_argument("--margin-x", default="16mm", help="Left/right CSS page margin")
     parser.add_argument("--font-dir", type=Path, help="Directory containing Vazirmatn font files")
+    quality_group = parser.add_argument_group("publication quality")
+    quality_group.add_argument(
+        "--quality-profile",
+        choices=QUALITY_PROFILES,
+        default="standard",
+        help=(
+            "Quality policy profile. strict-publication fails on incomplete MathJax, "
+            "missing required fonts, and broken PDF navigation."
+        ),
+    )
+    quality_group.add_argument(
+        "--math-error-policy",
+        choices=ERROR_POLICIES,
+        default=None,
+        help="How incomplete MathJax rendering is handled: error, warn, or ignore.",
+    )
+    quality_group.add_argument(
+        "--font-error-policy",
+        choices=ERROR_POLICIES,
+        default=None,
+        help="How missing required publication fonts are handled.",
+    )
+    quality_group.add_argument(
+        "--navigation-error-policy",
+        choices=ERROR_POLICIES,
+        default=None,
+        help="How incomplete PDF destinations and TOC links are handled.",
+    )
+    quality_group.add_argument(
+        "--require-font",
+        dest="required_fonts",
+        action="append",
+        default=[],
+        metavar="FAMILY",
+        help="Require a font family in Chromium; repeat for multiple families.",
+    )
+    quality_group.add_argument(
+        "--quality-report",
+        type=Path,
+        help="Write structured MathJax, font, navigation, and render evidence as JSON.",
+    )
     parser.add_argument("--chromium-path", help="Path to Chromium/Chrome executable")
     parser.add_argument(
         "--chromium-sandbox",
@@ -565,6 +607,12 @@ def _conversion_main(argv: list[str]) -> int:
         citation_style=args.citation_style,
         bibliography_title=args.bibliography_title,
         bibliography_include_uncited=args.bibliography_include_uncited,
+        quality_profile=args.quality_profile,
+        math_error_policy=args.math_error_policy,
+        font_error_policy=args.font_error_policy,
+        navigation_error_policy=args.navigation_error_policy,
+        required_fonts=tuple(args.required_fonts or ()),
+        quality_report=args.quality_report,
         progress=_progress_callback(args.progress),
     )
     try:

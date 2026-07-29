@@ -12,6 +12,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
 
 from .appearance import MODES, PALETTES_ORDER, STYLES
 from .diagnostics import Diagnostic
+from .quality import ERROR_POLICIES, QUALITY_PROFILES
 from .renderer import BRANDING_MODES, validate_page_size
 
 CONFIG_FILENAME = "mardas.toml"
@@ -101,6 +102,21 @@ def _book_chapters(value: Any) -> tuple[dict[str, str | None], ...]:
     return tuple(chapters)
 
 
+
+
+def _string_list(value: Any) -> tuple[str, ...]:
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, list):
+        raise ConfigValueError("expected a string or an array of strings")
+    if len(value) > 32:
+        raise ConfigValueError("expected no more than 32 values")
+    result: list[str] = []
+    for item in value:
+        normalized = _string(item)
+        if normalized not in result:
+            result.append(normalized)
+    return tuple(result)
 
 
 def _bibliography_sources(value: Any) -> tuple[str, ...]:
@@ -230,6 +246,17 @@ CONFIG_FIELDS: tuple[ConfigField, ...] = (
     ConfigField("browser", "chromium_sandbox", "chromium_sandbox", _choice(["auto", "on", "off"])),
     ConfigField("browser", "timeout_ms", "timeout_ms", _integer(1_000, 3_600_000)),
     ConfigField("fonts", "directory", "font_dir", _string, path_value=True),
+    ConfigField("quality", "profile", "quality_profile", _choice(list(QUALITY_PROFILES))),
+    ConfigField("quality", "math_errors", "math_error_policy", _choice(list(ERROR_POLICIES))),
+    ConfigField("quality", "font_errors", "font_error_policy", _choice(list(ERROR_POLICIES))),
+    ConfigField(
+        "quality",
+        "navigation_errors",
+        "navigation_error_policy",
+        _choice(list(ERROR_POLICIES)),
+    ),
+    ConfigField("quality", "required_fonts", "required_fonts", _string_list),
+    ConfigField("quality", "report", "quality_report", _string, path_value=True),
     ConfigField("bibliography", "enabled", "citations_enabled", _boolean),
     ConfigField("bibliography", "sources", "bibliography_sources", _bibliography_sources),
     ConfigField(
@@ -295,6 +322,14 @@ show_logo = true
 [security]
 unsafe_html = false
 allow_remote_assets = false
+
+[quality]
+profile = "standard"
+# math_errors = "warn"
+# font_errors = "warn"
+# navigation_errors = "warn"
+# required_fonts = ["Vazirmatn"]
+# report = "build/render-quality.json"
 
 [bibliography]
 enabled = false

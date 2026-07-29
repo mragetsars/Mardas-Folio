@@ -681,6 +681,12 @@ def book_pdf_options(
         citation_style=str(values.get("citation_style", "author-date")),
         bibliography_title=values.get("bibliography_title"),
         bibliography_include_uncited=bool(values.get("bibliography_include_uncited", False)),
+        quality_profile=str(values.get("quality_profile", "standard")),
+        math_error_policy=values.get("math_error_policy"),
+        font_error_policy=values.get("font_error_policy"),
+        navigation_error_policy=values.get("navigation_error_policy"),
+        required_fonts=tuple(values.get("required_fonts") or ()),
+        quality_report=values.get("quality_report"),
         progress=progress,
         cancelled=cancelled,
     )

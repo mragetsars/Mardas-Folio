@@ -618,6 +618,12 @@ def _workspace_pdf_options(workspace: ProjectWorkspace, source_path: Path) -> Pd
         watermark_width=str(values.get("watermark_width", "105mm")),
         unsafe_html=bool(values.get("unsafe_html", False)),
         allow_remote_assets=bool(values.get("allow_remote_assets", False)),
+        quality_profile=str(values.get("quality_profile", "standard")),
+        math_error_policy=values.get("math_error_policy"),
+        font_error_policy=values.get("font_error_policy"),
+        navigation_error_policy=values.get("navigation_error_policy"),
+        required_fonts=tuple(values.get("required_fonts") or ()),
+        quality_report=values.get("quality_report"),
     )
 
 

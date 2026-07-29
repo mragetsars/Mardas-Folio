@@ -84,6 +84,18 @@ def test_export_job_reports_progress_and_streams_result(monkeypatch) -> None:
         progress("Rendering PDF", 0.8)
         output = directory / filename
         output.write_bytes(b"%PDF-1.7\nqueued\n")
+        (directory / "quality-report.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "profile": "strict-publication",
+                    "ok": True,
+                    "summary": {"passed": 3, "warning": 0, "error": 0},
+                    "events": [{"category": "mathjax", "status": "passed"}],
+                }
+            ),
+            encoding="utf-8",
+        )
         return output
 
     monkeypatch.setattr(gui, "_render_studio_document_export", fake_render)
@@ -104,6 +116,9 @@ def test_export_job_reports_progress_and_streams_result(monkeypatch) -> None:
         assert terminal["progress"] == 1.0
         assert terminal["queue_wait_ms"] is not None
         assert terminal["render_ms"] is not None
+        assert terminal["quality"]["ok"] is True
+        assert terminal["quality"]["profile"] == "strict-publication"
+        assert terminal["quality"]["summary"]["passed"] == 3
 
         original_read_bytes = Path.read_bytes
 

@@ -41,6 +41,7 @@ from .renderer import (
     validate_page_size,
 )
 from .render_pool import RenderQueueFullError
+from .quality import validate_error_policy, validate_quality_profile
 from .studio_jobs import StudioExportJob, StudioExportJobError, StudioExportManager
 
 from .workspace import (
@@ -420,6 +421,55 @@ def _validated_render_options(options: dict[str, Any]) -> dict[str, Any]:
     except ValueError as exc:
         raise StudioRequestError(str(exc), code="invalid_branding") from exc
 
+    try:
+        quality_profile = validate_quality_profile(options.get("qualityProfile"))
+    except ValueError as exc:
+        raise StudioRequestError(f"qualityProfile {exc}", code="invalid_quality_profile") from exc
+
+    quality_policies: dict[str, str | None] = {}
+    for key, option_name, code in (
+        ("math_error_policy", "mathErrorPolicy", "invalid_math_error_policy"),
+        ("font_error_policy", "fontErrorPolicy", "invalid_font_error_policy"),
+        (
+            "navigation_error_policy",
+            "navigationErrorPolicy",
+            "invalid_navigation_error_policy",
+        ),
+    ):
+        raw = options.get(option_name)
+        if raw is None or not str(raw).strip():
+            quality_policies[key] = None
+            continue
+        try:
+            quality_policies[key] = validate_error_policy(str(raw))
+        except ValueError as exc:
+            raise StudioRequestError(f"{option_name} {exc}", code=code) from exc
+
+    raw_required_fonts = options.get("requiredFonts") or []
+    if isinstance(raw_required_fonts, str):
+        raw_required_fonts = [part.strip() for part in raw_required_fonts.split(",")]
+    if not isinstance(raw_required_fonts, list):
+        raise StudioRequestError(
+            "requiredFonts must be a comma-separated string or a JSON array.",
+            code="invalid_required_fonts",
+        )
+    required_fonts: list[str] = []
+    for value in raw_required_fonts:
+        font = str(value).strip()
+        if not font:
+            continue
+        if len(font) > 120:
+            raise StudioRequestError(
+                "Each required font name must be 120 characters or fewer.",
+                code="invalid_required_fonts",
+            )
+        if font not in required_fonts:
+            required_fonts.append(font)
+    if len(required_fonts) > 16:
+        raise StudioRequestError(
+            "At most 16 required fonts may be checked.", code="invalid_required_fonts"
+        )
+
     return {
         "style": style,
         "palette": palette,
@@ -468,6 +518,9 @@ def _validated_render_options(options: dict[str, Any]) -> dict[str, Any]:
         "no_mathjax": _json_bool(
             options.get("noMathjax"), default=False, code="invalid_no_mathjax", label="noMathjax"
         ),
+        "quality_profile": quality_profile,
+        **quality_policies,
+        "required_fonts": tuple(required_fonts),
     }
 
 
@@ -710,6 +763,12 @@ def _studio_pdf_options(
         watermark_opacity=render_options["watermark_opacity"],
         no_header_footer=render_options["no_header_footer"],
         no_mathjax=render_options["no_mathjax"],
+        quality_profile=render_options["quality_profile"],
+        math_error_policy=render_options["math_error_policy"],
+        font_error_policy=render_options["font_error_policy"],
+        navigation_error_policy=render_options["navigation_error_policy"],
+        required_fonts=render_options["required_fonts"],
+        quality_report=tmp / "quality-report.json",
     )
 
 
@@ -1016,11 +1075,33 @@ def _studio_job_error(exc: BaseException | None) -> tuple[str, str, int]:
     )
 
 
+def _studio_export_quality_payload(job: StudioExportJob) -> dict[str, Any] | None:
+    report = job.directory / "quality-report.json"
+    try:
+        if not report.is_file() or report.stat().st_size > 512 * 1024:
+            return None
+        payload = json.loads(report.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return {
+        "schema_version": payload.get("schema_version"),
+        "profile": payload.get("profile"),
+        "ok": bool(payload.get("ok")),
+        "summary": payload.get("summary") if isinstance(payload.get("summary"), dict) else {},
+        "events": payload.get("events") if isinstance(payload.get("events"), list) else [],
+    }
+
+
 def _studio_export_job_payload(job: StudioExportJob) -> dict[str, Any]:
     snapshot = job.future.snapshot()
     payload = snapshot.to_dict()
     payload["job_id"] = job.job_id
     payload["filename"] = job.filename
+    quality = _studio_export_quality_payload(job)
+    if quality is not None:
+        payload["quality"] = quality
     if snapshot.status == "succeeded":
         payload["result_url"] = f"/api/export-jobs/{job.job_id}/result"
     elif snapshot.status == "failed":

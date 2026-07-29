@@ -89,3 +89,17 @@ def test_visible_toc_link_annotations_are_rewritten_to_explicit_destinations(tmp
     assert isinstance(destination, ArrayObject)
     assert str(destination[1]) in {"/Fit", "/XYZ", "/FitH", "/FitBH"}
     assert destination[0].get_object() == reader.pages[0]
+
+
+def test_navigation_quality_reports_missing_heading_destinations():
+    import pytest
+
+    from mardas_md2pdf.pdf_navigation import NavigationTracker, enforce_navigation_quality
+    from mardas_md2pdf.quality import PdfNavigationError, RenderQualityLog
+
+    tracker = NavigationTracker(missing_heading_destinations=["missing-heading"])
+    log = RenderQualityLog(profile="strict-publication")
+
+    with pytest.raises(PdfNavigationError, match="headings without preserved"):
+        enforce_navigation_quality(tracker, log=log, policy="error")
+    assert log.payload()["summary"]["error"] == 1
