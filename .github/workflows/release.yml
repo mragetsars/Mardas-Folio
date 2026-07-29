@@ -105,11 +105,52 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  standalone-runtime:
+    name: Standalone Windows runtime
+    runs-on: windows-latest
+    timeout-minutes: 50
+    needs: build-core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install desktop build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[desktop]"
+
+      - name: Install pinned Chromium headless shell
+        run: python -m playwright install chromium --only-shell
+
+      - name: Build portable standalone runtime
+        run: python scripts/build_standalone_runtime.py --clean
+
+      - name: Verify frozen runtime and Unicode rendering
+        shell: pwsh
+        run: |
+          $runtime = Get-ChildItem build/standalone-runtime -Directory -Filter 'Mardas-MD2PDF-*-runtime-*' | Select-Object -First 1
+          if (-not $runtime) { throw 'Standalone runtime directory was not created.' }
+          python scripts/verify_standalone_runtime.py $runtime.FullName --render
+
+      - name: Upload standalone runtime
+        uses: actions/upload-artifact@v7
+        with:
+          name: standalone-runtime
+          path: build/standalone-runtime/*.zip
+          if-no-files-found: error
+          retention-days: 30
+
   attest:
     name: Finalize and attest release artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [build-core, offline-bundles]
+    needs: [build-core, offline-bundles, standalone-runtime]
     if: github.repository == 'mragetsars/Mardas-MD2PDF'
     permissions:
       contents: read
@@ -143,16 +184,24 @@ jobs:
           path: build/offline
           merge-multiple: true
 
+      - name: Download standalone runtime
+        uses: actions/download-artifact@v8
+        with:
+          name: standalone-runtime
+          path: build/standalone
+
       - name: Finalize release manifest and checksums
         shell: bash
         run: |
           cp build/offline/*.zip build/release/
+          cp build/standalone/*.zip build/release/
           python scripts/finalize_release_artifacts.py \
             --artifact-dir build/release \
             --version "${{ needs.build-core.outputs.version }}" \
             --source-revision "$GITHUB_SHA" \
             --require-sbom \
-            --minimum-bundle-count 3
+            --minimum-bundle-count 3 \
+            --minimum-standalone-runtime-count 1
           python - <<'PY'
           from pathlib import Path
           source = Path("build/release/CHECKSUMS.sha256")

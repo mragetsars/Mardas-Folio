@@ -62,6 +62,8 @@ def test_maintenance_scripts_are_executable() -> None:
         "scripts/finalize_release_artifacts.py",
         "scripts/build_offline_bundle.py",
         "scripts/cross_platform_smoke.py",
+        "scripts/build_standalone_runtime.py",
+        "scripts/verify_standalone_runtime.py",
     ]:
         path = ROOT / relative_path
         assert path.is_file()
@@ -152,6 +154,8 @@ def test_source_distribution_manifest_includes_release_support_files() -> None:
         "recursive-include docs *.md *.png *.bib *.json",
         "recursive-include examples *.pdf",
         "recursive-include scripts *.py *.sh",
+        "recursive-include packaging *.py *.spec",
+        "recursive-include schemas *.json",
         "recursive-include tests *.py",
         "recursive-include .github *.yml",
         "prune build",
@@ -302,3 +306,47 @@ def test_release_docs_describe_sbom_attestations_and_offline_bundles() -> None:
     assert "Release Verification and Offline Bundles" in readme
     assert "offline Python bundle" in maintenance_doc
     assert "Chromium is intentionally excluded" in maintenance_doc
+
+
+def test_desktop_sidecar_packaging_metadata_is_declared() -> None:
+    pyproject = _read("pyproject.toml")
+    manifest = _read("MANIFEST.in")
+
+    assert 'mrs-md2pdf-sidecar = "mardas_md2pdf.sidecar:main"' in pyproject
+    assert 'desktop = [' in pyproject
+    assert '"pyinstaller>=6.11,<7"' in pyproject
+    assert "recursive-include packaging *.py *.spec" in manifest
+    assert "recursive-include schemas *.json" in manifest
+
+
+def test_release_gate_verifies_installed_sidecar_contract() -> None:
+    script = _read("scripts/release_gate.sh")
+
+    assert '"$venv_bin/mrs-md2pdf-sidecar" --version' in script
+    assert '"$venv_bin/mrs-md2pdf-sidecar" --health' in script
+    assert 'payload.get("protocol") != "mardas-sidecar"' in script
+    assert 'payload.get("protocol_version") != 1' in script
+
+
+def test_standalone_builder_discovers_only_shell_playwright_archives(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import importlib.util
+
+    script_path = ROOT / "scripts/build_standalone_runtime.py"
+    spec = importlib.util.spec_from_file_location("mardas_standalone_builder", script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    cache = tmp_path / "ms-playwright"
+    executable_name = "chrome-headless-shell.exe" if os.name == "nt" else "chrome-headless-shell"
+    executable = (
+        cache / "chromium_headless_shell-1200" / "chrome-headless-shell-linux64" / executable_name
+    )
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"browser")
+    monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(cache))
+    monkeypatch.setattr(module, "_browser_type_executable", lambda: None)
+
+    assert module._playwright_browser() == executable.resolve()

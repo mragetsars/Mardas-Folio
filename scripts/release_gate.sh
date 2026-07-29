@@ -110,6 +110,21 @@ fi
 "$venv_bin/mrs-md2pdf" --version
 "$venv_bin/mrs-md2pdf" --help >/dev/null
 "$venv_bin/mrs-md2pdf" --list-styles >/dev/null
+"$venv_bin/mrs-md2pdf-sidecar" --version
+"$venv_bin/mrs-md2pdf-sidecar" --health > "$project_smoke/sidecar-health.json"
+"$venv_python" - "$project_smoke/sidecar-health.json" <<'PY_SIDECAR_HEALTH'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if payload.get("status") != "ok":
+    raise SystemExit("Installed-wheel sidecar health status is not ok")
+if payload.get("protocol") != "mardas-sidecar" or payload.get("protocol_version") != 1:
+    raise SystemExit("Installed-wheel sidecar protocol identity is invalid")
+if not payload.get("engine_api_version"):
+    raise SystemExit("Installed-wheel sidecar did not expose an engine API version")
+PY_SIDECAR_HEALTH
 "$venv_bin/mrs-md2pdf" init "$project_smoke" --book
 "$venv_python" - "$project_smoke" <<'PY_REFERENCE_PROJECT'
 import sys

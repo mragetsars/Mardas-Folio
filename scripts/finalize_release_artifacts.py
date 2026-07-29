@@ -16,6 +16,7 @@ from release_provenance import (
     validate_spdx_document,
     verify_checksums,
     verify_offline_bundle,
+    verify_standalone_runtime,
     write_checksums,
     write_json,
 )
@@ -25,13 +26,16 @@ CHECKSUMS_NAME = "CHECKSUMS.sha256"
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Finalize and verify deterministic release metadata")
+    parser = argparse.ArgumentParser(
+        description="Finalize and verify deterministic release metadata"
+    )
     parser.add_argument("--artifact-dir", required=True, type=Path)
     parser.add_argument("--version", required=True)
     parser.add_argument("--source-revision", default="unknown")
     parser.add_argument("--source-date-epoch")
     parser.add_argument("--require-sbom", action="store_true")
     parser.add_argument("--minimum-bundle-count", type=int, default=0)
+    parser.add_argument("--minimum-standalone-runtime-count", type=int, default=0)
     parser.add_argument("--verify-only", action="store_true")
     return parser
 
@@ -42,6 +46,7 @@ def verify_release(
     version: str,
     require_sbom: bool,
     minimum_bundle_count: int,
+    minimum_runtime_count: int,
 ) -> None:
     manifest_path = directory / MANIFEST_NAME
     checksum_path = directory / CHECKSUMS_NAME
@@ -52,6 +57,7 @@ def verify_release(
         expected_version=version,
         require_sbom=require_sbom,
         minimum_bundle_count=minimum_bundle_count,
+        minimum_runtime_count=minimum_runtime_count,
     )
     verify_checksums(directory, checksum_path)
     checksum_names = set(parse_checksums(checksum_path))
@@ -61,15 +67,25 @@ def verify_release(
             "Checksum inventory does not exactly match the release manifest and manifest file"
         )
 
-    wheel_names = [item["name"] for item in payload["artifacts"] if item["kind"] == "python-wheel"]
-    sdist_names = [item["name"] for item in payload["artifacts"] if item["kind"] == "source-distribution"]
+    wheel_names = [
+        item["name"] for item in payload["artifacts"] if item["kind"] == "python-wheel"
+    ]
+    sdist_names = [
+        item["name"]
+        for item in payload["artifacts"]
+        if item["kind"] == "source-distribution"
+    ]
     if len(wheel_names) != 1 or len(sdist_names) != 1:
-        raise ReleaseProvenanceError("Release must contain exactly one wheel and one source distribution")
+        raise ReleaseProvenanceError(
+            "Release must contain exactly one wheel and one source distribution"
+        )
     normalized = version.replace("-", "_")
     if version not in wheel_names[0] and normalized not in wheel_names[0]:
         raise ReleaseProvenanceError("Wheel filename does not contain the release version")
     if version not in sdist_names[0]:
-        raise ReleaseProvenanceError("Source distribution filename does not contain the release version")
+        raise ReleaseProvenanceError(
+            "Source distribution filename does not contain the release version"
+        )
 
     sbom_names = [item["name"] for item in payload["artifacts"] if item["kind"] == "spdx-sbom"]
     for name in sbom_names:
@@ -77,6 +93,8 @@ def verify_release(
     for item in payload["artifacts"]:
         if item["kind"] == "offline-install-bundle":
             verify_offline_bundle(directory / item["name"], expected_version=version)
+        elif item["kind"] == "standalone-runtime":
+            verify_standalone_runtime(directory / item["name"], expected_version=version)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -87,6 +105,8 @@ def main(argv: list[str] | None = None) -> int:
             raise ReleaseProvenanceError(f"Artifact directory does not exist: {directory}")
         if args.minimum_bundle_count < 0:
             raise ReleaseProvenanceError("Minimum bundle count cannot be negative")
+        if args.minimum_standalone_runtime_count < 0:
+            raise ReleaseProvenanceError("Minimum standalone runtime count cannot be negative")
         manifest_path = directory / MANIFEST_NAME
         checksum_path = directory / CHECKSUMS_NAME
         if not args.verify_only:
@@ -109,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
             version=args.version,
             require_sbom=args.require_sbom,
             minimum_bundle_count=args.minimum_bundle_count,
+            minimum_runtime_count=args.minimum_standalone_runtime_count,
         )
     except (ReleaseProvenanceError, OSError, KeyError, TypeError, ValueError) as exc:
         print(f"Release artifact verification failed: {exc}", file=sys.stderr)

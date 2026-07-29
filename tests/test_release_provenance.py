@@ -29,6 +29,7 @@ from release_provenance import (  # noqa: E402
     validate_spdx_document,
     verify_checksums,
     verify_offline_bundle,
+    verify_standalone_runtime,
     write_checksums,
     write_json,
 )
@@ -230,6 +231,47 @@ def test_offline_bundle_manifest_and_checksums_are_verified(tmp_path: Path) -> N
         assert manifest["installation_mode"] == "pip-no-index-wheelhouse"
 
 
+
+def test_standalone_runtime_manifest_and_checksums_are_verified(tmp_path: Path) -> None:
+    version = "1.23.0"
+    root = f"Mardas-MD2PDF-{version}-runtime-windows-x86_64"
+    files = {
+        "mardas-sidecar.exe": b"sidecar",
+        "_internal/runtime/chromium/chrome-headless-shell.exe": b"chromium",
+    }
+    inventory = [
+        {
+            "path": name,
+            "size": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        }
+        for name, data in sorted(files.items())
+    ]
+    manifest = {
+        "schema_version": 1,
+        "version": version,
+        "engine_api_version": "1.0.0",
+        "protocol": "mardas-sidecar",
+        "protocol_version": 1,
+        "browser_bundled": True,
+        "files": inventory,
+    }
+    archive_path = tmp_path / f"{root}.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        for name, data in files.items():
+            archive.writestr(f"{root}/{name}", data)
+        archive.writestr(
+            f"{root}/runtime-manifest.json",
+            json.dumps(manifest).encode("utf-8"),
+        )
+
+    verify_standalone_runtime(archive_path, expected_version=version)
+
+    with zipfile.ZipFile(archive_path, "a") as archive:
+        archive.writestr(f"{root}/unexpected.txt", b"tampered")
+    with pytest.raises(ReleaseProvenanceError, match="archive inventory mismatch"):
+        verify_standalone_runtime(archive_path, expected_version=version)
+
 def test_release_scripts_are_executable() -> None:
     for name in (
         "release_provenance.py",
@@ -237,6 +279,8 @@ def test_release_scripts_are_executable() -> None:
         "finalize_release_artifacts.py",
         "build_offline_bundle.py",
         "cross_platform_smoke.py",
+        "build_standalone_runtime.py",
+        "verify_standalone_runtime.py",
     ):
         path = SCRIPTS / name
         assert path.is_file()
@@ -269,6 +313,11 @@ def test_cross_platform_and_provenance_workflows_use_current_contracts() -> None
     assert "subject-checksums" in release
     assert "sbom-path" in release
     assert "minimum-bundle-count 3" in release
+    assert "minimum-standalone-runtime-count 1" in release
+    assert "build_standalone_runtime.py" in ci
+    assert "verify_standalone_runtime.py" in ci
+    assert "playwright install chromium --only-shell" in ci
+    assert "standalone-runtime" in release
     assert "github/codeql-action/init@v4" in codeql
     assert "github/codeql-action/analyze@v4" in codeql
     assert "package-ecosystem: pip" in dependabot

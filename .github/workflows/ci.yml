@@ -71,6 +71,7 @@ jobs:
       - name: Run CLI path smoke
         run: |
           python -m mardas_md2pdf.cli --version
+          python -m mardas_md2pdf.sidecar --health
           python -m mardas_md2pdf.cli --list-styles
 
   dependency-audit:
@@ -259,3 +260,44 @@ jobs:
           name: visual-qa-${{ github.sha }}
           path: build/visual-qa/
           if-no-files-found: error
+
+  windows-standalone-runtime:
+    name: Windows standalone sidecar runtime
+    runs-on: windows-latest
+    timeout-minutes: 50
+    needs: core-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install desktop build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[desktop]"
+
+      - name: Install pinned Chromium headless shell
+        run: python -m playwright install chromium --only-shell
+
+      - name: Build portable standalone runtime
+        run: python scripts/build_standalone_runtime.py --clean
+
+      - name: Verify frozen runtime and Unicode rendering
+        shell: pwsh
+        run: |
+          $runtime = Get-ChildItem build/standalone-runtime -Directory -Filter 'Mardas-MD2PDF-*-runtime-*' | Select-Object -First 1
+          if (-not $runtime) { throw 'Standalone runtime directory was not created.' }
+          python scripts/verify_standalone_runtime.py $runtime.FullName --render
+
+      - name: Upload standalone runtime
+        uses: actions/upload-artifact@v7
+        with:
+          name: standalone-runtime-Windows-${{ runner.arch }}
+          path: build/standalone-runtime/*.zip
+          if-no-files-found: error
+          retention-days: 14

@@ -25,6 +25,8 @@ RELEASE_MANIFEST_SCHEMA = 1
 BUNDLE_MANIFEST_SCHEMA = 1
 MAX_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024
 MAX_BUNDLE_MEMBER_BYTES = 1024 * 1024 * 1024
+MAX_STANDALONE_FILES = 20_000
+MAX_STANDALONE_UNCOMPRESSED_BYTES = 4 * 1024 * 1024 * 1024
 MAX_SBOM_BYTES = 16 * 1024 * 1024
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _SAFE_LABEL_RE = re.compile(r"[^A-Za-z0-9._-]+")
@@ -374,6 +376,8 @@ def artifact_kind(name: str) -> str:
         return "guide-pdf"
     if "offline-" in name and name.endswith(".zip"):
         return "offline-install-bundle"
+    if name.startswith("Mardas-MD2PDF-") and "-runtime-" in name and name.endswith(".zip"):
+        return "standalone-runtime"
     if name.endswith(".sigstore.json"):
         return "sigstore-attestation"
     if name.endswith(".json"):
@@ -453,6 +457,7 @@ def build_release_manifest(
     epoch: int,
 ) -> dict[str, Any]:
     bundle_count = sum(item.kind == "offline-install-bundle" for item in records)
+    runtime_count = sum(item.kind == "standalone-runtime" for item in records)
     sbom_files = [item.name for item in records if item.kind == "spdx-sbom"]
     return {
         "schema_version": RELEASE_MANIFEST_SCHEMA,
@@ -466,6 +471,7 @@ def build_release_manifest(
         "summary": {
             "artifact_count": len(records),
             "offline_bundle_count": bundle_count,
+            "standalone_runtime_count": runtime_count,
             "sbom_files": sbom_files,
         },
         "verification": {
@@ -474,6 +480,7 @@ def build_release_manifest(
                 "gh attestation verify <artifact> --repo mragetsars/Mardas-MD2PDF"
             ),
             "browser_in_offline_bundles": False,
+            "browser_in_standalone_runtime": True,
         },
     }
 
@@ -485,6 +492,7 @@ def validate_release_manifest(
     expected_version: str,
     require_sbom: bool,
     minimum_bundle_count: int,
+    minimum_runtime_count: int = 0,
 ) -> None:
     if payload.get("schema_version") != RELEASE_MANIFEST_SCHEMA:
         raise ReleaseProvenanceError("Unsupported release manifest schema")
@@ -496,6 +504,7 @@ def validate_release_manifest(
     names: set[str] = set()
     sbom_count = 0
     bundle_count = 0
+    runtime_count = 0
     for item in artifacts:
         if not isinstance(item, dict):
             raise ReleaseProvenanceError("Release manifest artifact is not an object")
@@ -517,6 +526,7 @@ def validate_release_manifest(
         kind = str(item.get("kind", ""))
         sbom_count += kind == "spdx-sbom"
         bundle_count += kind == "offline-install-bundle"
+        runtime_count += kind == "standalone-runtime"
     actual_names = {
         item.name
         for item in directory.iterdir()
@@ -536,6 +546,10 @@ def validate_release_manifest(
     if bundle_count < minimum_bundle_count:
         raise ReleaseProvenanceError(
             f"Release contains {bundle_count} offline bundle(s); expected at least {minimum_bundle_count}"
+        )
+    if runtime_count < minimum_runtime_count:
+        raise ReleaseProvenanceError(
+            f"Release contains {runtime_count} standalone runtime(s); expected at least {minimum_runtime_count}"
         )
 
 
@@ -621,6 +635,97 @@ def verify_offline_bundle(path: Path, *, expected_version: str) -> None:
         wheel_names = [name for name in names if name.startswith("wheelhouse/") and name.endswith(".whl")]
         if not any(canonicalize_name(PROJECT_NAME).replace("-", "_") in name.lower() for name in wheel_names):
             raise ReleaseProvenanceError("Offline bundle does not include the project wheel")
+
+
+def verify_standalone_runtime(path: Path, *, expected_version: str) -> None:
+    """Verify a portable frozen sidecar archive and its internal file manifest."""
+
+    if path.is_symlink() or not path.is_file():
+        raise ReleaseProvenanceError(f"Standalone runtime is missing or unsafe: {path}")
+    if expected_version not in path.name:
+        raise ReleaseProvenanceError(
+            "Standalone runtime filename does not contain the release version"
+        )
+    with zipfile.ZipFile(path) as archive:
+        infos = [item for item in archive.infolist() if not item.is_dir()]
+        if len(infos) > MAX_STANDALONE_FILES:
+            raise ReleaseProvenanceError("Standalone runtime contains too many files")
+        total_uncompressed = sum(item.file_size for item in infos)
+        if total_uncompressed > MAX_STANDALONE_UNCOMPRESSED_BYTES:
+            raise ReleaseProvenanceError("Standalone runtime expands beyond the size limit")
+        names: set[str] = set()
+        roots: set[str] = set()
+        for info in infos:
+            name = safe_zip_member(info.filename).as_posix()
+            if name in names:
+                raise ReleaseProvenanceError(f"Duplicate standalone runtime member: {name}")
+            names.add(name)
+            roots.add(PurePosixPath(name).parts[0])
+            if info.file_size > MAX_BUNDLE_MEMBER_BYTES:
+                raise ReleaseProvenanceError(f"Standalone runtime member is too large: {name}")
+            mode = (info.external_attr >> 16) & 0o170000
+            if mode == 0o120000:
+                raise ReleaseProvenanceError(f"Standalone runtime contains a symlink: {name}")
+        if len(roots) != 1:
+            raise ReleaseProvenanceError(
+                "Standalone runtime must contain exactly one top-level directory"
+            )
+        root = next(iter(roots))
+        manifest_name = f"{root}/runtime-manifest.json"
+        if manifest_name not in names:
+            raise ReleaseProvenanceError("Standalone runtime manifest is missing")
+        manifest = json.loads(archive.read(manifest_name).decode("utf-8"))
+        if manifest.get("schema_version") != 1:
+            raise ReleaseProvenanceError("Unsupported standalone runtime manifest schema")
+        if manifest.get("version") != expected_version:
+            raise ReleaseProvenanceError("Standalone runtime version is incorrect")
+        if (
+            manifest.get("protocol") != "mardas-sidecar"
+            or manifest.get("protocol_version") != 1
+        ):
+            raise ReleaseProvenanceError("Standalone runtime protocol metadata is incorrect")
+        if manifest.get("browser_bundled") is not True:
+            raise ReleaseProvenanceError(
+                "Standalone runtime must include its pinned Chromium runtime"
+            )
+        file_entries = manifest.get("files")
+        if not isinstance(file_entries, list) or not file_entries:
+            raise ReleaseProvenanceError("Standalone runtime file inventory is invalid")
+        expected_names = {manifest_name}
+        executable_found = False
+        for entry in file_entries:
+            if not isinstance(entry, dict):
+                raise ReleaseProvenanceError("Standalone runtime file entry is not an object")
+            relative = str(entry.get("path", ""))
+            pure = safe_zip_member(relative)
+            if len(pure.parts) < 1:
+                raise ReleaseProvenanceError("Standalone runtime inventory path is invalid")
+            member_name = f"{root}/{pure.as_posix()}"
+            if member_name in expected_names:
+                raise ReleaseProvenanceError(
+                    f"Duplicate standalone runtime inventory path: {relative}"
+                )
+            expected_names.add(member_name)
+            if member_name not in names:
+                raise ReleaseProvenanceError(
+                    f"Standalone runtime inventory member is missing: {relative}"
+                )
+            data = archive.read(member_name)
+            if len(data) != int(entry.get("size", -1)):
+                raise ReleaseProvenanceError(f"Standalone runtime size mismatch: {relative}")
+            digest = str(entry.get("sha256", ""))
+            if not _SHA256_RE.fullmatch(digest) or hashlib.sha256(data).hexdigest() != digest:
+                raise ReleaseProvenanceError(f"Standalone runtime checksum mismatch: {relative}")
+            if pure.name in {"mardas-sidecar", "mardas-sidecar.exe"}:
+                executable_found = True
+        if expected_names != names:
+            extra = sorted(names - expected_names)
+            missing = sorted(expected_names - names)
+            raise ReleaseProvenanceError(
+                f"Standalone runtime archive inventory mismatch; missing={missing}, extra={extra}"
+            )
+        if not executable_found:
+            raise ReleaseProvenanceError("Standalone runtime sidecar executable is missing")
 
 
 def encode_inline_file(path: Path) -> str:
