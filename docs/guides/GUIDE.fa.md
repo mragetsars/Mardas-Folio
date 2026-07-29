@@ -12,7 +12,7 @@ summary: |
   همین سند به عنوان نمونه زنده رندر نیز استفاده می‌شود و جلد، فهرست مطالب، متن ترکیبی فارسی/English، فرمول، کد، نمودار Mermaid، تصویر، جدول، پانویس، شکست صفحه و HTML امن را نمایش می‌دهد.
 institution: "Mardas Lab"
 course: "انتشار حرفه‌ای Markdown"
-version: "1.21.1"
+version: "1.22.0"
 status: "Stable"
 keywords:
   - Markdown
@@ -224,7 +224,7 @@ department: "نام دانشکده یا دپارتمان"
 course: "نام درس یا پروژه"
 supervisor: "نام استاد یا راهنما"
 date: "۱۴۰۵-۰۲-۳۰"
-version: "1.21.1"
+version: "1.22.0"
 status: "Draft"
 keywords: [Markdown, PDF, RTL, MathJax]
 cover_label: "گزارش فنی"
@@ -324,12 +324,12 @@ mrs-md2pdf input.md -o output.pdf --no-cover-logo
 
 این نمونه کوچک عمداً داخل guide مانده است، چون guide هم راهنمای کاربر است و هم test case زنده renderer.[^rtl-smoke] این بخش نشانه‌گذاری فارسی، نام‌های لاتین، عدد فارسی، caption جدول، و سلول‌های mixed-direction را در PDF رسمی نگه می‌دارد.
 
-آیا خروجی PDF برای `version 1.21.1` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید hookهای RTL، mixed-script و mixed-number را فعال کند.
+آیا خروجی PDF برای `version 1.22.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید hookهای RTL، mixed-script و mixed-number را فعال کند.
 
 | بخش نمونه | مقدار | انتظار در PDF |
 | :--- | :--- | :--- |
 | شماره فارسی | ۱۴۰۵ | عدد فارسی کنار متن RTL پایدار بماند. |
-| نسخه فنی | version 1.21.1 و ۱.۹.۹ | عددهای Latin/Persian در یک سلول خوانا بمانند. |
+| نسخه فنی | version 1.22.0 و ۱.۹.۹ | عددهای Latin/Persian در یک سلول خوانا بمانند. |
 | شناسه انگلیسی | `PDF`, `TOC`, `MathJax` | identifierهای English داخل جدول فارسی جابه‌جا نشوند. |
 
 جدول ۱۲. نمونه جدول فارسی/RTL با عددهای ترکیبی.
@@ -769,6 +769,44 @@ appearance:
 
 حالت تاریک برای هر style سطح رنگی مخصوص خودش را دارد. `modern` از پس‌زمینه سرمه‌ای عمیق استفاده می‌کند، `github` به سطح تاریک شبیه GitHub نزدیک است، `textbook` ظاهر تقریباً سیاه و هماهنگ با جلد قدیمی را نگه می‌دارد و `academic` پس‌زمینه ذغالی گرم دارد. Palette همچنان رنگ accent را در حالت روشن و تاریک، از جمله تزئینات جلد و calloutها، کنترل می‌کند.
 
+# پروفایل‌های کنترل کیفیت انتشار
+
+برای کار روزمره و پیش‌نمایش تعاملی، پروفایل `standard` رفتار سازگار نسخه‌های قبلی را نگه می‌دارد: مشکل‌های کیفیت ثبت و به‌صورت warning اعلام می‌شوند، اما خروجی آزمایشی می‌تواند ادامه پیدا کند. برای پایان‌نامه، مقاله، گزارش عمومی یا artifact انتشار از `strict-publication` استفاده کنید تا اگر renderer نتواند کامل‌بودن فرمول‌ها، فونت‌های الزامی و navigation داخلی PDF را اثبات کند، build واقعاً fail شود.
+
+```bash
+mrs-md2pdf report.md -o report.pdf \
+  --quality-profile strict-publication \
+  --require-font Vazirmatn \
+  --require-font "JetBrains Mono" \
+  --quality-report build/report-quality.json
+```
+
+گزارش تولیدشده JSON محدود و مناسب CI است. این فایل پروفایل انتخاب‌شده، تعداد pass/warning/error، تعداد فرمول‌های شناسایی و رندرشده MathJax، nodeهای حل‌نشده، در دسترس بودن فونت الزامی، font faceهای بارگذاری‌شده در مرورگر، hash فایل‌های فونت مورد اعتماد در `--font-dir`، مقصدهای PDF کپی یا بازسازی‌شده، بازنویسی لینک‌های داخلی و وضعیت نهایی artifact را ثبت می‌کند. خود فایل فونت یا متن کامل سند داخل گزارش قرار نمی‌گیرد.
+
+رفتار هر گروه مستقل قابل override است:
+
+```bash
+mrs-md2pdf report.md -o report.pdf \
+  --quality-profile strict-publication \
+  --math-error-policy error \
+  --font-error-policy warn \
+  --navigation-error-policy error
+```
+
+`error` ساخت را متوقف می‌کند، `warn` مشکل را ثبت کرده و ادامه می‌دهد و `ignore` ثبت می‌کند که شرط عمداً نادیده گرفته شده است. اگر policy صریح نوشته نشود، مقدار از profile می‌آید: برای `standard` برابر `warn` و برای `strict-publication` برابر `error`. در حالت strict اگر نام فونتی تعیین نشده باشد، `Vazirmatn` به‌صورت پیش‌فرض الزامی می‌شود. Mardas MD2PDF فایل فونت را توزیع نمی‌کند؛ فونت مورد اعتماد را روی سیستم نصب کنید یا از `--font-dir` استفاده کنید.
+
+همین تنظیم‌ها در `mardas.toml` نیز قابل ثبت هستند:
+
+```toml
+[quality]
+profile = "strict-publication"
+# برای به ارث بردن رفتار error، policyهای گروهی را ننویسید.
+required_fonts = ["Vazirmatn", "JetBrains Mono"]
+report = "build/report-quality.json"
+```
+
+در Studio این گزینه‌ها داخل بخش **Publication Quality** قرار دارند. export صف‌شده پس از پایان یک خلاصه محدود از کیفیت برمی‌گرداند و خطای strict از همان مسیر خطای پایدار backend گزارش می‌شود. PDF-like preview مدرک نهایی نیست؛ PDF خروجی و quality report مربوط به آن ملاک انتشار هستند.
+
 # پیکربندی پروژه و Diagnosticهای ساخت‌یافته
 
 وقتی یک سند یا repository باید با تنظیمات ثابت و بدون فرمان طولانی ساخته شود، از فایل نسخه‌دار `mardas.toml` استفاده کنید. برای ایجاد فایل اولیه در پوشه فعلی بنویسید:
@@ -817,6 +855,14 @@ allow_remote_assets = false
 [browser]
 chromium_sandbox = "auto"
 timeout_ms = 120000
+
+[quality]
+profile = "standard"
+# math_errors = "warn"
+# font_errors = "warn"
+# navigation_errors = "warn"
+# required_fonts = ["Vazirmatn"]
+# report = "build/render-quality.json"
 ```
 
 CLI از کنار فایل Markdown شروع می‌کند و نزدیک‌ترین `mardas.toml` را در مسیر پوشه‌های والد پیدا می‌کند. برای انتخاب صریح از `--config path/to/mardas.toml` و برای غیرفعال‌کردن discovery از `--no-config` استفاده کنید. ترتیب تقدم قطعی است:

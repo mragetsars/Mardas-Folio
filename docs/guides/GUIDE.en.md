@@ -12,7 +12,7 @@ summary: |
   This document also acts as a live rendering sample for cover pages, tables of contents, mixed RTL/LTR text, formulas, code, Mermaid flowcharts, images, tables, footnotes, page breaks, and safe HTML.
 institution: "Mardas Lab"
 course: "Markdown Publishing"
-version: "1.21.1"
+version: "1.22.0"
 status: "Stable"
 keywords:
   - Markdown
@@ -226,7 +226,7 @@ department: "Department name"
 course: "Course or project title"
 supervisor: "Supervisor name"
 date: "2026-05-20"
-version: "1.21.1"
+version: "1.22.0"
 status: "Draft"
 keywords: [Markdown, PDF, RTL, MathJax]
 cover_label: "Technical Report"
@@ -326,12 +326,12 @@ Inline code remains stable: `mrs-md2pdf input.md -o output.pdf --toc`.
 
 This compact sample is intentionally part of the guide because the guide is both user documentation and a live renderer test case.[^rtl-smoke] It keeps Persian punctuation, Latin package names, Persian digits, semantic table captions, and mixed-direction cells in the official PDF examples.
 
-آیا خروجی PDF برای `version 1.21.1` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید RTL، mixed-script، و mixed-number hooks را فعال کند.
+آیا خروجی PDF برای `version 1.22.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید RTL، mixed-script، و mixed-number hooks را فعال کند.
 
 | بخش نمونه | مقدار | انتظار در PDF |
 | :--- | :--- | :--- |
 | شماره فارسی | ۱۴۰۵ | عدد فارسی با متن RTL پایدار بماند. |
-| نسخه فنی | version 1.21.1 و ۱.۹.۹ | Latin/Persian numerals در یک سلول خوانا بمانند. |
+| نسخه فنی | version 1.22.0 و ۱.۹.۹ | Latin/Persian numerals در یک سلول خوانا بمانند. |
 | شناسه انگلیسی | `PDF`, `TOC`, `MathJax` | identifierهای English داخل جدول فارسی جابه‌جا نشوند. |
 
 جدول ۱۲. نمونه جدول فارسی/RTL با عددهای ترکیبی.
@@ -848,6 +848,44 @@ Discover choices with `--list-styles`, `--list-palettes`, and `--list-modes`.
 
 Dark mode is style-aware. `modern` uses a deep navy surface, `github` follows a GitHub-like dark surface, `textbook` keeps the nearly black screen/cover look, and `academic` uses a warm charcoal surface. Palettes still control accent colors in both light and dark modes, including cover decorations and callouts.
 
+# Publication Quality Profiles
+
+Normal interactive work uses the `standard` profile. It preserves the historical behavior: quality problems are recorded and emitted as warnings so exploratory exports can continue. For a thesis, journal submission, public report, or release artifact, use `strict-publication` so the build fails when the renderer cannot prove that formulas, required fonts, and internal PDF navigation survived the complete pipeline.
+
+```bash
+mrs-md2pdf report.md -o report.pdf \
+  --quality-profile strict-publication \
+  --require-font Vazirmatn \
+  --require-font "JetBrains Mono" \
+  --quality-report build/report-quality.json
+```
+
+The report is bounded JSON suitable for CI. It records the selected profile, pass/warning/error counts, MathJax expressions detected and rendered, unresolved formula nodes, required-font availability, loaded browser font faces, hashes of trusted font files supplied through `--font-dir`, named destinations copied or reconstructed, internal link rewrites, and the final artifact status. It does not embed font files or document contents.
+
+Each category can be overridden independently:
+
+```bash
+mrs-md2pdf report.md -o report.pdf \
+  --quality-profile strict-publication \
+  --math-error-policy error \
+  --font-error-policy warn \
+  --navigation-error-policy error
+```
+
+`error` stops the build, `warn` records the problem and continues, and `ignore` records that the condition was deliberately ignored. When a category option is omitted, it inherits the profile: `warn` for `standard` and `error` for `strict-publication`. Strict publication defaults to requiring `Vazirmatn` when no family is specified. Mardas MD2PDF does not redistribute font binaries; install trusted fonts on the machine or use `--font-dir`.
+
+The same settings are available in `mardas.toml`:
+
+```toml
+[quality]
+profile = "strict-publication"
+# Omit category policies to inherit strict `error` behavior.
+required_fonts = ["Vazirmatn", "JetBrains Mono"]
+report = "build/report-quality.json"
+```
+
+Studio exposes these controls under **Publication Quality**. A queued export returns a bounded quality summary after completion, and strict failures use the same stable backend error path as other render failures. PDF-like preview remains non-authoritative; the final export and its quality report are the release evidence.
+
 # Project Configuration and Diagnostics
 
 Use a versioned `mardas.toml` when a document or repository needs repeatable settings without a long command line. Create the initial file in the current directory:
@@ -896,6 +934,14 @@ allow_remote_assets = false
 [browser]
 chromium_sandbox = "auto"
 timeout_ms = 120000
+
+[quality]
+profile = "standard"
+# math_errors = "warn"
+# font_errors = "warn"
+# navigation_errors = "warn"
+# required_fonts = ["Vazirmatn"]
+# report = "build/render-quality.json"
 ```
 
 The CLI discovers the nearest `mardas.toml` by starting beside the Markdown file and walking toward the filesystem root. Use `--config path/to/mardas.toml` for an explicit file or `--no-config` to disable discovery. Precedence is deterministic:

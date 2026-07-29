@@ -8,10 +8,11 @@ Run the default quality gate before creating a patch or tag:
 
 ```bash
 ./scripts/check.sh
+./scripts/check_critical_coverage.sh
 python -m pytest -q tests/test_project_config.py tests/test_book_mode.py tests/test_cross_references.py
 ```
 
-The script runs Ruff and pytest from the repository root. It disables third-party pytest plugin autoload by default so local virtualenv plugins cannot change release-gate behavior; set `MARDAS_ALLOW_PYTEST_PLUGINS=1` only when intentionally debugging pytest plugins. To include real Chromium render smoke tests, including PDF metadata and outline inspection, enable the optional environment flag:
+The script runs Ruff, the scoped Pyright contract, and pytest from the repository root. `check_critical_coverage.sh` separately enforces branch coverage on the publication-quality and PDF-navigation modules. It disables third-party pytest plugin autoload by default so local virtualenv plugins cannot change release-gate behavior; set `MARDAS_ALLOW_PYTEST_PLUGINS=1` only when intentionally debugging pytest plugins. To include real Chromium render smoke tests, including PDF metadata and outline inspection, enable the optional environment flag:
 
 ```bash
 MARDAS_RENDER_SMOKE=1 ./scripts/check.sh
@@ -127,6 +128,20 @@ MARDAS_TIMEOUT_MS=240000 ./scripts/build_examples.sh
 ```
 
 
+## Publication-quality diagnostics
+
+Renderer, MathJax, font, or PDF-navigation changes require a strict smoke artifact and its structured report:
+
+```bash
+mrs-md2pdf docs/guides/GUIDE.en.md \
+  -o build/quality-smoke.pdf \
+  --quality-profile strict-publication \
+  --require-font Vazirmatn \
+  --quality-report build/quality-smoke.json
+```
+
+Do not override a strict failure merely to make a release pass. Confirm that each report has no error event, that MathJax detected/rendered counts match, and that named destinations and internal links are preserved. Font binaries remain external dependencies and must not be committed or included in patch bundles.
+
 ## Appearance matrix audit
 
 When changing `src/mardas_md2pdf/appearance.py` or any `src/mardas_md2pdf/assets/style-*.css` file, render
@@ -136,7 +151,7 @@ every built-in style, palette, and mode combination before shipping the patch:
 python scripts/audit_appearance_matrix.py --output-dir build/appearance-audit --render-png --resume
 ```
 
-Review the cover and content PNGs for contrast, palette accents, code blocks,
+After artifact generation, run `scripts/check_visual_contracts.py` against the appearance, feature, and Studio manifests. Review the cover and content PNGs for contrast, palette accents, code blocks,
 callouts, tables, formulas, and dark-mode background consistency. This audit is
 intentionally not part of the default CI path because it launches Chromium for
 every combination.
@@ -204,7 +219,7 @@ after patch sets have been applied.
 
 ## Release gate
 
-Run `./scripts/release_gate.sh` before tagging a release. The gate installs the newly built wheel into a fresh virtual environment, verifies both console entry points and required packaged assets, and writes `dist/CHECKSUMS.sha256`. Set `MARDAS_RELEASE_VISUAL_QA=1` when the full chunked visual matrix is required instead of the reduced smoke matrix.
+Run `./scripts/security_audit.sh` to record installed dependency vulnerabilities, then run `./scripts/release_gate.sh` before tagging a release. The gate installs the newly built wheel into a fresh virtual environment, verifies both console entry points and required packaged assets, and writes `dist/CHECKSUMS.sha256`. Set `MARDAS_RELEASE_VISUAL_QA=1` when the full chunked visual matrix is required instead of the reduced smoke matrix.
 
 ## Accessibility and archival-readiness checks
 

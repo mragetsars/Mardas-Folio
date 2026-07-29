@@ -16,6 +16,8 @@ Run the local checks before tagging. The check helper keeps pytest isolated from
 
 ```bash
 ./scripts/check.sh
+./scripts/check_critical_coverage.sh
+./scripts/security_audit.sh
 python -m pytest -q tests/test_project_config.py tests/test_book_mode.py tests/test_cross_references.py tests/test_citations.py tests/test_studio_project_workspace.py
 ```
 
@@ -25,12 +27,15 @@ For a full release verification, use the consolidated release gate:
 ./scripts/release_gate.sh
 ```
 
-The gate runs the complete release contract: Ruff and pytest, real Chromium render smoke, guide regeneration, PDF preflight, representative or full Visual QA, deterministic wheel/sdist construction, clean-wheel installation, console-entry-point checks, packaged-asset checks, a clean-wheel multi-file Book Mode build with all four numbered reference-object kinds, offline citations, verified reference/bibliography PDF destinations, an installed-wheel Studio Project Workspace hash-save check, a Chromium Problems Panel/Project Explorer audit, and distribution checksums. The tag workflow invokes this same gate instead of maintaining a weaker parallel command list.
+The gate runs the complete release contract: Ruff, scoped Pyright, critical branch coverage, installed-dependency audit, and pytest, real Chromium render smoke, guide regeneration, PDF preflight, representative or full Visual QA, deterministic wheel/sdist construction, clean-wheel installation, console-entry-point checks, packaged-asset checks, a clean-wheel multi-file Book Mode build with all four numbered reference-object kinds, offline citations, verified reference/bibliography PDF destinations, an installed-wheel Studio Project Workspace hash-save check, a Chromium Problems Panel/Project Explorer audit, and distribution checksums. The tag workflow invokes this same gate instead of maintaining a weaker parallel command list.
 
 For targeted diagnosis, the underlying helpers remain available individually:
 
 ```bash
 ./scripts/check.sh
+./scripts/check_types.sh
+./scripts/check_critical_coverage.sh
+./scripts/security_audit.sh
 ./scripts/build_examples.sh
 ./scripts/build_dist.sh
 ./scripts/clean_workspace.sh
@@ -71,9 +76,9 @@ Confirm the Project Explorer, Problems Panel, active project path, renderer-back
 
 Use `./scripts/clean_workspace.sh --patches` after local patch application if temporary patch bundles were unpacked into the repository root.
 
-The release gate writes PDF preflight data to `build/release/pdf-preflight.json` and one-case Visual QA smoke artifacts to `build/release/visual-qa-smoke/` unless `MARDAS_RELEASE_VISUAL_QA=1` is set. The full visual matrix is chunked and resumable: rerun `python scripts/run_visual_qa_matrix.py --output-dir build/release/visual-qa --render-png --resume` to skip chunks whose manifests are already complete. The matrix summary records active-chunk heartbeat data so a slow runner can be inspected while it is still running.
+Semantic visual contracts are enforced with `scripts/check_visual_contracts.py`; they reject incomplete manifests, blank/implausibly small rasters, and missing Studio interaction checks while avoiding machine-specific hash baselines. The release gate writes PDF preflight data to `build/release/pdf-preflight.json` and one-case Visual QA smoke artifacts to `build/release/visual-qa-smoke/` unless `MARDAS_RELEASE_VISUAL_QA=1` is set. The full visual matrix is chunked and resumable: rerun `python scripts/run_visual_qa_matrix.py --output-dir build/release/visual-qa --render-png --resume` to skip chunks whose manifests are already complete. The matrix summary records active-chunk heartbeat data so a slow runner can be inspected while it is still running.
 
-Open the generated PDFs and visually check the cover, table of contents, generated reference lists, numbered figures/tables/equations/listings, cross-reference links, grouped/narrative citations, the generated bibliography, page numbers, code blocks, formulas, Mermaid diagrams, local images, wide tables, blocked-image placeholders, watermarks, and footnotes. When changing appearance CSS or palette behavior, also run `python scripts/audit_appearance_matrix.py --output-dir build/appearance-audit --render-png --resume` and review the full style/palette/mode matrix. Guide builds and Python distributions honor a deterministic `SOURCE_DATE_EPOCH`; the distribution helper additionally normalizes source-archive metadata so repeated builds from one commit are byte-identical. In offline or pre-provisioned release environments, `MARDAS_BUILD_NO_ISOLATION=1 ./scripts/build_dist.sh` reuses the current environment instead of creating an isolated build environment.
+Open the generated PDFs and visually check the cover, table of contents, generated reference lists, numbered figures/tables/equations/listings, cross-reference links, grouped/narrative citations, the generated bibliography, page numbers, code blocks, formulas, Mermaid diagrams, local images, wide tables, blocked-image placeholders, watermarks, and footnotes. When changing appearance CSS or palette behavior, also run `python scripts/audit_appearance_matrix.py --output-dir build/appearance-audit --render-png --resume` and review the full style/palette/mode matrix. Guide builds and Python distributions honor a deterministic `SOURCE_DATE_EPOCH`; the distribution helper additionally normalizes source-archive metadata so repeated builds from one commit are byte-identical. In offline or pre-provisioned release environments, `MARDAS_BUILD_NO_ISOLATION=1 ./scripts/build_dist.sh (falls back to the installed `setuptools.build_meta` backend when the PyPA `build` frontend is unavailable)` reuses the current environment instead of creating an isolated build environment.
 
 ## Cross-platform distribution and provenance
 
@@ -156,7 +161,7 @@ See [`docs/MAINTENANCE.md`](./MAINTENANCE.md) for the daily check, example-gener
 
 ## Accessibility and archival-readiness release checks
 
-Before tagging a release that changes rendering, metadata, fonts, themes, images, tables, or navigation:
+Before tagging a release that changes rendering, metadata, fonts, themes, images, tables, or navigation, build representative documents with `--quality-profile strict-publication` and retain the JSON quality report alongside the release evidence. Then run:
 
 ```bash
 mrs-md2pdf audit-accessibility docs/guides/GUIDE.en.md --format json --fail-on error

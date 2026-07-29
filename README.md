@@ -2,7 +2,7 @@
 
 > **Professional Markdown to PDF converter for Persian, English, and mixed RTL/LTR technical documents**
 
-![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.21.1-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
+![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.22.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
 
 ## Overview
 
@@ -71,6 +71,17 @@ Render a PDF:
 ```bash
 mrs-md2pdf input.md -o output.pdf --toc --style modern --palette emerald --mode light
 ```
+
+For thesis, journal, and release artifacts, enable the strict publication profile. It fails instead of silently degrading when MathJax remains unresolved, a required font is unavailable, or PDF navigation cannot be preserved. The JSON report records browser font evidence, MathJax counts, navigation reconstruction, and the final render result:
+
+```bash
+mrs-md2pdf input.md -o output.pdf \
+  --quality-profile strict-publication \
+  --require-font Vazirmatn \
+  --quality-report build/output-quality.json
+```
+
+The standard profile remains backward compatible and reports these conditions as warnings. Override one category with `--math-error-policy`, `--font-error-policy`, or `--navigation-error-policy`. Mardas MD2PDF does not redistribute font binaries; install the required families locally or point `--font-dir` to trusted font files.
 
 Create a reusable project configuration and validate it without opening Chromium:
 
@@ -165,7 +176,7 @@ mrs-md2pdf-gui --project path/to/project
 
 Project Workspace mode adds a project file tree, Book Mode chapter badges, a Problems panel backed by the same structured diagnostics as the CLI, safe file opening/saving, renderer-backed preview for the active Markdown file, and full-book preview/export. Problem entries navigate to the responsible project file and line. Saves use content hashes and atomic replacement, so Studio rejects stale edits when a file changes externally.
 
-Studio exports run through a bounded queue. The footer reports the real renderer stage, queue wait, and completion percentage; an active or queued export can be cancelled without terminating unrelated jobs. Chromium is reused by a dedicated worker only across trusted local exports, while every document receives a fresh browser context. Tune the local queue when needed:
+Studio exports run through a bounded queue. Publication Quality exposes the same strict profile, category policies, and required-font checks as the CLI; completed jobs return a bounded quality summary to the footer. The footer reports the real renderer stage, queue wait, and completion percentage; an active or queued export can be cancelled without terminating unrelated jobs. Chromium is reused by a dedicated worker only across trusted local exports, while every document receives a fresh browser context. Tune the local queue when needed:
 
 ```bash
 mrs-md2pdf-gui --render-workers 2 --export-queue-size 6 --render-idle-timeout 60
@@ -222,7 +233,7 @@ python install.py --target mardas-md2pdf-venv
 
 The installer verifies the embedded checksums and invokes pip with `--no-index`. PDF rendering still requires a compatible Chromium executable; the optional `python -m playwright install chromium` step may require network access.
 
-The Studio interface groups export settings into Document, Appearance, Branding, Layout, and Advanced sections. Appearance and branding choices use visual cards, while advanced controls such as watermarks and local assets stay collapsed until needed. The **Open Bundle** and **Save Bundle** controls handle portable `.mardas.json` snapshots containing Markdown, export options, and attached assets; they are separate from the live on-disk Project Workspace opened with `--project`. Studio also supports drag-and-drop asset management, auto-scaling PDF-like renderer-backed preview, Fast approximate browser-local preview, debug HTML export, and a command palette via **Ctrl/Cmd+K**. In Project Workspace mode, **Ctrl/Cmd+S** saves the active project file; **Ctrl/Cmd+Shift+S** saves a portable bundle, and **Ctrl/Cmd+Enter** exports the normal single-document PDF. The complete Studio walkthrough lives in the guides.
+The Studio interface groups export settings into Document, Appearance, Branding, Layout, Publication Quality, and Advanced sections. Appearance and branding choices use visual cards, while advanced controls such as watermarks and local assets stay collapsed until needed. The **Open Bundle** and **Save Bundle** controls handle portable `.mardas.json` snapshots containing Markdown, export options, and attached assets; they are separate from the live on-disk Project Workspace opened with `--project`. Studio also supports drag-and-drop asset management, auto-scaling PDF-like renderer-backed preview, Fast approximate browser-local preview, debug HTML export, and a command palette via **Ctrl/Cmd+K**. In Project Workspace mode, **Ctrl/Cmd+S** saves the active project file; **Ctrl/Cmd+Shift+S** saves a portable bundle, and **Ctrl/Cmd+Enter** exports the normal single-document PDF. The complete Studio walkthrough lives in the guides.
 
 ## Repository Structure
 
@@ -234,6 +245,8 @@ Mardas-MD2PDF/
 │   ├── markdown.py         # Markdown parsing, front matter, TOC, math, Mermaid, footnotes, safe HTML
 │   ├── mermaid.py          # Offline Mermaid flowchart-subset-to-SVG renderer
 │   ├── renderer.py         # HTML assembly, appearance CSS, MathJax, Chromium PDF rendering
+│   ├── quality.py          # Strict publication policies and structured render-quality evidence
+│   ├── pdf_navigation.py   # Public-API PDF destinations, links, outlines, and page labels
 │   ├── references.py       # Numbered objects, semantic labels, cross-references, and generated lists
 │   ├── citations.py        # Offline BibTeX/CSL JSON parsing, citation resolution, and bibliography output
 │   ├── book.py             # Ordered chapter manifest, namespacing, cross-links, and book assembly
@@ -300,7 +313,7 @@ The official guide PDFs also exercise document-local image embedding with semant
 
 The release workflow runs the consolidated release gate before publishing artifacts. It rebuilds and preflights the English and Persian guide PDFs, performs visual QA, installs the wheel in a clean environment, verifies packaged assets and entry points, and emits checksums for deterministic wheel and source-distribution artifacts.
 
-The test suite covers Markdown transformation, GitHub-style features, direction handling, table of contents and outline generation, enhanced code highlighting, code-fence metadata, Mermaid SVG rendering, MathJax preservation, extended callouts, safe HTML, footnotes, local and remote image boundaries, renderer options, GUI availability, Studio option validation, page-size handling, wide-table print fitting, workspace persistence, deterministic example metadata, appearance validation, and fallback warnings. For visual changes to styles, palettes, or light/dark mode, run `python scripts/audit_appearance_matrix.py --output-dir build/appearance-audit --render-png --resume` and inspect the generated matrix. For complete chunked coverage across every style, palette, and mode plus the feature-heavy sample, run `python scripts/run_visual_qa_matrix.py --output-dir build/visual-qa/full --render-png --resume`; the summary file records active-chunk heartbeat data and skipped completed chunks. For targeted feature-heavy coverage, run `python scripts/audit_pdf_features.py --all-appearances --render-png --resume`.
+The test suite covers Markdown transformation, GitHub-style features, direction handling, table of contents and outline generation, enhanced code highlighting, code-fence metadata, Mermaid SVG rendering, MathJax preservation, extended callouts, safe HTML, footnotes, local and remote image boundaries, renderer options, GUI availability, Studio option validation, page-size handling, wide-table print fitting, workspace persistence, deterministic example metadata, appearance validation, and fallback warnings. For visual changes to styles, palettes, or light/dark mode, run `python scripts/audit_appearance_matrix.py --output-dir build/appearance-audit --render-png --resume` and inspect the generated matrix. CI also runs `scripts/check_visual_contracts.py` to reject incomplete manifests, blank or implausibly small rasters, and broken Studio interaction contracts without depending on machine-specific PNG hashes. For complete chunked coverage across every style, palette, and mode plus the feature-heavy sample, run `python scripts/run_visual_qa_matrix.py --output-dir build/visual-qa/full --render-png --resume`; the summary file records active-chunk heartbeat data and skipped completed chunks. For targeted feature-heavy coverage, run `python scripts/audit_pdf_features.py --all-appearances --render-png --resume`.
 
 ## Contributors
 

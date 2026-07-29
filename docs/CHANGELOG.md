@@ -4,6 +4,33 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.22.0 - 2026-07-29
+
+### Added
+- Added `standard` and `strict-publication` quality profiles with independent `error`, `warn`, or `ignore` policies for MathJax completeness, required publication fonts, and PDF navigation preservation.
+- Added bounded JSON render-quality reports containing MathJax detection/render counts, browser font evidence and local font-directory hashes, PDF destination/link reconstruction evidence, and final render status.
+- Added Publication Quality controls to Studio, CLI-command export of those settings, and quality summaries on completed queued exports.
+- Added semantic Visual QA contracts for appearance, feature-heavy PDF, and Studio manifests without committing machine-specific raster baselines.
+- Added scoped Pyright, critical branch-coverage, dependency-audit, and minimum/latest `pypdf` compatibility gates.
+
+### Changed
+- Extracted PDF destination, link-annotation, outline, and page-label post-processing into `pdf_navigation.py` and replaced direct use of `PdfWriter._pages` and `PdfWriter._root_object` with public writer APIs.
+- Changed generated project configuration so category policies inherit the selected quality profile unless explicitly overridden.
+- Extended Studio visual auditing and release verification to require Publication Quality controls and semantic visual-contract reports.
+- Made offline/pre-provisioned distribution builds fall back to the installed `setuptools.build_meta` backend when the PyPA `build` frontend is unavailable.
+
+### Fixed
+- Prevented MathJax failures and unresolved formula nodes from being silently accepted when strict publication output is requested.
+- Recorded malformed, unmapped, out-of-range, or unresolvable PDF destinations and link annotations instead of silently discarding navigation failures.
+- Made strict font requirements deterministic and explicit while preserving warning-based behavior for existing standard-profile users.
+- Preserved source-distribution archive permissions while normalizing reproducible tar metadata, preventing normalized release archives from becoming owner-only files.
+
+### Security
+- Added an installed-environment `pip-audit` gate and retained bounded, path-safe quality-report handling in Studio temporary export storage.
+
+### Tests
+- Added policy, JSON-report, strict-font, unresolved-MathJax, navigation-failure, Studio quality-control, queued quality-summary, visual-contract, source-archive permission, and release-workflow regression coverage.
+
 ## 1.21.1 - 2026-07-29
 
 ### Fixed
