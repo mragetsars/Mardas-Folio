@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Mardas Studio",
+  "version": "1.24.0",
+  "identifier": "io.github.mragetsars.mardas-studio",
+  "mainBinaryName": "mardas-studio",
+  "build": {
+    "beforeBuildCommand": "python ../../../scripts/build_desktop_frontend.py",
+    "frontendDist": "../dist",
+    "additionalWatchFolders": ["../frontend"]
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [{"label":"main","title":"Mardas Studio","width":1240,"height":820,"minWidth":840,"minHeight":640,"center":true,"resizable":true,"fullscreen":false,"visible":true,"decorations":true,"backgroundColor":"#eef5f3"}],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+      "freezePrototype": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "category": "Productivity",
+    "publisher": "mragetsars",
+    "shortDescription": "Persian and English Markdown publishing studio",
+    "longDescription": "Mardas Studio converts Persian and English Markdown into publication-ready PDF with RTL typography, MathJax, Mermaid, citations, and PDF navigation.",
+    "homepage": "https://github.com/mragetsars/Mardas-MD2PDF",
+    "license": "MIT",
+    "icon": ["icons/32x32.png","icons/128x128.png","icons/128x128@2x.png","icons/icon.ico"],
+    "resources": {"resources/sidecar/":"sidecar/"},
+    "fileAssociations": [{"ext":["md","markdown"],"name":"Markdown Document","description":"Markdown document published with Mardas Studio","mimeType":"text/markdown","role":"Editor","rank":"Alternate"}],
+    "windows": {
+      "allowDowngrades": false,
+      "bundleVCRuntime": true,
+      "webviewInstallMode": {"type":"downloadBootstrapper","silent":true},
+      "nsis": {"displayLanguageSelector":false,"compression":"lzma"}
+    }
+  }
+}

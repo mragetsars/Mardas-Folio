@@ -46,14 +46,25 @@ def _read_messages(process: subprocess.Popen[str], *, expected_ids: set[str]) ->
     return results
 
 
-def verify(root: Path, *, render: bool) -> None:
+def load_and_verify_manifest(
+    root: Path,
+    *,
+    expected_version: str | None = None,
+    require_browser: bool = False,
+) -> dict[str, Any]:
     root = root.expanduser().resolve(strict=True)
     manifest_path = root / "runtime-manifest.json"
     if not manifest_path.is_file() or manifest_path.stat().st_size > MAX_MANIFEST_BYTES:
         raise ValueError("Runtime manifest is missing or unreasonably large.")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("schema_version") != 1:
+        raise ValueError("Runtime manifest schema is unsupported.")
+    if expected_version is not None and manifest.get("version") != expected_version:
+        raise ValueError("Runtime manifest version does not match the desktop application.")
+    if require_browser and manifest.get("browser_bundled") is not True:
+        raise ValueError("Desktop runtime must include the pinned Chromium browser.")
     entries = manifest.get("files")
-    if not isinstance(entries, list) or len(entries) > MAX_FILES:
+    if not isinstance(entries, list) or not entries or len(entries) > MAX_FILES:
         raise ValueError("Runtime manifest contains an invalid file inventory.")
     seen: set[str] = set()
     for entry in entries:
@@ -65,9 +76,26 @@ def verify(root: Path, *, render: bool) -> None:
         seen.add(relative)
         path = (root / relative).resolve(strict=True)
         path.relative_to(root)
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"Runtime file is missing or unsafe: {relative}")
         if path.stat().st_size != entry.get("size") or _sha256(path) != entry.get("sha256"):
             raise ValueError(f"Runtime file integrity mismatch: {relative}")
+    actual = {
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*")
+        if path.is_file() and path.name != "runtime-manifest.json"
+    }
+    if seen != actual:
+        raise ValueError(
+            f"Runtime inventory mismatch; missing={sorted(seen-actual)}, extra={sorted(actual-seen)}"
+        )
+    _sidecar_executable(root)
+    return manifest
 
+
+def verify(root: Path, *, render: bool) -> None:
+    root = root.expanduser().resolve(strict=True)
+    load_and_verify_manifest(root)
     executable = _sidecar_executable(root)
     environment = os.environ.copy()
     environment.pop("PYTHONPATH", None)

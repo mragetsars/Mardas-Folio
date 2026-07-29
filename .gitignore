@@ -12,3 +12,6 @@ htmlcov/
 /patches/
 /er.name*
 # Python cache / test cache
+/apps/desktop/src-tauri/target/
+/apps/desktop/src-tauri/resources/sidecar/*
+!/apps/desktop/src-tauri/resources/sidecar/README.md
