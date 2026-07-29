@@ -4,6 +4,23 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.25.0 - 2026-07-30
+
+### Added
+- Added a native multi-document authoring workspace with tabs, saved-session restore, bounded crash recovery, outline navigation, literal find/replace, formatting commands, top-level front-matter controls, assets, citations, diagnostics, and source-linked preview headings.
+- Added versioned sidecar document operations for UTF-8 read, conflict-aware atomic save, asset discovery/import, and validation or preview of unsaved editor buffers.
+- Added native multi-file open, Markdown Save As, and local asset pickers to the Tauri shell.
+
+### Changed
+- Extended the desktop engine API to 1.1.0 and moved recent-document opening into the authoring workspace while retaining the focused Quick Export workflow.
+- Made the desktop preview explicitly recovery-safe: local recovery snapshots do not overwrite the source document, and external file changes require an explicit overwrite decision.
+
+### Security
+- Bounded document and asset sizes, rejected symbolic-link asset sources/directories, retained safe-HTML processing, and added defense-in-depth DOM sanitization for dirty-buffer previews.
+
+### Tests
+- Added application-service conflict, asset-boundary, sidecar authoring, frontend document/session/recovery, Markdown analysis, editor command, find/replace, and desktop contract coverage.
+
 ## 1.24.0 - 2026-07-30
 
 ### Added

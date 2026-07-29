@@ -267,3 +267,5 @@ python -m pytest -q tests/test_desktop_app.py
 ```
 
 On Windows, stage only a runtime that passes its complete SHA-256 manifest and includes pinned Chromium. `scripts/build_desktop_app.py` performs frontend verification and runtime staging before invoking Tauri. Do not commit `apps/desktop/dist/`, Rust `target/`, or staged sidecar files. Regenerate checked-in application icons from the canonical SVG with `python scripts/generate_desktop_icons.py`.
+
+Authoring changes must keep the document lifecycle tests green. In particular, verify atomic save, revision conflicts, unsaved-buffer preview/validation, symlink rejection for imported assets, bounded recovery/session storage, literal find/replace, and the static no-localhost/no-external-browser contracts. The top-level front-matter form intentionally edits only scalar fields; preserve unknown and nested YAML rather than trying to flatten it in the frontend.

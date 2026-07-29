@@ -5,7 +5,7 @@ The sidecar implements JSON-RPC 2.0, reads one UTF-8 request per line from `stdi
 ## Lifecycle
 
 ```json
-{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.23.0","pid":1234}}
+{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.25.0","pid":1234}}
 ```
 
 Recommended startup sequence:
@@ -16,6 +16,26 @@ Recommended startup sequence:
 4. Call `system.capabilities` and verify supported methods.
 5. Submit one render/preview/validation operation at a time.
 6. Call `system.shutdown` before terminating the process.
+
+## Document authoring lifecycle
+
+The native authoring workspace uses revision-aware document operations. `document.read` returns UTF-8 content and a revision token. `document.save` writes atomically and rejects a stale `expected_revision` with `MARDAS-DOCUMENT-CONFLICT` unless the user explicitly requests a forced overwrite.
+
+```json
+{"jsonrpc":"2.0","id":"read-1","method":"document.read","params":{"path":"C:/work/doc.md"}}
+```
+
+```json
+{"jsonrpc":"2.0","id":"save-1","method":"document.save","params":{"path":"C:/work/doc.md","content":"# Edited\n","expected_revision":"<revision>","force":false}}
+```
+
+Dirty buffers are validated or previewed without first changing the source file:
+
+```json
+{"jsonrpc":"2.0","id":"preview-1","method":"preview.document_text","params":{"input_path":"C:/work/doc.md","content":"# Unsaved edit\n","discover_config":true,"options":{}}}
+```
+
+Local authoring assets are enumerated with `document.list_assets` and imported through `document.import_asset`. Imports are size- and extension-bounded, reject symbolic-link sources/directories, and use atomic writes below the document's `assets/` directory.
 
 ## Document rendering
 
@@ -45,10 +65,16 @@ Cancellation is cooperative. The engine checks the cancellation flag between ren
 
 ## Supported application methods
 
+- `document.read`
+- `document.save`
+- `document.list_assets`
+- `document.import_asset`
 - `render.document`
 - `render.book`
 - `preview.document`
+- `preview.document_text`
 - `validate.document`
+- `validate.document_text`
 - `validate.book`
 - `job.cancel`
 - `system.health`

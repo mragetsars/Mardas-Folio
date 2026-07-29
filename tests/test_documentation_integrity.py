@@ -33,7 +33,7 @@ def test_guides_start_with_valid_front_matter():
         metadata = _front_matter(guide)
         assert metadata.get("title")
         assert metadata.get("summary")
-        assert metadata.get("version") == "1.24.0"
+        assert metadata.get("version") == "1.25.0"
         assert metadata.get("branding", {}).get("mode") == "full"
 
 
@@ -145,7 +145,7 @@ def test_changelog_is_descending_and_has_single_intro():
     versions = [tuple(map(int, match.groups())) for match in VERSION_RE.finditer(changelog)]
     assert versions == sorted(versions, reverse=True)
     assert len(versions) == len(set(versions))
-    assert versions[0] == (1, 24, 0)
+    assert versions[0] == (1, 25, 0)
     assert (1, 8, 6) in versions
     assert (1, 8, 5) in versions
     assert (1, 5, 0) in versions
@@ -237,8 +237,8 @@ def test_guides_include_persian_rtl_live_smoke_samples():
 
     assert "Persian/RTL visual smoke sample" in en
     assert "نمونه smoke تصویری فارسی/RTL" in fa
-    assert "version 1.24.0" in en
-    assert "version 1.24.0" in fa
+    assert "version 1.25.0" in en
+    assert "version 1.25.0" in fa
     assert "۱۴۰۵" in en
     assert "۱۴۰۵" in fa
     assert "جدول ۱۲. نمونه جدول فارسی/RTL با عددهای ترکیبی." in en
@@ -532,6 +532,10 @@ def test_sidecar_architecture_and_protocol_docs_are_complete():
     assert "job.cancel" in protocol_doc
     assert "render.document" in protocol_doc
     assert "render.book" in protocol_doc
+    assert "document.read" in protocol_doc
+    assert "document.save" in protocol_doc
+    assert "preview.document_text" in protocol_doc
+    assert "MARDAS-DOCUMENT-CONFLICT" in protocol_doc
 
 
 def test_sidecar_json_schemas_are_valid_and_versioned():
@@ -558,4 +562,20 @@ def test_guides_document_the_standalone_runtime_boundary():
         assert "mrs-md2pdf-sidecar" in source
         assert "build_standalone_runtime.py" in source
         assert "verify_standalone_runtime.py" in source
-        assert "1.24.0" in source
+        assert "1.25.0" in source
+
+
+def test_docs_describe_native_authoring_boundaries():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    desktop = (ROOT / "apps/desktop/README.md").read_text(encoding="utf-8")
+    en = (ROOT / "docs/guides/GUIDE.en.md").read_text(encoding="utf-8")
+    fa = (ROOT / "docs/guides/GUIDE.fa.md").read_text(encoding="utf-8")
+    security = (ROOT / "docs/SECURITY.md").read_text(encoding="utf-8")
+    maintenance = (ROOT / "docs/MAINTENANCE.md").read_text(encoding="utf-8")
+
+    for source in (readme, desktop, en, fa):
+        assert "conflict" in source.casefold()
+        assert "recovery" in source.casefold()
+        assert "textarea" in source.casefold()
+    assert "MARDAS-DOCUMENT-CONFLICT" in security or "revision tokens" in security
+    assert "unsaved-buffer preview/validation" in maintenance

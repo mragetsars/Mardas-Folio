@@ -1,13 +1,26 @@
 # Mardas Studio Desktop
 
-This directory contains the native desktop product introduced in Mardas MD2PDF 1.24.
+This directory contains the native desktop product extended in Mardas MD2PDF 1.25.
 
 ```text
-frontend/       dependency-free Start Center and Quick Export UI
+frontend/       dependency-free Start Center, Quick Export, and authoring workspace
 src-tauri/      native Tauri shell and sidecar process manager
 tests/          Node.js frontend contract tests
 dist/           generated frontend output; never commit
 ```
+
+## Authoring workspace
+
+The 1.25 preview adds a conflict-safe document lifecycle on top of the sidecar API:
+
+- multiple Markdown tabs and saved-session restore;
+- bounded local recovery snapshots for dirty buffers;
+- atomic save with revision-based external-change detection;
+- outline, top-level front-matter form, assets, citations, and diagnostics panels;
+- literal find/replace and Markdown formatting commands;
+- validation and sanitized preview of unsaved text without overwriting the source file.
+
+The current editor deliberately remains dependency-free. It is a hardened textarea-based foundation, not the final CodeMirror 6 integration. PDF export is authoritative for MathJax, Mermaid, pagination, and print fidelity.
 
 ## Local contract checks
 

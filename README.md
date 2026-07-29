@@ -2,7 +2,7 @@
 
 > **Professional Markdown to PDF converter for Persian, English, and mixed RTL/LTR technical documents**
 
-![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.24.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
+![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.25.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
 
 ## Overview
 
@@ -58,11 +58,11 @@ Generated PDF versions of the guides are available in the [`examples/`](./exampl
 
 Release and operations references are [Changelog](./docs/CHANGELOG.md), [Release checklist](./docs/RELEASE.md), [Maintenance workflow](./docs/MAINTENANCE.md), [Security policy](./docs/SECURITY.md), and [Documentation policy](./docs/DOCUMENTATION.md).
 
-## Native Desktop Preview
+## Native Desktop Authoring Preview
 
-Version 1.24.0 introduces the first native **Mardas Studio** Windows application. The Tauri shell opens in its own application window, uses native open/save dialogs, enforces a single running instance, accepts `.md` and `.markdown` file associations, and communicates with the frozen Python rendering engine over JSON-RPC `stdin`/`stdout`. It does not open an external browser or a localhost HTTP server.
+Version 1.25.0 extends the native **Mardas Studio** Windows application from Quick Export into a conflict-safe authoring workspace. The Tauri shell still opens in its own application window, uses native dialogs, enforces a single running instance, accepts `.md` and `.markdown` file associations, and communicates with the frozen Python rendering engine over JSON-RPC `stdin`/`stdout`. It does not open an external browser or a localhost HTTP server.
 
-The first product workflow is intentionally focused: Start Center, recent documents, Quick Export presets, document validation, render progress, cooperative cancellation, and open/reveal-output actions. The existing browser Studio remains available for its advanced project/editor workflows while those capabilities move to the native interface in later phases.
+The desktop preview now includes multiple document tabs, session restore, bounded crash-recovery snapshots, atomic saves with external-change detection, literal find/replace, a Markdown outline, top-level front-matter controls, assets and citations panels, inline diagnostics, dirty-buffer validation, and a sanitized live preview linked back to source headings. Recovery storage never silently overwrites the source file; the user must explicitly save. The current editor is a dependency-free textarea foundation rather than the final CodeMirror-based editing surface, and the PDF export remains the authoritative print preview.
 
 A Windows release now produces:
 
@@ -88,7 +88,7 @@ Verify the frozen executable, internal SHA-256 manifest, bundled browser, JSON-R
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-1.24.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-MD2PDF-1.25.0-runtime-windows-x86_64 \
   --render
 ```
 
@@ -96,7 +96,7 @@ Build the native Windows installer after creating the standalone runtime:
 
 ```powershell
 python scripts/build_desktop_app.py `
-  --runtime build/standalone-runtime/Mardas-MD2PDF-1.24.0-runtime-windows-x86_64 `
+  --runtime build/standalone-runtime/Mardas-MD2PDF-1.25.0-runtime-windows-x86_64 `
   --clean
 ```
 

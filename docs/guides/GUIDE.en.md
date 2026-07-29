@@ -12,7 +12,7 @@ summary: |
   This document also acts as a live rendering sample for cover pages, tables of contents, mixed RTL/LTR text, formulas, code, Mermaid flowcharts, images, tables, footnotes, page breaks, and safe HTML.
 institution: "Mardas Lab"
 course: "Markdown Publishing"
-version: "1.24.0"
+version: "1.25.0"
 status: "Stable"
 keywords:
   - Markdown
@@ -152,7 +152,7 @@ The package exposes three process interfaces:
 
 ## Standalone runtime for desktop packaging
 
-Release engineering can build a portable sidecar runtime that includes Python, the Mardas engine, Playwright resources, and pinned Chromium. The target computer does not need Python, pip, Node.js, Git, or Chrome. Version 1.24.0 embeds this verified runtime in the first native Mardas Studio Windows installer.
+Release engineering can build a portable sidecar runtime that includes Python, the Mardas engine, Playwright resources, and pinned Chromium. The target computer does not need Python, pip, Node.js, Git, or Chrome. Version 1.25.0 embeds this verified runtime in the first native Mardas Studio Windows installer.
 
 ```bash
 python -m pip install -e '.[desktop]'
@@ -164,17 +164,19 @@ Verify the runtime manifest, protocol lifecycle, bundled browser, and a real Uni
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-1.24.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-MD2PDF-1.25.0-runtime-windows-x86_64 \
   --render
 ```
 
 The sidecar opens no localhost port. It reads one JSON-RPC request per line from `stdin`, writes protocol messages only to `stdout`, and sends logs to `stderr`. Desktop clients must call `system.health` and `system.capabilities` before rendering.
 
-## Native Mardas Studio preview
+## Native Mardas Studio authoring preview
 
-Mardas Studio now opens in a native Tauri window instead of a browser tab. Its Start Center provides native file selection, recent documents, and a focused Quick Export workflow. Choose a document preset, page size, appearance, language, and table-of-contents setting; then validate the Markdown or export the PDF while structured progress and cancellation travel through the sidecar protocol.
+Mardas Studio opens in a native Tauri window instead of a browser tab. Its Start Center provides native file selection, recent documents, and Quick Export. Version 1.25.0 also adds an authoring workspace with multiple document tabs, saved-session restore, a heading outline, literal find/replace, formatting commands, top-level front-matter controls, local assets, citations, diagnostics, and an unsaved-buffer preview.
 
-The Windows installer includes the frozen engine and pinned Chromium. A normal user does not clone the repository, install Python, run Playwright setup, build Rust, or start a local server. Double-clicking an associated `.md` or `.markdown` file forwards it to the existing application instance. The browser-based Studio remains available for advanced project editing until those workflows are migrated.
+Document saving is conflict-aware. The engine returns a revision when a file is opened, writes changes atomically, and stops instead of silently overwriting a file changed by another program. Browser storage keeps bounded recovery snapshots for dirty buffers, but recovery never saves to the source file without an explicit user action. Imported assets are restricted to supported local file types and are copied below the document's `assets/` directory.
+
+The current editor is a dependency-free textarea foundation. It does not yet provide the complete CodeMirror workflow, and its live preview is intentionally approximate: PDF export remains authoritative for MathJax, Mermaid, pagination, fonts, and print layout. The Windows installer includes the frozen engine and pinned Chromium, so a normal user does not install Python, Playwright, Rust, or a local server.
 
 # First PDF
 
@@ -253,7 +255,7 @@ department: "Department name"
 course: "Course or project title"
 supervisor: "Supervisor name"
 date: "2026-05-20"
-version: "1.24.0"
+version: "1.25.0"
 status: "Draft"
 keywords: [Markdown, PDF, RTL, MathJax]
 cover_label: "Technical Report"
@@ -353,12 +355,12 @@ Inline code remains stable: `mrs-md2pdf input.md -o output.pdf --toc`.
 
 This compact sample is intentionally part of the guide because the guide is both user documentation and a live renderer test case.[^rtl-smoke] It keeps Persian punctuation, Latin package names, Persian digits, semantic table captions, and mixed-direction cells in the official PDF examples.
 
-آیا خروجی PDF برای `version 1.24.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید RTL، mixed-script، و mixed-number hooks را فعال کند.
+آیا خروجی PDF برای `version 1.25.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید RTL، mixed-script، و mixed-number hooks را فعال کند.
 
 | بخش نمونه | مقدار | انتظار در PDF |
 | :--- | :--- | :--- |
 | شماره فارسی | ۱۴۰۵ | عدد فارسی با متن RTL پایدار بماند. |
-| نسخه فنی | version 1.24.0 و ۱.۹.۹ | Latin/Persian numerals در یک سلول خوانا بمانند. |
+| نسخه فنی | version 1.25.0 و ۱.۹.۹ | Latin/Persian numerals در یک سلول خوانا بمانند. |
 | شناسه انگلیسی | `PDF`, `TOC`, `MathJax` | identifierهای English داخل جدول فارسی جابه‌جا نشوند. |
 
 جدول ۱۲. نمونه جدول فارسی/RTL با عددهای ترکیبی.
