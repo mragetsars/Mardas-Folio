@@ -60,6 +60,7 @@ def test_visual_qa_png_stats_and_diff_are_dependency_free(tmp_path: Path) -> Non
         "audit_studio_visual.py",
         "run_visual_qa_matrix.py",
         "check_pdf_preflight.py",
+        "check_visual_contracts.py",
     ],
 )
 def test_visual_qa_scripts_define_helpful_cli_entrypoints(script: str) -> None:
@@ -265,3 +266,95 @@ def test_visual_matrix_runner_exposes_heartbeat_and_resume_controls() -> None:
     assert "last_heartbeat_at" in source
     assert "completed manifest reused" in source
     assert "duration_seconds" in source
+
+
+
+def test_visual_contract_checker_accepts_complete_manifests(tmp_path: Path) -> None:
+    from check_visual_contracts import main as check_contracts
+
+    appearance = tmp_path / "appearance"
+    features = tmp_path / "features"
+    studio = tmp_path / "studio"
+    for directory in (appearance, features, studio):
+        directory.mkdir()
+
+    rows = [[(10, 10, 10), (240, 240, 240)] * 450 for _ in range(520)]
+    for path in (
+        appearance / "cover.png",
+        appearance / "content.png",
+        features / "page.png",
+        studio / "studio.png",
+    ):
+        _write_rgb_png(path, rows)
+
+    write_json(
+        appearance / "manifest.json",
+        {
+            "matrix": {"completed": 1, "failed": 0},
+            "records": [{"cover_png": "cover.png", "content_png": "content.png"}],
+            "failures": [],
+        },
+    )
+    write_json(
+        features / "manifest.json",
+        {
+            "counts": {"requested": 1, "completed": 1, "failed": 0},
+            "records": [{"png": ["page.png"]}],
+            "failures": [],
+        },
+    )
+    checks = {
+        "title": "Mardas MD2PDF Studio",
+        "preview_mode": "accurate",
+        "preview_failed": False,
+    }
+    from check_visual_contracts import STUDIO_REQUIRED_CHECKS
+
+    checks.update({name: True for name in STUDIO_REQUIRED_CHECKS})
+    write_json(studio / "manifest.json", {"screenshot": "studio.png", "checks": checks})
+
+    output = tmp_path / "contract"
+    assert check_contracts(
+        [
+            "--appearance-manifest",
+            str(appearance / "manifest.json"),
+            "--features-manifest",
+            str(features / "manifest.json"),
+            "--studio-manifest",
+            str(studio / "manifest.json"),
+            "--output-dir",
+            str(output),
+        ]
+    ) == 0
+    summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+    assert summary["ok"] is True
+    assert summary["counts"]["feature_images"] == 1
+
+
+def test_visual_contract_checker_rejects_blank_or_incomplete_artifacts(tmp_path: Path) -> None:
+    from check_visual_contracts import main as check_contracts
+
+    appearance = tmp_path / "appearance"
+    appearance.mkdir()
+    _write_rgb_png(appearance / "blank.png", [[(255, 255, 255)] * 300 for _ in range(400)])
+    write_json(
+        appearance / "manifest.json",
+        {
+            "matrix": {"completed": 1, "failed": 0},
+            "records": [{"cover_png": "blank.png", "content_png": "missing.png"}],
+            "failures": [],
+        },
+    )
+
+    output = tmp_path / "contract"
+    assert check_contracts(
+        [
+            "--appearance-manifest",
+            str(appearance / "manifest.json"),
+            "--output-dir",
+            str(output),
+        ]
+    ) == 1
+    summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+    assert summary["ok"] is False
+    assert len(summary["failures"]) >= 2

@@ -296,6 +296,7 @@ def _capture_studio(
                 "document_section_visible": page.locator("#titleInput").is_visible(),
                 "appearance_section_visible": page.locator('[data-choice-group="style"]').count() > 0,
                 "branding_section_visible": page.locator('[data-choice-group="branding"]').count() > 0,
+                "publication_quality_section_present": page.locator("#publicationQualitySection").count() > 0,
                 "settings_badge": page.locator("#appearanceName").inner_text(),
                 "preview_status": preview_status,
                 "preview_status_unclipped": bool(preview_status_box.get("scrollWidth", 0) <= preview_status_box.get("clientWidth", 0) + 1),
@@ -400,7 +401,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if checks.get("title") != "Mardas MD2PDF Studio":
         raise SystemExit("unexpected Studio page title")
-    for key in ["export_button_visible", "document_section_visible", "appearance_section_visible", "branding_section_visible"]:
+    for key in [
+        "export_button_visible",
+        "document_section_visible",
+        "appearance_section_visible",
+        "branding_section_visible",
+        "publication_quality_section_present",
+    ]:
         if not checks.get(key):
             raise SystemExit(f"Studio visual check failed: {key}")
     if checks.get("preview_mode") != "accurate":
