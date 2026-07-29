@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import os
 import re
+import stat
+import subprocess
+import sys
+import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -102,10 +106,36 @@ def test_build_dist_supports_no_isolation_mode() -> None:
 
     assert "MARDAS_BUILD_NO_ISOLATION" in script
     assert "python -m build --no-isolation" in script
+    assert "setuptools import build_meta" in script
+    assert "build_with_current_setuptools_backend" in script
+    assert "MARDAS_BUILD_NO_ISOLATION=1 bash scripts/build_dist.sh" in script
     assert "SOURCE_DATE_EPOCH" in script
     assert "PYTHONHASHSEED" in script
     assert 'TZ="${TZ:-UTC}"' in script
     assert "scripts/normalize_sdist.py" in script
+
+
+
+def test_normalize_sdist_preserves_archive_permissions(tmp_path: Path) -> None:
+    archive = tmp_path / "sample.tar.gz"
+    payload = tmp_path / "payload.txt"
+    payload.write_text("release payload", encoding="utf-8")
+    with tarfile.open(archive, "w:gz") as target:
+        target.add(payload, arcname="sample/payload.txt")
+    archive.chmod(0o644)
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "normalize_sdist.py"),
+            str(archive),
+            "--epoch",
+            "1735689600",
+        ],
+        check=True,
+    )
+
+    assert stat.S_IMODE(archive.stat().st_mode) == 0o644
 
 
 def test_pytest_can_import_src_from_checkout() -> None:

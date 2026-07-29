@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import os
+import stat
 import tarfile
 import tempfile
 from pathlib import Path
@@ -14,6 +15,7 @@ from pathlib import Path
 def normalize_sdist(path: Path, *, epoch: int) -> None:
     """Rewrite ``path`` with stable ordering, ownership, modes, and timestamps."""
     path = path.resolve()
+    original_mode = stat.S_IMODE(path.stat().st_mode)
     with tarfile.open(path, "r:gz") as source:
         members = sorted(source.getmembers(), key=lambda item: item.name)
         fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
@@ -36,6 +38,7 @@ def normalize_sdist(path: Path, *, epoch: int) -> None:
                             member.pax_headers = {}
                             content = source.extractfile(member) if member.isfile() else None
                             target.addfile(member, content)
+            os.chmod(temporary_path, original_mode)
             os.replace(temporary_path, path)
         except Exception:
             temporary_path.unlink(missing_ok=True)

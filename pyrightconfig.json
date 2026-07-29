@@ -1,0 +1,14 @@
+{
+  "include": [
+    "src/mardas_md2pdf/quality.py",
+    "src/mardas_md2pdf/pdf_navigation.py",
+    "scripts/check_visual_contracts.py"
+  ],
+  "extraPaths": ["src", "scripts"],
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+  "reportMissingTypeStubs": false,
+  "reportUnknownMemberType": false,
+  "reportUnknownArgumentType": false,
+  "reportUnknownVariableType": false
+}

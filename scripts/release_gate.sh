@@ -16,6 +16,10 @@ preflight_pages="${MARDAS_PREFLIGHT_PAGES:-1,2,3}"
 preflight_timeout="${MARDAS_PREFLIGHT_TIMEOUT:-60}"
 
 bash scripts/check.sh
+bash scripts/check_critical_coverage.sh
+if [[ "${MARDAS_SKIP_SECURITY_AUDIT:-0}" != "1" ]]; then
+  bash scripts/security_audit.sh
+fi
 
 tmp_pdf="${TMPDIR:-/tmp}/mardas-md2pdf-release-smoke.pdf"
 timeout "${MARDAS_RELEASE_SMOKE_TIMEOUT:-240}" \
@@ -56,6 +60,27 @@ else
     --fail-fast \
     --clean
 fi
+
+visual_root="build/release/visual-qa"
+if [[ "$run_visual_qa" != "1" ]]; then
+  visual_root="build/release/visual-qa-smoke"
+fi
+contract_index=0
+for manifest in "$visual_root"/appearance/chunk-*/manifest.json; do
+  [[ -e "$manifest" ]] || continue
+  contract_index=$((contract_index + 1))
+  python scripts/check_visual_contracts.py \
+    --appearance-manifest "$manifest" \
+    --output-dir "build/release/visual-contracts/appearance-$contract_index"
+done
+contract_index=0
+for manifest in "$visual_root"/features/chunk-*/manifest.json; do
+  [[ -e "$manifest" ]] || continue
+  contract_index=$((contract_index + 1))
+  python scripts/check_visual_contracts.py \
+    --features-manifest "$manifest" \
+    --output-dir "build/release/visual-contracts/features-$contract_index"
+done
 
 bash scripts/build_dist.sh
 
@@ -278,6 +303,9 @@ python scripts/audit_studio_visual.py \
   --output-dir build/release/studio-project \
   --browser-timeout-ms "${MARDAS_TIMEOUT_MS:-180000}" \
   --clean
+python scripts/check_visual_contracts.py \
+  --studio-manifest build/release/studio-project/manifest.json \
+  --output-dir build/release/visual-contracts/studio-project
 "$venv_python" - <<'PY'
 from importlib import resources
 
