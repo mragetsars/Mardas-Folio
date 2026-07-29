@@ -64,6 +64,12 @@ def test_maintenance_scripts_are_executable() -> None:
         "scripts/cross_platform_smoke.py",
         "scripts/build_standalone_runtime.py",
         "scripts/verify_standalone_runtime.py",
+        "scripts/build_desktop_frontend.py",
+        "scripts/verify_desktop_frontend.py",
+        "scripts/stage_desktop_runtime.py",
+        "scripts/generate_desktop_icons.py",
+        "scripts/build_desktop_app.py",
+        "scripts/verify_desktop_installer.py",
     ]:
         path = ROOT / relative_path
         assert path.is_file()
@@ -157,6 +163,11 @@ def test_source_distribution_manifest_includes_release_support_files() -> None:
         "recursive-include packaging *.py *.spec",
         "recursive-include schemas *.json",
         "recursive-include tests *.py",
+        "recursive-include apps *.html *.css *.mjs *.json *.toml *.rs *.png *.ico *.svg *.md",
+        "prune apps/desktop/dist",
+        "prune apps/desktop/src-tauri/target",
+        "prune apps/desktop/src-tauri/resources/sidecar",
+        "include apps/desktop/src-tauri/resources/sidecar/README.md",
         "recursive-include .github *.yml",
         "prune build",
         "prune dist",

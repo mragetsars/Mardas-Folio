@@ -4,6 +4,23 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.24.0 - 2026-07-30
+
+### Added
+- Added the first native Tauri 2 Mardas Studio shell with no external-browser launch or localhost server, native Markdown/PDF file dialogs, single-instance file forwarding, persisted window state, and `.md`/`.markdown` associations.
+- Added a user-centered Start Center, recent documents, Quick Export presets, basic publication settings, validation, structured progress, cooperative cancellation, and open/reveal-output actions in Persian and English.
+- Added deterministic frontend manifests, verified runtime staging, generated native icons, NSIS installer construction and verification, and a Windows desktop CI/release artifact.
+
+### Changed
+- Extended release manifests, checksums, attestations, and minimum release requirements with the versioned `Mardas-Studio-*-setup.exe` artifact.
+- Kept the browser-based Studio available for advanced editing while establishing the native desktop application as the end-user distribution path.
+
+### Security
+- The native shell communicates with the frozen rendering engine only through bounded JSON-RPC standard streams, uses fixed native commands for opening local paths, and verifies the complete staged runtime before installer construction.
+
+### Tests
+- Added frontend unit contracts, atomic-build cleanup regression coverage, native-shell source/configuration contracts, runtime-staging tamper tests, installer PE/integrity validation, and Windows installer workflow assertions.
+
 ## 1.23.0 - 2026-07-30
 
 ### Added

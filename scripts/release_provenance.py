@@ -378,6 +378,8 @@ def artifact_kind(name: str) -> str:
         return "offline-install-bundle"
     if name.startswith("Mardas-MD2PDF-") and "-runtime-" in name and name.endswith(".zip"):
         return "standalone-runtime"
+    if name.startswith("Mardas-Studio-") and name.endswith("-setup.exe"):
+        return "desktop-installer"
     if name.endswith(".sigstore.json"):
         return "sigstore-attestation"
     if name.endswith(".json"):
@@ -458,6 +460,7 @@ def build_release_manifest(
 ) -> dict[str, Any]:
     bundle_count = sum(item.kind == "offline-install-bundle" for item in records)
     runtime_count = sum(item.kind == "standalone-runtime" for item in records)
+    desktop_installer_count = sum(item.kind == "desktop-installer" for item in records)
     sbom_files = [item.name for item in records if item.kind == "spdx-sbom"]
     return {
         "schema_version": RELEASE_MANIFEST_SCHEMA,
@@ -472,6 +475,7 @@ def build_release_manifest(
             "artifact_count": len(records),
             "offline_bundle_count": bundle_count,
             "standalone_runtime_count": runtime_count,
+            "desktop_installer_count": desktop_installer_count,
             "sbom_files": sbom_files,
         },
         "verification": {
@@ -493,6 +497,7 @@ def validate_release_manifest(
     require_sbom: bool,
     minimum_bundle_count: int,
     minimum_runtime_count: int = 0,
+    minimum_desktop_count: int = 0,
 ) -> None:
     if payload.get("schema_version") != RELEASE_MANIFEST_SCHEMA:
         raise ReleaseProvenanceError("Unsupported release manifest schema")
@@ -505,6 +510,7 @@ def validate_release_manifest(
     sbom_count = 0
     bundle_count = 0
     runtime_count = 0
+    desktop_count = 0
     for item in artifacts:
         if not isinstance(item, dict):
             raise ReleaseProvenanceError("Release manifest artifact is not an object")
@@ -527,6 +533,7 @@ def validate_release_manifest(
         sbom_count += kind == "spdx-sbom"
         bundle_count += kind == "offline-install-bundle"
         runtime_count += kind == "standalone-runtime"
+        desktop_count += kind == "desktop-installer"
     actual_names = {
         item.name
         for item in directory.iterdir()
@@ -551,6 +558,24 @@ def validate_release_manifest(
         raise ReleaseProvenanceError(
             f"Release contains {runtime_count} standalone runtime(s); expected at least {minimum_runtime_count}"
         )
+    if desktop_count < minimum_desktop_count:
+        raise ReleaseProvenanceError(
+            f"Release contains {desktop_count} desktop installer(s); expected at least {minimum_desktop_count}"
+        )
+
+
+def verify_desktop_installer_artifact(path: Path, *, expected_version: str) -> None:
+    if path.is_symlink() or not path.is_file():
+        raise ReleaseProvenanceError(f"Desktop installer is missing or unsafe: {path}")
+    expected_prefix = f"Mardas-Studio-{expected_version}-windows-"
+    if not path.name.startswith(expected_prefix) or not path.name.endswith("-setup.exe"):
+        raise ReleaseProvenanceError("Desktop installer filename does not match the release version")
+    size = path.stat().st_size
+    if size < 1024 * 1024 or size > 2 * 1024 * 1024 * 1024:
+        raise ReleaseProvenanceError("Desktop installer size is outside the allowed range")
+    with path.open("rb") as handle:
+        if handle.read(2) != b"MZ":
+            raise ReleaseProvenanceError("Desktop installer does not contain a Windows PE header")
 
 
 def safe_zip_member(name: str) -> PurePosixPath:

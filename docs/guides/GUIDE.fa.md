@@ -12,7 +12,7 @@ summary: |
   همین سند به عنوان نمونه زنده رندر نیز استفاده می‌شود و جلد، فهرست مطالب، متن ترکیبی فارسی/English، فرمول، کد، نمودار Mermaid، تصویر، جدول، پانویس، شکست صفحه و HTML امن را نمایش می‌دهد.
 institution: "Mardas Lab"
 course: "انتشار حرفه‌ای Markdown"
-version: "1.23.0"
+version: "1.24.0"
 status: "Stable"
 keywords:
   - Markdown
@@ -150,7 +150,7 @@ pytest
 
 ## Runtime مستقل برای بسته‌بندی دسکتاپ
 
-فرایند انتشار می‌تواند یک runtime قابل‌حمل بسازد که Python، موتور Mardas، منابع Playwright و Chromium pin‌شده را داخل خود دارد. روی سیستم مقصد نیازی به نصب Python، pip، Node.js، Git یا Chrome نیست. این runtime زیرساخت موتور برنامه دسکتاپ آینده است و در نسخه 1.23.0 هنوز جایگزین رابط Studio فعلی نشده است.
+فرایند انتشار می‌تواند یک runtime قابل‌حمل بسازد که Python، موتور Mardas، منابع Playwright و Chromium pin‌شده را داخل خود دارد. روی سیستم مقصد نیازی به نصب Python، pip، Node.js، Git یا Chrome نیست. نسخه 1.24.0 همین runtime اعتبارسنجی‌شده را داخل نخستین installer بومی Mardas Studio برای Windows قرار می‌دهد.
 
 ```bash
 python -m pip install -e '.[desktop]'
@@ -162,11 +162,17 @@ python scripts/build_standalone_runtime.py --clean
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-1.23.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-MD2PDF-1.24.0-runtime-windows-x86_64 \
   --render
 ```
 
 Sidecar هیچ پورت localhost باز نمی‌کند. هر خط `stdin` یک درخواست JSON-RPC است، `stdout` فقط برای پیام‌های protocol استفاده می‌شود و logها به `stderr` می‌روند. برنامه دسکتاپ باید پیش از رندر، `system.health` و `system.capabilities` را فراخوانی کند.
+
+## پیش‌نمایش بومی Mardas Studio
+
+Mardas Studio اکنون به‌جای tab مرورگر در یک پنجره بومی Tauri باز می‌شود. Start Center انتخاب فایل بومی، اسناد اخیر و روند ساده **Quick Export** را ارائه می‌کند. کاربر preset سند، اندازه صفحه، ظاهر، زبان و فهرست مطالب را انتخاب می‌کند؛ سپس می‌تواند Markdown را بررسی یا PDF را تولید کند. progress ساختاریافته و لغو تعاملی از قرارداد sidecar عبور می‌کنند.
+
+installer ویندوز موتور frozen و Chromium pin‌شده را داخل خود دارد. کاربر عادی لازم نیست repository را clone کند، Python نصب کند، setup مربوط به Playwright را اجرا کند، Rust را build کند یا local server بالا بیاورد. double-click روی فایل `.md` یا `.markdown` آن را به همان instance فعال برنامه می‌فرستد. Studio مرورگرمحور تا زمان انتقال workflowهای پیشرفته ویرایش پروژه همچنان در دسترس است.
 
 # اولین خروجی PDF
 
@@ -245,7 +251,7 @@ department: "نام دانشکده یا دپارتمان"
 course: "نام درس یا پروژه"
 supervisor: "نام استاد یا راهنما"
 date: "۱۴۰۵-۰۲-۳۰"
-version: "1.23.0"
+version: "1.24.0"
 status: "Draft"
 keywords: [Markdown, PDF, RTL, MathJax]
 cover_label: "گزارش فنی"
@@ -345,12 +351,12 @@ mrs-md2pdf input.md -o output.pdf --no-cover-logo
 
 این نمونه کوچک عمداً داخل guide مانده است، چون guide هم راهنمای کاربر است و هم test case زنده renderer.[^rtl-smoke] این بخش نشانه‌گذاری فارسی، نام‌های لاتین، عدد فارسی، caption جدول، و سلول‌های mixed-direction را در PDF رسمی نگه می‌دارد.
 
-آیا خروجی PDF برای `version 1.23.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید hookهای RTL، mixed-script و mixed-number را فعال کند.
+آیا خروجی PDF برای `version 1.24.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید hookهای RTL، mixed-script و mixed-number را فعال کند.
 
 | بخش نمونه | مقدار | انتظار در PDF |
 | :--- | :--- | :--- |
 | شماره فارسی | ۱۴۰۵ | عدد فارسی کنار متن RTL پایدار بماند. |
-| نسخه فنی | version 1.23.0 و ۱.۹.۹ | عددهای Latin/Persian در یک سلول خوانا بمانند. |
+| نسخه فنی | version 1.24.0 و ۱.۹.۹ | عددهای Latin/Persian در یک سلول خوانا بمانند. |
 | شناسه انگلیسی | `PDF`, `TOC`, `MathJax` | identifierهای English داخل جدول فارسی جابه‌جا نشوند. |
 
 جدول ۱۲. نمونه جدول فارسی/RTL با عددهای ترکیبی.

@@ -20,6 +20,7 @@ from release_provenance import (  # noqa: E402
     ArtifactRecord,
     DistributionRecord,
     ReleaseProvenanceError,
+    artifact_kind,
     build_release_manifest,
     deterministic_zip,
     generate_spdx_document,
@@ -28,6 +29,7 @@ from release_provenance import (  # noqa: E402
     validate_release_manifest,
     validate_spdx_document,
     verify_checksums,
+    verify_desktop_installer_artifact,
     verify_offline_bundle,
     verify_standalone_runtime,
     write_checksums,
@@ -272,6 +274,19 @@ def test_standalone_runtime_manifest_and_checksums_are_verified(tmp_path: Path) 
     with pytest.raises(ReleaseProvenanceError, match="archive inventory mismatch"):
         verify_standalone_runtime(archive_path, expected_version=version)
 
+
+def test_desktop_installer_is_classified_and_verified(tmp_path: Path) -> None:
+    version = "1.24.0"
+    installer = tmp_path / f"Mardas-Studio-{version}-windows-x86_64-setup.exe"
+    installer.write_bytes(b"MZ" + b"\0" * (1024 * 1024 + 32))
+
+    assert artifact_kind(installer.name) == "desktop-installer"
+    verify_desktop_installer_artifact(installer, expected_version=version)
+
+    installer.write_bytes(b"NO" + b"\0" * (1024 * 1024 + 32))
+    with pytest.raises(ReleaseProvenanceError, match="PE header"):
+        verify_desktop_installer_artifact(installer, expected_version=version)
+
 def test_release_scripts_are_executable() -> None:
     for name in (
         "release_provenance.py",
@@ -281,6 +296,11 @@ def test_release_scripts_are_executable() -> None:
         "cross_platform_smoke.py",
         "build_standalone_runtime.py",
         "verify_standalone_runtime.py",
+        "build_desktop_frontend.py",
+        "verify_desktop_frontend.py",
+        "stage_desktop_runtime.py",
+        "build_desktop_app.py",
+        "verify_desktop_installer.py",
     ):
         path = SCRIPTS / name
         assert path.is_file()
@@ -318,6 +338,11 @@ def test_cross_platform_and_provenance_workflows_use_current_contracts() -> None
     assert "verify_standalone_runtime.py" in ci
     assert "playwright install chromium --only-shell" in ci
     assert "standalone-runtime" in release
+    assert "desktop-installer" in release
+    assert "minimum-desktop-installer-count 1" in release
+    assert "build_desktop_app.py" in ci
+    assert "verify_desktop_installer.py" in ci
+    assert "cargo install tauri-cli --version 2.11.4 --locked" in ci
     assert "github/codeql-action/init@v4" in codeql
     assert "github/codeql-action/analyze@v4" in codeql
     assert "package-ecosystem: pip" in dependabot

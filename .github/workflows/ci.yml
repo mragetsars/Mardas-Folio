@@ -301,3 +301,112 @@ jobs:
           path: build/standalone-runtime/*.zip
           if-no-files-found: error
           retention-days: 14
+
+  desktop-contracts:
+    name: Native desktop contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: core-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Build and verify dependency-free frontend
+        run: |
+          python scripts/build_desktop_frontend.py
+          python scripts/verify_desktop_frontend.py apps/desktop/dist
+
+      - name: Run desktop JavaScript contracts
+        run: node --test apps/desktop/tests/*.test.mjs
+
+      - name: Run desktop Python contracts
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+        run: python -m pytest -q tests/test_desktop_app.py
+
+  windows-desktop-installer:
+    name: Windows native desktop installer
+    runs-on: windows-latest
+    timeout-minutes: 80
+    needs: [windows-standalone-runtime, desktop-contracts]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Download standalone runtime
+        uses: actions/download-artifact@v8
+        with:
+          name: standalone-runtime-Windows-X64
+          path: build/runtime-download
+
+      - name: Extract standalone runtime
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem build/runtime-download -File -Filter '*.zip' | Select-Object -First 1
+          if (-not $zip) { throw 'Standalone runtime archive was not downloaded.' }
+          New-Item -ItemType Directory -Force build/runtime-extracted | Out-Null
+          Expand-Archive -Path $zip.FullName -DestinationPath build/runtime-extracted -Force
+          $runtime = Get-ChildItem build/runtime-extracted -Directory -Filter 'Mardas-MD2PDF-*-runtime-*' | Select-Object -First 1
+          if (-not $runtime) { throw 'Standalone runtime directory was not found after extraction.' }
+          "RUNTIME_DIR=$($runtime.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install desktop build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[desktop]"
+          cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Build native desktop installer
+        shell: pwsh
+        run: python scripts/build_desktop_app.py --runtime "$env:RUNTIME_DIR" --clean
+
+      - name: Verify native desktop installer
+        shell: pwsh
+        run: |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          $installer = Get-ChildItem build/desktop -File -Filter 'Mardas-Studio-*-setup.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Desktop installer was not created.' }
+          python scripts/verify_desktop_installer.py $installer.FullName --version $version
+
+      - name: Upload native desktop installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-installer-Windows-${{ runner.arch }}
+          path: build/desktop/Mardas-Studio-*-setup.exe
+          if-no-files-found: error
+          retention-days: 14

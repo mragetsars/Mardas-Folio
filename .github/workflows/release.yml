@@ -146,11 +146,78 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  desktop-installer:
+    name: Native Windows desktop installer
+    runs-on: windows-latest
+    timeout-minutes: 80
+    needs: [build-core, standalone-runtime]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Download standalone runtime
+        uses: actions/download-artifact@v8
+        with:
+          name: standalone-runtime
+          path: build/runtime-download
+
+      - name: Extract standalone runtime
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem build/runtime-download -File -Filter '*.zip' | Select-Object -First 1
+          if (-not $zip) { throw 'Standalone runtime archive was not downloaded.' }
+          New-Item -ItemType Directory -Force build/runtime-extracted | Out-Null
+          Expand-Archive -Path $zip.FullName -DestinationPath build/runtime-extracted -Force
+          $runtime = Get-ChildItem build/runtime-extracted -Directory -Filter 'Mardas-MD2PDF-*-runtime-*' | Select-Object -First 1
+          if (-not $runtime) { throw 'Standalone runtime directory was not found after extraction.' }
+          "RUNTIME_DIR=$($runtime.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install desktop build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[desktop]"
+          cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Build and verify native installer
+        shell: pwsh
+        run: |
+          python scripts/build_desktop_app.py --runtime "$env:RUNTIME_DIR" --clean
+          $installer = Get-ChildItem build/desktop -File -Filter 'Mardas-Studio-*-setup.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Desktop installer was not created.' }
+          python scripts/verify_desktop_installer.py $installer.FullName --version "${{ needs.build-core.outputs.version }}"
+
+      - name: Upload native desktop installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-installer
+          path: build/desktop/Mardas-Studio-*-setup.exe
+          if-no-files-found: error
+          retention-days: 30
+
   attest:
     name: Finalize and attest release artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [build-core, offline-bundles, standalone-runtime]
+    needs: [build-core, offline-bundles, standalone-runtime, desktop-installer]
     if: github.repository == 'mragetsars/Mardas-MD2PDF'
     permissions:
       contents: read
@@ -190,18 +257,26 @@ jobs:
           name: standalone-runtime
           path: build/standalone
 
+      - name: Download native desktop installer
+        uses: actions/download-artifact@v8
+        with:
+          name: desktop-installer
+          path: build/desktop
+
       - name: Finalize release manifest and checksums
         shell: bash
         run: |
           cp build/offline/*.zip build/release/
           cp build/standalone/*.zip build/release/
+          cp build/desktop/*-setup.exe build/release/
           python scripts/finalize_release_artifacts.py \
             --artifact-dir build/release \
             --version "${{ needs.build-core.outputs.version }}" \
             --source-revision "$GITHUB_SHA" \
             --require-sbom \
             --minimum-bundle-count 3 \
-            --minimum-standalone-runtime-count 1
+            --minimum-standalone-runtime-count 1 \
+            --minimum-desktop-installer-count 1
           python - <<'PY'
           from pathlib import Path
           source = Path("build/release/CHECKSUMS.sha256")

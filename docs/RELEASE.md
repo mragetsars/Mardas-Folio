@@ -187,3 +187,18 @@ mrs-md2pdf audit-pdf examples/GUIDE.fa.pdf --profile all --format json --fail-on
 ```
 
 The clean-wheel release gate must execute `audit-accessibility`, `audit-book-accessibility`, and `audit-pdf`. Confirm that generated PDFs declare language and contain XMP metadata, all ordinary fonts are embedded with usable ToUnicode mappings where applicable, and no unexpected JavaScript or attachments appear. An untagged Chromium PDF or missing PDF/A output intent must remain an explicit readiness limitation; the release notes must not claim PDF/UA or PDF/A conformance without independent validator evidence.
+
+## Native Windows desktop installer
+
+Build the standalone Windows runtime first, then build the native NSIS installer from the same verified directory:
+
+```powershell
+python scripts/build_desktop_app.py `
+  --runtime build/standalone-runtime/Mardas-MD2PDF-X.Y.Z-runtime-windows-x86_64 `
+  --clean
+python scripts/verify_desktop_installer.py `
+  build/desktop/Mardas-Studio-X.Y.Z-windows-x86_64-setup.exe `
+  --version X.Y.Z
+```
+
+The tag workflow downloads the already-tested standalone runtime, stages it as a Tauri resource, builds the dependency-free frontend, compiles the Tauri shell, and uploads the NSIS setup executable. Finalization requires at least one `desktop-installer`, verifies its versioned filename, bounded size, and Windows PE header, then includes it in checksums and attestations. A release must never substitute an unverified runtime directory or a locally installed browser.

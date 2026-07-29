@@ -191,3 +191,9 @@ mrs-md2pdf audit-pdf output.pdf --profile all
 Source audits are bounded by the existing Markdown, configuration, bibliography, and Book Mode limits. PDF audit opens only the explicitly supplied local file and reports metadata, fonts, tagging signals, actions, attachments, and archival indicators. Audit output avoids claiming PDF/UA, WCAG, or PDF/A conformance. A structure tree, output intent, or PDF/A identifier must never be fabricated merely to silence an audit; formal compliance requires an independent validator and manual review.
 
 Generated PDFs declare a catalog language when the source or project declares one, include XMP/document metadata, and request display of the document title. They do not currently claim a verified tagged-PDF structure. Treat `audit-pdf` as a readiness and risk report rather than a certification tool.
+
+## Native desktop shell boundary
+
+Mardas Studio does not expose the rendering engine through localhost. The Tauri process starts the bundled sidecar with piped standard input/output, forwards only versioned JSON-RPC methods, emits progress as application events, and terminates the child during application shutdown. Operational logs remain separate from protocol output.
+
+Native open/save dialogs are the primary source of document paths. Open/reveal actions canonicalize an existing path and launch fixed operating-system commands without interpolating a shell command. The installer build accepts only a standalone runtime whose manifest version, browser flag, file inventory, sizes, and SHA-256 digests all verify. The staged runtime and generated frontend are build inputs and are not accepted from arbitrary user-controlled directories during normal application use.

@@ -254,3 +254,16 @@ mrs-md2pdf audit-pdf examples/GUIDE.fa.pdf --profile all --format json --fail-on
 ```
 
 Review source diagnostics for language, heading order, alternative text, link purpose, table headers/captions, and palette contrast. Review PDF metrics for `/Lang`, XMP, font embedding, ToUnicode, tagging, output intents, JavaScript, and attachments. Do not convert the absence of a structure tree or PDF/A identifier into a passing result by adding unsupported catalog flags. Independent PDF/UA/PDF/A validation remains outside the built-in audit.
+
+## Native desktop maintenance
+
+The native application is split into `apps/desktop/frontend/` and `apps/desktop/src-tauri/`. Build and verify the static frontend without npm dependencies:
+
+```bash
+python scripts/build_desktop_frontend.py
+python scripts/verify_desktop_frontend.py apps/desktop/dist
+node --test apps/desktop/tests/*.test.mjs
+python -m pytest -q tests/test_desktop_app.py
+```
+
+On Windows, stage only a runtime that passes its complete SHA-256 manifest and includes pinned Chromium. `scripts/build_desktop_app.py` performs frontend verification and runtime staging before invoking Tauri. Do not commit `apps/desktop/dist/`, Rust `target/`, or staged sidecar files. Regenerate checked-in application icons from the canonical SVG with `python scripts/generate_desktop_icons.py`.
