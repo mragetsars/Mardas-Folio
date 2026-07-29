@@ -1,0 +1,7 @@
+import{mergePresetOptions}from"./presets.mjs";
+const MD=new Set(["md","markdown"]);
+export function basename(path){if(typeof path!=="string"||!path.trim())return"";return path.replaceAll("\\","/").split("/").at(-1)||""}
+export function extension(path){const name=basename(path),i=name.lastIndexOf(".");return i>0?name.slice(i+1).toLowerCase():""}
+export function defaultOutputPath(path){if(typeof path!=="string"||!path.trim())return"";const value=path.trim(),suffix=extension(value);return MD.has(suffix)?value.slice(0,-suffix.length-1)+".pdf":value+".pdf"}
+export function validateExportSelection({sourcePath,outputPath}){const errors=[],source=typeof sourcePath==="string"?sourcePath.trim():"",output=typeof outputPath==="string"?outputPath.trim():"";if(!source)errors.push("source_required");else if(!MD.has(extension(source)))errors.push("source_markdown");if(!output)errors.push("output_required");else if(extension(output)!=="pdf")errors.push("output_pdf");if(source&&output&&source.toLocaleLowerCase()===output.toLocaleLowerCase())errors.push("paths_differ");return errors}
+export function buildDocumentParams({sourcePath,outputPath,presetId="general",overrides={}}){const errors=validateExportSelection({sourcePath,outputPath});if(errors.length){const error=new Error("Invalid export selection");error.codes=errors;throw error}return{input_path:sourcePath.trim(),output_path:outputPath.trim(),discover_config:true,options:mergePresetOptions(presetId,overrides)}}

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+  <title>Mardas Studio</title>
+  <link rel="icon" href="./assets/app-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <button class="brand" id="home-button" type="button">
+      <img src="./assets/app-icon.svg" alt="" width="38" height="38">
+      <span><strong>Mardas Studio</strong><small id="app-version">__MARDAS_VERSION__</small></span>
+    </button>
+    <div class="top-actions">
+      <span class="engine" id="engine-state" data-state="checking"><i></i><span data-i18n="engineChecking">در حال بررسی موتور</span></span>
+      <button class="icon-button" id="locale-button" type="button">EN</button>
+    </div>
+  </header>
+
+  <main id="app-main" tabindex="-1">
+    <section class="view active" id="start-view">
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow" data-i18n="eyebrow">انتشار حرفه‌ای Markdown</p>
+          <h1 data-i18n="welcomeTitle">سندت را باز کن؛ PDF آماده تحویل بگیر.</h1>
+          <p data-i18n="welcomeDescription">بدون نصب Python، بدون خط فرمان و بدون بازشدن مرورگر. Mardas Studio فایل Markdown را با پشتیبانی کامل فارسی، فرمول، نمودار و ناوبری PDF منتشر می‌کند.</p>
+          <div class="hero-actions">
+            <button class="button primary" id="start-quick-export" type="button" data-i18n="quickExport">خروجی سریع PDF</button>
+            <button class="button glass" id="start-open-file" type="button" data-i18n="openMarkdown">باز کردن Markdown</button>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="paper back"></div>
+          <div class="paper front"><span class="dots"></span><b></b><i></i><i></i><em></em><i></i><strong>PDF</strong></div>
+        </div>
+      </div>
+
+      <div class="start-grid">
+        <section class="panel">
+          <header class="panel-title"><div><p data-i18n="workflows">مسیرهای کاری</p><h2 data-i18n="chooseWorkflow">از کجا شروع کنیم؟</h2></div></header>
+          <div class="workflow-list">
+            <button class="workflow featured" id="workflow-quick" type="button"><span class="workflow-icon">↗</span><span><strong data-i18n="quickExport">خروجی سریع PDF</strong><small data-i18n="quickExportHelp">یک فایل، چند انتخاب ساده، خروجی نهایی.</small></span><b>←</b></button>
+            <button class="workflow" id="workflow-open" type="button"><span class="workflow-icon">MD</span><span><strong data-i18n="openMarkdown">باز کردن Markdown</strong><small data-i18n="openMarkdownHelp">فایل موجود را انتخاب و آماده انتشار کن.</small></span><b>←</b></button>
+            <div class="workflow disabled"><span class="workflow-icon">B</span><span><strong data-i18n="bookProject">پروژه کتاب</strong><small data-i18n="bookProjectHelp">مدیریت فصل‌ها و منابع در فضای نویسندگی بعدی.</small></span><mark data-i18n="comingNext">مرحله بعد</mark></div>
+          </div>
+        </section>
+        <section class="panel recent-panel">
+          <header class="panel-title"><div><p data-i18n="recent">اخیر</p><h2 data-i18n="recentDocuments">سندهای اخیر</h2></div><button class="text-button" id="clear-recents" type="button" data-i18n="clear">پاک‌کردن</button></header>
+          <div id="recent-list" class="recent-list"></div>
+          <div id="recent-empty" class="empty"><span>⌁</span><strong data-i18n="noRecent">هنوز سندی باز نشده است.</strong><small data-i18n="noRecentHelp">فایل‌های اخیر برای دسترسی سریع اینجا نمایش داده می‌شوند.</small></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="view" id="export-view">
+      <div class="workspace-heading"><button class="back" id="export-back" type="button">→</button><div><p class="eyebrow" data-i18n="quickExport">خروجی سریع PDF</p><h1 data-i18n="exportTitle">Markdown را به PDF آماده انتشار تبدیل کن</h1></div></div>
+      <div class="export-layout">
+        <form class="panel form-panel" id="export-form" novalidate>
+          <section class="step"><header><span>1</span><div><h2 data-i18n="sourceFile">فایل مبدأ</h2><p data-i18n="sourceFileHelp">فایل Markdown را از سیستم انتخاب کن.</p></div></header><div class="path-row"><input id="source-path" readonly placeholder="report.md"><button class="button secondary compact" id="choose-source" type="button" data-i18n="browse">انتخاب</button></div></section>
+          <section class="step"><header><span>2</span><div><h2 data-i18n="documentPreset">نوع خروجی</h2><p data-i18n="documentPresetHelp">یک preset انتخاب کن؛ جزئیات مناسب خودکار تنظیم می‌شوند.</p></div></header><div class="preset-grid" id="preset-grid" role="radiogroup"></div></section>
+          <section class="step"><header><span>3</span><div><h2 data-i18n="basicSettings">تنظیمات اصلی</h2><p data-i18n="basicSettingsHelp">فقط گزینه‌هایی که معمولاً لازم‌اند.</p></div></header>
+            <div class="settings-grid">
+              <label><span data-i18n="documentLanguage">زبان سند</span><select id="document-language"><option value="auto" data-i18n="automatic">خودکار</option><option value="fa">فارسی</option><option value="en">English</option></select></label>
+              <label><span data-i18n="pageSize">اندازه صفحه</span><select id="page-size"><option>A4</option><option>Letter</option><option>A5</option></select></label>
+              <label><span data-i18n="appearance">ظاهر</span><select id="appearance-style"><option value="modern" data-i18n="modern">مدرن</option><option value="classic" data-i18n="classic">کلاسیک</option><option value="minimal" data-i18n="minimal">مینیمال</option></select></label>
+              <label class="toggle"><input id="include-toc" type="checkbox" checked><i></i><span data-i18n="includeToc">فهرست مطالب</span></label>
+            </div>
+          </section>
+          <section class="step"><header><span>4</span><div><h2 data-i18n="outputFile">فایل خروجی</h2><p data-i18n="outputFileHelp">محل ذخیره PDF را مشخص کن.</p></div></header><div class="path-row"><input id="output-path" readonly placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse">انتخاب</button></div></section>
+          <footer class="form-actions"><button class="button secondary" id="validate-button" type="button" data-i18n="checkDocument">بررسی سند</button><button class="button primary" id="export-button" type="submit" data-i18n="exportPdf">ساخت PDF</button><button class="button danger hidden" id="cancel-button" type="button" data-i18n="cancel">لغو</button></footer>
+        </form>
+        <aside class="panel status-panel" aria-live="polite">
+          <div class="status-visual" id="status-visual" data-state="idle"><i></i><span>✓</span></div>
+          <p class="section-label" data-i18n="exportStatus">وضعیت خروجی</p><h2 id="status-title" data-i18n="readyTitle">آماده شروع</h2><p id="status-message" data-i18n="readyMessage">فایل را انتخاب کن و قبل از خروجی، بررسی سند را اجرا کن.</p>
+          <div class="progress hidden" id="progress-wrap"><div><i id="progress-bar"></i></div><span id="progress-label">0%</span></div>
+          <div class="diagnostics hidden" id="diagnostics"></div>
+          <div class="success-actions hidden" id="success-actions"><button class="button primary compact" id="open-pdf" type="button" data-i18n="openPdf">باز کردن PDF</button><button class="button secondary compact" id="reveal-pdf" type="button" data-i18n="showInFolder">نمایش در پوشه</button></div>
+          <div class="summary" id="preset-summary"></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <footer class="app-footer"><span data-i18n="localEngine">موتور محلی؛ فایل‌ها از دستگاه خارج نمی‌شوند.</span><span id="runtime-detail"></span></footer>
+</div>
+<div class="toasts" id="toast-region" aria-live="assertive"></div>
+<script type="module" src="./js/main.mjs"></script>
+</body>
+</html>
