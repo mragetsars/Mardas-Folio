@@ -4,6 +4,17 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.21.1 - 2026-07-29
+
+### Fixed
+- Declared generated XMP streams with the required PDF `/Type /Metadata` and `/Subtype /XML` entries so external PDF tools no longer report an unknown metadata-stream type.
+- Made atomic PDF and debug-HTML output creation honor the process umask for new artifacts while preserving the mode of an existing destination during replacement.
+- Synchronized Visual QA fixture cover versions with the installed package version instead of retaining historical hard-coded release numbers.
+
+### Tests
+- Added Chromium PDF regression coverage for XMP stream dictionaries and POSIX regression coverage for atomic-output permissions.
+- Added release-integrity coverage that prevents Visual QA fixtures from drifting away from the package version.
+
 ## 1.21.0 - 2026-07-11
 
 ### Added

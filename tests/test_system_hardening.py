@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
 import time
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
@@ -8,10 +10,17 @@ from pathlib import Path
 from threading import Event, Lock, Thread
 
 import pytest
+from pypdf import PdfWriter
 
 from mardas_md2pdf import gui
 from mardas_md2pdf.markdown import MarkdownInputError, extract_frontmatter, render_markdown
-from mardas_md2pdf.renderer import PdfOptions, _stringify_metadata_value, build_html
+from mardas_md2pdf.renderer import (
+    PdfOptions,
+    _atomic_write_pdf,
+    _atomic_write_text,
+    _stringify_metadata_value,
+    build_html,
+)
 
 
 def _start_studio_server() -> tuple[ThreadingHTTPServer, Thread]:
@@ -46,6 +55,30 @@ def _post_json(
         return response.status, response.read()
     finally:
         connection.close()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission semantics")
+def test_atomic_outputs_respect_umask_and_preserve_existing_modes(tmp_path: Path) -> None:
+    text_path = tmp_path / "debug.html"
+    pdf_path = tmp_path / "output.pdf"
+    previous_umask = os.umask(0o027)
+    try:
+        _atomic_write_text(text_path, "<p>ready</p>")
+        writer = PdfWriter()
+        try:
+            writer.add_blank_page(width=72, height=72)
+            _atomic_write_pdf(writer, pdf_path)
+        finally:
+            writer.close()
+    finally:
+        os.umask(previous_umask)
+
+    assert stat.S_IMODE(text_path.stat().st_mode) == 0o640
+    assert stat.S_IMODE(pdf_path.stat().st_mode) == 0o640
+
+    text_path.chmod(0o600)
+    _atomic_write_text(text_path, "<p>updated</p>")
+    assert stat.S_IMODE(text_path.stat().st_mode) == 0o600
 
 
 def test_recursive_and_excessively_deep_yaml_are_rejected() -> None:

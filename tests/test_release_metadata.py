@@ -31,6 +31,18 @@ def test_project_version_metadata_matches() -> None:
     )
 
 
+def test_visual_qa_fixtures_use_the_project_version() -> None:
+    for relative_path in (
+        "scripts/audit_appearance_matrix.py",
+        "scripts/audit_pdf_features.py",
+    ):
+        script = _read(relative_path)
+        assert "from mardas_md2pdf import __version__" in script
+        assert "__MARDAS_VERSION__" in script
+        assert "1.13.2" not in script
+        assert "1.13.11" not in script
+
+
 def test_maintenance_scripts_are_executable() -> None:
     for relative_path in [
         "scripts/install_playwright.sh",

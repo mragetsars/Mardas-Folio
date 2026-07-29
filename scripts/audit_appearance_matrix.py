@@ -21,6 +21,7 @@ SRC = ROOT / "src"
 if SRC.is_dir() and str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from mardas_md2pdf import __version__  # noqa: E402
 from mardas_md2pdf.appearance import MODES, PALETTES_ORDER, STYLES  # noqa: E402
 from visual_qa import (  # noqa: E402
     ensure_clean_dir,
@@ -45,7 +46,7 @@ summary: |
   appearance combination can be checked visually.
 institution: "Mardas Lab"
 course: "Appearance QA"
-version: "1.13.2"
+version: "__MARDAS_VERSION__"
 status: "Audit"
 keywords:
   - appearance
@@ -106,7 +107,7 @@ A screen-first dark output may use deep surfaces, but it should not make every s
 متن فارسی برای بررسی حالت راست‌به‌چپ و ترکیب کلمات English در کنار شناسه‌هایی مثل `md2pdf-mode-dark` استفاده می‌شود تا خوانایی در همه حالت‌ها مشخص شود.[^note]
 
 [^note]: Footnote text should keep enough contrast and should not disappear in dark mode.
-"""
+""".replace("__MARDAS_VERSION__", __version__)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

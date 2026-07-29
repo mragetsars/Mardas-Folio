@@ -62,5 +62,8 @@ def test_rendered_pdf_contains_metadata_and_outline(tmp_path):
     assert metadata.get("/Title") == "Outline Smoke"
     assert metadata.get("/Author") == "Mardas Test"
     assert "outline" in str(metadata.get("/Keywords"))
+    metadata_stream = reader.trailer["/Root"]["/Metadata"].get_object()
+    assert metadata_stream.get("/Type") == "/Metadata"
+    assert metadata_stream.get("/Subtype") == "/XML"
     assert "First Section" in outline_titles
     assert "Nested Section" in outline_titles

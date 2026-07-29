@@ -8,6 +8,7 @@ import logging
 import mimetypes
 import os
 import re
+import secrets
 import shutil
 import stat
 import tempfile
@@ -2459,6 +2460,9 @@ def _apply_pdf_catalog_metadata(
         writer.root_object[NameObject("/ViewerPreferences")] = preferences
     preferences[NameObject("/DisplayDocTitle")] = BooleanObject(True)
     writer.xmp_metadata = _xmp_packet(metadata, lang=language)
+    metadata_stream = writer.root_object[NameObject("/Metadata")].get_object()
+    metadata_stream[NameObject("/Type")] = NameObject("/Metadata")
+    metadata_stream[NameObject("/Subtype")] = NameObject("/XML")
 
 
 def _pdf_metadata(result: MarkdownRenderResult, options: PdfOptions, title: str) -> dict[str, str]:
@@ -3028,14 +3032,43 @@ def _validate_conversion_paths(options: PdfOptions) -> None:
             )
 
 
+def _open_atomic_output(path: Path) -> tuple[int, Path]:
+    """Create a collision-safe sibling temporary file while honoring the process umask."""
+    path = Path(path)
+    existing_mode: int | None = None
+    try:
+        existing_mode = stat.S_IMODE(path.stat().st_mode)
+    except FileNotFoundError:
+        pass
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+    for _attempt in range(100):
+        temporary_path = path.parent / f".{path.name}.{secrets.token_hex(8)}.tmp"
+        try:
+            fd = os.open(temporary_path, flags, 0o666)
+        except FileExistsError:
+            continue
+        try:
+            if existing_mode is not None:
+                if hasattr(os, "fchmod"):
+                    os.fchmod(fd, existing_mode)
+                else:  # pragma: no cover - Windows fallback.
+                    os.chmod(temporary_path, existing_mode)
+        except Exception:
+            os.close(fd)
+            temporary_path.unlink(missing_ok=True)
+            raise
+        return fd, temporary_path
+    raise FileExistsError(f"Could not allocate an atomic temporary file for: {path}")
+
+
 def _atomic_write_pdf(writer: PdfWriter, output_path: Path) -> None:
     """Commit a complete PDF with an atomic same-directory replacement."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(
-        prefix=f".{output_path.name}.", suffix=".tmp", dir=output_path.parent
-    )
-    temporary_path = Path(temporary_name)
+    fd, temporary_path = _open_atomic_output(output_path)
     try:
         with os.fdopen(fd, "wb") as fh:
             writer.write(fh)
@@ -3055,8 +3088,7 @@ def _atomic_write_text(path: Path, text: str, *, encoding: str = "utf-8") -> Non
     """Write text without truncating a previous valid artifact on failure."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
-    temporary_path = Path(temporary_name)
+    fd, temporary_path = _open_atomic_output(path)
     try:
         with os.fdopen(fd, "w", encoding=encoding, newline="") as fh:
             fh.write(text)
