@@ -33,7 +33,7 @@ def test_guides_start_with_valid_front_matter():
         metadata = _front_matter(guide)
         assert metadata.get("title")
         assert metadata.get("summary")
-        assert metadata.get("version") == "1.22.0"
+        assert metadata.get("version") == "1.23.0"
         assert metadata.get("branding", {}).get("mode") == "full"
 
 
@@ -145,7 +145,7 @@ def test_changelog_is_descending_and_has_single_intro():
     versions = [tuple(map(int, match.groups())) for match in VERSION_RE.finditer(changelog)]
     assert versions == sorted(versions, reverse=True)
     assert len(versions) == len(set(versions))
-    assert versions[0] == (1, 22, 0)
+    assert versions[0] == (1, 23, 0)
     assert (1, 8, 6) in versions
     assert (1, 8, 5) in versions
     assert (1, 5, 0) in versions
@@ -237,8 +237,8 @@ def test_guides_include_persian_rtl_live_smoke_samples():
 
     assert "Persian/RTL visual smoke sample" in en
     assert "نمونه smoke تصویری فارسی/RTL" in fa
-    assert "version 1.22.0" in en
-    assert "version 1.22.0" in fa
+    assert "version 1.23.0" in en
+    assert "version 1.23.0" in fa
     assert "۱۴۰۵" in en
     assert "۱۴۰۵" in fa
     assert "جدول ۱۲. نمونه جدول فارسی/RTL با عددهای ترکیبی." in en
@@ -510,3 +510,52 @@ def test_docs_describe_accessibility_and_archival_readiness_without_false_claims
     assert "دسترس‌پذیری و آمادگی آرشیوی" in fa
     assert "not claimed to be PDF/UA compliant" in en
     assert "does **not** claim PDF/UA or PDF/A conformance" in readme
+
+
+def test_sidecar_architecture_and_protocol_docs_are_complete():
+    docs_index = (ROOT / "docs/README.md").read_text(encoding="utf-8")
+    protocol_doc = (ROOT / "docs/architecture/SIDECAR-PROTOCOL-v1.md").read_text(
+        encoding="utf-8"
+    )
+    for filename in (
+        "ADR-001-desktop-product-boundaries.md",
+        "ADR-002-sidecar-ipc.md",
+        "ADR-003-frozen-runtime.md",
+        "SIDECAR-PROTOCOL-v1.md",
+    ):
+        assert filename in docs_index
+        assert (ROOT / "docs/architecture" / filename).is_file()
+
+    assert "JSON-RPC 2.0" in protocol_doc
+    assert "stdin" in protocol_doc and "stdout" in protocol_doc
+    assert "job.progress" in protocol_doc
+    assert "job.cancel" in protocol_doc
+    assert "render.document" in protocol_doc
+    assert "render.book" in protocol_doc
+
+
+def test_sidecar_json_schemas_are_valid_and_versioned():
+    import json
+
+    schema_root = ROOT / "schemas/sidecar/v1"
+    for filename in (
+        "request.schema.json",
+        "response.schema.json",
+        "notification.schema.json",
+    ):
+        payload = json.loads((schema_root / filename).read_text(encoding="utf-8"))
+        assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+        assert "/sidecar/v1/" in payload["$id"]
+        assert payload["type"] == "object"
+
+
+def test_guides_document_the_standalone_runtime_boundary():
+    en = (ROOT / "docs/guides/GUIDE.en.md").read_text(encoding="utf-8")
+    fa = (ROOT / "docs/guides/GUIDE.fa.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    for source in (readme, en, fa):
+        assert "mrs-md2pdf-sidecar" in source
+        assert "build_standalone_runtime.py" in source
+        assert "verify_standalone_runtime.py" in source
+        assert "1.23.0" in source

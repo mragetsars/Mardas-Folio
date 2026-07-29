@@ -4,6 +4,24 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.23.0 - 2026-07-30
+
+### Added
+- Added the versioned `mrs-md2pdf-sidecar` JSON-RPC 2.0 process interface over standard input/output with health, capability discovery, document/book render and validation operations, HTML preview, progress notifications, cooperative cancellation, busy-state protection, and controlled shutdown.
+- Added a common application-service layer for desktop requests, strict option/parameter validation, project-configuration merging, structured engine errors, and bundled-runtime browser resolution.
+- Added protocol v1 JSON schemas and accepted architecture decisions for product boundaries, stdio IPC, and the frozen runtime.
+- Added PyInstaller `onedir` packaging, runtime SHA-256 manifests, portable ZIP generation, frozen-runtime verification, and a Windows CI/release job that renders a Unicode-path PDF without a system Python or Chrome dependency.
+
+### Changed
+- Extended release manifests and attestations with a separately classified, integrity-verified standalone runtime artifact.
+- Added a `desktop` optional dependency group and the `mrs-md2pdf-sidecar` console entry point while preserving the existing CLI and browser-based Studio interfaces.
+
+### Security
+- Replaced the future desktop localhost boundary with a bounded line-oriented stdio contract, rejects unknown request fields, keeps logs off the protocol stream, limits request size, and verifies every file in a standalone runtime archive.
+
+### Tests
+- Added protocol parsing, configuration merge, runtime discovery, sidecar lifecycle, progress, cancellation, release-workflow, and standalone-runtime archive tamper tests.
+
 ## 1.22.0 - 2026-07-29
 
 ### Added

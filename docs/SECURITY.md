@@ -105,6 +105,14 @@ Project file reads and writes require the same per-run Studio token and Host/Ori
 
 The portable `.mardas.json` Studio bundle workflow is separate from Project Workspace mode. Loading a bundle does not grant arbitrary filesystem access, and live project editing is never enabled merely by opening the normal Studio page.
 
+## Desktop sidecar boundary
+
+`mrs-md2pdf-sidecar` is the process boundary for future native desktop clients. It opens no network listener and accepts bounded newline-delimited JSON-RPC requests from `stdin`. Protocol output is written exclusively to `stdout`; logs and tracebacks remain on `stderr`. Requests larger than 8 MiB, unknown methods, unknown parameters, invalid option names, concurrent render attempts, and malformed JSON are rejected with stable error codes.
+
+Only one render/preview/validation job is active at a time. Cancellation is cooperative and uses the renderer's existing safe checkpoints; it does not kill a shared Chromium process mid-write. The desktop parent process is responsible for spawning the sidecar with private pipes, validating the ready/health protocol version, and terminating the child process during application shutdown.
+
+Standalone runtime archives contain a flat top-level application directory and an internal SHA-256 inventory. Release verification rejects path traversal, duplicate entries, symbolic links, missing or extra files, digest mismatches, missing sidecar executables, protocol/version mismatches, and runtimes that do not include pinned Chromium. The runtime manifest is integrity evidence, not a digital signature; users should also verify release checksums and GitHub attestations.
+
 ## Output integrity
 
 The CLI rejects input, PDF output, and debug-HTML paths that resolve to the same

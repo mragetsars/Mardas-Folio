@@ -86,7 +86,7 @@ The supported release pipeline has three distinct contracts:
 
 1. `CI` runs the complete pytest suite across Linux, Windows, and macOS, with Python compatibility coverage from 3.10 through 3.13.
 2. A wheel-render smoke installs Chromium and renders a Unicode-path mixed RTL/LTR PDF from the built wheel on all three operating systems.
-3. `Release Artifacts` builds the deterministic core distributions, platform-specific offline Python bundles, an SPDX 2.3 SBOM, a release manifest, and signed GitHub attestations.
+3. `Release Artifacts` builds the deterministic core distributions, platform-specific offline Python bundles, the self-contained Windows sidecar runtime, an SPDX 2.3 SBOM, a release manifest, and signed GitHub attestations.
 
 The local release gate writes the following core files under `dist/`:
 
@@ -114,6 +114,22 @@ python scripts/finalize_release_artifacts.py \
 ```
 
 Every release manifest records exact file sizes and SHA-256 digests. Verification rejects extra files, missing files, path traversal, symlink artifacts, checksum mismatches, duplicate inventory entries, malformed SPDX data, or an unexpected project version.
+
+
+### Standalone sidecar runtime
+
+Build the portable runtime only on the target operating system. The Windows release job installs the Playwright Chromium headless shell, freezes the sidecar with PyInstaller `onedir`, copies the complete browser archive, writes a per-file SHA-256 manifest, and performs a Unicode-path PDF render from the frozen executable:
+
+```bash
+python -m pip install -e '.[desktop]'
+python -m playwright install chromium --only-shell
+python scripts/build_standalone_runtime.py --clean
+python scripts/verify_standalone_runtime.py \
+  build/standalone-runtime/Mardas-MD2PDF-X.Y.Z-runtime-windows-x86_64 \
+  --render
+```
+
+A release standalone runtime must include Chromium and pass `verify_standalone_runtime`. `--allow-missing-chromium` is restricted to protocol/build diagnostics and does not satisfy the release contract. `finalize_release_artifacts.py` classifies this ZIP separately from legacy offline wheel bundles and verifies its internal manifest before checksums and attestations are finalized.
 
 The tag workflow creates one offline Python wheel bundle per runner platform with `scripts/build_offline_bundle.py`. Each archive contains an offline wheelhouse, deterministic bundle metadata, an installer, and its own checksum list. It does **not** contain Chromium or an embedded Python runtime. Test the bundle after extraction with:
 

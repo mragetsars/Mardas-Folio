@@ -2,7 +2,7 @@
 
 > **Professional Markdown to PDF converter for Persian, English, and mixed RTL/LTR technical documents**
 
-![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.22.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
+![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.23.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
 
 ## Overview
 
@@ -38,10 +38,13 @@ The renderer builds the final printable HTML, validates page size and margin opt
 
 ### Interfaces
 
-The project provides two user-facing interfaces:
+The project provides three supported process interfaces:
 
 - `mrs-md2pdf` for command-line and automation workflows.
-- `mrs-md2pdf-gui` for local browser-based editing, previewing, option selection, PDF export, and browser-local workspace persistence.
+- `mrs-md2pdf-gui` for the current local browser-based Studio during the desktop migration.
+- `mrs-md2pdf-sidecar` for native desktop clients. It exposes a versioned JSON-RPC protocol over standard streams, opens no localhost port, reports progress, and supports cooperative cancellation.
+
+The target product architecture keeps the Python publishing engine and places a native desktop shell around the sidecar. Architecture decisions and the protocol contract are documented under [`docs/architecture/`](./docs/architecture/).
 
 ## Documentation
 
@@ -54,6 +57,37 @@ The README is intentionally short. Mardas MD2PDF uses a **guide-first documentat
 Generated PDF versions of the guides are available in the [`examples/`](./examples/) directory. Feature documentation is not split across parallel reference pages; user-facing explanations, runnable examples, and renderer smoke cases belong in the guides so the Markdown source and the official PDFs stay synchronized.
 
 Release and operations references are [Changelog](./docs/CHANGELOG.md), [Release checklist](./docs/RELEASE.md), [Maintenance workflow](./docs/MAINTENANCE.md), [Security policy](./docs/SECURITY.md), and [Documentation policy](./docs/DOCUMENTATION.md).
+
+## Standalone Runtime Foundation
+
+Version 1.23.0 adds the first self-contained desktop-engine artifact. The Windows release workflow builds a portable `onedir` runtime containing Python, Mardas MD2PDF, Playwright resources, and the pinned Chromium headless shell. A user of that runtime does not install Python, pip, Node.js, Git, or Chrome.
+
+This artifact is the engine foundation for the native desktop application; it is not yet the redesigned Tauri GUI. The existing `mrs-md2pdf-gui` remains available while the native shell is developed.
+
+Build the portable runtime on the target operating system:
+
+```bash
+python -m pip install -e '.[desktop]'
+python -m playwright install chromium --only-shell
+python scripts/build_standalone_runtime.py --clean
+```
+
+Verify the frozen executable, internal SHA-256 manifest, bundled browser, JSON-RPC lifecycle, and a Unicode-path PDF render:
+
+```bash
+python scripts/verify_standalone_runtime.py \
+  build/standalone-runtime/Mardas-MD2PDF-1.23.0-runtime-windows-x86_64 \
+  --render
+```
+
+The sidecar can also be exercised from a Python installation:
+
+```bash
+mrs-md2pdf-sidecar --health
+mrs-md2pdf-sidecar --capabilities
+```
+
+Do not write logs or human-readable status to sidecar `stdout`; JSON-RPC messages use `stdout` and operational logs use `stderr`.
 
 ## Quick Start
 
@@ -250,6 +284,10 @@ Mardas-MD2PDF/
 │   ├── references.py       # Numbered objects, semantic labels, cross-references, and generated lists
 │   ├── citations.py        # Offline BibTeX/CSL JSON parsing, citation resolution, and bibliography output
 │   ├── book.py             # Ordered chapter manifest, namespacing, cross-links, and book assembly
+│   ├── application.py      # Stable application API shared by desktop-sidecar operations
+│   ├── protocol.py         # Versioned JSON-RPC envelope and error contract
+│   ├── runtime.py          # Frozen-runtime and bundled-Chromium discovery
+│   ├── sidecar.py          # Stdio JSON-RPC process for native desktop clients
 │   ├── cli.py              # Conversion command-line interface
 │   ├── config.py           # Versioned mardas.toml discovery, validation, and resolution
 │   ├── diagnostics.py      # Stable text/JSON diagnostic records
@@ -259,10 +297,12 @@ Mardas-MD2PDF/
 │   ├── studio_jobs.py      # Disk-backed Studio export jobs, progress, cancellation, and retention
 │   ├── gui.py              # Local browser-based GUI backend
 │   └── assets/             # Style CSS, GUI shell, logo, and vendored MathJax files
-├── docs/                   # Guides, changelog, release, maintenance, security, and documentation policy
+├── docs/                   # Guides, architecture decisions, release, security, and documentation policy
 │   └── guides/             # Complete English and Persian user guides
 ├── examples/               # Generated PDF examples from the guide files
-├── scripts/                # Helper scripts for checks, examples, distributions, visual QA, and cleanup
+├── packaging/              # PyInstaller entrypoint and onedir runtime specification
+├── schemas/                # Versioned sidecar JSON-RPC schemas
+├── scripts/                # Checks, distributions, frozen-runtime builds, visual QA, and cleanup
 ├── tests/                  # Automated pytest test suite
 ├── pyproject.toml          # Package metadata and dependencies
 ├── .github/workflows/      # CI and release artifact automation
@@ -311,7 +351,7 @@ Clean local build and patch artifacts when the working tree starts to feel noisy
 
 The official guide PDFs also exercise document-local image embedding with semantic figure captions and safe HTML image sizing.
 
-The release workflow runs the consolidated release gate before publishing artifacts. It rebuilds and preflights the English and Persian guide PDFs, performs visual QA, installs the wheel in a clean environment, verifies packaged assets and entry points, and emits checksums for deterministic wheel and source-distribution artifacts.
+The release workflow runs the consolidated release gate before publishing artifacts. It rebuilds and preflights the English and Persian guide PDFs, performs visual QA, installs the wheel in a clean environment, verifies packaged assets and entry points, builds and smoke-tests the Windows standalone sidecar runtime with pinned Chromium, and emits checksums for deterministic distributions and runtime archives.
 
 The test suite covers Markdown transformation, GitHub-style features, direction handling, table of contents and outline generation, enhanced code highlighting, code-fence metadata, Mermaid SVG rendering, MathJax preservation, extended callouts, safe HTML, footnotes, local and remote image boundaries, renderer options, GUI availability, Studio option validation, page-size handling, wide-table print fitting, workspace persistence, deterministic example metadata, appearance validation, and fallback warnings. For visual changes to styles, palettes, or light/dark mode, run `python scripts/audit_appearance_matrix.py --output-dir build/appearance-audit --render-png --resume` and inspect the generated matrix. CI also runs `scripts/check_visual_contracts.py` to reject incomplete manifests, blank or implausibly small rasters, and broken Studio interaction contracts without depending on machine-specific PNG hashes. For complete chunked coverage across every style, palette, and mode plus the feature-heavy sample, run `python scripts/run_visual_qa_matrix.py --output-dir build/visual-qa/full --render-png --resume`; the summary file records active-chunk heartbeat data and skipped completed chunks. For targeted feature-heavy coverage, run `python scripts/audit_pdf_features.py --all-appearances --render-png --resume`.
 

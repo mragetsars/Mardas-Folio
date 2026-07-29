@@ -190,6 +190,21 @@ python scripts/finalize_release_artifacts.py --help
 
 `CHECKSUMS.sha256` covers every file in the manifest-governed `release-X.Y.Z` artifact plus `RELEASE-MANIFEST.json`, but never includes itself. Signed Sigstore bundles are uploaded separately as `release-attestations-X.Y.Z` with their own checksum inventory, because attestations are created only after the release payload has been finalized. Offline bundles contain another checksum inventory for their internal files. Chromium is intentionally excluded from the offline bundle and must be provided separately.
 
+## Standalone sidecar runtime
+
+The standalone runtime is a target-platform artifact. Install the optional desktop build dependency, install the pinned Playwright Chromium headless shell, then build and verify the `onedir` runtime:
+
+```bash
+python -m pip install -e '.[desktop]'
+python -m playwright install chromium --only-shell
+python scripts/build_standalone_runtime.py --clean
+python scripts/verify_standalone_runtime.py \
+  build/standalone-runtime/Mardas-MD2PDF-X.Y.Z-runtime-<platform>-<arch> \
+  --render
+```
+
+The verifier checks every manifest digest before launching the frozen sidecar. Release artifacts must include Chromium; `--allow-missing-chromium` is only for protocol/build diagnostics. Build each platform runtime on that platform because PyInstaller is not a cross-compiler.
+
 ## Patch set hygiene
 
 Keep generated patch sets easy to apply:

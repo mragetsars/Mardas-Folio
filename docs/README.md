@@ -21,6 +21,11 @@ Generated PDF versions are stored in:
 - [Maintenance workflow](./MAINTENANCE.md) — routine local checks, guide builds, distribution builds, and patch hygiene.
 - [Security policy](./SECURITY.md) — trust boundaries for Markdown, HTML, assets, Studio, Chromium, and PDF metadata.
 - [Documentation system](./DOCUMENTATION.md) — ownership rules for guides, operations docs, changelog entries, and generated examples.
+- [Architecture decisions](./architecture/) — accepted desktop product boundaries, sidecar protocol, and frozen-runtime design:
+  - [Desktop product boundaries](./architecture/ADR-001-desktop-product-boundaries.md)
+  - [Sidecar IPC](./architecture/ADR-002-sidecar-ipc.md)
+  - [Frozen runtime](./architecture/ADR-003-frozen-runtime.md)
+  - [Sidecar protocol v1](./architecture/SIDECAR-PROTOCOL-v1.md)
 
 ## Rule of thumb
 
