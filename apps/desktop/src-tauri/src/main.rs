@@ -90,6 +90,48 @@ fn pick_markdown_file() -> Option<String> {
 }
 
 #[tauri::command]
+fn pick_markdown_files() -> Vec<String> {
+    rfd::FileDialog::new()
+        .add_filter("Markdown", &["md", "markdown"])
+        .pick_files()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect()
+}
+
+#[tauri::command]
+fn pick_markdown_output(suggested_path: Option<String>) -> Option<String> {
+    let mut dialog = rfd::FileDialog::new().add_filter("Markdown", &["md", "markdown"]);
+    if let Some(suggested) = suggested_path.filter(|value| !value.trim().is_empty()) {
+        let path = PathBuf::from(suggested);
+        if let Some(parent) = path.parent().filter(|candidate| candidate.is_dir()) {
+            dialog = dialog.set_directory(parent);
+        }
+        if let Some(name) = path.file_name().and_then(|value| value.to_str()) {
+            dialog = dialog.set_file_name(name);
+        }
+    }
+    dialog
+        .save_file()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn pick_document_asset() -> Option<String> {
+    rfd::FileDialog::new()
+        .add_filter(
+            "Images and references",
+            &[
+                "png", "jpg", "jpeg", "webp", "gif", "svg", "avif", "bmp", "bib",
+                "json", "yaml", "yml",
+            ],
+        )
+        .pick_file()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
 fn pick_pdf_output(suggested_path: Option<String>) -> Option<String> {
     let mut dialog = rfd::FileDialog::new().add_filter("PDF document", &["pdf"]);
     if let Some(suggested) = suggested_path.filter(|value| !value.trim().is_empty()) {
@@ -213,6 +255,9 @@ fn main() {
             desktop_info,
             take_launch_files,
             pick_markdown_file,
+            pick_markdown_files,
+            pick_markdown_output,
+            pick_document_asset,
             pick_pdf_output,
             open_path,
             reveal_path,

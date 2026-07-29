@@ -84,9 +84,104 @@
         </aside>
       </div>
     </section>
+
+    <section class="view workspace-view" id="workspace-view">
+      <header class="author-toolbar">
+        <div class="toolbar-group">
+          <button class="icon-button" id="workspace-home" type="button" title="Start Center">⌂</button>
+          <button class="button secondary compact" id="workspace-new" type="button" data-i18n="newDocument">سند جدید</button>
+          <button class="button secondary compact" id="workspace-open" type="button" data-i18n="openDocuments">باز کردن</button>
+          <button class="button primary compact" id="workspace-save" type="button" data-i18n="save">ذخیره</button>
+          <button class="button secondary compact" id="workspace-save-as" type="button" data-i18n="saveAs">ذخیره با نام</button>
+        </div>
+        <div class="toolbar-group formatting" aria-label="Formatting">
+          <button type="button" data-editor-command="bold" title="Bold"><b>B</b></button>
+          <button type="button" data-editor-command="italic" title="Italic"><i>I</i></button>
+          <button type="button" data-editor-command="heading" title="Heading">H2</button>
+          <button type="button" data-editor-command="link" title="Link">↗</button>
+          <button type="button" data-editor-command="code" title="Code">&lt;/&gt;</button>
+          <button type="button" id="workspace-import-asset" title="Import asset">▧</button>
+          <button type="button" data-editor-command="citation" title="Citation">@</button>
+        </div>
+        <div class="toolbar-group">
+          <button class="button secondary compact" id="workspace-validate" type="button" data-i18n="checkDocument">بررسی سند</button>
+          <button class="button primary compact" id="workspace-export" type="button" data-i18n="exportPdf">ساخت PDF</button>
+        </div>
+      </header>
+
+      <div class="document-tabs" id="document-tabs" role="tablist" aria-label="Open documents"></div>
+
+      <div class="authoring-grid">
+        <aside class="author-sidebar">
+          <nav class="sidebar-tabs" aria-label="Document tools">
+            <button class="active" type="button" data-sidebar="outline" data-i18n="outline">ساختار</button>
+            <button type="button" data-sidebar="frontmatter" data-i18n="frontMatter">مشخصات</button>
+            <button type="button" data-sidebar="assets" data-i18n="assets">فایل‌ها</button>
+            <button type="button" data-sidebar="citations" data-i18n="citations">منابع</button>
+            <button type="button" data-sidebar="problems" data-i18n="problems">اشکال‌ها</button>
+          </nav>
+          <section class="sidebar-panel active" data-panel="outline">
+            <header><strong data-i18n="documentOutline">ساختار سند</strong><span id="outline-count">0</span></header>
+            <div class="tool-list" id="outline-list"></div>
+          </section>
+          <section class="sidebar-panel" data-panel="frontmatter">
+            <header><strong data-i18n="frontMatter">مشخصات سند</strong></header>
+            <form class="frontmatter-form" id="frontmatter-form">
+              <label><span data-i18n="title">عنوان</span><input name="title" type="text"></label>
+              <label><span data-i18n="subtitle">زیرعنوان</span><input name="subtitle" type="text"></label>
+              <label><span data-i18n="author">نویسنده</span><input name="author" type="text"></label>
+              <label><span data-i18n="documentLanguage">زبان سند</span><select name="lang"><option value="auto">auto</option><option value="fa">fa</option><option value="en">en</option></select></label>
+              <label><span data-i18n="direction">جهت</span><select name="dir"><option value="auto">auto</option><option value="rtl">rtl</option><option value="ltr">ltr</option></select></label>
+              <label class="toggle compact-toggle"><input name="toc" type="checkbox"><i></i><span data-i18n="includeToc">فهرست مطالب</span></label>
+              <button class="button secondary compact" type="submit" data-i18n="applyMetadata">اعمال مشخصات</button>
+            </form>
+          </section>
+          <section class="sidebar-panel" data-panel="assets">
+            <header><strong data-i18n="assets">فایل‌ها</strong><button class="text-button" id="refresh-assets" type="button" data-i18n="refresh">بازخوانی</button></header>
+            <button class="drop-asset" id="import-asset" type="button" data-i18n="importAsset">افزودن تصویر یا منبع</button>
+            <div class="tool-list" id="asset-list"></div>
+          </section>
+          <section class="sidebar-panel" data-panel="citations">
+            <header><strong data-i18n="citations">منابع</strong><span id="citation-count">0</span></header>
+            <p class="sidebar-help" data-i18n="citationHelp">کلیدهای استفاده‌شده و ورودی‌های کتاب‌نامه اینجا نمایش داده می‌شوند.</p>
+            <div class="tool-list" id="citation-list"></div>
+          </section>
+          <section class="sidebar-panel" data-panel="problems">
+            <header><strong data-i18n="problems">اشکال‌ها</strong><span id="problem-count">0</span></header>
+            <div class="tool-list" id="problem-list"></div>
+          </section>
+        </aside>
+
+        <section class="editor-pane">
+          <header class="pane-header"><div><strong id="editor-title">Untitled</strong><small id="editor-path"></small></div><span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span></header>
+          <div class="find-bar hidden" id="find-bar">
+            <input id="find-query" type="search" placeholder="Find">
+            <input id="replace-query" type="text" placeholder="Replace">
+            <span id="find-count">0/0</span>
+            <button type="button" id="find-previous" title="Previous">↑</button>
+            <button type="button" id="find-next" title="Next">↓</button>
+            <button type="button" id="replace-one" data-i18n="replace">جایگزینی</button>
+            <button type="button" id="replace-all" data-i18n="replaceAll">جایگزینی همه</button>
+            <button type="button" id="close-find" title="Close">×</button>
+          </div>
+          <div class="editor-surface">
+            <div class="line-gutter" id="line-gutter" aria-hidden="true">1</div>
+            <textarea id="markdown-editor" spellcheck="true" wrap="off" aria-label="Markdown editor"></textarea>
+          </div>
+          <footer class="editor-status"><span id="cursor-status">Ln 1, Col 1</span><span id="word-status">0 words</span><span id="recovery-status"></span></footer>
+        </section>
+
+        <section class="preview-pane">
+          <header class="pane-header"><div><strong data-i18n="preview">پیش‌نمایش</strong><small id="preview-detail" data-i18n="previewHelp">نمایش سریع محتوای ذخیره‌نشده</small></div><div class="preview-actions"><label class="toggle compact-toggle"><input id="auto-preview" type="checkbox" checked><i></i><span data-i18n="automatic">خودکار</span></label><button class="icon-button" id="refresh-preview" type="button" title="Refresh">↻</button></div></header>
+          <div class="preview-loading hidden" id="preview-loading"><i></i><span data-i18n="renderingPreview">در حال ساخت پیش‌نمایش</span></div>
+          <article class="preview-document" id="preview-document"><div class="empty-preview"><strong data-i18n="previewEmpty">برای مشاهده پیش‌نمایش، نوشتن را شروع کن.</strong></div></article>
+        </section>
+      </div>
+    </section>
   </main>
   <footer class="app-footer"><span data-i18n="localEngine">موتور محلی؛ فایل‌ها از دستگاه خارج نمی‌شوند.</span><span id="runtime-detail"></span></footer>
 </div>
+<div class="modal hidden" id="recovery-modal" role="dialog" aria-modal="true" aria-labelledby="recovery-title"><div class="modal-card"><h2 id="recovery-title" data-i18n="recoveryFound">نسخه بازیابی‌شده پیدا شد</h2><p id="recovery-message"></p><div class="modal-actions"><button class="button secondary" id="discard-recovery" type="button" data-i18n="discardRecovery">نادیده‌گرفتن</button><button class="button primary" id="restore-recovery" type="button" data-i18n="restoreRecovery">بازیابی</button></div></div></div>
 <div class="toasts" id="toast-region" aria-live="assertive"></div>
 <script type="module" src="./js/main.mjs"></script>
 </body>

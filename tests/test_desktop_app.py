@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -77,7 +78,10 @@ def test_native_shell_uses_stdio_sidecar_and_single_instance_first() -> None:
     assert main.index(".plugin(single_instance)") < main.index("tauri_plugin_window_state")
     for command in (
         "pick_markdown_file",
+        "pick_markdown_files",
+        "pick_markdown_output",
         "pick_pdf_output",
+        "pick_document_asset",
         "sidecar_request",
         "sidecar_cancel",
         "take_launch_files",
@@ -97,13 +101,47 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
     main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
     assert 'id="start-view"' in index
     assert 'id="export-view"' in index
+    assert 'id="workspace-view"' in index
     assert 'id="recent-list"' in index
     assert 'id="preset-grid"' in index
     assert 'id="validate-button"' in index
+    for element_id in (
+        "document-tabs",
+        "markdown-editor",
+        "preview-document",
+        "outline-list",
+        "frontmatter-form",
+        "asset-list",
+        "citation-list",
+        "problem-list",
+        "find-bar",
+        "recovery-modal",
+    ):
+        assert f'id="{element_id}"' in index
     assert 'type="module" src="./js/main.mjs"' in index
     assert "sidecar_request" in main
     assert "sidecar_cancel" in main
     assert "desktop-open-files" in main
+    for method in (
+        "document.read",
+        "document.save",
+        "document.list_assets",
+        "document.import_asset",
+        "preview.document_text",
+        "validate.document_text",
+    ):
+        authoring_api = DESKTOP / "frontend" / "js" / "core" / "authoring-api.mjs"
+        assert method in authoring_api.read_text(encoding="utf-8")
+    for module in (
+        "authoring-api.mjs",
+        "documents.mjs",
+        "editor-commands.mjs",
+        "find-replace.mjs",
+        "markdown-analysis.mjs",
+        "recovery.mjs",
+        "session.mjs",
+    ):
+        assert (DESKTOP / "frontend" / "js" / "core" / module).is_file()
     assert "fetch(" not in main
     assert "window.open" not in main
     assert "devUrl" not in index
@@ -153,3 +191,15 @@ def test_node_frontend_contracts() -> None:
         pytest.skip("Node.js is not installed")
     tests = sorted(str(path) for path in (DESKTOP / "tests").glob("*.test.mjs"))
     subprocess.run([node, "--test", *tests], cwd=ROOT, check=True)
+
+
+def test_authoring_dom_ids_are_unique_and_controller_targets_exist() -> None:
+    import re
+
+    index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    soup = BeautifulSoup(index, "html.parser")
+    ids = [element["id"] for element in soup.find_all(id=True)]
+    assert len(ids) == len(set(ids))
+    controller_ids = set(re.findall(r'\$\("#([A-Za-z0-9_-]+)"\)', main))
+    assert controller_ids <= set(ids)

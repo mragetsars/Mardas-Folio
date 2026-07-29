@@ -1,0 +1,48 @@
+import { invoke } from "./tauri.mjs";
+
+function requestId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+async function sidecar(method, params) {
+  return invoke("sidecar_request", { request_id: requestId(method.replaceAll(".", "-")), method, params });
+}
+
+export function readDocument(path) {
+  return sidecar("document.read", { path });
+}
+
+export function saveDocument({ path, content, expectedRevision = null, force = false }) {
+  return sidecar("document.save", {
+    path,
+    content,
+    expected_revision: expectedRevision,
+    force,
+  });
+}
+
+export function validateDocumentText({ path, content, options = {} }) {
+  return sidecar("validate.document_text", {
+    input_path: path || "untitled.md",
+    content,
+    discover_config: Boolean(path),
+    options,
+  });
+}
+
+export function previewDocumentText({ path, content, options = {} }) {
+  return sidecar("preview.document_text", {
+    input_path: path || "untitled.md",
+    content,
+    discover_config: Boolean(path),
+    options,
+  });
+}
+
+export function listDocumentAssets(path) {
+  return sidecar("document.list_assets", { path });
+}
+
+export function importDocumentAsset(documentPath, sourcePath) {
+  return sidecar("document.import_asset", { document_path: documentPath, source_path: sourcePath });
+}
