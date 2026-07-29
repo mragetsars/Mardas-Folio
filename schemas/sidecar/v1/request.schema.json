@@ -4,23 +4,47 @@
   "title": "Mardas Sidecar JSON-RPC Request",
   "type": "object",
   "additionalProperties": false,
-  "required": ["jsonrpc", "id", "method"],
+  "required": [
+    "jsonrpc",
+    "id",
+    "method"
+  ],
   "properties": {
-    "jsonrpc": {"const": "2.0"},
-    "id": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "integer"}]},
+    "jsonrpc": {
+      "const": "2.0"
+    },
+    "id": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    },
     "method": {
       "enum": [
         "system.health",
         "system.capabilities",
         "system.shutdown",
         "job.cancel",
+        "document.read",
+        "document.save",
+        "document.list_assets",
+        "document.import_asset",
         "render.document",
         "render.book",
         "preview.document",
+        "preview.document_text",
         "validate.document",
+        "validate.document_text",
         "validate.book"
       ]
     },
-    "params": {"type": "object"}
+    "params": {
+      "type": "object"
+    }
   }
 }

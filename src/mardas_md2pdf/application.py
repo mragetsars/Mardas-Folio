@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -18,14 +19,35 @@ from .book import (
 )
 from .config import LoadedProjectConfig, load_project_config
 from .diagnostics import Diagnostic, has_errors
-from .markdown import MarkdownInputError, MarkdownRenderResult, render_markdown_file
+from .markdown import (
+    MarkdownInputError,
+    MarkdownRenderResult,
+    render_markdown_file,
+    render_markdown_text,
+)
 from .protocol import PROTOCOL_NAME, PROTOCOL_VERSION
 from .renderer import PdfOptions, RenderSession, build_html, convert
 from .runtime import resolved_chromium_path, runtime_info
 
 ProgressCallback = Callable[[str, float], None]
 CancellationCallback = Callable[[], bool]
-ENGINE_API_VERSION = "1.0.0"
+ENGINE_API_VERSION = "1.1.0"
+MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
+MAX_IMPORTED_ASSET_BYTES = 64 * 1024 * 1024
+_ASSET_EXTENSIONS = {
+    ".avif",
+    ".bib",
+    ".bmp",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".json",
+    ".png",
+    ".svg",
+    ".webp",
+    ".yaml",
+    ".yml",
+}
 
 _OPTION_FIELDS = {
     item.name
@@ -105,6 +127,230 @@ def _atomic_write_text(path: Path, text: str) -> None:
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
+
+
+def _atomic_write_bytes(path: Path, payload: bytes) -> None:
+    path = Path(path).expanduser().resolve(strict=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing_mode = path.stat().st_mode & 0o777 if path.exists() else None
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if existing_mode is not None:
+            os.chmod(temporary, existing_mode)
+        else:
+            current_umask = os.umask(0)
+            os.umask(current_umask)
+            os.chmod(temporary, 0o666 & ~current_umask)
+        os.replace(temporary, path)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def _document_revision(path: Path) -> str:
+    stat_result = path.stat()
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    return f"{stat_result.st_mtime_ns}:{stat_result.st_size}:{digest}"
+
+
+def read_document(path: str | os.PathLike[str]) -> dict[str, Any]:
+    source = Path(path).expanduser().resolve(strict=True)
+    if source.suffix.casefold() not in {".md", ".markdown"}:
+        raise EngineError(
+            "Only Markdown documents can be opened in the authoring workspace.",
+            code="MARDAS-DOCUMENT-TYPE",
+            details={"path": str(source)},
+        )
+    size = source.stat().st_size
+    if size > MAX_DOCUMENT_BYTES:
+        raise EngineError(
+            "Markdown document exceeds the editor size limit.",
+            code="MARDAS-DOCUMENT-TOO-LARGE",
+            details={"size_bytes": size, "limit_bytes": MAX_DOCUMENT_BYTES},
+        )
+    try:
+        content = source.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise EngineError(
+            "Markdown document must be UTF-8 encoded.",
+            code="MARDAS-DOCUMENT-ENCODING",
+            details={"path": str(source)},
+        ) from exc
+    return {
+        "path": str(source),
+        "content": content,
+        "size_bytes": size,
+        "revision": _document_revision(source),
+        "read_only": not os.access(source, os.W_OK),
+    }
+
+
+def save_document(
+    path: str | os.PathLike[str],
+    content: str,
+    *,
+    expected_revision: str | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    target = Path(path).expanduser().resolve(strict=False)
+    if target.suffix.casefold() not in {".md", ".markdown"}:
+        raise EngineError(
+            "Markdown documents must use the .md or .markdown extension.",
+            code="MARDAS-DOCUMENT-TYPE",
+            details={"path": str(target)},
+        )
+    if not isinstance(content, str):
+        raise EngineError(
+            "content must be a string.",
+            code="MARDAS-INVALID-PARAMS",
+            details={"parameter": "content"},
+        )
+    payload = content.encode("utf-8")
+    if len(payload) > MAX_DOCUMENT_BYTES:
+        raise EngineError(
+            "Markdown document exceeds the editor size limit.",
+            code="MARDAS-DOCUMENT-TOO-LARGE",
+            details={"size_bytes": len(payload), "limit_bytes": MAX_DOCUMENT_BYTES},
+        )
+    current_revision = _document_revision(target) if target.is_file() else None
+    if not force and expected_revision is not None and expected_revision != current_revision:
+        raise EngineError(
+            "The document changed on disk after it was opened.",
+            code="MARDAS-DOCUMENT-CONFLICT",
+            details={
+                "path": str(target),
+                "expected_revision": expected_revision,
+                "current_revision": current_revision,
+            },
+        )
+    try:
+        _atomic_write_text(target, content)
+    except OSError as exc:
+        raise EngineError(
+            f"Could not save Markdown document: {exc}",
+            code="MARDAS-DOCUMENT-SAVE",
+            details={"path": str(target)},
+        ) from exc
+    return {
+        "path": str(target),
+        "size_bytes": target.stat().st_size,
+        "revision": _document_revision(target),
+        "read_only": not os.access(target, os.W_OK),
+    }
+
+
+def list_document_assets(path: str | os.PathLike[str]) -> dict[str, Any]:
+    document = Path(path).expanduser().resolve(strict=False)
+    root = document.parent
+    assets: list[dict[str, Any]] = []
+    if not root.is_dir():
+        return {"root": str(root), "assets": assets}
+    for candidate in sorted(root.rglob("*"), key=lambda item: item.as_posix().casefold()):
+        if len(assets) >= 500:
+            break
+        if not candidate.is_file() or candidate.is_symlink():
+            continue
+        try:
+            relative = candidate.relative_to(root)
+        except ValueError:
+            continue
+        if len(relative.parts) > 4 or candidate.suffix.casefold() not in _ASSET_EXTENSIONS:
+            continue
+        stat_result = candidate.stat()
+        assets.append(
+            {
+                "path": str(candidate),
+                "relative_path": relative.as_posix(),
+                "name": candidate.name,
+                "extension": candidate.suffix.casefold(),
+                "size_bytes": stat_result.st_size,
+            }
+        )
+    return {"root": str(root), "assets": assets}
+
+
+def import_document_asset(
+    document_path: str | os.PathLike[str], source_path: str | os.PathLike[str]
+) -> dict[str, Any]:
+    document = Path(document_path).expanduser().resolve(strict=False)
+    selected_source = Path(source_path).expanduser()
+    if selected_source.is_symlink():
+        raise EngineError(
+            "Symbolic-link assets are not accepted.",
+            code="MARDAS-ASSET-INVALID",
+            details={"path": str(selected_source)},
+        )
+    source = selected_source.resolve(strict=True)
+    if not source.is_file():
+        raise EngineError(
+            "Selected asset is not a regular file.",
+            code="MARDAS-ASSET-INVALID",
+            details={"path": str(source)},
+        )
+    if source.suffix.casefold() not in _ASSET_EXTENSIONS:
+        raise EngineError(
+            "Selected asset type is not supported.",
+            code="MARDAS-ASSET-TYPE",
+            details={"extension": source.suffix.casefold()},
+        )
+    size = source.stat().st_size
+    if size > MAX_IMPORTED_ASSET_BYTES:
+        raise EngineError(
+            "Selected asset exceeds the import size limit.",
+            code="MARDAS-ASSET-TOO-LARGE",
+            details={"size_bytes": size, "limit_bytes": MAX_IMPORTED_ASSET_BYTES},
+        )
+    try:
+        payload = source.read_bytes()
+    except OSError as exc:
+        raise EngineError(
+            f"Could not read selected asset: {exc}",
+            code="MARDAS-ASSET-IMPORT",
+            details={"path": str(source)},
+        ) from exc
+
+    target_dir = document.parent / "assets"
+    if target_dir.is_symlink():
+        raise EngineError(
+            "The document assets directory must not be a symbolic link.",
+            code="MARDAS-ASSET-INVALID",
+            details={"path": str(target_dir)},
+        )
+    target_dir.mkdir(parents=True, exist_ok=True)
+    stem = source.stem or "asset"
+    suffix = source.suffix.casefold()
+    source_digest = hashlib.sha256(payload).digest()
+    target = target_dir / f"{stem}{suffix}"
+    counter = 2
+    while target.exists() or target.is_symlink():
+        identical = False
+        if target.is_file() and not target.is_symlink() and target.stat().st_size == len(payload):
+            identical = hashlib.sha256(target.read_bytes()).digest() == source_digest
+        if identical:
+            break
+        target = target_dir / f"{stem}-{counter}{suffix}"
+        counter += 1
+    if not target.exists():
+        try:
+            _atomic_write_bytes(target, payload)
+        except OSError as exc:
+            raise EngineError(
+                f"Could not import asset: {exc}",
+                code="MARDAS-ASSET-IMPORT",
+                details={"path": str(source)},
+            ) from exc
+    return {
+        "path": str(target),
+        "relative_path": target.relative_to(document.parent).as_posix(),
+        "name": target.name,
+        "extension": suffix,
+        "size_bytes": target.stat().st_size,
+    }
 
 
 def _path_value(value: Any, *, base_dir: Path) -> Path | None:
@@ -287,6 +533,58 @@ def _render_markdown_for_options(options: PdfOptions) -> MarkdownRenderResult:
     return result
 
 
+def _render_markdown_text_for_options(options: PdfOptions, content: str) -> MarkdownRenderResult:
+    if not isinstance(content, str):
+        raise EngineError(
+            "content must be a string.",
+            code="MARDAS-INVALID-PARAMS",
+            details={"parameter": "content"},
+        )
+    return render_markdown_text(
+        content,
+        source_path=options.input_path,
+        toc=options.toc,
+        toc_depth=options.toc_depth,
+        appearance_style=options.style,
+        appearance_mode=options.mode,
+        language=options.document_language,
+        unsafe_html=options.unsafe_html,
+        allow_remote_images=options.allow_remote_assets,
+        references_enabled=options.references_enabled,
+        numbering_scope=options.numbering_scope,
+        list_of_figures=options.list_of_figures,
+        list_of_tables=options.list_of_tables,
+        list_of_equations=options.list_of_equations,
+        list_of_listings=options.list_of_listings,
+        citations_enabled=options.citations_enabled,
+        bibliography_sources=(options.bibliography_sources or None),
+        citation_style=options.citation_style,
+        bibliography_title=options.bibliography_title,
+        bibliography_include_uncited=options.bibliography_include_uncited,
+    )
+
+
+def _json_safe(value: Any) -> Any:
+    return json.loads(json.dumps(value, ensure_ascii=False, default=str))
+
+
+def _document_summary(result: MarkdownRenderResult) -> dict[str, Any]:
+    return {
+        "title": result.title,
+        "headings": len(result.toc_entries),
+        "metadata_keys": sorted(result.metadata),
+        "numbered_objects": len(result.reference_objects),
+        "cited_entries": len(result.cited_keys),
+        "outline": [
+            {"level": level, "title": title, "id": heading_id, "number": number}
+            for level, title, heading_id, number in result.toc_entries
+        ],
+        "metadata": _json_safe(result.metadata),
+        "citation_entries": _json_safe(result.citation_entries),
+        "cited_keys": list(result.cited_keys),
+    }
+
+
 def validate_document(options: PdfOptions) -> dict[str, Any]:
     try:
         result = _render_markdown_for_options(options)
@@ -302,13 +600,46 @@ def validate_document(options: PdfOptions) -> dict[str, Any]:
     return {
         "ok": not has_errors(diagnostics),
         "diagnostics": [item.to_dict() for item in diagnostics],
-        "document": {
-            "title": result.title,
-            "headings": len(result.toc_entries),
-            "metadata_keys": sorted(result.metadata),
-            "numbered_objects": len(result.reference_objects),
-            "cited_entries": len(result.cited_keys),
-        },
+        "document": _document_summary(result),
+    }
+
+
+def validate_document_text(options: PdfOptions, content: str) -> dict[str, Any]:
+    """Validate an unsaved editor buffer against its intended source path."""
+
+    try:
+        result = _render_markdown_text_for_options(options, content)
+    except (MarkdownInputError, OSError, UnicodeError, ValueError) as exc:
+        diagnostic = Diagnostic(
+            "MARDAS-E203",
+            "error",
+            str(exc),
+            path=options.input_path,
+        )
+        return {"ok": False, "diagnostics": [diagnostic.to_dict()]}
+    diagnostics = tuple(result.diagnostics)
+    return {
+        "ok": not has_errors(diagnostics),
+        "diagnostics": [item.to_dict() for item in diagnostics],
+        "document": _document_summary(result),
+    }
+
+
+def preview_document_text(options: PdfOptions, content: str) -> dict[str, Any]:
+    """Return a safe in-memory authoring preview for a dirty editor buffer."""
+
+    result = _render_markdown_text_for_options(options, content)
+    if has_errors(result.diagnostics):
+        raise EngineValidationError("Document validation failed.", result.diagnostics)
+    return {
+        "title": result.title,
+        "body_html": result.body_html,
+        "toc_html": result.toc_html,
+        "reference_lists_html": result.reference_lists_html,
+        "bibliography_html": result.bibliography_html,
+        "pygments_css": result.pygments_css,
+        "diagnostics": [item.to_dict() for item in result.diagnostics],
+        "document": _document_summary(result),
     }
 
 
@@ -462,10 +793,16 @@ class EngineService:
                 "system.capabilities",
                 "system.shutdown",
                 "job.cancel",
+                "document.read",
+                "document.save",
+                "document.list_assets",
+                "document.import_asset",
                 "render.document",
                 "render.book",
                 "preview.document",
+                "preview.document_text",
                 "validate.document",
+                "validate.document_text",
                 "validate.book",
             ],
             "render_options": sorted(_OPTION_FIELDS),
@@ -482,6 +819,28 @@ class EngineService:
         progress: ProgressCallback | None = None,
         cancelled: CancellationCallback | None = None,
     ) -> dict[str, Any]:
+        if method == "document.read":
+            _validate_params(params, {"path"})
+            return read_document(_required_string(params, "path"))
+        if method == "document.save":
+            _validate_params(params, {"path", "content", "expected_revision", "force"})
+            force = _optional_bool(params, "force", default=False)
+            expected_revision = _optional_string(params, "expected_revision")
+            return save_document(
+                _required_string(params, "path"),
+                _required_content(params),
+                expected_revision=expected_revision,
+                force=force,
+            )
+        if method == "document.list_assets":
+            _validate_params(params, {"path"})
+            return list_document_assets(_required_string(params, "path"))
+        if method == "document.import_asset":
+            _validate_params(params, {"document_path", "source_path"})
+            return import_document_asset(
+                _required_string(params, "document_path"),
+                _required_string(params, "source_path"),
+            )
         if method == "render.document":
             _validate_params(
                 params,
@@ -511,6 +870,22 @@ class EngineService:
                 cancelled=cancelled,
             )
             return validate_document(options)
+        if method in {"validate.document_text", "preview.document_text"}:
+            _validate_params(
+                params,
+                {"input_path", "content", "config_path", "discover_config", "options"},
+            )
+            options = pdf_options_from_request(
+                input_path=_required_string(params, "input_path"),
+                config_path=_optional_string(params, "config_path"),
+                discover_config=_optional_bool(params, "discover_config", default=True),
+                options=_mapping(params.get("options", {}), "options"),
+                cancelled=cancelled,
+            )
+            content = _required_content(params)
+            if method == "validate.document_text":
+                return validate_document_text(options, content)
+            return preview_document_text(options, content)
         if method == "preview.document":
             _validate_params(
                 params,
@@ -567,6 +942,17 @@ def _required_string(params: Mapping[str, Any], key: str) -> str:
             details={"parameter": key},
         )
     return value.strip()
+
+
+def _required_content(params: Mapping[str, Any]) -> str:
+    value = params.get("content")
+    if not isinstance(value, str):
+        raise EngineError(
+            "content must be a string.",
+            code="MARDAS-INVALID-PARAMS",
+            details={"parameter": "content"},
+        )
+    return value
 
 
 def _optional_string(params: Mapping[str, Any], key: str) -> str | None:

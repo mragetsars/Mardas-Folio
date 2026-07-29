@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import os
 import stat
 from pathlib import Path
 
@@ -235,3 +236,121 @@ def test_render_book_project_reads_configured_quality_report(
     result = application.render_book_project(tmp_path / "mardas.toml")
     assert result["quality"] == {"ok": True}
     assert result["quality_report"] == str(quality_path)
+
+
+def test_unsaved_document_text_uses_source_relative_assets(tmp_path: Path) -> None:
+    source = tmp_path / "doc.md"
+    image = tmp_path / "image.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\n")
+    source.write_text("# Saved title\n", encoding="utf-8")
+    options = PdfOptions(input_path=source, output_path=tmp_path / "unused.pdf", cover=False)
+
+    validated = application.validate_document_text(
+        options,
+        "---\ntitle: Dirty title\n---\n\n# Heading\n\n![Local](image.png)\n",
+    )
+    assert validated["ok"] is True
+    assert validated["document"]["title"] == "Dirty title"
+    assert validated["document"]["outline"][0]["title"] == "Heading"
+
+    preview = application.preview_document_text(options, "# Unsaved\n\n**buffer**")
+    assert preview["title"] == "Unsaved"
+    assert "buffer" in preview["body_html"]
+    assert source.read_text(encoding="utf-8") == "# Saved title\n"
+
+
+def test_document_read_save_conflict_and_asset_import(tmp_path: Path) -> None:
+    source = tmp_path / "doc.md"
+    source.write_text("# One\n", encoding="utf-8")
+    opened = application.read_document(source)
+    assert opened["content"] == "# One\n"
+
+    saved = application.save_document(
+        source,
+        "# Two\n",
+        expected_revision=opened["revision"],
+    )
+    assert saved["revision"] != opened["revision"]
+    source.write_text("# External\n", encoding="utf-8")
+    with pytest.raises(EngineError) as conflict:
+        application.save_document(
+            source,
+            "# Editor\n",
+            expected_revision=saved["revision"],
+        )
+    assert conflict.value.code == "MARDAS-DOCUMENT-CONFLICT"
+    assert source.read_text(encoding="utf-8") == "# External\n"
+
+    image = tmp_path / "outside.png"
+    image.write_bytes(b"png")
+    imported = application.import_document_asset(source, image)
+    assert imported["relative_path"] == "assets/outside.png"
+    assets = application.list_document_assets(source)["assets"]
+    assert any(item["relative_path"] == "assets/outside.png" for item in assets)
+
+
+def test_engine_service_dispatches_authoring_methods(tmp_path: Path) -> None:
+    source = tmp_path / "doc.md"
+    source.write_text("# Source\n", encoding="utf-8")
+    service = EngineService()
+    opened = service.dispatch("document.read", {"path": str(source)})
+    saved = service.dispatch(
+        "document.save",
+        {
+            "path": str(source),
+            "content": "# Changed\n",
+            "expected_revision": opened["revision"],
+            "force": False,
+        },
+    )
+    assert saved["path"] == str(source)
+    preview = service.dispatch(
+        "preview.document_text",
+        {
+            "input_path": str(source),
+            "content": "# Dirty buffer\n",
+            "discover_config": False,
+        },
+    )
+    assert preview["title"] == "Dirty buffer"
+    assert "document.read" in service.capabilities()["methods"]
+    assert "validate.document_text" in service.capabilities()["methods"]
+
+
+def test_asset_import_rejects_symbolic_links(tmp_path: Path) -> None:
+    if not hasattr(os, "symlink"):
+        pytest.skip("symbolic links are not supported")
+    document = tmp_path / "doc.md"
+    document.write_text("# Doc\n", encoding="utf-8")
+    source = tmp_path / "source.png"
+    source.write_bytes(b"png")
+    selected = tmp_path / "selected.png"
+    try:
+        selected.symlink_to(source)
+    except OSError:
+        pytest.skip("symbolic links are not available for this test user")
+
+    with pytest.raises(EngineError) as caught:
+        application.import_document_asset(document, selected)
+    assert caught.value.code == "MARDAS-ASSET-INVALID"
+
+
+def test_asset_import_rejects_symbolic_assets_directory(tmp_path: Path) -> None:
+    if not hasattr(os, "symlink"):
+        pytest.skip("symbolic links are not supported")
+    document = tmp_path / "doc.md"
+    document.write_text("# Doc\n", encoding="utf-8")
+    external = tmp_path / "external-assets"
+    external.mkdir()
+    assets = tmp_path / "assets"
+    try:
+        assets.symlink_to(external, target_is_directory=True)
+    except OSError:
+        pytest.skip("symbolic links are not available for this test user")
+    source = tmp_path / "source.png"
+    source.write_bytes(b"png")
+
+    with pytest.raises(EngineError) as caught:
+        application.import_document_asset(document, source)
+    assert caught.value.code == "MARDAS-ASSET-INVALID"
+    assert not (external / "source.png").exists()

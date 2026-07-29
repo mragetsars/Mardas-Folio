@@ -3088,9 +3088,10 @@ def render_markdown(
     )
 
 
-def render_markdown_file(
-    path: str | Path,
+def render_markdown_text(
+    text: str,
     *,
+    source_path: str | Path,
     toc: bool = False,
     toc_depth: int = 6,
     code_style: str | None = None,
@@ -3115,8 +3116,15 @@ def render_markdown_file(
     bibliography_include_uncited: bool | None = None,
     defer_citation_resolution: bool = False,
 ) -> MarkdownRenderResult:
-    input_path = Path(path)
-    text = input_path.read_text(encoding="utf-8-sig")
+    """Render unsaved Markdown while resolving assets relative to its intended path.
+
+    Desktop editors must validate and preview dirty buffers without overwriting the
+    user's file.  ``source_path`` supplies the same trust boundary and relative
+    asset root used by :func:`render_markdown_file` while ``text`` remains purely
+    in memory.
+    """
+
+    input_path = Path(source_path).expanduser().resolve(strict=False)
     source_diagnostics: tuple[Diagnostic, ...] = ()
     resolved_sources: list[Path] = []
     if bibliography_sources is not None:
@@ -3133,7 +3141,7 @@ def render_markdown_file(
         if isinstance(raw_sources, (str, Path)):
             raw_sources = [raw_sources]
         if isinstance(raw_sources, list):
-            root = Path(document_root).resolve() if document_root is not None else input_path.resolve().parent
+            root = Path(document_root).resolve() if document_root is not None else input_path.parent
             for item in raw_sources:
                 candidate = Path(str(item)).expanduser()
                 if candidate.is_absolute():
@@ -3146,7 +3154,7 @@ def render_markdown_file(
                         ),
                     )
                     continue
-                candidate = (input_path.resolve().parent / candidate).resolve(strict=False)
+                candidate = (input_path.parent / candidate).resolve(strict=False)
                 try:
                     candidate.relative_to(root)
                 except ValueError:
@@ -3189,13 +3197,71 @@ def render_markdown_file(
         bibliography_include_uncited=bibliography_include_uncited,
         bibliography_library=bibliography_library,
         defer_citation_resolution=defer_citation_resolution,
-        source_path=input_path.resolve(),
+        source_path=input_path,
     )
     result.diagnostics = source_diagnostics + result.diagnostics
     result.body_html = embed_local_images(
         result.body_html,
-        input_path.resolve().parent,
+        input_path.parent,
         document_root=document_root,
         allow_remote_images=allow_remote_images,
     )
     return result
+
+
+def render_markdown_file(
+    path: str | Path,
+    *,
+    toc: bool = False,
+    toc_depth: int = 6,
+    code_style: str | None = None,
+    appearance_style: str | None = None,
+    appearance_mode: str | None = None,
+    language: str | None = None,
+    unsafe_html: bool = False,
+    allow_remote_images: bool = False,
+    document_root: str | Path | None = None,
+    references_enabled: bool | None = None,
+    numbering_scope: str | None = None,
+    list_of_figures: bool | None = None,
+    list_of_tables: bool | None = None,
+    list_of_equations: bool | None = None,
+    list_of_listings: bool | None = None,
+    defer_reference_resolution: bool = False,
+    citations_enabled: bool | None = None,
+    bibliography_sources: Sequence[Path] | None = None,
+    bibliography_library: BibliographyLibrary | None = None,
+    citation_style: str | None = None,
+    bibliography_title: str | None = None,
+    bibliography_include_uncited: bool | None = None,
+    defer_citation_resolution: bool = False,
+) -> MarkdownRenderResult:
+    input_path = Path(path)
+    text = input_path.read_text(encoding="utf-8-sig")
+    return render_markdown_text(
+        text,
+        source_path=input_path,
+        toc=toc,
+        toc_depth=toc_depth,
+        code_style=code_style,
+        appearance_style=appearance_style,
+        appearance_mode=appearance_mode,
+        language=language,
+        unsafe_html=unsafe_html,
+        allow_remote_images=allow_remote_images,
+        document_root=document_root,
+        references_enabled=references_enabled,
+        numbering_scope=numbering_scope,
+        list_of_figures=list_of_figures,
+        list_of_tables=list_of_tables,
+        list_of_equations=list_of_equations,
+        list_of_listings=list_of_listings,
+        defer_reference_resolution=defer_reference_resolution,
+        citations_enabled=citations_enabled,
+        bibliography_sources=bibliography_sources,
+        bibliography_library=bibliography_library,
+        citation_style=citation_style,
+        bibliography_title=bibliography_title,
+        bibliography_include_uncited=bibliography_include_uncited,
+        defer_citation_resolution=defer_citation_resolution,
+    )
