@@ -15,21 +15,30 @@ export function normalizeSession(value) {
     if (paths.length >= MAX_SESSION_PATHS) break;
   }
   const activePath = typeof value?.activePath === "string" && value.activePath.trim() ? value.activePath.trim() : null;
-  return { paths, activePath };
+  const projectPath = typeof value?.projectPath === "string" && value.projectPath.trim()
+    ? value.projectPath.trim()
+    : null;
+  return { paths, activePath, projectPath };
 }
 
 export function readSession(storage = globalThis.localStorage) {
   try {
     return normalizeSession(JSON.parse(storage.getItem(SESSION_STORAGE_KEY) || "{}"));
   } catch {
-    return { paths: [], activePath: null };
+    return { paths: [], activePath: null, projectPath: null };
   }
 }
 
-export function writeSession(documents, activeDocument, storage = globalThis.localStorage) {
+export function writeSession(
+  documents,
+  activeDocument,
+  projectPath = null,
+  storage = globalThis.localStorage,
+) {
   const session = normalizeSession({
     paths: (Array.isArray(documents) ? documents : []).map((document) => document.path).filter(Boolean),
     activePath: activeDocument?.path ?? null,
+    projectPath,
   });
   try {
     storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));

@@ -28,6 +28,15 @@ import {
 } from "./core/markdown-analysis.mjs";
 import { prefixSelectedLines, replaceSelection, wrapSelection } from "./core/editor-commands.mjs";
 import { findLiteralMatches, replaceAllLiteral } from "./core/find-replace.mjs";
+import { createEditorAdapter } from "./core/editor-adapter.mjs";
+import {
+  bibliographyIndex,
+  cancelSidecarRequest,
+  openProject,
+  readProjectFile,
+  refreshProject,
+  startProjectSearch,
+} from "./core/project-api.mjs";
 import {
   importDocumentAsset,
   listDocumentAssets,
@@ -57,7 +66,14 @@ const state = {
   findMatches: [],
   findIndex: -1,
   activeSidebar: "outline",
+  project: null,
+  projectSearchSequence: 0,
+  activeProjectSearchRequestId: null,
+  bibliographySequence: 0,
+  bibliographyEntries: [],
+  previewSyncing: false,
 };
+let editorAdapter = null;
 const translator = createTranslator(state.locale);
 const t = (key) => translator.t(key);
 
@@ -78,6 +94,9 @@ function setLocale(value) {
   $("#locale-button").textContent = state.locale === "fa" ? "EN" : "فا";
   $$('[data-i18n]').forEach((element) => {
     element.textContent = t(element.dataset.i18n);
+  });
+  $$('[data-i18n-placeholder]').forEach((element) => {
+    element.placeholder = t(element.dataset.i18nPlaceholder);
   });
   renderPresets();
   renderRecents();
@@ -347,7 +366,7 @@ async function openResult(reveal) {
 // Authoring workspace
 // ---------------------------------------------------------------------------
 function persistSession() {
-  writeSession(state.documents, activeDocument());
+  writeSession(state.documents, activeDocument(), state.project?.path ?? null);
 }
 
 function tabElement(model) {
@@ -436,6 +455,10 @@ function loadFrontMatterForm(model) {
 
 function renderCitations(model) {
   const used = extractCitationKeys(model?.content || "");
+  if (state.project) {
+    renderBibliographyEntries(state.bibliographyEntries, used);
+    return;
+  }
   const entries = Array.isArray(model?.preview?.document?.citation_entries) ? model.preview.document.citation_entries : [];
   const entryKeys = entries.map((entry) => entry.key || entry.id || entry.citation_key).filter(Boolean);
   const keys = [...new Set([...used, ...entryKeys])].sort((a, b) => String(a).localeCompare(String(b)));
@@ -459,7 +482,10 @@ function renderCitations(model) {
 }
 
 function renderProblems(model) {
-  const diagnostics = Array.isArray(model?.diagnostics) ? model.diagnostics : [];
+  const diagnostics = [
+    ...(Array.isArray(model?.diagnostics) ? model.diagnostics : []),
+    ...(Array.isArray(model?.bibliographyDiagnostics) ? model.bibliographyDiagnostics : []),
+  ];
   $("#problem-count").textContent = String(diagnostics.length);
   const list = $("#problem-list");
   list.replaceChildren();
@@ -501,7 +527,8 @@ function renderAssets(items = []) {
 function renderWorkspace() {
   const model = activeDocument();
   renderDocumentTabs();
-  const editor = $("#markdown-editor");
+  const editor = editorAdapter || $("#markdown-editor");
+  renderProjectWorkspace();
   if (!model) {
     editor.value = "";
     editor.disabled = true;
@@ -532,7 +559,7 @@ function activateDocument(id) {
   state.activeDocumentId = id;
   persistSession();
   renderWorkspace();
-  $("#markdown-editor").focus();
+  (editorAdapter || $("#markdown-editor")).focus();
   schedulePreview(80);
   if (model.path) refreshAssets();
 }
@@ -545,7 +572,7 @@ function createUntitledDocument() {
   renderWorkspace();
   scheduleRecovery();
   schedulePreview(120);
-  $("#markdown-editor").focus();
+  (editorAdapter || $("#markdown-editor")).focus();
 }
 
 async function openAuthoringPaths(paths) {
@@ -581,6 +608,239 @@ async function chooseAuthoringFiles() {
     const paths = await invoke("pick_markdown_files");
     await openAuthoringPaths(paths || []);
   } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
+async function chooseProjectDirectory() {
+  try {
+    const path = await invoke("pick_project_directory");
+    if (!path) return;
+    await loadProject(path);
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
+async function loadProject(path, { announce = true, openFirstChapter = true } = {}) {
+  const payload = await openProject(path);
+  state.project = payload;
+  state.bibliographyEntries = [];
+  persistSession();
+  renderProjectWorkspace();
+  showView("workspace");
+  activateSidebar("project");
+  if (announce) toast(t("projectOpened"), "success");
+  const firstChapter = payload.book?.chapters?.[0]?.path;
+  if (openFirstChapter && firstChapter && !activeDocument()) {
+    await openProjectRelativeFile(firstChapter);
+  }
+  return payload;
+}
+
+async function refreshActiveProject() {
+  if (!state.project?.path) {
+    await chooseProjectDirectory();
+    return;
+  }
+  try {
+    state.project = await refreshProject(state.project.path);
+    renderProjectWorkspace();
+    toast(t("projectRefreshed"), "success");
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
+function renderProjectWorkspace() {
+  const empty = $("#project-empty");
+  const tools = $("#project-tools");
+  const list = $("#project-file-tree");
+  if (!empty || !tools || !list) return;
+  const project = state.project;
+  empty.classList.toggle("hidden", Boolean(project));
+  tools.classList.toggle("hidden", !project);
+  list.replaceChildren();
+  if (!project) {
+    $("#project-search-results")?.replaceChildren();
+    return;
+  }
+  $("#project-name").textContent = project.name || t("projectWorkspace");
+  $("#project-path").textContent = project.path || "";
+  const files = Array.isArray(project.files) ? project.files : [];
+  for (const file of files) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tool-item";
+    button.dataset.kind = file.kind || "text";
+    button.innerHTML = `<span></span>`;
+    button.querySelector("span").textContent = file.chapter_title
+      ? `${file.chapter_title} — ${file.path}`
+      : file.path;
+    if (["markdown", "text", "config", "toml", "bibliography", "json"].includes(file.kind)) {
+      button.addEventListener("click", () => openProjectRelativeFile(file.path));
+    } else {
+      button.disabled = true;
+    }
+    list.append(button);
+  }
+}
+
+async function openProjectRelativeFile(relativePath, { line = null, column = 1 } = {}) {
+  if (!state.project?.path) return;
+  try {
+    const result = await readProjectFile(state.project.path, relativePath);
+    const existing = findDocumentByPath(state.documents, result.absolute_path);
+    let model = existing;
+    if (!model) {
+      model = createDocument({
+        path: result.absolute_path,
+        content: result.content,
+        revision: result.revision,
+        readOnly: result.read_only,
+      });
+      model.projectPath = state.project.path;
+      model.projectRelativePath = result.path;
+      model.projectSha256 = result.sha256;
+      state.documents.push(model);
+    }
+    state.activeDocumentId = model.id;
+    showView("workspace");
+    renderWorkspace();
+    persistSession();
+    schedulePreview(80);
+    if (line) queueMicrotask(() => goToLine(line, column));
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
+function renderProjectSearchResults(result) {
+  const list = $("#project-search-results");
+  list.replaceChildren();
+  const matches = Array.isArray(result?.matches) ? result.matches : [];
+  if (!matches.length) {
+    list.innerHTML = `<div class="tool-empty">${t("noSearchResults")}</div>`;
+    return;
+  }
+  for (const match of matches) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tool-item";
+    button.innerHTML = `<span class="match-location"></span><span class="match-preview"></span>`;
+    button.querySelector(".match-location").textContent = `${match.path}:${match.line}:${match.column}`;
+    button.querySelector(".match-preview").textContent = match.preview || "";
+    button.addEventListener("click", () =>
+      openProjectRelativeFile(match.path, { line: match.line, column: match.column })
+    );
+    list.append(button);
+  }
+}
+
+async function runProjectSearch() {
+  const project = state.project;
+  const query = $("#project-search-query").value.trim();
+  if (!project?.path || !query) {
+    renderProjectSearchResults({ matches: [] });
+    return;
+  }
+
+  if (state.activeProjectSearchRequestId) {
+    try {
+      await cancelSidecarRequest(state.activeProjectSearchRequestId);
+    } catch {
+      // A completed request no longer needs cancellation.
+    }
+  }
+
+  const sequence = ++state.projectSearchSequence;
+  const task = startProjectSearch({
+    projectPath: project.path,
+    query,
+    regex: $("#project-search-regex").checked,
+    caseSensitive: $("#project-search-case").checked,
+    maxResults: 200,
+  });
+  state.activeProjectSearchRequestId = task.requestId;
+  $("#run-project-search").disabled = true;
+  try {
+    const result = await task.promise;
+    if (sequence !== state.projectSearchSequence) return;
+    renderProjectSearchResults(result);
+  } catch (error) {
+    if (sequence !== state.projectSearchSequence) return;
+    const payload = errorPayload(error);
+    const applicationCode = payload?.application_code || payload?.data?.application_code;
+    if (applicationCode !== "MARDAS-JOB-CANCELLED") {
+      toast(errorText(error), "error");
+    }
+  } finally {
+    if (sequence === state.projectSearchSequence) {
+      state.activeProjectSearchRequestId = null;
+      $("#run-project-search").disabled = false;
+    }
+  }
+}
+
+function bibliographyEntryAuthors(entry) {
+  const authors = Array.isArray(entry?.authors) ? entry.authors : [];
+  return authors.map((author) => author.display || [author.family, author.given].filter(Boolean).join(", ")).filter(Boolean).join("; ");
+}
+
+function renderBibliographyEntries(entries, usedKeys = []) {
+  state.bibliographyEntries = Array.isArray(entries) ? entries : [];
+  const list = $("#citation-list");
+  list.replaceChildren();
+  $("#citation-count").textContent = String(state.bibliographyEntries.length);
+  if (!state.bibliographyEntries.length) {
+    list.innerHTML = `<div class="tool-empty">${t(state.project ? "noBibliography" : "noCitations")}</div>`;
+    return;
+  }
+  for (const entry of state.bibliographyEntries) {
+    const key = entry.key || entry.id;
+    if (!key) continue;
+    const cited = Boolean(entry.cited || usedKeys.includes(key));
+    const row = document.createElement("div");
+    row.className = "tool-item citation-entry";
+    row.dataset.cited = String(cited);
+    row.innerHTML = `<span class="citation-key"></span><span class="citation-body"><strong></strong><small></small></span><span class="citation-state"></span><button class="citation-insert" type="button"></button>`;
+    row.querySelector(".citation-key").textContent = `@${key}`;
+    row.querySelector("strong").textContent = entry.title || key;
+    row.querySelector("small").textContent = [bibliographyEntryAuthors(entry), entry.year].filter(Boolean).join(" · ");
+    row.querySelector(".citation-state").textContent = t(cited ? "cited" : "uncited");
+    const insert = row.querySelector(".citation-insert");
+    insert.textContent = t("insert");
+    insert.title = t("insertCitation");
+    insert.addEventListener("click", () => insertAtCursor(`[@${key}]`));
+    list.append(row);
+  }
+}
+
+async function refreshBibliography() {
+  const model = activeDocument();
+  const used = extractCitationKeys(model?.content || "");
+  if (!state.project?.path) {
+    renderCitations(model);
+    return;
+  }
+  const sequence = ++state.bibliographySequence;
+  try {
+    const result = await bibliographyIndex({
+      projectPath: state.project.path,
+      query: $("#citation-search").value.trim(),
+      citedKeys: used,
+      maxResults: 500,
+    });
+    if (sequence !== state.bibliographySequence) return;
+    renderBibliographyEntries(result.entries, used);
+    if (model) {
+      model.bibliographyDiagnostics = Array.isArray(result.diagnostics)
+        ? result.diagnostics
+        : [];
+      renderProblems(model);
+    }
+  } catch (error) {
+    if (sequence !== state.bibliographySequence) return;
     toast(errorText(error), "error");
   }
 }
@@ -668,7 +928,7 @@ function requestCloseDocument(id) {
 function onEditorInput() {
   const model = activeDocument();
   if (!model) return;
-  updateDocumentContent(model, $("#markdown-editor").value);
+  updateDocumentContent(model, (editorAdapter || $("#markdown-editor")).value);
   model.diagnostics = [];
   setSaveState("dirty");
   renderDocumentTabs();
@@ -721,6 +981,52 @@ function safePreviewHtml(value) {
   return template.content;
 }
 
+function previewSourceEntries(model = activeDocument()) {
+  const entries = Array.isArray(model?.preview?.source_map)
+    ? model.preview.source_map
+    : Array.isArray(model?.preview?.document?.source_map)
+      ? model.preview.document.source_map
+      : [];
+  return entries
+    .map((entry) => ({
+      id: String(entry.id || ""),
+      line: Number(entry.line) || 0,
+      level: Number(entry.level) || 0,
+      title: String(entry.title || ""),
+    }))
+    .filter((entry) => entry.id && entry.line > 0)
+    .sort((left, right) => left.line - right.line);
+}
+
+function syncPreviewToEditorLine(line, { center = false } = {}) {
+  const container = $("#preview-document");
+  const entries = previewSourceEntries();
+  if (!container || !entries.length) return;
+  let active = entries[0];
+  for (const entry of entries) {
+    if (entry.line > line) break;
+    active = entry;
+  }
+  container.querySelectorAll(".source-active").forEach((element) => element.classList.remove("source-active"));
+  const target = container.querySelector(`#${CSS.escape(active.id)}`)
+    || container.querySelector(`[data-source-line="${active.line}"]`);
+  if (!target) return;
+  target.classList.add("source-active");
+  if (center && !state.previewSyncing) {
+    state.previewSyncing = true;
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    setTimeout(() => { state.previewSyncing = false; }, 180);
+  }
+}
+
+function syncPreviewFromEditorScroll(scrollTop) {
+  const editorElement = editorAdapter?.element || $("#markdown-editor");
+  if (!editorElement || state.previewSyncing) return;
+  const lineHeight = Number.parseFloat(getComputedStyle(editorElement).lineHeight) || 24;
+  const visibleLine = Math.max(1, Math.floor((Number(scrollTop) || 0) / lineHeight) + 1);
+  syncPreviewToEditorLine(visibleLine);
+}
+
 function renderPreview(model) {
   const container = $("#preview-document");
   if (!model?.preview) {
@@ -734,14 +1040,20 @@ function renderPreview(model) {
     container.append(style);
   }
   container.append(safePreviewHtml(`${model.preview.body_html || ""}${model.preview.reference_lists_html || ""}${model.preview.bibliography_html || ""}`));
-  const outline = extractOutline(model.content);
-  container.querySelectorAll("h1,h2,h3,h4,h5,h6").forEach((heading, index) => {
-    const source = outline[index];
-    if (!source) return;
+  const sourceEntries = previewSourceEntries(model);
+  const byId = new Map(sourceEntries.map((entry) => [entry.id, entry]));
+  container.querySelectorAll("h1,h2,h3,h4,h5,h6").forEach((heading) => {
+    const sourceLine = Number(heading.dataset.sourceLine) || byId.get(heading.id)?.line || 0;
+    if (!sourceLine) return;
+    heading.dataset.sourceLine = String(sourceLine);
     heading.classList.add("preview-source-link");
-    heading.title = `Line ${source.line}`;
-    heading.addEventListener("click", () => goToLine(source.line));
+    heading.title = `Line ${sourceLine}`;
+    heading.addEventListener("click", () => goToLine(sourceLine));
   });
+  const cursor = (editorAdapter || $("#markdown-editor"));
+  const position = editorAdapter?.lineAtOffset(cursor.selectionStart)
+    || textMetrics(cursor.value, cursor.selectionStart);
+  syncPreviewToEditorLine(position.line);
 }
 
 async function refreshPreview() {
@@ -837,19 +1149,23 @@ function activateSidebar(name) {
   $$("[data-sidebar]").forEach((button) => button.classList.toggle("active", button.dataset.sidebar === name));
   $$("[data-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === name));
   if (name === "assets") refreshAssets();
+  if (name === "project") renderProjectWorkspace();
+  if (name === "citations") refreshBibliography();
 }
 
 function goToLine(line, column = 1) {
-  const editor = $("#markdown-editor");
-  const lines = editor.value.split("\n");
-  let offset = 0;
-  for (let index = 0; index < Math.max(0, line - 1); index += 1) offset += lines[index].length + 1;
-  offset += Math.max(0, column - 1);
-  editor.focus();
-  editor.setSelectionRange(offset, offset);
-  const lineHeight = Number.parseFloat(getComputedStyle(editor).lineHeight) || 24;
-  editor.scrollTop = Math.max(0, (line - 3) * lineHeight);
+  const editor = editorAdapter || $("#markdown-editor");
+  if (editorAdapter) editorAdapter.goToLine(line, column);
+  else {
+    const lines = editor.value.split("\n");
+    let offset = 0;
+    for (let index = 0; index < Math.max(0, line - 1); index += 1) offset += lines[index].length + 1;
+    offset += Math.max(0, column - 1);
+    editor.focus();
+    editor.setSelectionRange(offset, offset);
+  }
   updateEditorMetrics();
+  syncPreviewToEditorLine(Number(line) || 1, { center: true });
 }
 
 function updateFindMatches({ preserveIndex = false } = {}) {
@@ -1008,6 +1324,8 @@ function bindEvents() {
   $("#workflow-quick").addEventListener("click", () => showView("export"));
   $("#start-open-file").addEventListener("click", chooseAuthoringFiles);
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
+  $("#start-open-project").addEventListener("click", chooseProjectDirectory);
+  $("#workflow-project").addEventListener("click", chooseProjectDirectory);
   $("#export-back").addEventListener("click", () => showView("start"));
   $("#choose-source").addEventListener("click", chooseExportSource);
   $("#choose-output").addEventListener("click", chooseExportOutput);
@@ -1034,13 +1352,24 @@ function bindEvents() {
   $("#workspace-import-asset").addEventListener("click", importAsset);
   $("#import-asset").addEventListener("click", importAsset);
   $("#refresh-assets").addEventListener("click", refreshAssets);
+  $("#sidebar-open-project").addEventListener("click", chooseProjectDirectory);
+  $("#refresh-project").addEventListener("click", refreshActiveProject);
+  $("#run-project-search").addEventListener("click", runProjectSearch);
+  $("#project-search-query").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      runProjectSearch();
+    }
+  });
+  let citationSearchTimer = null;
+  $("#citation-search").addEventListener("input", () => {
+    clearTimeout(citationSearchTimer);
+    citationSearchTimer = setTimeout(refreshBibliography, 220);
+  });
+  $("#refresh-citations").addEventListener("click", refreshBibliography);
   $("#refresh-preview").addEventListener("click", refreshPreview);
   $("#auto-preview").addEventListener("change", () => { if ($("#auto-preview").checked) refreshPreview(); });
   $("#frontmatter-form").addEventListener("submit", applyFrontMatter);
-  $("#markdown-editor").addEventListener("input", onEditorInput);
-  $("#markdown-editor").addEventListener("click", updateEditorMetrics);
-  $("#markdown-editor").addEventListener("keyup", updateEditorMetrics);
-  $("#markdown-editor").addEventListener("scroll", () => { $("#line-gutter").scrollTop = $("#markdown-editor").scrollTop; });
   $("#find-query").addEventListener("input", () => { updateFindMatches(); if (state.findMatches.length) selectFindMatch(0); });
   $("#find-query").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); moveFind(event.shiftKey ? -1 : 1); } if (event.key === "Escape") closeFind(); });
   $("#find-previous").addEventListener("click", () => moveFind(-1));
@@ -1084,6 +1413,18 @@ function bindEvents() {
 }
 
 async function boot() {
+  editorAdapter = createEditorAdapter($("#markdown-editor"), {
+    onChange: onEditorInput,
+    onSelectionChange: () => {
+      updateEditorMetrics();
+      const position = editorAdapter.lineAtOffset();
+      syncPreviewToEditorLine(position.line);
+    },
+    onScroll: (scrollTop) => {
+      $("#line-gutter").scrollTop = scrollTop;
+      syncPreviewFromEditorScroll(scrollTop);
+    },
+  });
   setLocale(state.locale);
   selectPreset("general");
   bindEvents();
@@ -1105,6 +1446,16 @@ async function boot() {
       await openAuthoringPaths(launchFiles);
     } else {
       const session = readSession();
+      if (session.projectPath) {
+        try {
+          await loadProject(session.projectPath, {
+            announce: false,
+            openFirstChapter: false,
+          });
+        } catch {
+          state.project = null;
+        }
+      }
       if (session.paths.length) {
         await openAuthoringPaths(session.paths);
         const active = findDocumentByPath(state.documents, session.activePath);

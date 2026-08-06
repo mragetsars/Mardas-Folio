@@ -82,6 +82,7 @@ def test_native_shell_uses_stdio_sidecar_and_single_instance_first() -> None:
         "pick_markdown_output",
         "pick_pdf_output",
         "pick_document_asset",
+        "pick_project_directory",
         "sidecar_request",
         "sidecar_cancel",
         "take_launch_files",
@@ -116,6 +117,10 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "problem-list",
         "find-bar",
         "recovery-modal",
+        "project-file-tree",
+        "project-search-query",
+        "project-search-results",
+        "citation-search",
     ):
         assert f'id="{element_id}"' in index
     assert 'type="module" src="./js/main.mjs"' in index
@@ -132,6 +137,16 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
     ):
         authoring_api = DESKTOP / "frontend" / "js" / "core" / "authoring-api.mjs"
         assert method in authoring_api.read_text(encoding="utf-8")
+    project_api = DESKTOP / "frontend" / "js" / "core" / "project-api.mjs"
+    for method in (
+        "project.open",
+        "project.refresh",
+        "project.read",
+        "project.save",
+        "project.search",
+        "bibliography.index",
+    ):
+        assert method in project_api.read_text(encoding="utf-8")
     for module in (
         "authoring-api.mjs",
         "documents.mjs",
@@ -140,6 +155,8 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "markdown-analysis.mjs",
         "recovery.mjs",
         "session.mjs",
+        "editor-adapter.mjs",
+        "project-api.mjs",
     ):
         assert (DESKTOP / "frontend" / "js" / "core" / module).is_file()
     assert "fetch(" not in main

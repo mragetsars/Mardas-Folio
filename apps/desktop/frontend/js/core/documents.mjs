@@ -22,6 +22,7 @@ export function createDocument({ path = null, content = "", revision = null, rea
     revision: typeof revision === "string" ? revision : null,
     readOnly: Boolean(readOnly),
     diagnostics: [],
+    bibliographyDiagnostics: [],
     preview: null,
     lastSavedAt: resolvedPath ? Date.now() : null,
   };

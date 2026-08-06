@@ -118,6 +118,13 @@ fn pick_markdown_output(suggested_path: Option<String>) -> Option<String> {
 }
 
 #[tauri::command]
+fn pick_project_directory() -> Option<String> {
+    rfd::FileDialog::new()
+        .pick_folder()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
 fn pick_document_asset() -> Option<String> {
     rfd::FileDialog::new()
         .add_filter(
@@ -257,6 +264,7 @@ fn main() {
             pick_markdown_file,
             pick_markdown_files,
             pick_markdown_output,
+            pick_project_directory,
             pick_document_asset,
             pick_pdf_output,
             open_path,

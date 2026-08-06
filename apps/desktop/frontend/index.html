@@ -32,6 +32,7 @@
           <div class="hero-actions">
             <button class="button primary" id="start-quick-export" type="button" data-i18n="quickExport">خروجی سریع PDF</button>
             <button class="button glass" id="start-open-file" type="button" data-i18n="openMarkdown">باز کردن Markdown</button>
+            <button class="button glass" id="start-open-project" type="button" data-i18n="openProject">باز کردن پروژه</button>
           </div>
         </div>
         <div class="hero-art" aria-hidden="true">
@@ -46,7 +47,7 @@
           <div class="workflow-list">
             <button class="workflow featured" id="workflow-quick" type="button"><span class="workflow-icon">↗</span><span><strong data-i18n="quickExport">خروجی سریع PDF</strong><small data-i18n="quickExportHelp">یک فایل، چند انتخاب ساده، خروجی نهایی.</small></span><b>←</b></button>
             <button class="workflow" id="workflow-open" type="button"><span class="workflow-icon">MD</span><span><strong data-i18n="openMarkdown">باز کردن Markdown</strong><small data-i18n="openMarkdownHelp">فایل موجود را انتخاب و آماده انتشار کن.</small></span><b>←</b></button>
-            <div class="workflow disabled"><span class="workflow-icon">B</span><span><strong data-i18n="bookProject">پروژه کتاب</strong><small data-i18n="bookProjectHelp">مدیریت فصل‌ها و منابع در فضای نویسندگی بعدی.</small></span><mark data-i18n="comingNext">مرحله بعد</mark></div>
+            <button class="workflow" id="workflow-project" type="button"><span class="workflow-icon">P</span><span><strong data-i18n="openProject">باز کردن پروژه</strong><small data-i18n="chooseProjectHelp">پوشه‌ای را انتخاب کن که mardas.toml دارد.</small></span><b>←</b></button>
           </div>
         </section>
         <section class="panel recent-panel">
@@ -114,12 +115,36 @@
       <div class="authoring-grid">
         <aside class="author-sidebar">
           <nav class="sidebar-tabs" aria-label="Document tools">
+            <button type="button" data-sidebar="project" data-i18n="projectWorkspace">پروژه</button>
             <button class="active" type="button" data-sidebar="outline" data-i18n="outline">ساختار</button>
             <button type="button" data-sidebar="frontmatter" data-i18n="frontMatter">مشخصات</button>
             <button type="button" data-sidebar="assets" data-i18n="assets">فایل‌ها</button>
             <button type="button" data-sidebar="citations" data-i18n="citations">منابع</button>
             <button type="button" data-sidebar="problems" data-i18n="problems">اشکال‌ها</button>
           </nav>
+          <section class="sidebar-panel" data-panel="project">
+            <header><strong data-i18n="projectFiles">فایل‌های پروژه</strong><button class="text-button" id="refresh-project" type="button" data-i18n="refreshProject">بازخوانی پروژه</button></header>
+            <div class="project-empty" id="project-empty">
+              <p data-i18n="noProject">پروژه‌ای باز نیست.</p>
+              <small data-i18n="chooseProjectHelp">پوشه‌ای را انتخاب کن که mardas.toml دارد.</small>
+              <button class="button secondary compact" id="sidebar-open-project" type="button" data-i18n="openProject">باز کردن پروژه</button>
+            </div>
+            <div class="project-tools hidden" id="project-tools">
+              <strong id="project-name"></strong>
+              <small id="project-path"></small>
+              <div class="project-search-box">
+                <input id="project-search-query" type="search" data-i18n-placeholder="searchProject" placeholder="جست‌وجو در همه فایل‌ها">
+                <button class="button secondary compact" id="run-project-search" type="button" data-i18n="find">جست‌وجو</button>
+              </div>
+              <div class="project-search-options">
+                <label><input id="project-search-regex" type="checkbox"><span data-i18n="regularExpression">عبارت منظم</span></label>
+                <label><input id="project-search-case" type="checkbox"><span data-i18n="caseSensitive">حساس به بزرگی حروف</span></label>
+              </div>
+              <div class="tool-list project-search-results" id="project-search-results"></div>
+              <hr>
+              <div class="tool-list project-file-tree" id="project-file-tree"></div>
+            </div>
+          </section>
           <section class="sidebar-panel active" data-panel="outline">
             <header><strong data-i18n="documentOutline">ساختار سند</strong><span id="outline-count">0</span></header>
             <div class="tool-list" id="outline-list"></div>
@@ -142,8 +167,12 @@
             <div class="tool-list" id="asset-list"></div>
           </section>
           <section class="sidebar-panel" data-panel="citations">
-            <header><strong data-i18n="citations">منابع</strong><span id="citation-count">0</span></header>
+            <header><strong data-i18n="bibliographyLibrary">کتابخانه منابع</strong><span id="citation-count">0</span></header>
             <p class="sidebar-help" data-i18n="citationHelp">کلیدهای استفاده‌شده و ورودی‌های کتاب‌نامه اینجا نمایش داده می‌شوند.</p>
+            <div class="project-search-box">
+              <input id="citation-search" type="search" data-i18n-placeholder="searchReferences" placeholder="جست‌وجوی عنوان، نویسنده، سال یا کلید">
+              <button class="button secondary compact" id="refresh-citations" type="button" data-i18n="refresh">بازخوانی</button>
+            </div>
             <div class="tool-list" id="citation-list"></div>
           </section>
           <section class="sidebar-panel" data-panel="problems">

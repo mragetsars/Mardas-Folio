@@ -9,6 +9,15 @@ function storage() {
 
 test("authoring session stores unique saved paths and active path", () => {
   const store = storage();
-  writeSession([{ path: "C:\\A.md" }, { path: "c:/a.md" }, { path: null }, { path: "/b.md" }], { path: "/b.md" }, store);
-  assert.deepEqual(readSession(store), { paths: ["C:\\A.md", "/b.md"], activePath: "/b.md" });
+  writeSession(
+    [{ path: "C:\\A.md" }, { path: "c:/a.md" }, { path: null }, { path: "/b.md" }],
+    { path: "/b.md" },
+    "C:\\Project",
+    store,
+  );
+  assert.deepEqual(readSession(store), {
+    paths: ["C:\\A.md", "/b.md"],
+    activePath: "/b.md",
+    projectPath: "C:\\Project",
+  });
 });
