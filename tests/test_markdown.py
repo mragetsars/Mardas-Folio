@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup
 from mardas_md2pdf.markdown import render_markdown
 
 
@@ -688,3 +689,59 @@ def test_wide_tables_get_print_fit_classes():
     assert "table-wrap--wide" in result.body_html
     assert "table-wrap--very-wide" in result.body_html
     assert 'data-md2pdf-columns="12"' in result.body_html
+
+
+def test_render_markdown_exposes_stable_heading_source_map_with_frontmatter() -> None:
+    result = render_markdown(
+        """---
+title: Source map
+---
+
+# Intro
+
+Text.
+
+## تکراری
+
+### Child
+
+## تکراری
+"""
+    )
+
+    assert [item["line"] for item in result.source_map] == [5, 9, 11, 13]
+    assert [item["level"] for item in result.source_map] == [1, 2, 3, 2]
+    assert len({item["id"] for item in result.source_map}) == 4
+    assert 'data-source-line="5"' in result.body_html
+    assert 'data-source-line="13"' in result.body_html
+
+
+def test_render_markdown_source_map_ignores_fenced_heading_text() -> None:
+    result = render_markdown(
+        """# Real
+
+```markdown
+# Not a heading
+```
+
+## Also real
+"""
+    )
+
+    assert [item["title"] for item in result.source_map] == ["Real", "Also real"]
+    assert [item["line"] for item in result.source_map] == [1, 7]
+
+
+def test_source_map_does_not_assign_markdown_lines_to_raw_html_headings():
+    result = render_markdown(
+        "# First\n\n<h2>Raw HTML</h2>\n\n## Second\n",
+        unsafe_html=True,
+    )
+
+    assert [(item["title"], item["line"]) for item in result.source_map] == [
+        ("First", 1),
+        ("Second", 5),
+    ]
+    soup = BeautifulSoup(result.body_html, "html.parser")
+    raw_heading = next(item for item in soup.find_all("h2") if "Raw HTML" in item.get_text())
+    assert raw_heading.get("data-source-line") is None

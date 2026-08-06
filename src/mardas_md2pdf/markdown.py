@@ -108,6 +108,7 @@ GLOBAL_SAFE_ATTRS = {
     "data-lang",
     "data-line-start",
     "data-lines",
+    "data-source-line",
     "data-md2pdf-columns",
     "data-md2pdf-direction-profile",
     "data-md2pdf-number-profile",
@@ -254,6 +255,7 @@ class MarkdownRenderResult:
     citation_entries: tuple[dict[str, object], ...] = ()
     cited_keys: tuple[str, ...] = ()
     diagnostics: tuple[Diagnostic, ...] = ()
+    source_map: tuple[dict[str, object], ...] = ()
 
 
 @dataclass(slots=True)
@@ -1724,10 +1726,16 @@ def slugify(value: str, used: set[str]) -> str:
     return value
 
 
-def add_heading_ids(html_text: str, *, toc_depth: int = 6) -> tuple[str, list[tuple[int, str, str, str]]]:
+def add_heading_ids(
+    html_text: str,
+    *,
+    toc_depth: int = 6,
+    source_lines: Sequence[int] | None = None,
+) -> tuple[str, list[tuple[int, str, str, str]]]:
     used: set[str] = set()
     toc: list[tuple[int, str, str, str]] = []
     max_depth = max(1, min(int(toc_depth or 6), 6))
+    line_iter = iter(source_lines or ())
 
     def repl(match: re.Match[str]) -> str:
         level = int(match.group(1))
@@ -1750,6 +1758,10 @@ def add_heading_ids(html_text: str, *, toc_depth: int = 6) -> tuple[str, list[tu
         else:
             heading_id = slugify(content, used)
             attrs += f' id="{heading_id}"'
+        source_line = next(line_iter, None)
+        if source_line is not None:
+            attrs = re.sub(r"\sdata-source-line=[\"'][^\"']*[\"']", "", attrs)
+            attrs += f' data-source-line="{max(1, int(source_line))}"'
         plain = BeautifulSoup(content, "html.parser").get_text(" ", strip=True)
         if level <= max_depth and plain:
             toc.append((level, plain, heading_id, content))
@@ -2797,6 +2809,50 @@ def preprocess_pdf_directives(markdown: str) -> str:
     return "".join(output)
 
 
+def _heading_source_lines(markdown: str, *, line_offset: int = 0) -> tuple[int, ...]:
+    """Return one-based source lines for Markdown headings in render order.
+
+    The mapping is collected before preprocessing so editor navigation points to
+    the user's original buffer. Raw HTML headings intentionally have no mapping,
+    because they do not have a reliable Markdown token range.
+    """
+
+    parser = MarkdownIt(
+        "gfm-like",
+        {"html": True, "linkify": False, "typographer": True},
+    )
+    parser.enable(["table", "strikethrough"])
+    lines: list[int] = []
+    for token in parser.parse(markdown):
+        if token.type != "heading_open" or not token.map:
+            continue
+        lines.append(int(token.map[0]) + 1 + max(0, int(line_offset)))
+    return tuple(lines)
+
+
+def _source_map_from_html(html_text: str) -> tuple[dict[str, object], ...]:
+    soup = BeautifulSoup(html_text, "html.parser")
+    items: list[dict[str, object]] = []
+    for heading in soup.find_all(re.compile(r"^h[1-6]$")):
+        raw_line = heading.get("data-source-line")
+        heading_id = str(heading.get("id") or "")
+        if not raw_line or not heading_id:
+            continue
+        try:
+            source_line = int(str(raw_line))
+        except ValueError:
+            continue
+        items.append(
+            {
+                "id": heading_id,
+                "line": max(1, source_line),
+                "level": int(heading.name[1]),
+                "title": heading.get_text(" ", strip=True).removesuffix("#").strip(),
+            }
+        )
+    return tuple(items)
+
+
 def render_markdown(
     markdown: str,
     *,
@@ -2825,6 +2881,11 @@ def render_markdown(
 ) -> MarkdownRenderResult:
     markdown = markdown.removeprefix("\ufeff")
     metadata, markdown_body = extract_frontmatter(markdown)
+    source_prefix = markdown[: max(0, len(markdown) - len(markdown_body))]
+    heading_source_lines = _heading_source_lines(
+        markdown_body,
+        line_offset=source_prefix.count("\n"),
+    )
     if language is not None:
         metadata["lang"] = normalize_language(language, "auto")
     if code_style is None:
@@ -2918,13 +2979,30 @@ def render_markdown(
         ) + "\n"
 
     md.renderer.rules["fence"] = render_fence
+    heading_line_iter = iter(heading_source_lines)
+
+    def render_heading_open(
+        tokens: list[Any],
+        idx: int,
+        options: dict[str, Any],
+        env: dict[str, Any],
+    ) -> str:
+        source_line = next(heading_line_iter, None)
+        if source_line is not None:
+            tokens[idx].attrSet("data-source-line", str(max(1, int(source_line))))
+        return md.renderer.renderToken(tokens, idx, options, env)
+
+    md.renderer.rules["heading_open"] = render_heading_open
 
     body_html = md.render(markdown_body)
     body_html = append_footnotes(body_html, footnote_entries, md, lang=lang, text_hint=markdown_body)
     if not unsafe_html:
         body_html = sanitize_html(body_html)
     body_html = block_local_file_links(body_html)
-    body_html, toc_entries = add_heading_ids(body_html, toc_depth=toc_depth)
+    body_html, toc_entries = add_heading_ids(
+        body_html,
+        toc_depth=toc_depth,
+    )
     text_hint = BeautifulSoup(body_html, "html.parser").get_text(" ", strip=True)
     toc_html = build_toc(toc_entries, toc, lang=lang, text_hint=text_hint)
 
@@ -3085,6 +3163,7 @@ def render_markdown(
         citation_entries=citation_entries,
         cited_keys=cited_keys,
         diagnostics=reference_diagnostics,
+        source_map=_source_map_from_html(body_html),
     )
 
 
