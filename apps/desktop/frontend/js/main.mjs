@@ -623,6 +623,7 @@ async function chooseProjectDirectory() {
 }
 
 async function loadProject(path, { announce = true, openFirstChapter = true } = {}) {
+  await cancelActiveProjectSearch({ announce: false });
   const payload = await openProject(path);
   state.project = payload;
   state.bibliographyEntries = [];
@@ -644,6 +645,7 @@ async function refreshActiveProject() {
     return;
   }
   try {
+    await cancelActiveProjectSearch({ announce: false });
     state.project = await refreshProject(state.project.path);
     renderProjectWorkspace();
     toast(t("projectRefreshed"), "success");
@@ -735,22 +737,48 @@ function renderProjectSearchResults(result) {
     );
     list.append(button);
   }
+  if (result?.truncated) {
+    const notice = document.createElement("div");
+    notice.className = "tool-empty search-limit-notice";
+    notice.textContent = t("searchResultsLimited");
+    list.append(notice);
+  }
+}
+
+function resetProjectSearchButton() {
+  const button = $("#run-project-search");
+  if (!button) return;
+  button.removeAttribute("aria-busy");
+  button.dataset.state = "idle";
+  button.textContent = t("find");
+}
+
+async function cancelActiveProjectSearch({ announce = true } = {}) {
+  const requestId = state.activeProjectSearchRequestId;
+  if (!requestId) return false;
+  state.activeProjectSearchRequestId = null;
+  state.projectSearchSequence += 1;
+  resetProjectSearchButton();
+  try {
+    await cancelSidecarRequest(requestId);
+  } catch {
+    // A request that already completed no longer needs cancellation.
+  }
+  if (announce) toast(t("searchCancelled"), "info");
+  return true;
 }
 
 async function runProjectSearch() {
+  if (state.activeProjectSearchRequestId) {
+    await cancelActiveProjectSearch();
+    return;
+  }
+
   const project = state.project;
   const query = $("#project-search-query").value.trim();
   if (!project?.path || !query) {
     renderProjectSearchResults({ matches: [] });
     return;
-  }
-
-  if (state.activeProjectSearchRequestId) {
-    try {
-      await cancelSidecarRequest(state.activeProjectSearchRequestId);
-    } catch {
-      // A completed request no longer needs cancellation.
-    }
   }
 
   const sequence = ++state.projectSearchSequence;
@@ -762,7 +790,10 @@ async function runProjectSearch() {
     maxResults: 200,
   });
   state.activeProjectSearchRequestId = task.requestId;
-  $("#run-project-search").disabled = true;
+  const button = $("#run-project-search");
+  button.dataset.state = "running";
+  button.setAttribute("aria-busy", "true");
+  button.textContent = t("cancelSearch");
   try {
     const result = await task.promise;
     if (sequence !== state.projectSearchSequence) return;
@@ -777,7 +808,7 @@ async function runProjectSearch() {
   } finally {
     if (sequence === state.projectSearchSequence) {
       state.activeProjectSearchRequestId = null;
-      $("#run-project-search").disabled = false;
+      resetProjectSearchButton();
     }
   }
 }

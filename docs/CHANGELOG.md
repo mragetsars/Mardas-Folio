@@ -24,6 +24,7 @@ The project follows semantic versioning for user-visible behavior. Patch release
 
 ### Fixed
 - Registered every new project and bibliography operation in the sidecar job allowlist so native UI requests no longer fail at the process boundary.
+- Made the project-search action switch to an explicit cancel state while a search is running and exposed bounded-result truncation instead of silently hiding it.
 - Prevented repeated bibliography refreshes from duplicating diagnostics in the Problems panel.
 
 ### Tests

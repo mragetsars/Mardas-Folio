@@ -127,6 +127,9 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
     assert "sidecar_request" in main
     assert "sidecar_cancel" in main
     assert "desktop-open-files" in main
+    assert "cancelActiveProjectSearch" in main
+    assert 'button.textContent = t("cancelSearch")' in main
+    assert 't("searchResultsLimited")' in main
     for method in (
         "document.read",
         "document.save",
