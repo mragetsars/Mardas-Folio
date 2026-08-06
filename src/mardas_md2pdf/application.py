@@ -31,9 +31,17 @@ from .runtime import resolved_chromium_path, runtime_info
 from .workspace import (
     ProjectWorkspace,
     WorkspaceError,
+    add_workspace_book_chapter,
+    create_book_workspace,
+    duplicate_workspace_book_chapter,
+    export_workspace_book_pdf,
     load_workspace,
     read_workspace_file,
+    remove_workspace_book_chapter,
+    render_workspace_book_html,
+    reorder_workspace_book_chapters,
     search_workspace,
+    validate_workspace_book_payload,
     workspace_bibliography,
     workspace_payload,
     write_workspace_file,
@@ -41,7 +49,7 @@ from .workspace import (
 
 ProgressCallback = Callable[[str, float], None]
 CancellationCallback = Callable[[], bool]
-ENGINE_API_VERSION = "1.2.0"
+ENGINE_API_VERSION = "1.3.0"
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_IMPORTED_ASSET_BYTES = 64 * 1024 * 1024
 _ASSET_EXTENSIONS = {
@@ -815,6 +823,14 @@ class EngineService:
                 "project.save",
                 "project.search",
                 "bibliography.index",
+                "book.create",
+                "book.add_chapter",
+                "book.duplicate_chapter",
+                "book.reorder_chapters",
+                "book.remove_chapter",
+                "book.validate",
+                "book.preview",
+                "book.export",
                 "render.document",
                 "render.book",
                 "preview.document",
@@ -958,6 +974,205 @@ class EngineService:
                     ),
                 )
             )
+        if method == "book.create":
+            _validate_params(
+                params,
+                {"parent_path", "folder_name", "title", "language", "direction"},
+            )
+            try:
+                workspace = create_book_workspace(
+                    Path(_required_string(params, "parent_path")),
+                    folder_name=_required_string(params, "folder_name"),
+                    title=_required_string(params, "title"),
+                    language=_optional_string(params, "language") or "fa-IR",
+                    direction=_optional_string(params, "direction") or "auto",
+                )
+            except WorkspaceError as exc:
+                raise _workspace_error(exc) from exc
+            payload = workspace_payload(workspace)
+            payload["path"] = str(workspace.root)
+            return payload
+        if method == "book.add_chapter":
+            _validate_params(
+                params,
+                {
+                    "project_path",
+                    "title",
+                    "expected_config_sha256",
+                    "position",
+                    "content",
+                },
+            )
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            position_value = params.get("position")
+            position = (
+                _optional_int(
+                    params,
+                    "position",
+                    default=0,
+                    minimum=0,
+                    maximum=500,
+                )
+                if position_value is not None
+                else None
+            )
+            try:
+                refreshed, chapter = add_workspace_book_chapter(
+                    workspace,
+                    title=_required_string(params, "title"),
+                    expected_config_sha256=_required_string(
+                        params, "expected_config_sha256"
+                    ),
+                    position=position,
+                    content=_optional_string(params, "content"),
+                )
+            except WorkspaceError as exc:
+                raise _workspace_error(exc) from exc
+            payload = workspace_payload(refreshed)
+            payload["path"] = str(refreshed.root)
+            payload["created_chapter"] = chapter
+            return payload
+        if method == "book.duplicate_chapter":
+            _validate_params(
+                params,
+                {
+                    "project_path",
+                    "relative_path",
+                    "title",
+                    "expected_config_sha256",
+                },
+            )
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            try:
+                refreshed, chapter = duplicate_workspace_book_chapter(
+                    workspace,
+                    relative_path=_required_string(params, "relative_path"),
+                    title=_optional_string(params, "title"),
+                    expected_config_sha256=_required_string(
+                        params, "expected_config_sha256"
+                    ),
+                )
+            except WorkspaceError as exc:
+                raise _workspace_error(exc) from exc
+            payload = workspace_payload(refreshed)
+            payload["path"] = str(refreshed.root)
+            payload["created_chapter"] = chapter
+            return payload
+        if method == "book.reorder_chapters":
+            _validate_params(
+                params,
+                {"project_path", "ordered_paths", "expected_config_sha256"},
+            )
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            try:
+                refreshed = reorder_workspace_book_chapters(
+                    workspace,
+                    ordered_paths=_string_list(
+                        params.get("ordered_paths", ()), "ordered_paths"
+                    ),
+                    expected_config_sha256=_required_string(
+                        params, "expected_config_sha256"
+                    ),
+                )
+            except WorkspaceError as exc:
+                raise _workspace_error(exc) from exc
+            payload = workspace_payload(refreshed)
+            payload["path"] = str(refreshed.root)
+            return payload
+        if method == "book.remove_chapter":
+            _validate_params(
+                params,
+                {
+                    "project_path",
+                    "relative_path",
+                    "expected_config_sha256",
+                },
+            )
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            try:
+                refreshed = remove_workspace_book_chapter(
+                    workspace,
+                    relative_path=_required_string(params, "relative_path"),
+                    expected_config_sha256=_required_string(
+                        params, "expected_config_sha256"
+                    ),
+                )
+            except WorkspaceError as exc:
+                raise _workspace_error(exc) from exc
+            payload = workspace_payload(refreshed)
+            payload["path"] = str(refreshed.root)
+            return payload
+        if method == "book.validate":
+            _validate_params(params, {"project_path"})
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            try:
+                payload, refreshed = validate_workspace_book_payload(
+                    workspace,
+                    progress=progress,
+                    cancelled=cancelled,
+                )
+            except WorkspaceError as exc:
+                raise _workspace_error(exc) from exc
+            payload["project"] = workspace_payload(refreshed)
+            payload["project"]["path"] = str(refreshed.root)
+            return payload
+        if method == "book.preview":
+            _validate_params(params, {"project_path"})
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            try:
+                html, refreshed = render_workspace_book_html(
+                    workspace,
+                    progress=progress,
+                    cancelled=cancelled,
+                )
+            except WorkspaceError as exc:
+                raise _workspace_error(exc) from exc
+            project = workspace_payload(refreshed)
+            project["path"] = str(refreshed.root)
+            return {"html": html, "project": project}
+        if method == "book.export":
+            _validate_params(params, {"project_path", "output_path"})
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            output_path = Path(_required_string(params, "output_path")).expanduser()
+            try:
+                built, suggested_name, refreshed = export_workspace_book_pdf(
+                    workspace,
+                    output_path,
+                    session=self._render_session(),
+                    progress=progress,
+                    cancelled=cancelled,
+                )
+            except WorkspaceError as exc:
+                raise _workspace_error(exc) from exc
+            project = workspace_payload(refreshed)
+            project["path"] = str(refreshed.root)
+            return {
+                "output_path": str(built),
+                "size_bytes": built.stat().st_size,
+                "suggested_name": suggested_name,
+                "project": project,
+            }
         if method == "render.document":
             _validate_params(
                 params,

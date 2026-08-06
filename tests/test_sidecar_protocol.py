@@ -296,3 +296,13 @@ def test_sidecar_drains_an_oversized_request_before_parsing_the_next(
     assert errors[0]["error"]["code"] == protocol.PARSE_ERROR
     health = next(item for item in messages if item.get("id") == "health")
     assert health["result"]["status"] == "ok"
+
+
+def test_sidecar_request_schema_matches_capability_methods() -> None:
+    schema = json.loads(
+        (Path(__file__).resolve().parents[1] / "schemas" / "sidecar" / "v1" / "request.schema.json")
+        .read_text(encoding="utf-8")
+    )
+    schema_methods = set(schema["properties"]["method"]["enum"])
+    capability_methods = set(application.EngineService().capabilities()["methods"])
+    assert schema_methods == capability_methods

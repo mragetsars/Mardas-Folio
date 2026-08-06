@@ -5,7 +5,7 @@ The sidecar implements JSON-RPC 2.0, reads one UTF-8 request per line from `stdi
 ## Lifecycle
 
 ```json
-{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.26.0","pid":1234}}
+{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.27.0","pid":1234}}
 ```
 
 Recommended startup sequence:
@@ -58,6 +58,22 @@ Configured local bibliography sources are exposed through one read-only index sh
 
 `preview.document_text` includes a `source_map` array for Markdown headings. Each item contains the rendered heading `id`, one-based source `line`, heading `level`, and plain `title`, allowing preview navigation without matching duplicate heading text.
 
+## Native book-project lifecycle
+
+The native desktop workflow creates and manages multi-file books without asking the user to edit `mardas.toml` manually. Chapter-order changes carry the latest `config_sha256`; stale changes are rejected rather than silently overwriting an externally edited project configuration.
+
+```json
+{"jsonrpc":"2.0","id":"book-create-1","method":"book.create","params":{"parent_path":"C:/Books","folder_name":"my-book","title":"My Book","language":"en-US","direction":"ltr"}}
+```
+
+```json
+{"jsonrpc":"2.0","id":"book-add-1","method":"book.add_chapter","params":{"project_path":"C:/Books/my-book","title":"Methods","expected_config_sha256":"<sha256>"}}
+```
+
+The chapter lifecycle is deliberately non-destructive. `book.remove_chapter` removes a source from the ordered book manifest but keeps its Markdown file in the project. `book.reorder_chapters` requires every configured chapter exactly once. `book.duplicate_chapter` creates a new project-local source and updates the manifest atomically.
+
+`book.validate`, `book.preview`, and `book.export` provide the graphical full-book workflow. Preview and export operations remain cancellable through `job.cancel`.
+
 ## Document rendering
 
 ```json
@@ -96,6 +112,14 @@ Cancellation is cooperative. The engine checks the cancellation flag between ren
 - `project.save`
 - `project.search`
 - `bibliography.index`
+- `book.create`
+- `book.add_chapter`
+- `book.duplicate_chapter`
+- `book.reorder_chapters`
+- `book.remove_chapter`
+- `book.validate`
+- `book.preview`
+- `book.export`
 - `render.document`
 - `render.book`
 - `preview.document`
