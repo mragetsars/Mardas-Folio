@@ -256,6 +256,9 @@ def test_unsaved_document_text_uses_source_relative_assets(tmp_path: Path) -> No
     preview = application.preview_document_text(options, "# Unsaved\n\n**buffer**")
     assert preview["title"] == "Unsaved"
     assert "buffer" in preview["body_html"]
+    assert preview["source_map"] == [
+        {"id": "unsaved", "line": 1, "level": 1, "title": "Unsaved"}
+    ]
     assert source.read_text(encoding="utf-8") == "# Saved title\n"
 
 
@@ -313,6 +316,7 @@ def test_engine_service_dispatches_authoring_methods(tmp_path: Path) -> None:
         },
     )
     assert preview["title"] == "Dirty buffer"
+    assert preview["source_map"][0]["line"] == 1
     assert "document.read" in service.capabilities()["methods"]
     assert "validate.document_text" in service.capabilities()["methods"]
 
@@ -354,3 +358,92 @@ def test_asset_import_rejects_symbolic_assets_directory(tmp_path: Path) -> None:
         application.import_document_asset(document, source)
     assert caught.value.code == "MARDAS-ASSET-INVALID"
     assert not (external / "source.png").exists()
+
+
+def _desktop_project(tmp_path: Path) -> Path:
+    root = tmp_path / "پروژه"
+    root.mkdir()
+    (root / "mardas.toml").write_text(
+        """schema_version = 1
+
+[project]
+title = "Desktop Project"
+
+[bibliography]
+sources = ["references.bib"]
+""",
+        encoding="utf-8",
+    )
+    (root / "chapter.md").write_text("# سلام\n\nProject needle.\n", encoding="utf-8")
+    (root / "references.bib").write_text(
+        "@article{sample, title={Project Source}, author={Doe, Jane}, year={2026}}\n",
+        encoding="utf-8",
+    )
+    return root
+
+
+def test_engine_service_dispatches_project_and_bibliography_methods(tmp_path: Path) -> None:
+    root = _desktop_project(tmp_path)
+    service = EngineService()
+
+    opened = service.dispatch("project.open", {"path": str(root)})
+    assert opened["path"] == str(root.resolve())
+    assert {item["path"] for item in opened["files"]} >= {
+        "chapter.md",
+        "references.bib",
+    }
+
+    document = service.dispatch(
+        "project.read",
+        {"project_path": str(root), "relative_path": "chapter.md"},
+    )
+    assert document["absolute_path"] == str((root / "chapter.md").resolve())
+    assert document["content"].startswith("# سلام")
+
+    searched = service.dispatch(
+        "project.search",
+        {"project_path": str(root), "query": "needle"},
+    )
+    assert searched["matches"][0]["path"] == "chapter.md"
+
+    bibliography = service.dispatch(
+        "bibliography.index",
+        {
+            "project_path": str(root),
+            "query": "project source",
+            "cited_keys": ["sample"],
+        },
+    )
+    assert bibliography["entries"][0]["key"] == "sample"
+    assert bibliography["entries"][0]["cited"] is True
+
+    saved = service.dispatch(
+        "project.save",
+        {
+            "project_path": str(root),
+            "relative_path": "chapter.md",
+            "content": "# Updated\n",
+            "expected_sha256": document["sha256"],
+        },
+    )
+    assert saved["absolute_path"] == str((root / "chapter.md").resolve())
+    assert (root / "chapter.md").read_text(encoding="utf-8") == "# Updated\n"
+
+
+def test_engine_service_project_parameters_are_strict(tmp_path: Path) -> None:
+    root = _desktop_project(tmp_path)
+    service = EngineService()
+
+    with pytest.raises(EngineError) as caught:
+        service.dispatch(
+            "project.search",
+            {"project_path": str(root), "query": "x", "max_results": 0},
+        )
+    assert caught.value.code == "MARDAS-INVALID-PARAMS"
+
+    with pytest.raises(EngineError) as unsafe:
+        service.dispatch(
+            "project.search",
+            {"project_path": str(root), "query": r"(a+)+$", "regex": True},
+        )
+    assert unsafe.value.code == "MARDAS-UNSAFE-PROJECT-SEARCH-REGEX"

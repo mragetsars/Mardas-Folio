@@ -15,6 +15,8 @@ from mardas_md2pdf.workspace import (
     WorkspaceError,
     load_workspace,
     read_workspace_file,
+    search_workspace,
+    workspace_bibliography,
     workspace_payload,
     write_workspace_file,
 )
@@ -51,6 +53,10 @@ enabled = true
     )
     (root / "dist").mkdir()
     (root / "dist" / "ignored.txt").write_text("generated", encoding="utf-8")
+    (root / "node_modules").mkdir()
+    (root / "node_modules" / "ignored.txt").write_text("dependency", encoding="utf-8")
+    (root / "target").mkdir()
+    (root / "target" / "ignored.txt").write_text("compiled", encoding="utf-8")
     return root
 
 
@@ -92,7 +98,10 @@ def test_workspace_lists_relative_project_files_and_book_chapters(tmp_path):
         "chapters/02-method.md",
     ]
     assert all(not str(item["path"]).startswith(str(root)) for item in files)
-    assert "dist/ignored.txt" not in {item["path"] for item in files}
+    listed = {item["path"] for item in files}
+    assert "dist/ignored.txt" not in listed
+    assert "node_modules/ignored.txt" not in listed
+    assert "target/ignored.txt" not in listed
 
 
 def test_workspace_file_read_save_and_conflict_detection(tmp_path):
@@ -430,3 +439,56 @@ def test_studio_html_contains_project_explorer_problems_and_book_actions():
     assert "/api/project/render-file-html" in html
     assert "/api/project/render-book-html" in html
     assert "gotoEditorLine" in html
+
+
+def test_workspace_search_is_bounded_unicode_aware_and_cancellable(tmp_path):
+    root = _project(tmp_path)
+    (root / "notes.txt").write_text("سلام دنیا\nNeural network\nسلام دوباره\n", encoding="utf-8")
+    workspace = load_workspace(root)
+
+    literal = search_workspace(workspace, "سلام")
+    assert literal["searched_files"] >= 3
+    assert [(item["path"], item["line"]) for item in literal["matches"]] == [
+        ("notes.txt", 1),
+        ("notes.txt", 3),
+    ]
+
+    regex = search_workspace(workspace, r"Neural\s+network", regex=True)
+    assert regex["matches"][0]["path"] == "notes.txt"
+    assert regex["matches"][0]["column"] == 1
+
+    bounded = search_workspace(workspace, "سلام", max_results=1)
+    assert len(bounded["matches"]) == 1
+    assert bounded["truncated"] is True
+
+    for unsafe_query in (r"(a+)+$", r"(a|aa)+$", r"a{1,1001}"):
+        with pytest.raises(WorkspaceError) as unsafe:
+            search_workspace(workspace, unsafe_query, regex=True)
+        assert unsafe.value.code == "unsafe_project_search_regex"
+
+    with pytest.raises(WorkspaceError) as cancelled:
+        search_workspace(workspace, "سلام", cancelled=lambda: True)
+    assert cancelled.value.status == 499
+
+
+def test_workspace_bibliography_indexes_searches_and_marks_cited_entries(tmp_path):
+    root = _project(tmp_path)
+    config = root / "mardas.toml"
+    config.write_text(
+        config.read_text(encoding="utf-8")
+        + '\n[bibliography]\nenabled = true\nsources = ["references.bib"]\n',
+        encoding="utf-8",
+    )
+    workspace = load_workspace(root)
+    result = workspace_bibliography(
+        workspace,
+        query="doe",
+        cited_keys=("a",),
+    )
+
+    assert result["ok"] is True
+    assert result["entry_count"] == 1
+    assert result["sources"] == ["references.bib"]
+    assert result["entries"][0]["key"] == "a"
+    assert result["entries"][0]["cited"] is True
+    assert result["entries"][0]["source_path"] == "references.bib"

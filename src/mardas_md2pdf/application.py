@@ -28,10 +28,20 @@ from .markdown import (
 from .protocol import PROTOCOL_NAME, PROTOCOL_VERSION
 from .renderer import PdfOptions, RenderSession, build_html, convert
 from .runtime import resolved_chromium_path, runtime_info
+from .workspace import (
+    ProjectWorkspace,
+    WorkspaceError,
+    load_workspace,
+    read_workspace_file,
+    search_workspace,
+    workspace_bibliography,
+    workspace_payload,
+    write_workspace_file,
+)
 
 ProgressCallback = Callable[[str, float], None]
 CancellationCallback = Callable[[], bool]
-ENGINE_API_VERSION = "1.1.0"
+ENGINE_API_VERSION = "1.2.0"
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_IMPORTED_ASSET_BYTES = 64 * 1024 * 1024
 _ASSET_EXTENSIONS = {
@@ -582,6 +592,7 @@ def _document_summary(result: MarkdownRenderResult) -> dict[str, Any]:
         "metadata": _json_safe(result.metadata),
         "citation_entries": _json_safe(result.citation_entries),
         "cited_keys": list(result.cited_keys),
+        "source_map": [dict(item) for item in result.source_map],
     }
 
 
@@ -639,6 +650,7 @@ def preview_document_text(options: PdfOptions, content: str) -> dict[str, Any]:
         "bibliography_html": result.bibliography_html,
         "pygments_css": result.pygments_css,
         "diagnostics": [item.to_dict() for item in result.diagnostics],
+        "source_map": [dict(item) for item in result.source_map],
         "document": _document_summary(result),
     }
 
@@ -797,6 +809,12 @@ class EngineService:
                 "document.save",
                 "document.list_assets",
                 "document.import_asset",
+                "project.open",
+                "project.refresh",
+                "project.read",
+                "project.save",
+                "project.search",
+                "bibliography.index",
                 "render.document",
                 "render.book",
                 "preview.document",
@@ -840,6 +858,105 @@ class EngineService:
             return import_document_asset(
                 _required_string(params, "document_path"),
                 _required_string(params, "source_path"),
+            )
+        if method in {"project.open", "project.refresh"}:
+            _validate_params(params, {"path"})
+            workspace = _load_workspace_request(
+                _required_string(params, "path"),
+                cancelled=cancelled,
+            )
+            payload = workspace_payload(workspace)
+            payload["path"] = str(workspace.root)
+            return payload
+        if method == "project.read":
+            _validate_params(params, {"project_path", "relative_path"})
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            relative_path = _required_string(params, "relative_path")
+            payload = _workspace_call(
+                lambda: read_workspace_file(workspace, relative_path)
+            )
+            absolute_path = (workspace.root / relative_path).resolve(strict=False)
+            payload["absolute_path"] = str(absolute_path)
+            payload["revision"] = _document_revision(absolute_path)
+            payload["read_only"] = not os.access(absolute_path, os.W_OK)
+            return payload
+        if method == "project.save":
+            _validate_params(
+                params,
+                {"project_path", "relative_path", "content", "expected_sha256"},
+            )
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            relative_path = _required_string(params, "relative_path")
+            payload = _workspace_call(
+                lambda: write_workspace_file(
+                    workspace,
+                    relative_path,
+                    _required_content(params),
+                    expected_sha256=_required_string(params, "expected_sha256"),
+                )
+            )
+            payload["absolute_path"] = str(
+                (workspace.root / relative_path).resolve(strict=False)
+            )
+            return payload
+        if method == "project.search":
+            _validate_params(
+                params,
+                {
+                    "project_path",
+                    "query",
+                    "regex",
+                    "case_sensitive",
+                    "max_results",
+                },
+            )
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            return _workspace_call(
+                lambda: search_workspace(
+                    workspace,
+                    _required_string(params, "query"),
+                    regex=_optional_bool(params, "regex", default=False),
+                    case_sensitive=_optional_bool(
+                        params, "case_sensitive", default=False
+                    ),
+                    max_results=_optional_int(
+                        params, "max_results", default=200, minimum=1, maximum=500
+                    ),
+                    cancelled=cancelled,
+                )
+            )
+        if method == "bibliography.index":
+            _validate_params(
+                params,
+                {"project_path", "query", "cited_keys", "max_results"},
+            )
+            workspace = _load_workspace_request(
+                _required_string(params, "project_path"),
+                cancelled=cancelled,
+            )
+            cited_keys = _string_list(params.get("cited_keys", ()), "cited_keys")
+            return _workspace_call(
+                lambda: workspace_bibliography(
+                    workspace,
+                    query=_optional_string(params, "query") or "",
+                    cited_keys=cited_keys,
+                    max_results=_optional_int(
+                        params,
+                        "max_results",
+                        default=500,
+                        minimum=1,
+                        maximum=10_000,
+                    ),
+                )
             )
         if method == "render.document":
             _validate_params(
@@ -931,6 +1048,80 @@ class EngineService:
             code="MARDAS-METHOD-NOT-FOUND",
             details={"method": method},
         )
+
+
+def _workspace_error(exc: WorkspaceError) -> EngineError:
+    return EngineError(
+        str(exc),
+        code=f"MARDAS-{exc.code.replace('_', '-').upper()}",
+        details={
+            "status": exc.status,
+            "diagnostics": [item.to_dict() for item in exc.diagnostics],
+        },
+    )
+
+
+def _workspace_call(callback: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+    try:
+        return callback()
+    except WorkspaceError as exc:
+        raise _workspace_error(exc) from exc
+
+
+def _load_workspace_request(
+    path: str,
+    *,
+    cancelled: CancellationCallback | None = None,
+) -> ProjectWorkspace:
+    try:
+        return load_workspace(Path(path), cancelled=cancelled)
+    except WorkspaceError as exc:
+        raise _workspace_error(exc) from exc
+
+
+def _optional_int(
+    params: Mapping[str, Any],
+    key: str,
+    *,
+    default: int,
+    minimum: int,
+    maximum: int,
+) -> int:
+    value = params.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise EngineError(
+            f"{key} must be an integer.",
+            code="MARDAS-INVALID-PARAMS",
+            details={"parameter": key},
+        )
+    if value < minimum or value > maximum:
+        raise EngineError(
+            f"{key} must be between {minimum} and {maximum}.",
+            code="MARDAS-INVALID-PARAMS",
+            details={"parameter": key, "minimum": minimum, "maximum": maximum},
+        )
+    return value
+
+
+def _string_list(value: Any, key: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, (list, tuple)):
+        raise EngineError(
+            f"{key} must be an array of strings.",
+            code="MARDAS-INVALID-PARAMS",
+            details={"parameter": key},
+        )
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise EngineError(
+                f"{key} must contain only non-empty strings.",
+                code="MARDAS-INVALID-PARAMS",
+                details={"parameter": key},
+            )
+        result.append(item.strip())
+    return tuple(result)
 
 
 def _required_string(params: Mapping[str, Any], key: str) -> str:

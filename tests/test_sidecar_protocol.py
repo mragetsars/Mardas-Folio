@@ -85,6 +85,20 @@ style = "academic"
     assert options.palette == "green"
 
 
+
+
+def test_desktop_project_methods_are_allowed_sidecar_jobs() -> None:
+    expected = {
+        "project.open",
+        "project.refresh",
+        "project.read",
+        "project.save",
+        "project.search",
+        "bibliography.index",
+    }
+    assert expected.issubset(sidecar._HEAVY_METHODS)
+
+
 def test_sidecar_health_and_shutdown_round_trip() -> None:
     requests = "\n".join(
         [

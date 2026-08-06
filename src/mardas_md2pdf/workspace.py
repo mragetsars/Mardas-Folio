@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import stat
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
 
-from .citations import load_bibliography
+from .citations import MAX_BIBLIOGRAPHY_ENTRIES, load_bibliography
 from .book import (
     BookManifest,
     BookRenderBundle,
@@ -26,7 +27,18 @@ from .renderer import CancellationCallback, PdfOptions, RenderSession, build_htm
 MAX_WORKSPACE_FILES = 2_000
 MAX_WORKSPACE_TEXT_BYTES = 4 * 1024 * 1024
 WORKSPACE_TEXT_SUFFIXES = frozenset(
-    {".md", ".markdown", ".mdown", ".mkd", ".toml", ".bib", ".json", ".txt"}
+    {
+        ".md",
+        ".markdown",
+        ".mdown",
+        ".mkd",
+        ".toml",
+        ".bib",
+        ".json",
+        ".txt",
+        ".yaml",
+        ".yml",
+    }
 )
 WORKSPACE_IGNORED_PARTS = frozenset(
     {
@@ -41,6 +53,8 @@ WORKSPACE_IGNORED_PARTS = frozenset(
         "__pycache__",
         "build",
         "dist",
+        "node_modules",
+        "target",
         "patches",
     }
 )
@@ -315,18 +329,31 @@ def _chapter_map(manifest: BookManifest | None) -> dict[Path, tuple[int, str | N
 
 
 def _iter_workspace_files(root: Path) -> Iterable[Path]:
-    for path in root.rglob("*"):
-        try:
-            relative = path.relative_to(root)
-        except ValueError:
-            continue
-        if any(part in WORKSPACE_IGNORED_PARTS or part.startswith(".") for part in relative.parts):
-            continue
-        if path.is_symlink() or not path.is_file():
-            continue
-        if path.name != CONFIG_FILENAME and path.suffix.lower() not in WORKSPACE_TEXT_SUFFIXES:
-            continue
-        yield path
+    """Walk project files while pruning generated, hidden, and symlink directories."""
+
+    for current, directory_names, file_names in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        safe_directories: list[str] = []
+        for name in directory_names:
+            candidate = current_path / name
+            if (
+                name.startswith(".")
+                or name in WORKSPACE_IGNORED_PARTS
+                or candidate.is_symlink()
+            ):
+                continue
+            safe_directories.append(name)
+        directory_names[:] = safe_directories
+
+        for name in file_names:
+            if name.startswith("."):
+                continue
+            path = current_path / name
+            if path.is_symlink() or not path.is_file():
+                continue
+            if path.name != CONFIG_FILENAME and path.suffix.lower() not in WORKSPACE_TEXT_SUFFIXES:
+                continue
+            yield path
 
 
 def _workspace_files(
@@ -690,3 +717,225 @@ def render_workspace_file_html(
         ),
         refreshed,
     )
+
+
+MAX_WORKSPACE_SEARCH_RESULTS = 500
+MAX_WORKSPACE_SEARCH_QUERY_CHARS = 512
+MAX_WORKSPACE_SEARCH_LINE_CHARS = 2_000
+_UNSAFE_REGEX_TOKENS = (
+    "(?=",
+    "(?!",
+    "(?<=",
+    "(?<!",
+    "(?P",
+    "\\1",
+    "\\2",
+    "\\3",
+    "\\g<",
+)
+_QUANTIFIED_REGEX_GROUP = re.compile(r"\([^)]*\)(?:[+*]|\{)")
+_LARGE_REGEX_REPEAT = re.compile(r"\{\s*(\d+)(?:\s*,\s*(\d*)?)?\s*\}")
+_MAX_REGEX_REPEAT = 1_000
+
+
+def _compile_workspace_regex(query: str, flags: int) -> re.Pattern[str]:
+    """Compile a deliberately limited regex suitable for interactive project search."""
+
+    unsafe_repeat = any(
+        int(match.group(1)) > _MAX_REGEX_REPEAT
+        or (
+            match.group(2)
+            and int(match.group(2)) > _MAX_REGEX_REPEAT
+        )
+        for match in _LARGE_REGEX_REPEAT.finditer(query)
+    )
+    if (
+        any(token in query for token in _UNSAFE_REGEX_TOKENS)
+        or _QUANTIFIED_REGEX_GROUP.search(query)
+        or unsafe_repeat
+    ):
+        raise WorkspaceError(
+            "Project regex uses an advanced or potentially expensive construct.",
+            code="unsafe_project_search_regex",
+        )
+    try:
+        return re.compile(query, flags)
+    except re.error as exc:
+        raise WorkspaceError(
+            f"Invalid regular expression: {exc}",
+            code="invalid_project_search_regex",
+        ) from exc
+
+
+def search_workspace(
+    workspace: ProjectWorkspace,
+    query: str,
+    *,
+    regex: bool = False,
+    case_sensitive: bool = False,
+    max_results: int = 200,
+    cancelled: CancellationCallback | None = None,
+) -> dict[str, object]:
+    """Search bounded UTF-8 project files without escaping the workspace root."""
+
+    if not isinstance(query, str) or not query:
+        raise WorkspaceError(
+            "Project search query is required.",
+            code="invalid_project_search",
+        )
+    if len(query) > MAX_WORKSPACE_SEARCH_QUERY_CHARS:
+        raise WorkspaceError(
+            f"Project search query exceeds {MAX_WORKSPACE_SEARCH_QUERY_CHARS} characters.",
+            code="project_search_query_too_large",
+            status=413,
+        )
+    limit = max(1, min(int(max_results or 200), MAX_WORKSPACE_SEARCH_RESULTS))
+    flags = 0 if case_sensitive else re.IGNORECASE
+    pattern: re.Pattern[str] | None = None
+    if regex:
+        pattern = _compile_workspace_regex(query, flags)
+    needle = query if case_sensitive else query.casefold()
+    matches: list[dict[str, object]] = []
+    searched_files = 0
+    truncated = False
+
+    for item in workspace.files:
+        if cancelled and cancelled():
+            raise WorkspaceError(
+                "Project search was cancelled.",
+                code="project_search_cancelled",
+                status=499,
+            )
+        if item.kind not in {"markdown", "bibliography", "json", "toml", "text", "config"}:
+            continue
+        try:
+            path = _safe_workspace_file(workspace, item.path)
+            data = _read_bytes(path)
+            content = data.decode("utf-8-sig")
+        except (WorkspaceError, UnicodeDecodeError):
+            continue
+        searched_files += 1
+        for line_number, line in enumerate(content.splitlines(), start=1):
+            if cancelled and line_number % 128 == 0 and cancelled():
+                raise WorkspaceError(
+                    "Project search was cancelled.",
+                    code="project_search_cancelled",
+                    status=499,
+                )
+            clipped_line = line[:MAX_WORKSPACE_SEARCH_LINE_CHARS]
+            if pattern is not None:
+                found = list(pattern.finditer(clipped_line))
+                columns = [match.start() + 1 for match in found]
+            else:
+                haystack = clipped_line if case_sensitive else clipped_line.casefold()
+                columns = []
+                start = 0
+                while True:
+                    index = haystack.find(needle, start)
+                    if index < 0:
+                        break
+                    columns.append(index + 1)
+                    start = index + max(1, len(needle))
+            for column in columns:
+                matches.append(
+                    {
+                        "path": item.path,
+                        "line": line_number,
+                        "column": column,
+                        "preview": clipped_line.strip()[:300],
+                    }
+                )
+                if len(matches) >= limit:
+                    truncated = True
+                    break
+            if truncated:
+                break
+        if truncated:
+            break
+
+    return {
+        "query": query,
+        "regex": bool(regex),
+        "case_sensitive": bool(case_sensitive),
+        "searched_files": searched_files,
+        "matches": matches,
+        "truncated": truncated,
+        "max_results": limit,
+    }
+
+
+def workspace_bibliography(
+    workspace: ProjectWorkspace,
+    *,
+    query: str = "",
+    cited_keys: Iterable[str] = (),
+    max_results: int = 500,
+) -> dict[str, object]:
+    """Return a searchable, read-only bibliography index for the desktop UI."""
+
+    raw_sources = tuple(workspace.config.values.get("bibliography_sources") or ())
+    sources: list[Path] = []
+    diagnostics: list[Diagnostic] = []
+    root = workspace.root.resolve()
+    for raw_source in raw_sources:
+        source = Path(raw_source).expanduser().resolve(strict=False)
+        if source.is_symlink() or not _contains_path(root, source):
+            diagnostics.append(
+                Diagnostic(
+                    "MARDAS-E701",
+                    "error",
+                    "Project bibliography source must be a regular file inside the project root.",
+                    path=source,
+                )
+            )
+            continue
+        sources.append(source)
+
+    library, library_diagnostics = load_bibliography(sources)
+    diagnostics.extend(library_diagnostics)
+    normalized_query = str(query or "").strip().casefold()
+    cited = {str(key).strip() for key in cited_keys if str(key).strip()}
+    limit = max(1, min(int(max_results or 500), MAX_BIBLIOGRAPHY_ENTRIES))
+    entries: list[dict[str, object]] = []
+    matched_total = 0
+    for key in sorted(library.entries, key=str.casefold):
+        entry = library.entries[key]
+        searchable = " ".join(
+            [
+                entry.key,
+                entry.title,
+                entry.year,
+                entry.container_title,
+                entry.publisher,
+                " ".join(author.display for author in entry.authors),
+            ]
+        ).casefold()
+        if normalized_query and normalized_query not in searchable:
+            continue
+        matched_total += 1
+        if len(entries) >= limit:
+            continue
+        payload = entry.to_dict()
+        payload["cited"] = entry.key in cited
+        if entry.source_path is not None:
+            payload["source_path"] = (
+                entry.source_path.resolve(strict=False).relative_to(root).as_posix()
+                if _contains_path(root, entry.source_path.resolve(strict=False))
+                else entry.source_path.name
+            )
+        entries.append(payload)
+
+    return {
+        "sources": [
+            source.relative_to(root).as_posix()
+            for source in sources
+            if _contains_path(root, source)
+        ],
+        "entries": entries,
+        "entry_count": len(library.entries),
+        "matched_count": matched_total,
+        "query": str(query or ""),
+        "diagnostics": workspace_diagnostics_payload(workspace, diagnostics),
+        "ok": not has_errors(diagnostics),
+        "truncated": matched_total > len(entries),
+    }
