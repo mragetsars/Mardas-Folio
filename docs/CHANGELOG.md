@@ -4,6 +4,27 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.27.0 - 2026-08-06
+
+### Added
+- Added a native Book Project creation flow that generates a self-contained Unicode-safe project with `mardas.toml`, an initial chapter, shared assets and bibliography directories, and a deterministic PDF output path.
+- Added chapter creation, duplication, ordering, drag-and-drop, and non-destructive removal from the configured book.
+- Added whole-book validation, cancellable assembled-book preview, and native-path PDF export through the desktop Sidecar.
+- Added a dedicated Book panel and Start Center entry points so ordinary users can complete the workflow without editing TOML or using the CLI.
+
+### Changed
+- Extended the desktop engine API to 1.3.0 and the versioned Sidecar method contract with the complete Book Project lifecycle.
+- Made the request JSON Schema an exact tested mirror of the engine capability list.
+- Preserved the existing Python Book Mode as the single implementation used by desktop validation, preview, and export.
+
+### Security
+- Guarded every chapter-list mutation with the SHA-256 revision of `mardas.toml` to prevent silent overwrite after an external project change.
+- Bounded project titles, folder names, chapter count, chapter content, paths, and file allocation; rejected hidden, reserved, symbolic-link, traversal, and pre-existing project targets.
+- Made chapter removal non-destructive: the file remains in the project and only its Book Mode entry is removed.
+
+### Tests
+- Added project creation, Unicode path, unsafe folder, symbolic-link, stale-config conflict, add, duplicate, reorder, remove, Sidecar contract, validation, preview, export, frontend API, drag-and-drop, and native UI coverage.
+
 ## 1.26.0 - 2026-08-06
 
 ### Added

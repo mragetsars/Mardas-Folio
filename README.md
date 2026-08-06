@@ -2,7 +2,7 @@
 
 > **Professional Markdown to PDF converter for Persian, English, and mixed RTL/LTR technical documents**
 
-![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.26.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
+![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.27.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
 
 ## Overview
 
@@ -58,9 +58,13 @@ Generated PDF versions of the guides are available in the [`examples/`](./exampl
 
 Release and operations references are [Changelog](./docs/CHANGELOG.md), [Release checklist](./docs/RELEASE.md), [Maintenance workflow](./docs/MAINTENANCE.md), [Security policy](./docs/SECURITY.md), and [Documentation policy](./docs/DOCUMENTATION.md).
 
-## Native Desktop Authoring Preview
+## Native Desktop Authoring and Book Projects
 
-Version 1.26.0 extends the native **Mardas Studio** authoring preview with an intelligent, bounded project workspace. The Start Center and authoring sidebar can open a local `mardas.toml` project through a native directory picker, restore that project in the next session, browse supported text files, search the project with literal or deliberately restricted regular expressions, and open a result at its exact source line. Hidden, generated, symlinked, oversized, and out-of-root paths remain outside the editable project boundary.
+Version 1.27.0 extends the native **Mardas Studio** authoring workspace with a complete, conflict-safe Book Project workflow. The Start Center can create or open a local book project without requiring the user to edit `mardas.toml`. The Book panel lists configured chapters, opens them in the multi-document editor, adds or duplicates chapters, changes chapter order with buttons or drag-and-drop, safely removes a chapter from the book without deleting its Markdown file, validates the whole project, previews the assembled book, and exports one PDF through a native save dialog.
+
+Every chapter-order change is guarded by the current SHA-256 revision of `mardas.toml`; if another program changes the project configuration, Mardas Studio refuses to overwrite it and asks the user to refresh. New projects are created with bounded names, Unicode-safe paths, dedicated `chapters`, `assets`, `bibliography`, and `dist` directories, and a ready-to-edit first chapter. Full-book validation and export reuse the existing Python Book Mode so CLI, sidecar, and desktop output remain consistent.
+
+The intelligent, bounded project workspace from version 1.26 remains available. The authoring sidebar can open a local `mardas.toml` project through a native directory picker, restore that project in the next session, browse supported text files, search the project with literal or deliberately restricted regular expressions, and open a result at its exact source line. Hidden, generated, symlinked, oversized, and out-of-root paths remain outside the editable project boundary.
 
 The desktop bibliography panel now indexes configured local BibTeX and CSL JSON sources, searches by key, title, author, publisher, or year, marks cited entries, exposes parse diagnostics, and inserts citations at the editor cursor. Preview headings carry trusted source-line metadata produced by the Python Markdown engine, enabling duplicate-safe preview-to-editor navigation and editor-to-preview section synchronization instead of relying only on heading text order.
 
@@ -90,7 +94,7 @@ Verify the frozen executable, internal SHA-256 manifest, bundled browser, JSON-R
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-1.26.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-MD2PDF-1.27.0-runtime-windows-x86_64 \
   --render
 ```
 
@@ -98,7 +102,7 @@ Build the native Windows installer after creating the standalone runtime:
 
 ```powershell
 python scripts/build_desktop_app.py `
-  --runtime build/standalone-runtime/Mardas-MD2PDF-1.26.0-runtime-windows-x86_64 `
+  --runtime build/standalone-runtime/Mardas-MD2PDF-1.27.0-runtime-windows-x86_64 `
   --clean
 ```
 

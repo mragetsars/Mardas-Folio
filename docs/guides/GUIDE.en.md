@@ -12,7 +12,7 @@ summary: |
   This document also acts as a live rendering sample for cover pages, tables of contents, mixed RTL/LTR text, formulas, code, Mermaid flowcharts, images, tables, footnotes, page breaks, and safe HTML.
 institution: "Mardas Lab"
 course: "Markdown Publishing"
-version: "1.26.0"
+version: "1.27.0"
 status: "Stable"
 keywords:
   - Markdown
@@ -152,7 +152,7 @@ The package exposes three process interfaces:
 
 ## Standalone runtime for desktop packaging
 
-Release engineering can build a portable sidecar runtime that includes Python, the Mardas engine, Playwright resources, and pinned Chromium. The target computer does not need Python, pip, Node.js, Git, or Chrome. Version 1.26.0 embeds this verified runtime in the first native Mardas Studio Windows installer.
+Release engineering can build a portable sidecar runtime that includes Python, the Mardas engine, Playwright resources, and pinned Chromium. The target computer does not need Python, pip, Node.js, Git, or Chrome. Version 1.27.0 embeds this verified runtime in the first native Mardas Studio Windows installer.
 
 ```bash
 python -m pip install -e '.[desktop]'
@@ -164,7 +164,7 @@ Verify the runtime manifest, protocol lifecycle, bundled browser, and a real Uni
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-1.26.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-MD2PDF-1.27.0-runtime-windows-x86_64 \
   --render
 ```
 
@@ -172,13 +172,30 @@ The sidecar opens no localhost port. It reads one JSON-RPC request per line from
 
 ## Native Mardas Studio authoring preview
 
-Mardas Studio opens in a native Tauri window instead of a browser tab. Its Start Center provides native file selection, recent documents, Quick Export, and a project-directory picker. Version 1.26.0 adds an intelligent project sidebar that restores the last project, lists supported files below the `mardas.toml` root, searches Unicode content with bounded literal or restricted-regex queries, and opens each result at its exact line.
+Mardas Studio opens in a native Tauri window instead of a browser tab. Its Start Center provides native file selection, recent documents, Quick Export, and a project-directory picker. Version 1.27.0 adds an intelligent project sidebar that restores the last project, lists supported files below the `mardas.toml` root, searches Unicode content with bounded literal or restricted-regex queries, and opens each result at its exact line.
 
 The bibliography panel indexes the project's configured local BibTeX and CSL JSON sources, supports title/author/year/key search, marks cited entries, reports malformed sources, and inserts a selected citation at the editor cursor. Preview headings now contain trusted source-line metadata produced by the Python Markdown engine, so duplicate headings navigate reliably between preview, outline, and editor.
 
 Document saving remains conflict-aware. The engine returns a revision when a file is opened, writes changes atomically, and stops instead of silently overwriting a file changed by another program. Browser storage keeps bounded recovery snapshots for dirty buffers, but recovery never saves to the source file without an explicit user action. Imported assets remain restricted to supported local file types below the document's `assets/` directory.
 
 The current editor is still a dependency-free textarea, but it now sits behind a tested editor adapter so future local-bundled editor replacement does not own recovery, save-conflict, project, or preview state. PDF export remains authoritative for MathJax, Mermaid, pagination, fonts, and print layout. The Windows installer includes the frozen engine and pinned Chromium, so a normal user does not install Python, Playwright, Rust, or a local server.
+
+
+### Create and publish a Book Project
+
+Choose **New Book Project** in the Start Center, select a parent directory, and enter the book title. Mardas Studio creates a self-contained project with `mardas.toml`, a first Markdown chapter, shared asset and bibliography directories, and a `dist` output directory.
+
+The **Book** panel provides the normal publishing workflow:
+
+1. Add or duplicate chapters.
+2. Open each chapter in the multi-tab editor.
+3. Reorder chapters with the arrow controls or drag-and-drop.
+4. Remove a chapter from the configured book without deleting its source file.
+5. Validate all configured chapters and project references.
+6. Preview the assembled book.
+7. Export one PDF with the native output picker.
+
+Chapter changes use the current project-configuration revision. If `mardas.toml` changes outside Mardas Studio, the operation stops instead of silently overwriting the newer file. Full-book preview and export are cancellable sidecar jobs and use the same Book Mode engine as the command line.
 
 # First PDF
 
@@ -257,7 +274,7 @@ department: "Department name"
 course: "Course or project title"
 supervisor: "Supervisor name"
 date: "2026-05-20"
-version: "1.26.0"
+version: "1.27.0"
 status: "Draft"
 keywords: [Markdown, PDF, RTL, MathJax]
 cover_label: "Technical Report"
@@ -357,12 +374,12 @@ Inline code remains stable: `mrs-md2pdf input.md -o output.pdf --toc`.
 
 This compact sample is intentionally part of the guide because the guide is both user documentation and a live renderer test case.[^rtl-smoke] It keeps Persian punctuation, Latin package names, Persian digits, semantic table captions, and mixed-direction cells in the official PDF examples.
 
-آیا خروجی PDF برای `version 1.26.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید RTL، mixed-script، و mixed-number hooks را فعال کند.
+آیا خروجی PDF برای `version 1.27.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید RTL، mixed-script، و mixed-number hooks را فعال کند.
 
 | بخش نمونه | مقدار | انتظار در PDF |
 | :--- | :--- | :--- |
 | شماره فارسی | ۱۴۰۵ | عدد فارسی با متن RTL پایدار بماند. |
-| نسخه فنی | version 1.26.0 و ۱.۹.۹ | Latin/Persian numerals در یک سلول خوانا بمانند. |
+| نسخه فنی | version 1.27.0 و ۱.۹.۹ | Latin/Persian numerals در یک سلول خوانا بمانند. |
 | شناسه انگلیسی | `PDF`, `TOC`, `MathJax` | identifierهای English داخل جدول فارسی جابه‌جا نشوند. |
 
 جدول ۱۲. نمونه جدول فارسی/RTL با عددهای ترکیبی.

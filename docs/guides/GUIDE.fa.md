@@ -12,7 +12,7 @@ summary: |
   همین سند به عنوان نمونه زنده رندر نیز استفاده می‌شود و جلد، فهرست مطالب، متن ترکیبی فارسی/English، فرمول، کد، نمودار Mermaid، تصویر، جدول، پانویس، شکست صفحه و HTML امن را نمایش می‌دهد.
 institution: "Mardas Lab"
 course: "انتشار حرفه‌ای Markdown"
-version: "1.26.0"
+version: "1.27.0"
 status: "Stable"
 keywords:
   - Markdown
@@ -150,7 +150,7 @@ pytest
 
 ## Runtime مستقل برای بسته‌بندی دسکتاپ
 
-فرایند انتشار می‌تواند یک runtime قابل‌حمل بسازد که Python، موتور Mardas، منابع Playwright و Chromium pin‌شده را داخل خود دارد. روی سیستم مقصد نیازی به نصب Python، pip، Node.js، Git یا Chrome نیست. نسخه 1.26.0 همین runtime اعتبارسنجی‌شده را داخل نخستین installer بومی Mardas Studio برای Windows قرار می‌دهد.
+فرایند انتشار می‌تواند یک runtime قابل‌حمل بسازد که Python، موتور Mardas، منابع Playwright و Chromium pin‌شده را داخل خود دارد. روی سیستم مقصد نیازی به نصب Python، pip، Node.js، Git یا Chrome نیست. نسخه 1.27.0 همین runtime اعتبارسنجی‌شده را داخل نخستین installer بومی Mardas Studio برای Windows قرار می‌دهد.
 
 ```bash
 python -m pip install -e '.[desktop]'
@@ -162,7 +162,7 @@ python scripts/build_standalone_runtime.py --clean
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-1.26.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-MD2PDF-1.27.0-runtime-windows-x86_64 \
   --render
 ```
 
@@ -170,13 +170,30 @@ Sidecar هیچ پورت localhost باز نمی‌کند. هر خط `stdin` یک
 
 ## پیش‌نمایش نویسندگی بومی Mardas Studio
 
-Mardas Studio به‌جای tab مرورگر در یک پنجره بومی Tauri باز می‌شود. Start Center انتخاب فایل بومی، اسناد اخیر، **Quick Export** و انتخاب پوشه پروژه را ارائه می‌کند. نسخه 1.26.0 یک پنل پروژه هوشمند دارد که آخرین پروژه را در session بعدی بازیابی می‌کند، فایل‌های پشتیبانی‌شده زیر ریشه `mardas.toml` را نمایش می‌دهد، در محتوای Unicode با جست‌وجوی متنی یا regex محدودشده می‌گردد و هر نتیجه را در خط دقیق editor باز می‌کند.
+Mardas Studio به‌جای tab مرورگر در یک پنجره بومی Tauri باز می‌شود. Start Center انتخاب فایل بومی، اسناد اخیر، **Quick Export** و انتخاب پوشه پروژه را ارائه می‌کند. نسخه 1.27.0 یک پنل پروژه هوشمند دارد که آخرین پروژه را در session بعدی بازیابی می‌کند، فایل‌های پشتیبانی‌شده زیر ریشه `mardas.toml` را نمایش می‌دهد، در محتوای Unicode با جست‌وجوی متنی یا regex محدودشده می‌گردد و هر نتیجه را در خط دقیق editor باز می‌کند.
 
 پنل منابع، فایل‌های محلی BibTeX و CSL JSON تنظیم‌شده در پروژه را index می‌کند، جست‌وجوی عنوان، نویسنده، سال و کلید را ارائه می‌دهد، منبع‌های استفاده‌شده را مشخص می‌کند، خطاهای parse را نشان می‌دهد و citation انتخابی را در محل cursor درج می‌کند. headingهای پیش‌نمایش نیز metadata معتبر خط منبع را از موتور Markdown پایتون دریافت می‌کنند؛ بنابراین عنوان‌های تکراری میان preview، outline و editor به مقصد صحیح هدایت می‌شوند.
 
 ذخیره سند همچنان conflict-aware است. موتور هنگام بازکردن فایل یک revision برمی‌گرداند، تغییرات را اتمیک می‌نویسد و اگر برنامه دیگری فایل را تغییر داده باشد، به‌جای overwrite خاموش متوقف می‌شود. local storage فقط snapshot محدود recovery را برای بافرهای dirty نگه می‌دارد و بدون اقدام صریح کاربر چیزی در فایل اصلی ذخیره نمی‌کند. assetهای واردشده نیز به نوع‌های محلی مجاز زیر پوشه `assets/` سند محدودند.
 
 editor فعلی هنوز یک textarea بدون dependency است، اما اکنون پشت یک editor adapter تست‌شده قرار دارد تا جایگزینی آینده با editor محلی و حرفه‌ای، منطق recovery، conflict، پروژه یا preview را به widget خاصی وابسته نکند. خروجی PDF مرجع نهایی MathJax، Mermaid، صفحه‌بندی، فونت و layout چاپی باقی می‌ماند. installer ویندوز موتور frozen و Chromium pin‌شده را داخل خود دارد، بنابراین کاربر عادی لازم نیست Python، Playwright، Rust یا local server را آماده کند.
+
+
+### ساخت و انتشار Book Project
+
+در Start Center گزینه **پروژه کتاب جدید** را انتخاب کنید، پوشه مادر و عنوان کتاب را مشخص کنید. Mardas Studio یک پروژه مستقل شامل `mardas.toml`، فصل نخست Markdown، پوشه‌های مشترک asset و bibliography و پوشه خروجی `dist` می‌سازد.
+
+پنل **کتاب** مسیر عادی انتشار را ارائه می‌کند:
+
+1. فصل تازه بسازید یا فصل موجود را تکثیر کنید.
+2. هر فصل را در editor چندتب باز کنید.
+3. ترتیب فصل‌ها را با دکمه‌های جابه‌جایی یا drag-and-drop تغییر دهید.
+4. فصل را بدون حذف فایل Markdown از فهرست کتاب خارج کنید.
+5. همه فصل‌ها و ارجاع‌های پروژه را اعتبارسنجی کنید.
+6. پیش‌نمایش کامل کتاب را ببینید.
+7. یک PDF نهایی را با انتخاب‌گر بومی مسیر خروجی بسازید.
+
+تغییر ترتیب فصل‌ها با revision فعلی تنظیمات پروژه محافظت می‌شود. اگر `mardas.toml` بیرون از برنامه تغییر کند، عملیات به‌جای overwrite خاموش متوقف می‌شود. پیش‌نمایش و خروجی کامل کتاب jobهای قابل لغو Sidecar هستند و از همان موتور Book Mode رابط خط فرمان استفاده می‌کنند.
 
 # اولین خروجی PDF
 
@@ -255,7 +272,7 @@ department: "نام دانشکده یا دپارتمان"
 course: "نام درس یا پروژه"
 supervisor: "نام استاد یا راهنما"
 date: "۱۴۰۵-۰۲-۳۰"
-version: "1.26.0"
+version: "1.27.0"
 status: "Draft"
 keywords: [Markdown, PDF, RTL, MathJax]
 cover_label: "گزارش فنی"
@@ -355,12 +372,12 @@ mrs-md2pdf input.md -o output.pdf --no-cover-logo
 
 این نمونه کوچک عمداً داخل guide مانده است، چون guide هم راهنمای کاربر است و هم test case زنده renderer.[^rtl-smoke] این بخش نشانه‌گذاری فارسی، نام‌های لاتین، عدد فارسی، caption جدول، و سلول‌های mixed-direction را در PDF رسمی نگه می‌دارد.
 
-آیا خروجی PDF برای `version 1.26.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید hookهای RTL، mixed-script و mixed-number را فعال کند.
+آیا خروجی PDF برای `version 1.27.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید hookهای RTL، mixed-script و mixed-number را فعال کند.
 
 | بخش نمونه | مقدار | انتظار در PDF |
 | :--- | :--- | :--- |
 | شماره فارسی | ۱۴۰۵ | عدد فارسی کنار متن RTL پایدار بماند. |
-| نسخه فنی | version 1.26.0 و ۱.۹.۹ | عددهای Latin/Persian در یک سلول خوانا بمانند. |
+| نسخه فنی | version 1.27.0 و ۱.۹.۹ | عددهای Latin/Persian در یک سلول خوانا بمانند. |
 | شناسه انگلیسی | `PDF`, `TOC`, `MathJax` | identifierهای English داخل جدول فارسی جابه‌جا نشوند. |
 
 جدول ۱۲. نمونه جدول فارسی/RTL با عددهای ترکیبی.
