@@ -33,6 +33,7 @@
             <button class="button primary" id="start-quick-export" type="button" data-i18n="quickExport">خروجی سریع PDF</button>
             <button class="button glass" id="start-open-file" type="button" data-i18n="openMarkdown">باز کردن Markdown</button>
             <button class="button glass" id="start-open-project" type="button" data-i18n="openProject">باز کردن پروژه</button>
+            <button class="button glass" id="start-new-book" type="button" data-i18n="newBookProject">پروژه کتاب جدید</button>
           </div>
         </div>
         <div class="hero-art" aria-hidden="true">
@@ -48,6 +49,7 @@
             <button class="workflow featured" id="workflow-quick" type="button"><span class="workflow-icon">↗</span><span><strong data-i18n="quickExport">خروجی سریع PDF</strong><small data-i18n="quickExportHelp">یک فایل، چند انتخاب ساده، خروجی نهایی.</small></span><b>←</b></button>
             <button class="workflow" id="workflow-open" type="button"><span class="workflow-icon">MD</span><span><strong data-i18n="openMarkdown">باز کردن Markdown</strong><small data-i18n="openMarkdownHelp">فایل موجود را انتخاب و آماده انتشار کن.</small></span><b>←</b></button>
             <button class="workflow" id="workflow-project" type="button"><span class="workflow-icon">P</span><span><strong data-i18n="openProject">باز کردن پروژه</strong><small data-i18n="chooseProjectHelp">پوشه‌ای را انتخاب کن که mardas.toml دارد.</small></span><b>←</b></button>
+            <button class="workflow" id="workflow-book" type="button"><span class="workflow-icon">B</span><span><strong data-i18n="newBookProject">پروژه کتاب جدید</strong><small data-i18n="newBookProjectHelp">کتاب، پایان‌نامه یا گزارش چندفصلی بساز.</small></span><b>←</b></button>
           </div>
         </section>
         <section class="panel recent-panel">
@@ -116,6 +118,7 @@
         <aside class="author-sidebar">
           <nav class="sidebar-tabs" aria-label="Document tools">
             <button type="button" data-sidebar="project" data-i18n="projectWorkspace">پروژه</button>
+            <button type="button" data-sidebar="book" data-i18n="bookProject">کتاب</button>
             <button class="active" type="button" data-sidebar="outline" data-i18n="outline">ساختار</button>
             <button type="button" data-sidebar="frontmatter" data-i18n="frontMatter">مشخصات</button>
             <button type="button" data-sidebar="assets" data-i18n="assets">فایل‌ها</button>
@@ -143,6 +146,28 @@
               <div class="tool-list project-search-results" id="project-search-results"></div>
               <hr>
               <div class="tool-list project-file-tree" id="project-file-tree"></div>
+            </div>
+          </section>
+          <section class="sidebar-panel" data-panel="book">
+            <header><strong data-i18n="bookProject">پروژه کتاب</strong><span id="book-chapter-count">0</span></header>
+            <div class="project-empty" id="book-empty">
+              <p data-i18n="noBookProject">پروژه فعلی کتاب نیست.</p>
+              <small data-i18n="bookProjectHint">یک پروژه کتاب بساز یا پروژه‌ای دارای بخش [book] باز کن.</small>
+              <button class="button secondary compact" id="sidebar-new-book" type="button" data-i18n="newBookProject">پروژه کتاب جدید</button>
+            </div>
+            <div class="book-tools hidden" id="book-tools">
+              <div class="book-summary">
+                <strong id="book-project-title"></strong>
+                <small id="book-output-path"></small>
+              </div>
+              <div class="book-actions">
+                <button class="button primary compact" id="book-add-chapter" type="button" data-i18n="addChapter">افزودن فصل</button>
+                <button class="button secondary compact" id="book-validate" type="button" data-i18n="validateBook">بررسی کتاب</button>
+                <button class="button secondary compact" id="book-preview" type="button" data-i18n="previewBook">پیش‌نمایش کامل</button>
+                <button class="button secondary compact" id="book-export" type="button" data-i18n="exportBook">ساخت PDF کتاب</button>
+              </div>
+              <div class="book-operation-status hidden" id="book-operation-status" role="status"><span id="book-operation-message"></span><button class="text-button hidden" id="book-cancel-operation" type="button" data-i18n="cancel">انصراف</button></div>
+              <div class="tool-list book-chapter-list" id="book-chapter-list"></div>
             </div>
           </section>
           <section class="sidebar-panel active" data-panel="outline">
@@ -209,6 +234,28 @@
     </section>
   </main>
   <footer class="app-footer"><span data-i18n="localEngine">موتور محلی؛ فایل‌ها از دستگاه خارج نمی‌شوند.</span><span id="runtime-detail"></span></footer>
+</div>
+<div class="modal hidden" id="book-project-modal" role="dialog" aria-modal="true" aria-labelledby="book-project-modal-title">
+  <form class="modal-card book-project-form" id="book-project-form">
+    <h2 id="book-project-modal-title" data-i18n="newBookProject">پروژه کتاب جدید</h2>
+    <p data-i18n="newBookProjectDescription">یک پوشه مستقل با فصل آغازین، فایل تنظیمات و مسیر خروجی ساخته می‌شود.</p>
+    <label><span data-i18n="bookTitle">عنوان کتاب</span><input id="book-project-title-input" maxlength="200" required></label>
+    <label><span data-i18n="projectFolderName">نام پوشه پروژه</span><input id="book-project-folder-input" maxlength="80" required></label>
+    <label><span data-i18n="projectLocation">محل ساخت پروژه</span><div class="path-row"><input id="book-project-parent-input" readonly required><button class="button secondary compact" id="choose-book-parent" type="button" data-i18n="browse">انتخاب</button></div></label>
+    <div class="settings-grid">
+      <label><span data-i18n="documentLanguage">زبان سند</span><select id="book-project-language"><option value="fa-IR">فارسی</option><option value="en-US">English</option></select></label>
+      <label><span data-i18n="direction">جهت</span><select id="book-project-direction"><option value="auto" data-i18n="automatic">خودکار</option><option value="rtl">RTL</option><option value="ltr">LTR</option></select></label>
+    </div>
+    <div class="modal-actions"><button class="button secondary" id="cancel-book-project" type="button" data-i18n="cancel">انصراف</button><button class="button primary" type="submit" data-i18n="createProject">ساخت پروژه</button></div>
+  </form>
+</div>
+<div class="modal hidden" id="chapter-modal" role="dialog" aria-modal="true" aria-labelledby="chapter-modal-title">
+  <form class="modal-card" id="chapter-form">
+    <h2 id="chapter-modal-title" data-i18n="addChapter">افزودن فصل</h2>
+    <p id="chapter-modal-description" data-i18n="addChapterHelp">عنوان فصل را وارد کن. فایل Markdown داخل پوشه chapters ساخته می‌شود.</p>
+    <label><span data-i18n="chapterTitle">عنوان فصل</span><input id="chapter-title-input" maxlength="200" required></label>
+    <div class="modal-actions"><button class="button secondary" id="cancel-chapter" type="button" data-i18n="cancel">انصراف</button><button class="button primary" type="submit" data-i18n="save">ذخیره</button></div>
+  </form>
 </div>
 <div class="modal hidden" id="recovery-modal" role="dialog" aria-modal="true" aria-labelledby="recovery-title"><div class="modal-card"><h2 id="recovery-title" data-i18n="recoveryFound">نسخه بازیابی‌شده پیدا شد</h2><p id="recovery-message"></p><div class="modal-actions"><button class="button secondary" id="discard-recovery" type="button" data-i18n="discardRecovery">نادیده‌گرفتن</button><button class="button primary" id="restore-recovery" type="button" data-i18n="restoreRecovery">بازیابی</button></div></div></div>
 <div class="toasts" id="toast-region" aria-live="assertive"></div>

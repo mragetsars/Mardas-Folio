@@ -11,3 +11,36 @@
 @media(max-width:1150px){.sidebar-tabs{grid-template-columns:repeat(3,1fr)}}
 
 #run-project-search[data-state="running"]{background:#fff2d5;color:#8a5700;border-color:#e7c374}.search-limit-notice{margin-top:6px;border-top:1px solid #dce8e6;padding-top:10px}
+
+
+/* Phase 24 book project workflow */
+.sidebar-tabs{grid-template-columns:repeat(7,minmax(0,1fr))}
+.book-tools{display:grid;gap:10px}
+.book-summary{display:grid;gap:3px;padding:10px;border:1px solid var(--line);border-radius:11px;background:#f7fbfa}
+.book-summary strong{font-size:13px;color:#24484b}
+.book-summary small{font:10px/1.5 ui-monospace,monospace;direction:ltr;text-align:left;color:#6a8082;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.book-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.book-actions .button{justify-content:center}
+.book-operation-status{padding:9px 10px;border-radius:9px;background:#eef7f5;color:#2f625d;font-size:11px;line-height:1.6}
+.book-operation-status[data-kind="error"]{background:#fff1ef;color:#9b251c}
+.book-operation-status[data-kind="warning"]{background:#fff8df;color:#815500}
+.book-operation-status[data-kind="success"]{background:#e8f7ef;color:#246345}
+.book-chapter-list{counter-reset:chapter}
+.book-chapter-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:7px;padding:7px;border:1px solid transparent;border-radius:10px;background:#fbfdfc}
+.book-chapter-row:hover,.book-chapter-row.drag-over{border-color:#b9d7d1;background:#eef8f6}
+.book-chapter-row.dragging{opacity:.48}
+.book-chapter-handle{cursor:grab;border:0;background:transparent;color:#789091;font-size:16px;padding:4px}
+.book-chapter-main{min-width:0;border:0;background:transparent;text-align:start;cursor:pointer;color:#274b4e}
+.book-chapter-main strong,.book-chapter-main small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.book-chapter-main strong{font-size:12px}
+.book-chapter-main small{font:9px/1.5 ui-monospace,monospace;direction:ltr;text-align:left;color:#7b9092}
+.book-chapter-actions{display:flex;gap:2px}
+.book-chapter-actions button{width:27px;height:27px;border:0;border-radius:7px;background:transparent;color:#577174;cursor:pointer}
+.book-chapter-actions button:hover{background:#dcefeb;color:#0f766e}
+.book-chapter-actions button.danger:hover{background:#ffe5e1;color:#a22c22}
+.book-project-form{display:grid;gap:12px}
+.book-project-form>label,.modal-card>label{display:grid;gap:6px;color:#4c6769;font-size:12px}
+.book-project-form input,.book-project-form select,.modal-card>label input{width:100%;border:1px solid #c9dcd8;border-radius:9px;background:#fbfdfc;padding:9px;color:#183b3e}
+.book-project-form .settings-grid{margin:0}
+.book-preview-mode .preview-document{max-width:900px;margin:0 auto}
+@media(max-width:1180px){.sidebar-tabs button{font-size:10px;padding-inline:2px}.book-actions{grid-template-columns:1fr}}

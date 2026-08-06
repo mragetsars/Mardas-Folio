@@ -38,6 +38,16 @@ import {
   startProjectSearch,
 } from "./core/project-api.mjs";
 import {
+  addBookChapter,
+  createBookProject,
+  duplicateBookChapter,
+  removeBookChapter,
+  reorderBookChapters,
+  startBookExport,
+  startBookPreview,
+  startBookValidation,
+} from "./core/book-api.mjs";
+import {
   importDocumentAsset,
   listDocumentAssets,
   previewDocumentText,
@@ -71,6 +81,11 @@ const state = {
   activeProjectSearchRequestId: null,
   bibliographySequence: 0,
   bibliographyEntries: [],
+  projectDiagnostics: [],
+  activeBookRequestId: null,
+  bookRequestSequence: 0,
+  chapterModalMode: null,
+  chapterModalPath: null,
   previewSyncing: false,
 };
 let editorAdapter = null;
@@ -485,6 +500,7 @@ function renderProblems(model) {
   const diagnostics = [
     ...(Array.isArray(model?.diagnostics) ? model.diagnostics : []),
     ...(Array.isArray(model?.bibliographyDiagnostics) ? model.bibliographyDiagnostics : []),
+    ...(Array.isArray(state.projectDiagnostics) ? state.projectDiagnostics : []),
   ];
   $("#problem-count").textContent = String(diagnostics.length);
   const list = $("#problem-list");
@@ -500,7 +516,16 @@ function renderProblems(model) {
     button.innerHTML = `<span class="level"></span><span></span>`;
     button.querySelector(".level").textContent = diagnostic.code || "!";
     button.querySelector("span:last-child").textContent = diagnostic.message || String(diagnostic);
-    if (diagnostic.line) button.addEventListener("click", () => goToLine(diagnostic.line, diagnostic.column || 1));
+    if (diagnostic.path && state.project?.path) {
+      button.addEventListener("click", () =>
+        openProjectRelativeFile(diagnostic.path, {
+          line: diagnostic.line || 1,
+          column: diagnostic.column || 1,
+        })
+      );
+    } else if (diagnostic.line) {
+      button.addEventListener("click", () => goToLine(diagnostic.line, diagnostic.column || 1));
+    }
     list.append(button);
   }
 }
@@ -529,6 +554,7 @@ function renderWorkspace() {
   renderDocumentTabs();
   const editor = editorAdapter || $("#markdown-editor");
   renderProjectWorkspace();
+  renderBookWorkspace();
   if (!model) {
     editor.value = "";
     editor.disabled = true;
@@ -625,10 +651,8 @@ async function chooseProjectDirectory() {
 async function loadProject(path, { announce = true, openFirstChapter = true } = {}) {
   await cancelActiveProjectSearch({ announce: false });
   const payload = await openProject(path);
-  state.project = payload;
+  applyProjectPayload(payload);
   state.bibliographyEntries = [];
-  persistSession();
-  renderProjectWorkspace();
   showView("workspace");
   activateSidebar("project");
   if (announce) toast(t("projectOpened"), "success");
@@ -646,8 +670,7 @@ async function refreshActiveProject() {
   }
   try {
     await cancelActiveProjectSearch({ announce: false });
-    state.project = await refreshProject(state.project.path);
-    renderProjectWorkspace();
+    applyProjectPayload(await refreshProject(state.project.path));
     toast(t("projectRefreshed"), "success");
   } catch (error) {
     toast(errorText(error), "error");
@@ -811,6 +834,383 @@ async function runProjectSearch() {
       resetProjectSearchButton();
     }
   }
+}
+
+
+function applyProjectPayload(payload) {
+  const project = payload?.project || payload;
+  if (!project?.path) return null;
+  state.project = project;
+  state.projectDiagnostics = Array.isArray(project.diagnostics) ? project.diagnostics : [];
+  persistSession();
+  renderProjectWorkspace();
+  renderBookWorkspace();
+  renderProblems(activeDocument());
+  return project;
+}
+
+function folderNameFromTitle(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return normalized || "mardas-book";
+}
+
+function openNewBookModal() {
+  const titleInput = $("#book-project-title-input");
+  const folderInput = $("#book-project-folder-input");
+  titleInput.value = "";
+  folderInput.value = "";
+  folderInput.dataset.userEdited = "";
+  $("#book-project-parent-input").value = "";
+  $("#book-project-language").value = state.locale === "fa" ? "fa-IR" : "en-US";
+  $("#book-project-direction").value = state.locale === "fa" ? "rtl" : "ltr";
+  $("#book-project-modal").classList.remove("hidden");
+  queueMicrotask(() => titleInput.focus());
+}
+
+function closeNewBookModal() {
+  $("#book-project-modal").classList.add("hidden");
+}
+
+async function chooseBookParent() {
+  try {
+    const path = await invoke("pick_project_directory");
+    if (path) $("#book-project-parent-input").value = path;
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
+async function submitNewBookProject(event) {
+  event.preventDefault();
+  const title = $("#book-project-title-input").value.trim();
+  const folderName = $("#book-project-folder-input").value.trim() || folderNameFromTitle(title);
+  const parentPath = $("#book-project-parent-input").value.trim();
+  if (!title || !parentPath) {
+    toast(t("chooseProjectLocation"), "warning");
+    return;
+  }
+  const submit = event.submitter || $("#book-project-form button[type='submit']");
+  submit.disabled = true;
+  try {
+    const project = await createBookProject({
+      parentPath,
+      folderName,
+      title,
+      language: $("#book-project-language").value,
+      direction: $("#book-project-direction").value,
+    });
+    applyProjectPayload(project);
+    closeNewBookModal();
+    showView("workspace");
+    activateSidebar("book");
+    const first = project.book?.chapters?.[0]?.path;
+    if (first) await openProjectRelativeFile(first);
+    toast(t("bookCreated"), "success");
+  } catch (error) {
+    toast(errorText(error), "error");
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+function openChapterModal(mode, chapter = null) {
+  state.chapterModalMode = mode;
+  state.chapterModalPath = chapter?.path || null;
+  const duplicate = mode === "duplicate";
+  $("#chapter-modal-title").textContent = t(duplicate ? "duplicateChapter" : "addChapter");
+  $("#chapter-modal-description").textContent = t("addChapterHelp");
+  $("#chapter-title-input").value = duplicate
+    ? `${chapter?.title || chapter?.path || t("chapterTitle")} ${state.locale === "fa" ? "کپی" : "Copy"}`
+    : "";
+  $("#chapter-modal").classList.remove("hidden");
+  queueMicrotask(() => $("#chapter-title-input").focus());
+}
+
+function closeChapterModal() {
+  state.chapterModalMode = null;
+  state.chapterModalPath = null;
+  $("#chapter-modal").classList.add("hidden");
+}
+
+function bookProject() {
+  return state.project?.book || null;
+}
+
+function setBookOperationStatus(message = "", { kind = "info", running = false } = {}) {
+  const container = $("#book-operation-status");
+  const text = $("#book-operation-message");
+  const cancel = $("#book-cancel-operation");
+  if (!container || !text || !cancel) return;
+  container.classList.toggle("hidden", !message);
+  container.dataset.kind = kind;
+  text.textContent = message;
+  cancel.classList.toggle("hidden", !running);
+}
+
+async function cancelActiveBookOperation() {
+  const requestId = state.activeBookRequestId;
+  if (!requestId) return;
+  try {
+    await cancelSidecarRequest(requestId);
+    setBookOperationStatus(t("searchCancelled"), { kind: "warning" });
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
+async function runBookTask(task, {
+  successMessage = "",
+  onSuccess = null,
+  showProblems = false,
+} = {}) {
+  const sequence = ++state.bookRequestSequence;
+  state.activeBookRequestId = task.requestId;
+  setBookOperationStatus(t("bookOperationRunning"), { running: true });
+  try {
+    const result = await task.promise;
+    if (sequence !== state.bookRequestSequence) return null;
+    if (result?.project) applyProjectPayload(result.project);
+    if (typeof onSuccess === "function") await onSuccess(result);
+    setBookOperationStatus(successMessage || t("bookValid"), { kind: "success" });
+    if (successMessage) toast(successMessage, "success");
+    if (showProblems) activateSidebar("problems");
+    return result;
+  } catch (error) {
+    if (sequence !== state.bookRequestSequence) return null;
+    const payload = errorPayload(error);
+    const applicationCode =
+      payload?.application_code
+      || payload?.data?.application_code
+      || payload?.code;
+    if (applicationCode === "MARDAS-JOB-CANCELLED") {
+      setBookOperationStatus(t("searchCancelled"), { kind: "warning" });
+      return null;
+    }
+    const diagnostics =
+      payload?.details?.diagnostics
+      || payload?.data?.details?.diagnostics
+      || payload?.diagnostics
+      || [];
+    if (diagnostics.length) {
+      state.projectDiagnostics = diagnostics;
+      renderProblems(activeDocument());
+      activateSidebar("problems");
+    }
+    setBookOperationStatus(errorText(error), { kind: "error" });
+    toast(errorText(error), "error");
+    return null;
+  } finally {
+    if (sequence === state.bookRequestSequence) {
+      state.activeBookRequestId = null;
+      $("#book-cancel-operation")?.classList.add("hidden");
+    }
+  }
+}
+
+async function submitChapterModal(event) {
+  event.preventDefault();
+  const project = state.project;
+  const title = $("#chapter-title-input").value.trim();
+  if (!project?.path || !project.config_sha256 || !title) return;
+  const submit = event.submitter || $("#chapter-form button[type='submit']");
+  submit.disabled = true;
+  try {
+    const result = state.chapterModalMode === "duplicate"
+      ? await duplicateBookChapter({
+          projectPath: project.path,
+          relativePath: state.chapterModalPath,
+          title,
+          expectedConfigSha256: project.config_sha256,
+        })
+      : await addBookChapter({
+          projectPath: project.path,
+          title,
+          expectedConfigSha256: project.config_sha256,
+        });
+    const mode = state.chapterModalMode;
+    applyProjectPayload(result);
+    closeChapterModal();
+    const created = result.created_chapter?.path;
+    if (created) await openProjectRelativeFile(created);
+    toast(t(mode === "duplicate" ? "chapterDuplicated" : "chapterAdded"), "success");
+  } catch (error) {
+    toast(errorText(error), "error");
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function saveBookOrder(orderedPaths) {
+  const project = state.project;
+  if (!project?.path || !project.config_sha256) return;
+  try {
+    const result = await reorderBookChapters({
+      projectPath: project.path,
+      orderedPaths,
+      expectedConfigSha256: project.config_sha256,
+    });
+    applyProjectPayload(result);
+    toast(t("chapterOrderSaved"), "success");
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
+async function moveBookChapter(path, delta) {
+  const chapters = [...(bookProject()?.chapters || [])];
+  const index = chapters.findIndex((chapter) => chapter.path === path);
+  const target = index + delta;
+  if (index < 0 || target < 0 || target >= chapters.length) return;
+  const [chapter] = chapters.splice(index, 1);
+  chapters.splice(target, 0, chapter);
+  await saveBookOrder(chapters.map((item) => item.path));
+}
+
+async function removeChapterFromBook(chapter) {
+  const project = state.project;
+  if (!project?.path || !project.config_sha256) return;
+  if (!globalThis.confirm(t("confirmRemoveChapter"))) return;
+  try {
+    const result = await removeBookChapter({
+      projectPath: project.path,
+      relativePath: chapter.path,
+      expectedConfigSha256: project.config_sha256,
+    });
+    applyProjectPayload(result);
+    toast(t("chapterRemoved"), "success");
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
+function bookChapterRow(chapter, index, chapters) {
+  const row = document.createElement("div");
+  row.className = "book-chapter-row";
+  row.draggable = true;
+  row.dataset.path = chapter.path;
+  row.innerHTML = `
+    <button class="book-chapter-handle" type="button" aria-label="Drag">⋮⋮</button>
+    <button class="book-chapter-main" type="button"><strong></strong><small></small></button>
+    <span class="book-chapter-actions">
+      <button type="button" data-action="up" title="${t("moveChapterUp")}">↑</button>
+      <button type="button" data-action="down" title="${t("moveChapterDown")}">↓</button>
+      <button type="button" data-action="duplicate" title="${t("duplicateChapter")}">⧉</button>
+      <button class="danger" type="button" data-action="remove" title="${t("removeFromBook")}">×</button>
+    </span>`;
+  row.querySelector("strong").textContent = `${index + 1}. ${chapter.title || chapter.path}`;
+  row.querySelector("small").textContent = chapter.path;
+  row.querySelector(".book-chapter-main").addEventListener("click", () =>
+    openProjectRelativeFile(chapter.path)
+  );
+  row.querySelector('[data-action="up"]').disabled = index === 0;
+  row.querySelector('[data-action="down"]').disabled = index === chapters.length - 1;
+  row.querySelector('[data-action="up"]').addEventListener("click", () => moveBookChapter(chapter.path, -1));
+  row.querySelector('[data-action="down"]').addEventListener("click", () => moveBookChapter(chapter.path, 1));
+  row.querySelector('[data-action="duplicate"]').addEventListener("click", () => openChapterModal("duplicate", chapter));
+  row.querySelector('[data-action="remove"]').addEventListener("click", () => removeChapterFromBook(chapter));
+  row.addEventListener("dragstart", (event) => {
+    row.classList.add("dragging");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", chapter.path);
+  });
+  row.addEventListener("dragend", () => row.classList.remove("dragging"));
+  row.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    row.classList.add("drag-over");
+  });
+  row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+  row.addEventListener("drop", (event) => {
+    event.preventDefault();
+    row.classList.remove("drag-over");
+    const sourcePath = event.dataTransfer.getData("text/plain");
+    if (!sourcePath || sourcePath === chapter.path) return;
+    const paths = chapters.map((item) => item.path);
+    const sourceIndex = paths.indexOf(sourcePath);
+    const targetIndex = paths.indexOf(chapter.path);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    paths.splice(sourceIndex, 1);
+    paths.splice(targetIndex, 0, sourcePath);
+    saveBookOrder(paths);
+  });
+  return row;
+}
+
+function renderBookWorkspace() {
+  const book = bookProject();
+  const empty = $("#book-empty");
+  const tools = $("#book-tools");
+  const list = $("#book-chapter-list");
+  if (!empty || !tools || !list) return;
+  const enabled = Boolean(book);
+  empty.classList.toggle("hidden", enabled);
+  tools.classList.toggle("hidden", !enabled);
+  $("#book-chapter-count").textContent = String(book?.chapter_count || 0);
+  list.replaceChildren();
+  if (!book) return;
+  $("#book-project-title").textContent = book.title || state.project.name || t("bookProject");
+  $("#book-output-path").textContent = book.output || "dist/book.pdf";
+  const chapters = Array.isArray(book.chapters) ? book.chapters : [];
+  list.replaceChildren(...chapters.map((chapter, index) => bookChapterRow(chapter, index, chapters)));
+}
+
+async function validateActiveBook() {
+  if (!state.project?.path || !bookProject()) return;
+  await runBookTask(startBookValidation(state.project.path), {
+    successMessage: t("bookValid"),
+    showProblems: true,
+  });
+}
+
+function renderFullBookPreview(html) {
+  const parsed = new DOMParser().parseFromString(String(html || ""), "text/html");
+  const container = $("#preview-document");
+  container.replaceChildren();
+  parsed.head.querySelectorAll("style").forEach((source) => {
+    const style = document.createElement("style");
+    style.textContent = source.textContent || "";
+    container.append(style);
+  });
+  container.append(safePreviewHtml(parsed.body.innerHTML));
+  $("#preview-detail").textContent = t("fullBookPreview");
+  document.body.classList.add("book-preview-mode");
+}
+
+async function previewActiveBook() {
+  if (!state.project?.path || !bookProject()) return;
+  await runBookTask(startBookPreview(state.project.path), {
+    successMessage: t("bookPreviewReady"),
+    onSuccess: (result) => renderFullBookPreview(result.html),
+  });
+}
+
+async function exportActiveBook() {
+  const project = state.project;
+  const book = bookProject();
+  if (!project?.path || !book) return;
+  let outputPath;
+  try {
+    outputPath = await invoke("pick_pdf_output", {
+      suggested_path: `${project.path}/${book.output || "dist/book.pdf"}`,
+    });
+  } catch (error) {
+    toast(errorText(error), "error");
+    return;
+  }
+  if (!outputPath) return;
+  await runBookTask(startBookExport({
+    projectPath: project.path,
+    outputPath,
+  }), {
+    successMessage: t("bookExported"),
+    onSuccess: (result) => {
+      state.outputResult = result;
+    },
+  });
 }
 
 function bibliographyEntryAuthors(entry) {
@@ -1357,6 +1757,8 @@ function bindEvents() {
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
   $("#start-open-project").addEventListener("click", chooseProjectDirectory);
   $("#workflow-project").addEventListener("click", chooseProjectDirectory);
+  $("#start-new-book").addEventListener("click", openNewBookModal);
+  $("#workflow-book").addEventListener("click", openNewBookModal);
   $("#export-back").addEventListener("click", () => showView("start"));
   $("#choose-source").addEventListener("click", chooseExportSource);
   $("#choose-output").addEventListener("click", chooseExportOutput);
@@ -1386,6 +1788,24 @@ function bindEvents() {
   $("#sidebar-open-project").addEventListener("click", chooseProjectDirectory);
   $("#refresh-project").addEventListener("click", refreshActiveProject);
   $("#run-project-search").addEventListener("click", runProjectSearch);
+  $("#sidebar-new-book").addEventListener("click", openNewBookModal);
+  $("#book-add-chapter").addEventListener("click", () => openChapterModal("add"));
+  $("#book-validate").addEventListener("click", validateActiveBook);
+  $("#book-preview").addEventListener("click", previewActiveBook);
+  $("#book-export").addEventListener("click", exportActiveBook);
+  $("#book-cancel-operation").addEventListener("click", cancelActiveBookOperation);
+  $("#book-project-form").addEventListener("submit", submitNewBookProject);
+  $("#cancel-book-project").addEventListener("click", closeNewBookModal);
+  $("#choose-book-parent").addEventListener("click", chooseBookParent);
+  $("#book-project-title-input").addEventListener("input", (event) => {
+    const folder = $("#book-project-folder-input");
+    if (!folder.dataset.userEdited) folder.value = folderNameFromTitle(event.target.value);
+  });
+  $("#book-project-folder-input").addEventListener("input", (event) => {
+    event.target.dataset.userEdited = event.target.value ? "true" : "";
+  });
+  $("#chapter-form").addEventListener("submit", submitChapterModal);
+  $("#cancel-chapter").addEventListener("click", closeChapterModal);
   $("#project-search-query").addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -1414,6 +1834,10 @@ function bindEvents() {
   $("#discard-recovery").addEventListener("click", () => resolveRecovery(false));
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      if (!$("#chapter-modal").classList.contains("hidden")) closeChapterModal();
+      if (!$("#book-project-modal").classList.contains("hidden")) closeNewBookModal();
+    }
     const modifier = event.ctrlKey || event.metaKey;
     if (!modifier) return;
     const key = event.key.toLowerCase();
@@ -1462,11 +1886,18 @@ async function boot() {
   renderAssets([]);
   renderProblems(null);
   renderCitations(null);
+  renderBookWorkspace();
   try {
     await listen("sidecar-progress", (event) => {
       const params = event.payload?.params || {};
-      if (params.request_id !== state.activeRequestId) return;
       const percent = Math.round(Math.max(0, Math.min(1, Number(params.fraction) || 0)) * 100);
+      if (params.request_id === state.activeBookRequestId) {
+        setBookOperationStatus(`${params.message || t("bookOperationRunning")} · ${percent}%`, {
+          running: true,
+        });
+        return;
+      }
+      if (params.request_id !== state.activeRequestId) return;
       $("#progress-bar").style.width = `${percent}%`;
       $("#progress-label").textContent = `${percent}%`;
       if (params.message) $("#status-message").textContent = params.message;
@@ -1485,6 +1916,8 @@ async function boot() {
           });
         } catch {
           state.project = null;
+          state.projectDiagnostics = [];
+          renderBookWorkspace();
         }
       }
       if (session.paths.length) {

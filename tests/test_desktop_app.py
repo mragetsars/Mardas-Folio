@@ -121,6 +121,13 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "project-search-query",
         "project-search-results",
         "citation-search",
+        "book-project-modal",
+        "chapter-modal",
+        "book-chapter-list",
+        "book-add-chapter",
+        "book-validate",
+        "book-preview",
+        "book-export",
     ):
         assert f'id="{element_id}"' in index
     assert 'type="module" src="./js/main.mjs"' in index
@@ -150,6 +157,18 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "bibliography.index",
     ):
         assert method in project_api.read_text(encoding="utf-8")
+    book_api = DESKTOP / "frontend" / "js" / "core" / "book-api.mjs"
+    for method in (
+        "book.create",
+        "book.add_chapter",
+        "book.duplicate_chapter",
+        "book.reorder_chapters",
+        "book.remove_chapter",
+        "book.validate",
+        "book.preview",
+        "book.export",
+    ):
+        assert method in book_api.read_text(encoding="utf-8")
     for module in (
         "authoring-api.mjs",
         "documents.mjs",
@@ -160,6 +179,7 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "session.mjs",
         "editor-adapter.mjs",
         "project-api.mjs",
+        "book-api.mjs",
     ):
         assert (DESKTOP / "frontend" / "js" / "core" / module).is_file()
     assert "fetch(" not in main
