@@ -2,7 +2,7 @@
 
 > **Professional Markdown to PDF converter for Persian, English, and mixed RTL/LTR technical documents**
 
-![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.25.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
+![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.26.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
 
 ## Overview
 
@@ -60,9 +60,11 @@ Release and operations references are [Changelog](./docs/CHANGELOG.md), [Release
 
 ## Native Desktop Authoring Preview
 
-Version 1.25.0 extends the native **Mardas Studio** Windows application from Quick Export into a conflict-safe authoring workspace. The Tauri shell still opens in its own application window, uses native dialogs, enforces a single running instance, accepts `.md` and `.markdown` file associations, and communicates with the frozen Python rendering engine over JSON-RPC `stdin`/`stdout`. It does not open an external browser or a localhost HTTP server.
+Version 1.26.0 extends the native **Mardas Studio** authoring preview with an intelligent, bounded project workspace. The Start Center and authoring sidebar can open a local `mardas.toml` project through a native directory picker, restore that project in the next session, browse supported text files, search the project with literal or deliberately restricted regular expressions, and open a result at its exact source line. Hidden, generated, symlinked, oversized, and out-of-root paths remain outside the editable project boundary.
 
-The desktop preview now includes multiple document tabs, session restore, bounded crash-recovery snapshots, atomic saves with external-change detection, literal find/replace, a Markdown outline, top-level front-matter controls, assets and citations panels, inline diagnostics, dirty-buffer validation, and a sanitized live preview linked back to source headings. Recovery storage never silently overwrites the source file; the user must explicitly save. The current editor is a dependency-free textarea foundation rather than the final CodeMirror-based editing surface, and the PDF export remains the authoritative print preview.
+The desktop bibliography panel now indexes configured local BibTeX and CSL JSON sources, searches by key, title, author, publisher, or year, marks cited entries, exposes parse diagnostics, and inserts citations at the editor cursor. Preview headings carry trusted source-line metadata produced by the Python Markdown engine, enabling duplicate-safe preview-to-editor navigation and editor-to-preview section synchronization instead of relying only on heading text order.
+
+The existing conflict-safe document workflow remains intact: multiple tabs, bounded recovery snapshots, atomic saves with external-change detection, literal find/replace, front-matter controls, assets, validation, and dirty-buffer preview. The editor is now isolated behind a stable adapter so a fully bundled CodeMirror surface can replace the current dependency-free textarea without coupling recovery or save logic to one widget. PDF export remains authoritative for MathJax, Mermaid, pagination, embedded fonts, and print layout.
 
 A Windows release now produces:
 
@@ -88,7 +90,7 @@ Verify the frozen executable, internal SHA-256 manifest, bundled browser, JSON-R
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-1.25.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-MD2PDF-1.26.0-runtime-windows-x86_64 \
   --render
 ```
 
@@ -96,7 +98,7 @@ Build the native Windows installer after creating the standalone runtime:
 
 ```powershell
 python scripts/build_desktop_app.py `
-  --runtime build/standalone-runtime/Mardas-MD2PDF-1.25.0-runtime-windows-x86_64 `
+  --runtime build/standalone-runtime/Mardas-MD2PDF-1.26.0-runtime-windows-x86_64 `
   --clean
 ```
 

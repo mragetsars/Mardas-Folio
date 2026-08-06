@@ -4,6 +4,31 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.26.0 - 2026-08-06
+
+### Added
+- Added a native project-directory workflow with a bounded file tree, restored project sessions, Unicode-aware literal search, deliberately restricted regular-expression search, exact source-line result navigation, and cooperative cancellation.
+- Added a searchable desktop bibliography index for configured local BibTeX and CSL JSON sources, cited/uncited status, parse diagnostics, and one-click citation insertion.
+- Added trusted Markdown heading source maps to preview payloads and duplicate-safe bidirectional navigation between editor, outline, and preview.
+- Added a stable editor adapter that decouples document, recovery, conflict, project, and preview state from the current editing widget.
+
+### Changed
+- Extended the desktop engine API to 1.2.0 with project open, refresh, read, conflict-aware save, search, and bibliography-index operations.
+- Restored the active project with the document session and pruned hidden, generated, dependency, patch, and symlink directories before project enumeration.
+- Replaced order-based preview heading linkage with backend-provided source-line metadata.
+
+### Security
+- Added project-root, supported-file, size, and symbolic-link boundaries to the new desktop project operations.
+- Bounded project search query length, result count, line length, and file scope; rejected lookarounds, backreferences, quantified groups, and excessive repeats in interactive regular expressions.
+- Preserved DOM sanitization and rejected out-of-project bibliography sources.
+
+### Fixed
+- Registered every new project and bibliography operation in the sidecar job allowlist so native UI requests no longer fail at the process boundary.
+- Prevented repeated bibliography refreshes from duplicating diagnostics in the Problems panel.
+
+### Tests
+- Added Markdown source-map, project traversal/search/cancellation, bibliography-index, sidecar allowlist, editor-adapter, project API, session restore, native-shell, and frontend workflow coverage.
+
 ## 1.25.0 - 2026-07-30
 
 ### Added

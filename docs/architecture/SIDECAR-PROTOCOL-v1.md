@@ -5,7 +5,7 @@ The sidecar implements JSON-RPC 2.0, reads one UTF-8 request per line from `stdi
 ## Lifecycle
 
 ```json
-{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.25.0","pid":1234}}
+{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.26.0","pid":1234}}
 ```
 
 Recommended startup sequence:
@@ -36,6 +36,27 @@ Dirty buffers are validated or previewed without first changing the source file:
 ```
 
 Local authoring assets are enumerated with `document.list_assets` and imported through `document.import_asset`. Imports are size- and extension-bounded, reject symbolic-link sources/directories, and use atomic writes below the document's `assets/` directory.
+
+
+## Project workspace lifecycle
+
+The native project workspace opens only a directory containing a valid `mardas.toml`. Project operations remain bounded to that root, reject hidden/generated or symbolic-link paths, and return structured application errors.
+
+```json
+{"jsonrpc":"2.0","id":"project-1","method":"project.open","params":{"path":"C:/work/book"}}
+```
+
+```json
+{"jsonrpc":"2.0","id":"search-1","method":"project.search","params":{"project_path":"C:/work/book","query":"method","regex":false,"case_sensitive":false,"max_results":200}}
+```
+
+Configured local bibliography sources are exposed through one read-only index shared by the desktop search panel and citation insertion:
+
+```json
+{"jsonrpc":"2.0","id":"bib-1","method":"bibliography.index","params":{"project_path":"C:/work/book","query":"smith","cited_keys":["smith2025"],"max_results":500}}
+```
+
+`preview.document_text` includes a `source_map` array for Markdown headings. Each item contains the rendered heading `id`, one-based source `line`, heading `level`, and plain `title`, allowing preview navigation without matching duplicate heading text.
 
 ## Document rendering
 
@@ -69,6 +90,12 @@ Cancellation is cooperative. The engine checks the cancellation flag between ren
 - `document.save`
 - `document.list_assets`
 - `document.import_asset`
+- `project.open`
+- `project.refresh`
+- `project.read`
+- `project.save`
+- `project.search`
+- `bibliography.index`
 - `render.document`
 - `render.book`
 - `preview.document`
