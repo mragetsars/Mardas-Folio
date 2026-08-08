@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
   <title>Mardas Studio</title>
   <link rel="icon" href="./assets/app-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+<a class="skip-link" href="#app-main" data-i18n="skipToContent">رفتن به محتوای اصلی</a>
 <div class="shell">
   <header class="topbar">
     <button class="brand" id="home-button" type="button">
@@ -18,7 +19,10 @@
     </button>
     <div class="top-actions">
       <span class="engine" id="engine-state" data-state="checking"><i></i><span data-i18n="engineChecking">در حال بررسی موتور</span></span>
-      <button class="icon-button" id="locale-button" type="button">EN</button>
+      <button class="icon-button" id="command-button" type="button" data-i18n-title="commandPalette" title="فرمان‌ها" aria-label="فرمان‌ها">⌘</button>
+      <button class="icon-button" id="help-button" type="button" data-i18n-title="help" title="راهنما" aria-label="راهنما">?</button>
+      <button class="icon-button" id="settings-button" type="button" data-i18n-title="settings" title="تنظیمات" aria-label="تنظیمات">⚙</button>
+      <button class="icon-button" id="locale-button" type="button" data-i18n-title="switchLanguage" title="تغییر زبان">EN</button>
     </div>
   </header>
 
@@ -42,6 +46,11 @@
         </div>
       </div>
 
+      <section class="template-section" aria-labelledby="template-gallery-title">
+        <header class="panel-title template-heading"><div><p data-i18n="templates">قالب‌ها</p><h2 id="template-gallery-title" data-i18n="startFromTemplate">از یک قالب آماده شروع کن</h2></div><button class="text-button" id="template-help" type="button" data-i18n="learnTemplates">راهنمای قالب‌ها</button></header>
+        <div class="template-grid" id="template-grid"></div>
+      </section>
+
       <div class="start-grid">
         <section class="panel">
           <header class="panel-title"><div><p data-i18n="workflows">مسیرهای کاری</p><h2 data-i18n="chooseWorkflow">از کجا شروع کنیم؟</h2></div></header>
@@ -64,7 +73,7 @@
       <div class="workspace-heading"><button class="back" id="export-back" type="button">→</button><div><p class="eyebrow" data-i18n="quickExport">خروجی سریع PDF</p><h1 data-i18n="exportTitle">Markdown را به PDF آماده انتشار تبدیل کن</h1></div></div>
       <div class="export-layout">
         <form class="panel form-panel" id="export-form" novalidate>
-          <section class="step"><header><span>1</span><div><h2 data-i18n="sourceFile">فایل مبدأ</h2><p data-i18n="sourceFileHelp">فایل Markdown را از سیستم انتخاب کن.</p></div></header><div class="path-row"><input id="source-path" readonly placeholder="report.md"><button class="button secondary compact" id="choose-source" type="button" data-i18n="browse">انتخاب</button></div></section>
+          <section class="step"><header><span>1</span><div><h2 data-i18n="sourceFile">فایل مبدأ</h2><p data-i18n="sourceFileHelp">فایل Markdown را از سیستم انتخاب کن.</p></div></header><div class="path-row"><input id="source-path" readonly data-i18n-aria-label="sourceFile" aria-label="فایل مبدأ" placeholder="report.md"><button class="button secondary compact" id="choose-source" type="button" data-i18n="browse">انتخاب</button></div></section>
           <section class="step"><header><span>2</span><div><h2 data-i18n="documentPreset">نوع خروجی</h2><p data-i18n="documentPresetHelp">یک preset انتخاب کن؛ جزئیات مناسب خودکار تنظیم می‌شوند.</p></div></header><div class="preset-grid" id="preset-grid" role="radiogroup"></div></section>
           <section class="step"><header><span>3</span><div><h2 data-i18n="basicSettings">تنظیمات اصلی</h2><p data-i18n="basicSettingsHelp">فقط گزینه‌هایی که معمولاً لازم‌اند.</p></div></header>
             <div class="settings-grid">
@@ -74,7 +83,7 @@
               <label class="toggle"><input id="include-toc" type="checkbox" checked><i></i><span data-i18n="includeToc">فهرست مطالب</span></label>
             </div>
           </section>
-          <section class="step"><header><span>4</span><div><h2 data-i18n="outputFile">فایل خروجی</h2><p data-i18n="outputFileHelp">محل ذخیره PDF را مشخص کن.</p></div></header><div class="path-row"><input id="output-path" readonly placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse">انتخاب</button></div></section>
+          <section class="step"><header><span>4</span><div><h2 data-i18n="outputFile">فایل خروجی</h2><p data-i18n="outputFileHelp">محل ذخیره PDF را مشخص کن.</p></div></header><div class="path-row"><input id="output-path" readonly data-i18n-aria-label="outputFile" aria-label="فایل خروجی" placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse">انتخاب</button></div></section>
           <footer class="form-actions"><button class="button secondary" id="validate-button" type="button" data-i18n="checkDocument">بررسی سند</button><button class="button primary" id="export-button" type="submit" data-i18n="exportPdf">ساخت PDF</button><button class="button danger hidden" id="cancel-button" type="button" data-i18n="cancel">لغو</button></footer>
         </form>
         <aside class="panel status-panel" aria-live="polite">
@@ -97,14 +106,14 @@
           <button class="button primary compact" id="workspace-save" type="button" data-i18n="save">ذخیره</button>
           <button class="button secondary compact" id="workspace-save-as" type="button" data-i18n="saveAs">ذخیره با نام</button>
         </div>
-        <div class="toolbar-group formatting" aria-label="Formatting">
-          <button type="button" data-editor-command="bold" title="Bold"><b>B</b></button>
-          <button type="button" data-editor-command="italic" title="Italic"><i>I</i></button>
-          <button type="button" data-editor-command="heading" title="Heading">H2</button>
-          <button type="button" data-editor-command="link" title="Link">↗</button>
-          <button type="button" data-editor-command="code" title="Code">&lt;/&gt;</button>
-          <button type="button" id="workspace-import-asset" title="Import asset">▧</button>
-          <button type="button" data-editor-command="citation" title="Citation">@</button>
+        <div class="toolbar-group formatting" data-i18n-aria-label="formattingTools" aria-label="ابزارهای قالب‌بندی">
+          <button type="button" data-editor-command="bold" data-i18n-title="bold" title="پررنگ"><b>B</b></button>
+          <button type="button" data-editor-command="italic" data-i18n-title="italic" title="مورب"><i>I</i></button>
+          <button type="button" data-editor-command="heading" data-i18n-title="heading" title="عنوان">H2</button>
+          <button type="button" data-editor-command="link" data-i18n-title="link" title="پیوند">↗</button>
+          <button type="button" data-editor-command="code" data-i18n-title="code" title="کد">&lt;/&gt;</button>
+          <button type="button" id="workspace-import-asset" data-i18n-title="importAsset" title="افزودن فایل">▧</button>
+          <button type="button" data-editor-command="citation" data-i18n-title="insertCitation" title="درج ارجاع">@</button>
         </div>
         <div class="toolbar-group">
           <button class="button secondary compact" id="workspace-validate" type="button" data-i18n="checkDocument">بررسی سند</button>
@@ -136,7 +145,7 @@
               <strong id="project-name"></strong>
               <small id="project-path"></small>
               <div class="project-search-box">
-                <input id="project-search-query" type="search" data-i18n-placeholder="searchProject" placeholder="جست‌وجو در همه فایل‌ها">
+                <input id="project-search-query" type="search" data-i18n-placeholder="searchProject" data-i18n-aria-label="projectSearch" aria-label="جست‌وجوی پروژه" placeholder="جست‌وجو در همه فایل‌ها">
                 <button class="button secondary compact" id="run-project-search" type="button" data-i18n="find">جست‌وجو</button>
               </div>
               <div class="project-search-options">
@@ -195,7 +204,7 @@
             <header><strong data-i18n="bibliographyLibrary">کتابخانه منابع</strong><span id="citation-count">0</span></header>
             <p class="sidebar-help" data-i18n="citationHelp">کلیدهای استفاده‌شده و ورودی‌های کتاب‌نامه اینجا نمایش داده می‌شوند.</p>
             <div class="project-search-box">
-              <input id="citation-search" type="search" data-i18n-placeholder="searchReferences" placeholder="جست‌وجوی عنوان، نویسنده، سال یا کلید">
+              <input id="citation-search" type="search" data-i18n-placeholder="searchReferences" data-i18n-aria-label="searchReferences" aria-label="جست‌وجوی منابع" placeholder="جست‌وجوی عنوان، نویسنده، سال یا کلید">
               <button class="button secondary compact" id="refresh-citations" type="button" data-i18n="refresh">بازخوانی</button>
             </div>
             <div class="tool-list" id="citation-list"></div>
@@ -207,26 +216,26 @@
         </aside>
 
         <section class="editor-pane">
-          <header class="pane-header"><div><strong id="editor-title">Untitled</strong><small id="editor-path"></small></div><span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span></header>
+          <header class="pane-header"><div><strong id="editor-title" data-i18n="untitled">بدون عنوان</strong><small id="editor-path"></small></div><span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span></header>
           <div class="find-bar hidden" id="find-bar">
-            <input id="find-query" type="search" placeholder="Find">
-            <input id="replace-query" type="text" placeholder="Replace">
+            <input id="find-query" type="search" data-i18n-placeholder="find" data-i18n-aria-label="find" aria-label="جست‌وجو" placeholder="جست‌وجو">
+            <input id="replace-query" type="text" data-i18n-placeholder="replaceWith" data-i18n-aria-label="replaceWith" aria-label="جایگزین" placeholder="جایگزین">
             <span id="find-count">0/0</span>
-            <button type="button" id="find-previous" title="Previous">↑</button>
-            <button type="button" id="find-next" title="Next">↓</button>
+            <button type="button" id="find-previous" data-i18n-title="previousMatch" title="نتیجه قبلی">↑</button>
+            <button type="button" id="find-next" data-i18n-title="nextMatch" title="نتیجه بعدی">↓</button>
             <button type="button" id="replace-one" data-i18n="replace">جایگزینی</button>
             <button type="button" id="replace-all" data-i18n="replaceAll">جایگزینی همه</button>
-            <button type="button" id="close-find" title="Close">×</button>
+            <button type="button" id="close-find" data-i18n-title="close" title="بستن">×</button>
           </div>
           <div class="editor-surface">
             <div class="line-gutter" id="line-gutter" aria-hidden="true">1</div>
-            <textarea id="markdown-editor" spellcheck="true" wrap="off" aria-label="Markdown editor"></textarea>
+            <textarea id="markdown-editor" spellcheck="true" wrap="off" data-i18n-aria-label="markdownEditor" aria-label="ویرایشگر Markdown"></textarea>
           </div>
-          <footer class="editor-status"><span id="cursor-status">Ln 1, Col 1</span><span id="word-status">0 words</span><span id="recovery-status"></span></footer>
+          <footer class="editor-status"><span id="cursor-status">خط 1، ستون 1</span><span id="word-status">0 واژه</span><span id="recovery-status"></span></footer>
         </section>
 
         <section class="preview-pane">
-          <header class="pane-header"><div><strong data-i18n="preview">پیش‌نمایش</strong><small id="preview-detail" data-i18n="previewHelp">نمایش سریع محتوای ذخیره‌نشده</small></div><div class="preview-actions"><label class="toggle compact-toggle"><input id="auto-preview" type="checkbox" checked><i></i><span data-i18n="automatic">خودکار</span></label><button class="icon-button" id="refresh-preview" type="button" title="Refresh">↻</button></div></header>
+          <header class="pane-header"><div><strong data-i18n="preview">پیش‌نمایش</strong><small id="preview-detail" data-i18n="previewHelp">نمایش سریع محتوای ذخیره‌نشده</small></div><div class="preview-actions"><label class="toggle compact-toggle"><input id="auto-preview" type="checkbox" checked><i></i><span data-i18n="automatic">خودکار</span></label><button class="icon-button" id="refresh-preview" type="button" data-i18n-title="refresh" title="بازخوانی">↻</button></div></header>
           <div class="preview-loading hidden" id="preview-loading"><i></i><span data-i18n="renderingPreview">در حال ساخت پیش‌نمایش</span></div>
           <article class="preview-document" id="preview-document"><div class="empty-preview"><strong data-i18n="previewEmpty">برای مشاهده پیش‌نمایش، نوشتن را شروع کن.</strong></div></article>
         </section>
@@ -235,7 +244,83 @@
   </main>
   <footer class="app-footer"><span data-i18n="localEngine">موتور محلی؛ فایل‌ها از دستگاه خارج نمی‌شوند.</span><span id="runtime-detail"></span></footer>
 </div>
-<div class="modal hidden" id="book-project-modal" role="dialog" aria-modal="true" aria-labelledby="book-project-modal-title">
+<div class="modal hidden onboarding-modal" id="onboarding-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="onboarding-title" aria-describedby="onboarding-description">
+  <div class="modal-card onboarding-card">
+    <div class="onboarding-progress" aria-hidden="true"><i data-onboarding-dot="0"></i><i data-onboarding-dot="1"></i><i data-onboarding-dot="2"></i></div>
+    <section class="onboarding-step" data-onboarding-step="0">
+      <span class="welcome-mark">M</span>
+      <h2 id="onboarding-title" data-i18n="onboardingWelcome">به Mardas Studio خوش آمدی</h2>
+      <p id="onboarding-description" data-i18n="onboardingWelcomeHelp">برای شروع لازم نیست چیزی درباره Python یا خط فرمان بدانی. سندت روی همین دستگاه می‌ماند.</p>
+      <div class="onboarding-choice">
+        <button class="choice-card" type="button" data-onboarding-action="document"><b>MD</b><span><strong data-i18n="newDocument">سند جدید</strong><small data-i18n="onboardingDocumentHelp">برای گزارش، مقاله یا یک سند مستقل.</small></span></button>
+        <button class="choice-card" type="button" data-onboarding-action="book"><b>B</b><span><strong data-i18n="newBookProject">پروژه کتاب جدید</strong><small data-i18n="onboardingBookHelp">برای کتاب، پایان‌نامه یا سند چندفصلی.</small></span></button>
+      </div>
+    </section>
+    <section class="onboarding-step hidden" data-onboarding-step="1">
+      <h2 data-i18n="onboardingSafeTitle">فایل‌هایت امن می‌مانند</h2>
+      <p data-i18n="onboardingSafeHelp">ذخیره اتمیک، بازیابی پیش‌نویس و تشخیص تغییر خارجی کمک می‌کنند چیزی بی‌هشدار از دست نرود.</p>
+      <ul class="feature-checks"><li data-i18n="offlineFirst">کار عادی بدون اینترنت</li><li data-i18n="recoveryProtection">بازیابی نسخه ذخیره‌نشده</li><li data-i18n="conflictProtection">جلوگیری از overwrite تغییر خارجی</li></ul>
+    </section>
+    <section class="onboarding-step hidden" data-onboarding-step="2">
+      <h2 data-i18n="onboardingReadyTitle">همه‌چیز آماده است</h2>
+      <p data-i18n="onboardingReadyHelp">هر زمان گیج شدی از دکمه راهنما یا Command Palette استفاده کن. تنظیمات رابط هم قابل تغییر است.</p>
+      <div class="shortcut-hints"><span><kbd>Ctrl</kbd> + <kbd>O</kbd><small data-i18n="openMarkdown">باز کردن Markdown</small></span><span><kbd>Ctrl</kbd> + <kbd>S</kbd><small data-i18n="save">ذخیره</small></span><span><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd><small data-i18n="commandPalette">فرمان‌ها</small></span></div>
+    </section>
+    <div class="modal-actions onboarding-actions"><button class="text-button" id="skip-onboarding" type="button" data-i18n="skipTour">رد کردن راهنما</button><span></span><button class="button secondary hidden" id="onboarding-back" type="button" data-i18n="back">قبلی</button><button class="button primary" id="onboarding-next" type="button" data-i18n="next">بعدی</button></div>
+  </div>
+</div>
+
+<div class="modal hidden" id="settings-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="settings-title">
+  <form class="modal-card settings-card" id="settings-form">
+    <div class="modal-heading"><div><p class="eyebrow" data-i18n="preferences">ترجیحات</p><h2 id="settings-title" data-i18n="settings">تنظیمات</h2></div><button class="icon-button" id="close-settings" type="button" data-i18n-title="close" title="بستن">×</button></div>
+    <label class="settings-search"><span class="sr-only" data-i18n="searchSettings">جست‌وجوی تنظیمات</span><input id="settings-search" type="search" data-i18n-placeholder="searchSettings" placeholder="جست‌وجوی تنظیمات"></label>
+    <div class="settings-sections" id="settings-sections">
+      <section class="settings-section" data-settings-terms="theme appearance light dark system ظاهر روشن تیره">
+        <h3 data-i18n="appearance">ظاهر</h3>
+        <label><span data-i18n="interfaceTheme">پوسته برنامه</span><select id="setting-theme"><option value="system" data-i18n="followSystem">مطابق سیستم</option><option value="light" data-i18n="lightTheme">روشن</option><option value="dark" data-i18n="darkTheme">تیره</option></select></label>
+        <label><span data-i18n="contentSize">اندازه متن نویسندگی</span><select id="setting-content-scale"><option value="comfortable" data-i18n="comfortable">معمولی</option><option value="large" data-i18n="large">بزرگ</option><option value="extra-large" data-i18n="extraLarge">خیلی بزرگ</option></select></label>
+      </section>
+      <section class="settings-section" data-settings-terms="accessibility motion animation preview دسترسی حرکت پیش نمایش">
+        <h3 data-i18n="accessibility">دسترسی‌پذیری</h3>
+        <label><span data-i18n="motion">حرکت و پویانمایی</span><select id="setting-motion"><option value="system" data-i18n="followSystem">مطابق سیستم</option><option value="reduce" data-i18n="reduceMotion">کاهش حرکت</option><option value="full" data-i18n="fullMotion">حرکت کامل</option></select></label>
+        <label class="toggle compact-toggle"><input id="setting-auto-preview" type="checkbox"><i></i><span data-i18n="automaticPreview">پیش‌نمایش خودکار</span></label>
+      </section>
+      <section class="settings-section" data-settings-terms="language onboarding reset language زبان راهنما بازنشانی">
+        <h3 data-i18n="languageAndHelp">زبان و راهنما</h3>
+        <label><span data-i18n="interfaceLanguage">زبان رابط</span><select id="setting-locale"><option value="fa">فارسی</option><option value="en">English</option></select></label>
+        <button class="button secondary compact" id="restart-onboarding" type="button" data-i18n="restartOnboarding">اجرای دوباره راهنمای شروع</button>
+      </section>
+    </div>
+    <div class="settings-empty hidden" id="settings-empty" data-i18n="noSettingsMatch">تنظیمی با این عبارت پیدا نشد.</div>
+    <div class="modal-actions"><button class="button secondary" id="reset-settings" type="button" data-i18n="resetSettings">بازنشانی تنظیمات</button><button class="button primary" type="submit" data-i18n="saveSettings">ذخیره تنظیمات</button></div>
+  </form>
+</div>
+
+<div class="modal hidden" id="help-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="help-title">
+  <div class="modal-card help-card">
+    <div class="modal-heading"><div><p class="eyebrow" data-i18n="gettingStarted">شروع کار</p><h2 id="help-title" data-i18n="help">راهنما</h2></div><button class="icon-button" id="close-help" type="button" data-i18n-title="close" title="بستن">×</button></div>
+    <div class="help-grid">
+      <section><h3 data-i18n="helpDocuments">سندها</h3><p data-i18n="helpDocumentsText">برای یک گزارش یا مقاله، سند جدید بساز یا Markdown موجود را باز کن. تغییرها تا زمان ذخیره در recovery نگهداری می‌شوند.</p></section>
+      <section><h3 data-i18n="helpBooks">کتاب و پایان‌نامه</h3><p data-i18n="helpBooksText">Book Project فصل‌ها، منابع و خروجی کامل را در یک پروژه نگه می‌دارد.</p></section>
+      <section><h3 data-i18n="helpExport">خروجی PDF</h3><p data-i18n="helpExportText">قبل از خروجی، بررسی سند را اجرا کن تا مشکلات مهم را پیش از ساخت PDF ببینی.</p></section>
+      <section><h3 data-i18n="helpPrivacy">حریم خصوصی</h3><p data-i18n="helpPrivacyText">موتور اصلی محلی است و برای workflow عادی به ارسال سند به سرویس آنلاین نیاز ندارد.</p></section>
+    </div>
+    <h3 data-i18n="keyboardShortcuts">میانبرهای صفحه‌کلید</h3>
+    <div class="shortcut-table"><span><kbd>Ctrl/⌘ O</kbd><b data-i18n="openMarkdown">باز کردن Markdown</b></span><span><kbd>Ctrl/⌘ S</kbd><b data-i18n="save">ذخیره</b></span><span><kbd>Ctrl/⌘ F</kbd><b data-i18n="find">جست‌وجو</b></span><span><kbd>Ctrl/⌘ Shift P</kbd><b data-i18n="commandPalette">فرمان‌ها</b></span><span><kbd>F1</kbd><b data-i18n="help">راهنما</b></span></div>
+    <div class="modal-actions"><button class="button primary" id="help-done" type="button" data-i18n="close">بستن</button></div>
+  </div>
+</div>
+
+<div class="modal hidden command-modal" id="command-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="command-title">
+  <div class="modal-card command-card">
+    <h2 class="sr-only" id="command-title" data-i18n="commandPalette">فرمان‌ها</h2>
+    <label class="command-search"><span aria-hidden="true">⌘</span><input id="command-query" type="search" autocomplete="off" data-i18n-placeholder="typeACommand" placeholder="یک فرمان بنویس..."></label>
+    <div class="command-list" id="command-list" role="listbox" data-i18n-aria-label="commandPalette" aria-label="فرمان‌ها"></div>
+    <footer><span><kbd>↑</kbd><kbd>↓</kbd> <small data-i18n="navigate">حرکت</small></span><span><kbd>Enter</kbd> <small data-i18n="runCommand">اجرا</small></span><span><kbd>Esc</kbd> <small data-i18n="close">بستن</small></span></footer>
+  </div>
+</div>
+
+<div class="modal hidden" id="book-project-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="book-project-modal-title">
   <form class="modal-card book-project-form" id="book-project-form">
     <h2 id="book-project-modal-title" data-i18n="newBookProject">پروژه کتاب جدید</h2>
     <p data-i18n="newBookProjectDescription">یک پوشه مستقل با فصل آغازین، فایل تنظیمات و مسیر خروجی ساخته می‌شود.</p>
@@ -249,7 +334,7 @@
     <div class="modal-actions"><button class="button secondary" id="cancel-book-project" type="button" data-i18n="cancel">انصراف</button><button class="button primary" type="submit" data-i18n="createProject">ساخت پروژه</button></div>
   </form>
 </div>
-<div class="modal hidden" id="chapter-modal" role="dialog" aria-modal="true" aria-labelledby="chapter-modal-title">
+<div class="modal hidden" id="chapter-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="chapter-modal-title">
   <form class="modal-card" id="chapter-form">
     <h2 id="chapter-modal-title" data-i18n="addChapter">افزودن فصل</h2>
     <p id="chapter-modal-description" data-i18n="addChapterHelp">عنوان فصل را وارد کن. فایل Markdown داخل پوشه chapters ساخته می‌شود.</p>
@@ -257,8 +342,8 @@
     <div class="modal-actions"><button class="button secondary" id="cancel-chapter" type="button" data-i18n="cancel">انصراف</button><button class="button primary" type="submit" data-i18n="save">ذخیره</button></div>
   </form>
 </div>
-<div class="modal hidden" id="recovery-modal" role="dialog" aria-modal="true" aria-labelledby="recovery-title"><div class="modal-card"><h2 id="recovery-title" data-i18n="recoveryFound">نسخه بازیابی‌شده پیدا شد</h2><p id="recovery-message"></p><div class="modal-actions"><button class="button secondary" id="discard-recovery" type="button" data-i18n="discardRecovery">نادیده‌گرفتن</button><button class="button primary" id="restore-recovery" type="button" data-i18n="restoreRecovery">بازیابی</button></div></div></div>
-<div class="toasts" id="toast-region" aria-live="assertive"></div>
+<div class="modal hidden" id="recovery-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="recovery-title"><div class="modal-card"><h2 id="recovery-title" data-i18n="recoveryFound">نسخه بازیابی‌شده پیدا شد</h2><p id="recovery-message"></p><div class="modal-actions"><button class="button secondary" id="discard-recovery" type="button" data-i18n="discardRecovery">نادیده‌گرفتن</button><button class="button primary" id="restore-recovery" type="button" data-i18n="restoreRecovery">بازیابی</button></div></div></div>
+<div class="toasts" id="toast-region" aria-live="polite" aria-atomic="false"></div>
 <script type="module" src="./js/main.mjs"></script>
 </body>
 </html>

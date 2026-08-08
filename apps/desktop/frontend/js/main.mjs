@@ -30,6 +30,15 @@ import { prefixSelectedLines, replaceSelection, wrapSelection } from "./core/edi
 import { findLiteralMatches, replaceAllLiteral } from "./core/find-replace.mjs";
 import { createEditorAdapter } from "./core/editor-adapter.mjs";
 import {
+  DEFAULT_PREFERENCES,
+  applyPreferences,
+  readPreferences,
+  writePreferences,
+} from "./core/preferences.mjs";
+import { templateContent, templateList } from "./core/templates.mjs";
+import { filterCommands } from "./core/command-palette.mjs";
+import { createModalManager } from "./core/modal-manager.mjs";
+import {
   bibliographyIndex,
   cancelSidecarRequest,
   openProject,
@@ -87,8 +96,14 @@ const state = {
   chapterModalMode: null,
   chapterModalPath: null,
   previewSyncing: false,
+  preferences: readPreferences(),
+  onboardingStep: 0,
+  onboardingIntent: null,
+  commandIndex: 0,
+  visibleCommands: [],
 };
 let editorAdapter = null;
+let modalManager = null;
 const translator = createTranslator(state.locale);
 const t = (key) => translator.t(key);
 
@@ -113,10 +128,22 @@ function setLocale(value) {
   $$('[data-i18n-placeholder]').forEach((element) => {
     element.placeholder = t(element.dataset.i18nPlaceholder);
   });
+  $$('[data-i18n-title]').forEach((element) => {
+    const label = t(element.dataset.i18nTitle);
+    element.title = label;
+    if (element.matches("button")) element.setAttribute("aria-label", label);
+  });
+  $$('[data-i18n-aria-label]').forEach((element) => {
+    element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  });
+  const localeSetting = $("#setting-locale");
+  if (localeSetting) localeSetting.value = state.locale;
   renderPresets();
   renderRecents();
   renderWorkspace();
   renderSummary();
+  renderTemplateGallery();
+  if (modalManager?.isOpen($("#command-modal"))) renderCommandPalette();
 }
 
 function showView(name) {
@@ -125,9 +152,270 @@ function showView(name) {
   $("#app-main")?.focus({ preventScroll: true });
 }
 
+
+function applyInterfacePreferences({ persist = false } = {}) {
+  state.preferences = persist ? writePreferences(state.preferences) : applyPreferences(
+    document.documentElement,
+    state.preferences,
+  );
+  applyPreferences(document.documentElement, state.preferences);
+  const autoPreview = $("#auto-preview");
+  if (autoPreview) autoPreview.checked = Boolean(state.preferences.autoPreview);
+}
+
+function updatePreference(next, { persist = true } = {}) {
+  state.preferences = { ...state.preferences, ...next };
+  if (persist) state.preferences = writePreferences(state.preferences);
+  applyInterfacePreferences();
+}
+
+function renderTemplateGallery() {
+  const container = $("#template-grid");
+  if (!container) return;
+  container.replaceChildren();
+  for (const template of templateList()) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "template-card";
+    button.dataset.templateId = template.id;
+    button.innerHTML = "<i></i><span><strong></strong><small></small></span>";
+    button.querySelector("i").textContent = template.icon;
+    button.querySelector("strong").textContent = t(template.titleKey);
+    button.querySelector("small").textContent = t(template.descriptionKey);
+    button.addEventListener("click", () => createDocumentFromTemplate(template.id));
+    container.append(button);
+  }
+}
+
+function createDocumentFromTemplate(templateId = "blank") {
+  const metadata = templateList().find((item) => item.id === templateId) || templateList()[0];
+  const model = createDocument({ content: templateContent(templateId, state.locale) });
+  model.title = t(metadata.titleKey);
+  state.documents.push(model);
+  state.activeDocumentId = model.id;
+  showView("workspace");
+  renderWorkspace();
+  scheduleRecovery();
+  schedulePreview(100);
+  (editorAdapter || $("#markdown-editor")).focus();
+  toast(t("templateCreated"), "success");
+  return model;
+}
+
+function fillSettingsForm() {
+  $("#setting-theme").value = state.preferences.theme;
+  $("#setting-content-scale").value = state.preferences.contentScale;
+  $("#setting-motion").value = state.preferences.reducedMotion;
+  $("#setting-auto-preview").checked = state.preferences.autoPreview;
+  $("#setting-locale").value = state.locale;
+  $("#settings-search").value = "";
+  filterSettings("");
+}
+
+function openSettings() {
+  fillSettingsForm();
+  modalManager.open($("#settings-modal"), { initialFocus: "#settings-search" });
+}
+
+function closeSettings() {
+  modalManager.close($("#settings-modal"));
+}
+
+function filterSettings(query = $("#settings-search")?.value || "") {
+  const needle = String(query).trim().toLocaleLowerCase();
+  let visible = 0;
+  $$(".settings-section").forEach((section) => {
+    const haystack = `${section.dataset.settingsTerms || ""} ${section.textContent || ""}`.toLocaleLowerCase();
+    const show = !needle || haystack.includes(needle);
+    section.classList.toggle("hidden", !show);
+    if (show) visible += 1;
+  });
+  $("#settings-empty")?.classList.toggle("hidden", visible > 0);
+  return visible;
+}
+
+function submitSettings(event) {
+  event.preventDefault();
+  state.preferences = writePreferences({
+    ...state.preferences,
+    theme: $("#setting-theme").value,
+    contentScale: $("#setting-content-scale").value,
+    reducedMotion: $("#setting-motion").value,
+    autoPreview: $("#setting-auto-preview").checked,
+  });
+  applyInterfacePreferences();
+  setLocale($("#setting-locale").value);
+  closeSettings();
+  toast(t("settingsSaved"), "success");
+}
+
+function resetSettings() {
+  state.preferences = writePreferences({
+    ...DEFAULT_PREFERENCES,
+    onboardingComplete: state.preferences.onboardingComplete,
+  });
+  applyInterfacePreferences();
+  fillSettingsForm();
+  toast(t("settingsReset"), "success");
+}
+
+function openHelp() {
+  modalManager.open($("#help-modal"), { initialFocus: "#help-done" });
+}
+
+function closeHelp() {
+  modalManager.close($("#help-modal"));
+}
+
+function setOnboardingStep(step) {
+  state.onboardingStep = Math.max(0, Math.min(2, Number(step) || 0));
+  $$("[data-onboarding-step]").forEach((section) => {
+    section.classList.toggle("hidden", Number(section.dataset.onboardingStep) !== state.onboardingStep);
+  });
+  $$("[data-onboarding-dot]").forEach((dot) => {
+    dot.classList.toggle("active", Number(dot.dataset.onboardingDot) <= state.onboardingStep);
+  });
+  $("#onboarding-back").classList.toggle("hidden", state.onboardingStep === 0);
+  $("#onboarding-next").textContent = state.onboardingStep === 2 ? t("close") : t("next");
+}
+
+function openOnboarding({ force = false } = {}) {
+  if (!force && state.preferences.onboardingComplete) return false;
+  state.onboardingIntent = null;
+  setOnboardingStep(0);
+  modalManager.open($("#onboarding-modal"), { initialFocus: "[data-onboarding-action='document']" });
+  return true;
+}
+
+function completeOnboarding({ runIntent = false } = {}) {
+  const intent = state.onboardingIntent;
+  state.preferences = writePreferences({ ...state.preferences, onboardingComplete: true });
+  applyInterfacePreferences();
+  modalManager.close($("#onboarding-modal"));
+  toast(t("tourCompleted"), "success");
+  if (runIntent && intent === "document") createDocumentFromTemplate("blank");
+  if (runIntent && intent === "book") openNewBookModal();
+}
+
+function onboardingNext() {
+  if (state.onboardingStep < 2) {
+    setOnboardingStep(state.onboardingStep + 1);
+    return;
+  }
+  completeOnboarding({ runIntent: Boolean(state.onboardingIntent) });
+}
+
+function onboardingBack() {
+  if (state.onboardingStep > 0) setOnboardingStep(state.onboardingStep - 1);
+}
+
+function commandDefinitions() {
+  const hasDocument = Boolean(activeDocument());
+  return [
+    { id: "new", icon: "＋", label: t("commandNewDocument"), keywords: "new document markdown", shortcut: "Ctrl N", priority: 100, run: () => createUntitledDocument() },
+    { id: "open", icon: "↗", label: t("commandOpenDocument"), keywords: "open file markdown", shortcut: "Ctrl O", priority: 95, run: () => chooseAuthoringFiles() },
+    { id: "project", icon: "P", label: t("commandOpenProject"), keywords: "open folder workspace project", priority: 80, run: () => chooseProjectDirectory() },
+    { id: "book", icon: "B", label: t("commandNewBook"), keywords: "book thesis chapters project", priority: 75, run: () => openNewBookModal() },
+    { id: "save", icon: "✓", label: t("commandSave"), keywords: "save write", shortcut: "Ctrl S", priority: 90, enabled: hasDocument, run: () => saveActiveDocument() },
+    { id: "save-as", icon: "⇩", label: t("commandSaveAs"), keywords: "save as copy", shortcut: "Ctrl Shift S", priority: 70, enabled: hasDocument, run: () => saveActiveDocument({ saveAs: true }) },
+    { id: "validate", icon: "⌁", label: t("commandValidate"), keywords: "check problems diagnostics", priority: 65, enabled: hasDocument, run: () => validateActiveDocument() },
+    { id: "export", icon: "PDF", label: t("commandExport"), keywords: "pdf publish render", priority: 85, enabled: hasDocument, run: () => exportActiveDocument() },
+    { id: "find", icon: "⌕", label: t("commandFind"), keywords: "find replace search", shortcut: "Ctrl F", priority: 60, enabled: hasDocument, run: () => openFind({ replace: false }) },
+    { id: "settings", icon: "⚙", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
+    { id: "help", icon: "?", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
+    { id: "home", icon: "⌂", label: t("commandHome"), keywords: "start home center", priority: 20, run: () => showView("start") },
+  ];
+}
+
+function highlightCommand(index) {
+  const length = state.visibleCommands.length;
+  if (!length) {
+    state.commandIndex = 0;
+    return;
+  }
+  state.commandIndex = Math.max(0, Math.min(length - 1, Number(index) || 0));
+  $$("#command-list .command-item").forEach((item, itemIndex) => {
+    const active = itemIndex === state.commandIndex;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-selected", String(active));
+  });
+  $("#command-list .command-item.active")?.scrollIntoView?.({ block: "nearest" });
+}
+
+function renderCommandPalette() {
+  const query = $("#command-query")?.value || "";
+  state.visibleCommands = filterCommands(commandDefinitions(), query, 12);
+  state.commandIndex = Math.max(0, Math.min(state.commandIndex, Math.max(0, state.visibleCommands.length - 1)));
+  const container = $("#command-list");
+  container.replaceChildren();
+  if (!state.visibleCommands.length) {
+    const empty = document.createElement("div");
+    empty.className = "command-empty";
+    empty.textContent = t("noCommands");
+    container.append(empty);
+    return;
+  }
+  state.visibleCommands.forEach((command, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `command-item${index === state.commandIndex ? " active" : ""}`;
+    button.dataset.commandId = command.id;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", String(index === state.commandIndex));
+    button.innerHTML = "<i></i><span><strong></strong></span><kbd></kbd>";
+    button.querySelector("i").textContent = command.icon || "•";
+    button.querySelector("strong").textContent = command.label;
+    const shortcut = button.querySelector("kbd");
+    shortcut.textContent = command.shortcut || "";
+    shortcut.classList.toggle("hidden", !command.shortcut);
+    button.addEventListener("mouseenter", () => highlightCommand(index));
+    button.addEventListener("click", () => runCommand(command));
+    container.append(button);
+  });
+  container.querySelector(".command-item.active")?.scrollIntoView?.({ block: "nearest" });
+}
+
+function openCommandPalette() {
+  if (modalManager.hasOpenModal()) return;
+  state.commandIndex = 0;
+  $("#command-query").value = "";
+  renderCommandPalette();
+  modalManager.open($("#command-modal"), { initialFocus: "#command-query" });
+}
+
+function closeCommandPalette() {
+  modalManager.close($("#command-modal"));
+}
+
+async function runCommand(command = state.visibleCommands[state.commandIndex]) {
+  if (!command) return;
+  closeCommandPalette();
+  try {
+    await command.run?.();
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
+function commandKeydown(event) {
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    const length = state.visibleCommands.length;
+    if (length) highlightCommand((state.commandIndex + direction + length) % length);
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    runCommand();
+  }
+}
+
 function toast(message, kind = "info") {
   const element = document.createElement("div");
   element.className = `toast ${kind}`;
+  element.setAttribute("role", kind === "error" ? "alert" : "status");
+  element.setAttribute("aria-atomic", "true");
   element.textContent = message;
   $("#toast-region").append(element);
   setTimeout(() => element.remove(), 4200);
@@ -433,8 +721,8 @@ function updateLineGutter() {
 function updateEditorMetrics() {
   const editor = $("#markdown-editor");
   const metrics = textMetrics(editor.value, editor.selectionStart);
-  $("#cursor-status").textContent = `Ln ${metrics.line}, Col ${metrics.column}`;
-  $("#word-status").textContent = `${metrics.words} words · ${metrics.characters} chars`;
+  $("#cursor-status").textContent = `${t("lineShort")} ${metrics.line}, ${t("columnShort")} ${metrics.column}`;
+  $("#word-status").textContent = `${metrics.words} ${t("wordsLabel")} · ${metrics.characters} ${t("charactersLabel")}`;
 }
 
 function renderOutline(model) {
@@ -868,12 +1156,17 @@ function openNewBookModal() {
   $("#book-project-parent-input").value = "";
   $("#book-project-language").value = state.locale === "fa" ? "fa-IR" : "en-US";
   $("#book-project-direction").value = state.locale === "fa" ? "rtl" : "ltr";
-  $("#book-project-modal").classList.remove("hidden");
-  queueMicrotask(() => titleInput.focus());
+  modalManager.open($("#book-project-modal"), {
+    initialFocus: "#book-project-title-input",
+    onClose: () => {
+      $("#book-project-form").reset();
+      folderInput.dataset.userEdited = "";
+    },
+  });
 }
 
 function closeNewBookModal() {
-  $("#book-project-modal").classList.add("hidden");
+  modalManager.close($("#book-project-modal"));
 }
 
 async function chooseBookParent() {
@@ -927,14 +1220,19 @@ function openChapterModal(mode, chapter = null) {
   $("#chapter-title-input").value = duplicate
     ? `${chapter?.title || chapter?.path || t("chapterTitle")} ${state.locale === "fa" ? "کپی" : "Copy"}`
     : "";
-  $("#chapter-modal").classList.remove("hidden");
-  queueMicrotask(() => $("#chapter-title-input").focus());
+  modalManager.open($("#chapter-modal"), {
+    initialFocus: "#chapter-title-input",
+    onClose: () => {
+      state.chapterModalMode = null;
+      state.chapterModalPath = null;
+    },
+  });
 }
 
 function closeChapterModal() {
   state.chapterModalMode = null;
   state.chapterModalPath = null;
-  $("#chapter-modal").classList.add("hidden");
+  modalManager.close($("#chapter-modal"));
 }
 
 function bookProject() {
@@ -1284,7 +1582,10 @@ function showRecovery(model, recovery) {
   }
   state.pendingRecovery = item;
   $("#recovery-message").textContent = `${t("recoveryMessage")} ${new Date(recovery.updatedAt).toLocaleString()}`;
-  $("#recovery-modal").classList.remove("hidden");
+  modalManager.open($("#recovery-modal"), {
+    initialFocus: "#restore-recovery",
+    escape: false,
+  });
 }
 
 function resolveRecovery(restore) {
@@ -1293,7 +1594,7 @@ function resolveRecovery(restore) {
   if (restore) updateDocumentContent(pending.model, pending.recovery.content);
   else removeRecovery(pending.recovery.key);
   state.pendingRecovery = null;
-  $("#recovery-modal").classList.add("hidden");
+  modalManager.close($("#recovery-modal"));
   activateDocument(pending.model.id);
   const next = state.recoveryQueue.shift();
   if (next) showRecovery(next.model, next.recovery);
@@ -1738,12 +2039,12 @@ async function engineHealth() {
     element.dataset.state = "ready";
     element.querySelector("span").dataset.i18n = "engineReady";
     element.querySelector("span").textContent = t("engineReady");
-    $("#runtime-detail").textContent = `${health.engine_version || ""} · ${health.runtime?.platform || "local"}`;
+    $("#runtime-detail").textContent = `${health.engine_version || ""} · ${health.runtime?.platform || t("localRuntime")}`;
   } catch (error) {
     element.dataset.state = "error";
     element.querySelector("span").dataset.i18n = "engineUnavailable";
     element.querySelector("span").textContent = t("engineUnavailable");
-    $("#runtime-detail").textContent = "sidecar unavailable";
+    $("#runtime-detail").textContent = t("sidecarUnavailableDetail");
     toast(errorText(error), "error");
   }
 }
@@ -1751,6 +2052,10 @@ async function engineHealth() {
 function bindEvents() {
   $("#home-button").addEventListener("click", () => showView("start"));
   $("#locale-button").addEventListener("click", () => setLocale(state.locale === "fa" ? "en" : "fa"));
+  $("#command-button").addEventListener("click", openCommandPalette);
+  $("#help-button").addEventListener("click", openHelp);
+  $("#settings-button").addEventListener("click", openSettings);
+  $("#template-help").addEventListener("click", openHelp);
   $("#start-quick-export").addEventListener("click", () => showView("export"));
   $("#workflow-quick").addEventListener("click", () => showView("export"));
   $("#start-open-file").addEventListener("click", chooseAuthoringFiles);
@@ -1819,7 +2124,10 @@ function bindEvents() {
   });
   $("#refresh-citations").addEventListener("click", refreshBibliography);
   $("#refresh-preview").addEventListener("click", refreshPreview);
-  $("#auto-preview").addEventListener("change", () => { if ($("#auto-preview").checked) refreshPreview(); });
+  $("#auto-preview").addEventListener("change", () => {
+    updatePreference({ autoPreview: $("#auto-preview").checked });
+    if ($("#auto-preview").checked) refreshPreview();
+  });
   $("#frontmatter-form").addEventListener("submit", applyFrontMatter);
   $("#find-query").addEventListener("input", () => { updateFindMatches(); if (state.findMatches.length) selectFindMatch(0); });
   $("#find-query").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); moveFind(event.shiftKey ? -1 : 1); } if (event.key === "Escape") closeFind(); });
@@ -1832,16 +2140,43 @@ function bindEvents() {
   $$('[data-sidebar]').forEach((button) => button.addEventListener("click", () => activateSidebar(button.dataset.sidebar)));
   $("#restore-recovery").addEventListener("click", () => resolveRecovery(true));
   $("#discard-recovery").addEventListener("click", () => resolveRecovery(false));
+  $("#settings-form").addEventListener("submit", submitSettings);
+  $("#close-settings").addEventListener("click", closeSettings);
+  $("#settings-search").addEventListener("input", (event) => filterSettings(event.target.value));
+  $("#reset-settings").addEventListener("click", resetSettings);
+  $("#restart-onboarding").addEventListener("click", () => {
+    closeSettings();
+    state.preferences = writePreferences({ ...state.preferences, onboardingComplete: false });
+    openOnboarding({ force: true });
+  });
+  $("#close-help").addEventListener("click", closeHelp);
+  $("#help-done").addEventListener("click", closeHelp);
+  $("#skip-onboarding").addEventListener("click", () => completeOnboarding({ runIntent: false }));
+  $("#onboarding-next").addEventListener("click", onboardingNext);
+  $("#onboarding-back").addEventListener("click", onboardingBack);
+  $$("[data-onboarding-action]").forEach((button) => button.addEventListener("click", () => {
+    state.onboardingIntent = button.dataset.onboardingAction;
+    setOnboardingStep(1);
+  }));
+  $("#command-query").addEventListener("input", () => {
+    state.commandIndex = 0;
+    renderCommandPalette();
+  });
+  $("#command-query").addEventListener("keydown", commandKeydown);
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      if (!$("#chapter-modal").classList.contains("hidden")) closeChapterModal();
-      if (!$("#book-project-modal").classList.contains("hidden")) closeNewBookModal();
+    if (event.key === "F1") {
+      event.preventDefault();
+      if (!modalManager.hasOpenModal()) openHelp();
+      return;
     }
     const modifier = event.ctrlKey || event.metaKey;
     if (!modifier) return;
     const key = event.key.toLowerCase();
-    if (key === "f") {
+    if (key === "p" && event.shiftKey) {
+      event.preventDefault();
+      openCommandPalette();
+    } else if (key === "f") {
       event.preventDefault();
       openFind({ replace: false });
     } else if (key === "h") {
@@ -1868,6 +2203,19 @@ function bindEvents() {
 }
 
 async function boot() {
+  modalManager = createModalManager(document);
+  applyInterfacePreferences();
+  for (const query of ["(prefers-color-scheme: dark)", "(prefers-reduced-motion: reduce)"]) {
+    try {
+      matchMedia(query).addEventListener("change", () => {
+        if (state.preferences.theme === "system" || state.preferences.reducedMotion === "system") {
+          applyInterfacePreferences();
+        }
+      });
+    } catch {
+      // Older WebViews still use the saved explicit preference values.
+    }
+  }
   editorAdapter = createEditorAdapter($("#markdown-editor"), {
     onChange: onEditorInput,
     onSelectionChange: () => {
@@ -1944,6 +2292,9 @@ async function boot() {
       renderWorkspace();
       schedulePreview(120);
     }
+  }
+  if (!state.documents.length && !state.preferences.onboardingComplete) {
+    openOnboarding();
   }
 }
 
