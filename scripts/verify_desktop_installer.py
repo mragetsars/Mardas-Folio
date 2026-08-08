@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import re
+import stat
 import sys
 from pathlib import Path
 
@@ -22,9 +23,11 @@ def sha256(path: Path) -> str:
 
 
 def verify_installer(path: Path, *, expected_version: str) -> dict[str, object]:
-    path = path.expanduser().resolve(strict=True)
-    if path.is_symlink() or not path.is_file():
-        raise ValueError(f"Desktop installer is missing or unsafe: {path}")
+    candidate = path.expanduser()
+    metadata = candidate.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise ValueError(f"Desktop installer is missing or unsafe: {candidate}")
+    path = candidate.resolve(strict=True)
     match = _NAME_RE.fullmatch(path.name)
     if match is None or match.group("version") != expected_version:
         raise ValueError("Desktop installer filename or version is invalid")

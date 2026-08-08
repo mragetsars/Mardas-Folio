@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import re
+import stat
 import sys
 import tarfile
 import zipfile
@@ -135,9 +136,11 @@ def _verify_portable(path: Path, *, expected_version: str, architecture: str) ->
 
 
 def verify_native_artifact(path: Path, *, expected_version: str) -> dict[str, Any]:
-    path = path.expanduser().resolve(strict=True)
-    if path.is_symlink() or not path.is_file():
-        raise ValueError(f"Native desktop artifact is missing or unsafe: {path}")
+    candidate = path.expanduser()
+    metadata = candidate.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise ValueError(f"Native desktop artifact is missing or unsafe: {candidate}")
+    path = candidate.resolve(strict=True)
     kind, platform_name, architecture = classify_native_artifact(
         path.name, expected_version=expected_version
     )

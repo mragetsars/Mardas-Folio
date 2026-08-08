@@ -2,6 +2,8 @@ include LICENSE
 include README.md
 include README.png
 include pyproject.toml
+include pyrightconfig.json
+include apps/desktop/src-tauri/Cargo.lock
 recursive-include docs *.md *.png *.bib *.json
 recursive-include examples *.pdf
 recursive-include scripts *.py *.sh
@@ -15,6 +17,7 @@ prune patches
 recursive-exclude * __pycache__ *.py[cod]
 recursive-exclude * .pytest_cache .ruff_cache
 recursive-include apps *.html *.css *.mjs *.json *.toml *.rs *.png *.ico *.icns *.svg *.md
+prune apps/desktop/node_modules
 prune apps/desktop/dist
 prune apps/desktop/src-tauri/target
 prune apps/desktop/src-tauri/resources/sidecar

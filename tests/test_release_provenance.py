@@ -362,6 +362,7 @@ def test_release_scripts_are_executable() -> None:
         "generate_update_manifest.py",
         "assemble_signed_updates.py",
         "release_preflight.py",
+        "verify_platform_signing.py",
         "extract_release_notes.py",
     ):
         path = SCRIPTS / name
@@ -412,7 +413,7 @@ def test_cross_platform_and_provenance_workflows_use_current_contracts() -> None
     assert "macos-15-intel" in ci
     assert "cargo install tauri-cli --version 2.11.4 --locked" in ci
     assert "release-preflight:" in release
-    assert "scripts/release_preflight.py --mode draft" in release
+    assert 'scripts/release_preflight.py --mode "$MARDAS_RELEASE_MODE"' in release
     assert "--create-updater-artifacts" in release
     assert "scripts/assemble_signed_updates.py" in release
     assert "--require-update-manifest" in release

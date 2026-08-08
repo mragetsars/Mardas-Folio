@@ -5,13 +5,25 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      release_mode:
+        description: OS trust-signing policy for native desktop artifacts
+        required: true
+        default: draft
+        type: choice
+        options:
+          - draft
+          - public
+
+env:
+  MARDAS_RELEASE_MODE: ${{ inputs.release_mode || 'draft' }}
 
 permissions:
   contents: read
 
 jobs:
   release-preflight:
-    name: Verify signed draft release prerequisites
+    name: Verify release credential contract
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -23,11 +35,27 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Verify updater signing configuration
+      - name: Verify updater and platform signing configuration
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           MARDAS_UPDATER_PUBKEY: ${{ vars.MARDAS_UPDATER_PUBKEY }}
-        run: python scripts/release_preflight.py --mode draft --json build/release-preflight.json
+          MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json
+          MARDAS_WINDOWS_CERTIFICATE: ${{ secrets.MARDAS_WINDOWS_CERTIFICATE }}
+          MARDAS_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.MARDAS_WINDOWS_CERTIFICATE_PASSWORD }}
+          MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT }}
+          MARDAS_WINDOWS_DIGEST_ALGORITHM: ${{ vars.MARDAS_WINDOWS_DIGEST_ALGORITHM }}
+          MARDAS_WINDOWS_TIMESTAMP_URL: ${{ vars.MARDAS_WINDOWS_TIMESTAMP_URL }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ vars.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: python scripts/release_preflight.py --mode "$MARDAS_RELEASE_MODE" --json build/release-preflight.json
 
   build-core:
     name: Build verified core artifacts
@@ -48,11 +76,19 @@ jobs:
           python-version: '3.12'
           cache: pip
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
       - name: Install package and Chromium
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
           python -m playwright install --with-deps chromium
+          npm --prefix apps/desktop ci --no-audit --no-fund
 
       - name: Resolve release metadata
         id: metadata
@@ -188,7 +224,7 @@ jobs:
           node-version: '22'
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.97.1
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
@@ -218,16 +254,63 @@ jobs:
           python -m pip install -e ".[desktop]"
           cargo install tauri-cli --version 2.11.4 --locked
 
-      - name: Build Windows setup, portable package, and signed updater
+      - name: Import Windows code-signing certificate
+        if: ${{ env.MARDAS_RELEASE_MODE == 'public' }}
+        shell: pwsh
+        env:
+          MARDAS_WINDOWS_CERTIFICATE: ${{ secrets.MARDAS_WINDOWS_CERTIFICATE }}
+          MARDAS_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.MARDAS_WINDOWS_CERTIFICATE_PASSWORD }}
+          MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expected = ($env:MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT -replace '\s', '').ToUpperInvariant()
+          if ($expected -notmatch '^[0-9A-F]{40}$') { throw 'Windows certificate thumbprint is invalid.' }
+          "MARDAS_WINDOWS_IMPORTED_THUMBPRINT=$expected" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $pfxPath = Join-Path $env:RUNNER_TEMP ([IO.Path]::GetRandomFileName() + '.pfx')
+          $imported = @()
+          $importSucceeded = $false
+          try {
+            $encoded = $env:MARDAS_WINDOWS_CERTIFICATE -replace '\s', ''
+            [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($encoded))
+            $password = ConvertTo-SecureString $env:MARDAS_WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+            $imported = @(Import-PfxCertificate `
+              -FilePath $pfxPath `
+              -CertStoreLocation Cert:\CurrentUser\My `
+              -Password $password `
+              -Exportable:$false)
+            $matchingCertificates = @($imported | Where-Object {
+              ($_.Thumbprint -replace '\s', '').ToUpperInvariant() -eq $expected -and $_.HasPrivateKey
+            })
+            if ($matchingCertificates.Count -ne 1) { throw 'The expected Windows signing certificate and private key were not imported.' }
+            if ($matchingCertificates[0].NotBefore -gt [DateTime]::UtcNow -or $matchingCertificates[0].NotAfter -le [DateTime]::UtcNow) {
+              throw 'The Windows signing certificate is not currently valid.'
+            }
+            $importSucceeded = $true
+          } finally {
+            Remove-Item -LiteralPath $pfxPath -Force -ErrorAction SilentlyContinue
+            if (-not $importSucceeded) {
+              foreach ($certificate in $imported) {
+                Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -Force -ErrorAction SilentlyContinue
+              }
+            }
+            $password = $null
+            $encoded = $null
+          }
+
+      - name: Build Windows setup, portable package, and updater artifacts
         shell: pwsh
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           MARDAS_UPDATER_PUBKEY: ${{ vars.MARDAS_UPDATER_PUBKEY }}
           MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json
+          MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT }}
+          MARDAS_WINDOWS_DIGEST_ALGORITHM: ${{ vars.MARDAS_WINDOWS_DIGEST_ALGORITHM }}
+          MARDAS_WINDOWS_TIMESTAMP_URL: ${{ vars.MARDAS_WINDOWS_TIMESTAMP_URL }}
         run: |
           python scripts/build_native_desktop.py `
             --runtime "$env:RUNTIME_DIR" `
+            --release-mode "$env:MARDAS_RELEASE_MODE" `
             --create-updater-artifacts `
             --updater-endpoint "$env:MARDAS_UPDATE_ENDPOINT" `
             --clean
@@ -246,6 +329,14 @@ jobs:
             python scripts/verify_native_desktop.py $file.FullName --version $version
           }
 
+      - name: Verify Windows trust signature and record evidence
+        shell: pwsh
+        env:
+          MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT }}
+          MARDAS_WINDOWS_DIGEST_ALGORITHM: ${{ vars.MARDAS_WINDOWS_DIGEST_ALGORITHM }}
+          MARDAS_WINDOWS_TIMESTAMP_URL: ${{ vars.MARDAS_WINDOWS_TIMESTAMP_URL }}
+        run: python scripts/verify_platform_signing.py --artifact-dir build/desktop-native --mode "$env:MARDAS_RELEASE_MODE"
+
       - name: Upload Windows native packages
         uses: actions/upload-artifact@v7
         with:
@@ -254,9 +345,21 @@ jobs:
             build/desktop-native/Mardas-Studio-*-setup.exe
             build/desktop-native/Mardas-Studio-*-setup.exe.sig
             build/desktop-native/Mardas-Studio-*-portable.zip
-            build/desktop-native/desktop-native-manifest.json
+            build/desktop-native/Mardas-Studio-*-signing-evidence.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Remove imported Windows signing certificate
+        if: ${{ always() && env.MARDAS_RELEASE_MODE == 'public' }}
+        shell: pwsh
+        run: |
+          $rawThumbprint = [string]$env:MARDAS_WINDOWS_IMPORTED_THUMBPRINT
+          $thumbprint = ($rawThumbprint -replace '\s', '').ToUpperInvariant()
+          if ($thumbprint -match '^[0-9A-F]{40}$') {
+            Get-ChildItem Cert:\CurrentUser\My | Where-Object {
+              ($_.Thumbprint -replace '\s', '').ToUpperInvariant() -eq $thumbprint
+            } | Remove-Item -Force
+          }
 
   unix-desktop-packages:
     name: Native desktop / ${{ matrix.label }}
@@ -292,7 +395,7 @@ jobs:
           node-version: '22'
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.97.1
 
       - name: Install Linux desktop prerequisites
         if: matrix.linux
@@ -314,6 +417,60 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[desktop]"
           cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Import Apple Developer ID certificate
+        if: ${{ !matrix.linux && env.MARDAS_RELEASE_MODE == 'public' }}
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          certificate_path="$RUNNER_TEMP/mardas-developer-id.p12"
+          keychain_path="$RUNNER_TEMP/mardas-signing.keychain-db"
+          echo "MARDAS_MACOS_KEYCHAIN_PATH=$keychain_path" >> "$GITHUB_ENV"
+          trap 'rm -f -- "$certificate_path"' EXIT
+          printf '%s' "$APPLE_CERTIFICATE" | tr -d '[:space:]' | base64 --decode > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -t cert \
+            -f pkcs12 \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          identities="$(security find-identity -v -p codesigning "$keychain_path")"
+          identity_count="$(printf '%s\n' "$identities" | grep -F -c "\"$APPLE_SIGNING_IDENTITY\"" || true)"
+          test "$identity_count" -eq 1
+
+      - name: Materialize App Store Connect API key
+        if: ${{ !matrix.linux && env.MARDAS_RELEASE_MODE == 'public' && vars.APPLE_API_ISSUER != '' }}
+        shell: bash
+        env:
+          APPLE_API_KEY: ${{ vars.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY}.p8"
+          keep_key=0
+          trap 'if [ "$keep_key" -ne 1 ]; then rm -f -- "$key_path"; fi' EXIT
+          printf '%s' "$APPLE_API_KEY_P8" > "$key_path"
+          chmod 600 "$key_path"
+          openssl pkey -in "$key_path" -noout -check >/dev/null
+          echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+          keep_key=1
 
       - name: Install Chromium headless shell on Linux
         if: matrix.linux
@@ -339,8 +496,33 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           MARDAS_UPDATER_PUBKEY: ${{ vars.MARDAS_UPDATER_PUBKEY }}
           MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ vars.APPLE_API_KEY }}
+          APPLE_ID: ${{ !matrix.linux && secrets.APPLE_ID || '' }}
+          APPLE_PASSWORD: ${{ !matrix.linux && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
         run: |
-          python scripts/build_native_desktop.py             --runtime "$RUNTIME_DIR"             --create-updater-artifacts             --updater-endpoint "$MARDAS_UPDATE_ENDPOINT"             --clean
+          python scripts/build_native_desktop.py \
+            --runtime "$RUNTIME_DIR" \
+            --release-mode "$MARDAS_RELEASE_MODE" \
+            --create-updater-artifacts \
+            --updater-endpoint "$MARDAS_UPDATE_ENDPOINT" \
+            --clean
+
+      - name: Notarize and staple macOS disk image
+        if: ${{ !matrix.linux && env.MARDAS_RELEASE_MODE == 'public' }}
+        shell: bash
+        env:
+          APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ vars.APPLE_API_KEY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          python scripts/notarize_macos_dmg.py \
+            --artifact-dir build/desktop-native \
+            --mode public
 
       - name: Verify native packages
         shell: bash
@@ -362,6 +544,12 @@ jobs:
             test "$count" -ge 3
           fi
 
+      - name: Verify platform trust signature and record evidence
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+        run: python scripts/verify_platform_signing.py --artifact-dir build/desktop-native --mode "$MARDAS_RELEASE_MODE"
+
       - name: Upload native packages
         uses: actions/upload-artifact@v7
         with:
@@ -373,9 +561,21 @@ jobs:
             build/desktop-native/Mardas-Studio-*.deb
             build/desktop-native/Mardas-Studio-*-updater.tar.gz
             build/desktop-native/Mardas-Studio-*-updater.tar.gz.sig
-            build/desktop-native/desktop-native-manifest.json
+            build/desktop-native/Mardas-Studio-*-signing-evidence.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Remove temporary Apple signing material
+        if: ${{ always() && !matrix.linux && env.MARDAS_RELEASE_MODE == 'public' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${APPLE_API_KEY_PATH:-}" ]; then
+            rm -f -- "$APPLE_API_KEY_PATH"
+          fi
+          if [ -n "${MARDAS_MACOS_KEYCHAIN_PATH:-}" ]; then
+            security delete-keychain "$MARDAS_MACOS_KEYCHAIN_PATH" || true
+          fi
 
   attest:
     name: Finalize and attest release artifacts
@@ -434,6 +634,14 @@ jobs:
           cp build/offline/*.zip build/release/
           cp build/standalone/*.zip build/release/
           find build/desktop-native -maxdepth 1 -type f -name 'Mardas-Studio-*' -exec cp {} build/release/ \;
+          python scripts/verify_platform_signing.py \
+            --artifact-dir build/release \
+            --mode "$MARDAS_RELEASE_MODE" \
+            --verify-evidence-set \
+            --version "${{ needs.build-core.outputs.version }}" \
+            --expected-platform-count windows=1 \
+            --expected-platform-count macos=2 \
+            --expected-platform-count linux=1
           python scripts/extract_release_notes.py \
             --version "${{ needs.build-core.outputs.version }}" \
             --output build/RELEASE-NOTES.md

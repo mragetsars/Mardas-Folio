@@ -5,11 +5,27 @@ import argparse
 import hashlib
 import json
 import os
+import stat
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from runtime_manifest import (  # noqa: E402
+    LEGACY_RUNTIME_MANIFEST_SCHEMA,
+    RUNTIME_FILE_TYPE,
+    RUNTIME_MANIFEST_SCHEMA,
+    RUNTIME_SYMLINK_TYPE,
+    has_bundled_browser_file,
+    safe_runtime_path,
+    validate_local_symlink,
+    validate_symlink_graph,
+)
 
 MAX_MANIFEST_BYTES = 32 * 1024 * 1024
 MAX_FILES = 20_000
@@ -23,11 +39,30 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _lstat_runtime_entry(root: Path, parts: tuple[str, ...]) -> tuple[Path, os.stat_result]:
+    """Walk an inventory path without following a symlink in any component."""
+
+    candidate = root
+    for index, part in enumerate(parts):
+        candidate /= part
+        try:
+            metadata = candidate.lstat()
+        except OSError as exc:
+            raise ValueError(f"Runtime entry is missing or unsafe: {'/'.join(parts)}") from exc
+        if index < len(parts) - 1 and not stat.S_ISDIR(metadata.st_mode):
+            raise ValueError(f"Runtime inventory traverses an unsafe parent: {candidate}")
+    return candidate, metadata
+
+
 def _sidecar_executable(root: Path) -> Path:
     names = ("mardas-sidecar.exe", "mardas-sidecar")
     for name in names:
         candidate = root / name
-        if candidate.is_file():
+        try:
+            mode = candidate.lstat().st_mode
+        except FileNotFoundError:
+            continue
+        if stat.S_ISREG(mode):
             return candidate
     raise ValueError(f"Sidecar executable is missing from {root}")
 
@@ -52,12 +87,30 @@ def load_and_verify_manifest(
     expected_version: str | None = None,
     require_browser: bool = False,
 ) -> dict[str, Any]:
-    root = root.expanduser().resolve(strict=True)
+    root = root.expanduser()
+    try:
+        root_mode = root.lstat().st_mode
+    except FileNotFoundError as exc:
+        raise ValueError(f"Standalone runtime directory is missing: {root}") from exc
+    if stat.S_ISLNK(root_mode) or not stat.S_ISDIR(root_mode):
+        raise ValueError(f"Standalone runtime root must be a real directory: {root}")
+    root = root.resolve(strict=True)
     manifest_path = root / "runtime-manifest.json"
-    if not manifest_path.is_file() or manifest_path.stat().st_size > MAX_MANIFEST_BYTES:
+    try:
+        manifest_mode = manifest_path.lstat().st_mode
+    except FileNotFoundError as exc:
+        raise ValueError("Runtime manifest is missing or unreasonably large.") from exc
+    if (
+        not stat.S_ISREG(manifest_mode)
+        or manifest_path.lstat().st_size > MAX_MANIFEST_BYTES
+    ):
         raise ValueError("Runtime manifest is missing or unreasonably large.")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("schema_version") != 1:
+    schema_version = manifest.get("schema_version")
+    if schema_version not in {
+        LEGACY_RUNTIME_MANIFEST_SCHEMA,
+        RUNTIME_MANIFEST_SCHEMA,
+    }:
         raise ValueError("Runtime manifest schema is unsupported.")
     if expected_version is not None and manifest.get("version") != expected_version:
         raise ValueError("Runtime manifest version does not match the desktop application.")
@@ -67,28 +120,72 @@ def load_and_verify_manifest(
     if not isinstance(entries, list) or not entries or len(entries) > MAX_FILES:
         raise ValueError("Runtime manifest contains an invalid file inventory.")
     seen: set[str] = set()
+    regular_files: set[str] = set()
+    symlinks: dict[str, str] = {}
     for entry in entries:
         if not isinstance(entry, dict):
             raise ValueError("Runtime manifest file entry must be an object.")
-        relative = entry.get("path")
-        if not isinstance(relative, str) or not relative or relative in seen:
+        try:
+            pure = safe_runtime_path(entry.get("path"))
+        except ValueError as exc:
+            raise ValueError("Runtime manifest contains an invalid path.") from exc
+        relative = pure.as_posix()
+        if relative in seen:
             raise ValueError("Runtime manifest contains a duplicate or invalid path.")
         seen.add(relative)
-        path = (root / relative).resolve(strict=True)
-        path.relative_to(root)
-        if path.is_symlink() or not path.is_file():
-            raise ValueError(f"Runtime file is missing or unsafe: {relative}")
-        if path.stat().st_size != entry.get("size") or _sha256(path) != entry.get("sha256"):
-            raise ValueError(f"Runtime file integrity mismatch: {relative}")
-    actual = {
-        path.relative_to(root).as_posix()
-        for path in root.rglob("*")
-        if path.is_file() and path.name != "runtime-manifest.json"
-    }
+        path, metadata = _lstat_runtime_entry(root, pure.parts)
+        entry_type = entry.get("type")
+        if schema_version == LEGACY_RUNTIME_MANIFEST_SCHEMA:
+            if entry_type not in {None, RUNTIME_FILE_TYPE}:
+                raise ValueError("Legacy runtime manifests may contain only regular files.")
+            entry_type = RUNTIME_FILE_TYPE
+        if entry_type == RUNTIME_FILE_TYPE:
+            if not stat.S_ISREG(metadata.st_mode):
+                raise ValueError(f"Runtime file is missing or unsafe: {relative}")
+            expected_size = entry.get("size")
+            if (
+                not isinstance(expected_size, int)
+                or isinstance(expected_size, bool)
+                or metadata.st_size != expected_size
+                or _sha256(path) != entry.get("sha256")
+            ):
+                raise ValueError(f"Runtime file integrity mismatch: {relative}")
+            regular_files.add(relative)
+        elif entry_type == RUNTIME_SYMLINK_TYPE and schema_version == RUNTIME_MANIFEST_SCHEMA:
+            if not stat.S_ISLNK(metadata.st_mode):
+                raise ValueError(f"Runtime symlink is missing or unsafe: {relative}")
+            target = validate_local_symlink(root, path)
+            if target != entry.get("target"):
+                raise ValueError(f"Runtime symlink target mismatch: {relative}")
+            symlinks[relative] = target
+        else:
+            raise ValueError(f"Runtime manifest entry type is invalid: {relative}")
+
+    if manifest.get("browser_bundled") is True and not has_bundled_browser_file(
+        regular_files
+    ):
+        raise ValueError(
+            "Runtime manifest claims bundled Chromium without an inventoried browser file."
+        )
+
+    actual: set[str] = set()
+    directories: list[str] = []
+    for path in root.rglob("*"):
+        relative = path.relative_to(root).as_posix()
+        if relative == "runtime-manifest.json":
+            continue
+        mode = path.lstat().st_mode
+        if stat.S_ISDIR(mode):
+            directories.append(relative)
+        elif stat.S_ISREG(mode) or stat.S_ISLNK(mode):
+            actual.add(relative)
+        else:
+            raise ValueError(f"Runtime contains an unsupported filesystem entry: {relative}")
     if seen != actual:
         raise ValueError(
             f"Runtime inventory mismatch; missing={sorted(seen-actual)}, extra={sorted(actual-seen)}"
         )
+    validate_symlink_graph(seen, symlinks, directories=directories)
     _sidecar_executable(root)
     return manifest
 

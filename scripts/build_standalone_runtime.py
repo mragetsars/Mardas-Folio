@@ -2,18 +2,35 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import json
 import os
 import platform
 import shutil
+import stat
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 from typing import Iterable
 
-ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from runtime_manifest import (  # noqa: E402
+    RUNTIME_FILE_TYPE,
+    RUNTIME_MANIFEST_SCHEMA,
+    RUNTIME_SYMLINK_TYPE,
+    has_bundled_browser_file,
+    normalize_symlink_target,
+    validate_local_symlink,
+    validate_symlink_graph,
+)
+
+ROOT = SCRIPT_DIR.parent
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 DEFAULT_BUILD_ROOT = ROOT / "build" / "standalone-runtime"
@@ -53,14 +70,14 @@ def _browser_root(executable: Path) -> Path:
 
 
 def _browser_type_executable() -> Path | None:
-    try:
-        from playwright.sync_api import sync_playwright
+    async def probe() -> str:
+        from playwright.async_api import async_playwright
 
-        playwright = sync_playwright().start()
-        try:
-            candidate = Path(playwright.chromium.executable_path).resolve(strict=False)
-        finally:
-            playwright.stop()
+        async with async_playwright() as playwright:
+            return playwright.chromium.executable_path
+
+    try:
+        candidate = Path(asyncio.run(probe())).resolve(strict=False)
     except Exception:
         return None
     return candidate if candidate.is_file() else None
@@ -109,14 +126,26 @@ def _playwright_browser() -> Path | None:
     return _browser_type_executable() or _find_playwright_headless_shell()
 
 
-def _iter_files(root: Path) -> Iterable[Path]:
+def _iter_runtime_paths(root: Path, *, include_manifest: bool = False) -> Iterable[Path]:
     count = 0
-    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix().casefold()):
-        if not path.is_file() or path.name == "runtime-manifest.json":
+    root_manifest = root / "runtime-manifest.json"
+    for path in sorted(
+        root.rglob("*"),
+        key=lambda item: (item.as_posix().casefold(), item.as_posix()),
+    ):
+        is_root_manifest = path == root_manifest
+        if not include_manifest and is_root_manifest:
             continue
-        count += 1
-        if count > MAX_RUNTIME_FILES:
-            raise RuntimeError(f"Runtime contains more than {MAX_RUNTIME_FILES} files.")
+        mode = path.lstat().st_mode
+        if stat.S_ISDIR(mode):
+            yield path
+            continue
+        if not stat.S_ISREG(mode) and not stat.S_ISLNK(mode):
+            raise RuntimeError(f"Runtime contains an unsupported filesystem entry: {path}")
+        if not is_root_manifest:
+            count += 1
+            if count > MAX_RUNTIME_FILES:
+                raise RuntimeError(f"Runtime contains more than {MAX_RUNTIME_FILES} entries.")
         yield path
 
 
@@ -125,18 +154,46 @@ def _write_manifest(runtime_dir: Path, *, browser_source: Path | None) -> Path:
     from mardas_md2pdf.application import ENGINE_API_VERSION
     from mardas_md2pdf.protocol import PROTOCOL_NAME, PROTOCOL_VERSION
 
-    entries = []
-    for path in _iter_files(runtime_dir):
+    entries: list[dict[str, object]] = []
+    symlinks: dict[str, str] = {}
+    directories: list[str] = []
+    for path in _iter_runtime_paths(runtime_dir):
         relative = path.relative_to(runtime_dir).as_posix()
-        entries.append(
-            {
-                "path": relative,
-                "size": path.stat().st_size,
-                "sha256": _sha256(path),
-            }
+        mode = path.lstat().st_mode
+        if stat.S_ISDIR(mode):
+            directories.append(relative)
+        elif stat.S_ISLNK(mode):
+            target = validate_local_symlink(runtime_dir, path)
+            symlinks[relative] = target
+            entries.append(
+                {"path": relative, "type": RUNTIME_SYMLINK_TYPE, "target": target}
+            )
+        else:
+            entries.append(
+                {
+                    "path": relative,
+                    "type": RUNTIME_FILE_TYPE,
+                    "size": path.lstat().st_size,
+                    "sha256": _sha256(path),
+                }
+            )
+    validate_symlink_graph(
+        (str(entry["path"]) for entry in entries),
+        symlinks,
+        directories=directories,
+    )
+    regular_files = {
+        str(entry["path"])
+        for entry in entries
+        if entry.get("type") == RUNTIME_FILE_TYPE
+    }
+    browser_bundled = browser_source is not None
+    if browser_bundled and not has_bundled_browser_file(regular_files):
+        raise RuntimeError(
+            "Bundled Chromium was requested but no regular browser file is inventoried."
         )
     manifest = {
-        "schema_version": 1,
+        "schema_version": RUNTIME_MANIFEST_SCHEMA,
         "product": "Mardas MD2PDF standalone sidecar runtime",
         "version": __version__,
         "engine_api_version": ENGINE_API_VERSION,
@@ -144,7 +201,7 @@ def _write_manifest(runtime_dir: Path, *, browser_source: Path | None) -> Path:
         "protocol_version": PROTOCOL_VERSION,
         "platform": _platform_tag(),
         "python": platform.python_version(),
-        "browser_bundled": browser_source is not None,
+        "browser_bundled": browser_bundled,
         "browser_source_name": browser_source.name if browser_source else None,
         "files": entries,
     }
@@ -157,13 +214,46 @@ def _archive_runtime(runtime_dir: Path, archive_path: Path) -> None:
     archive_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = archive_path.with_suffix(archive_path.suffix + ".tmp")
     temporary.unlink(missing_ok=True)
-    with zipfile.ZipFile(
-        temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
-    ) as archive:
-        for path in sorted(runtime_dir.rglob("*"), key=lambda item: item.as_posix().casefold()):
-            if path.is_file():
-                archive.write(path, Path(runtime_dir.name) / path.relative_to(runtime_dir))
-    os.replace(temporary, archive_path)
+    raw_epoch = os.environ.get("SOURCE_DATE_EPOCH", "946684800")
+    try:
+        epoch = int(raw_epoch)
+    except ValueError as exc:
+        raise RuntimeError("SOURCE_DATE_EPOCH must be an integer") from exc
+    # ZIP timestamps range from 1980 through 2107 and have a two-second resolution.
+    epoch = min(max(epoch, 315532800), 4_354_819_198)
+    date_time = time.gmtime(epoch)[:6]
+    try:
+        with zipfile.ZipFile(
+            temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+        ) as archive:
+            for path in _iter_runtime_paths(runtime_dir, include_manifest=True):
+                relative = path.relative_to(runtime_dir).as_posix()
+                archive_name = f"{runtime_dir.name}/{relative}"
+                mode = path.lstat().st_mode
+                if stat.S_ISDIR(mode):
+                    info = zipfile.ZipInfo(f"{archive_name}/", date_time=date_time)
+                    info.create_system = 3
+                    info.external_attr = ((stat.S_IFDIR | 0o755) << 16) | 0x10
+                    info.compress_type = zipfile.ZIP_STORED
+                    archive.writestr(info, b"")
+                elif stat.S_ISLNK(mode):
+                    target = validate_local_symlink(runtime_dir, path)
+                    info = zipfile.ZipInfo(archive_name, date_time=date_time)
+                    info.create_system = 3
+                    info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                    info.compress_type = zipfile.ZIP_STORED
+                    archive.writestr(info, normalize_symlink_target(target).encode("utf-8"))
+                else:
+                    permissions = 0o755 if stat.S_IMODE(mode) & 0o111 else 0o644
+                    info = zipfile.ZipInfo(archive_name, date_time=date_time)
+                    info.create_system = 3
+                    info.external_attr = (stat.S_IFREG | permissions) << 16
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    with path.open("rb") as source, archive.open(info, "w") as destination:
+                        shutil.copyfileobj(source, destination, length=1024 * 1024)
+        os.replace(temporary, archive_path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def build(args: argparse.Namespace) -> tuple[Path, Path | None]:

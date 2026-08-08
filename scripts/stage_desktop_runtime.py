@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
+import stat
 import sys
 import tempfile
 from pathlib import Path
@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
+from runtime_manifest import validate_local_symlink  # noqa: E402
 from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
 
 DEFAULT_TARGET = ROOT / "apps" / "desktop" / "src-tauri" / "resources" / "sidecar"
@@ -19,20 +20,34 @@ MARKER = ".mardas-staged-runtime.json"
 
 
 def _copy_tree(source: Path, target: Path) -> None:
-    for path in sorted(source.rglob("*"), key=lambda item: item.as_posix().casefold()):
-        if path.is_symlink():
-            raise ValueError(f"Standalone runtime must not contain symlinks: {path}")
+    for path in sorted(
+        source.rglob("*"),
+        key=lambda item: (item.as_posix().casefold(), item.as_posix()),
+    ):
         relative = path.relative_to(source)
         destination = target / relative
-        if path.is_dir():
+        mode = path.lstat().st_mode
+        if stat.S_ISLNK(mode):
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            link_target = validate_local_symlink(source, path)
+            destination.symlink_to(
+                Path(link_target),
+                target_is_directory=path.resolve(strict=True).is_dir(),
+            )
+        elif stat.S_ISDIR(mode):
             destination.mkdir(parents=True, exist_ok=True)
-        elif path.is_file():
+        elif stat.S_ISREG(mode):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, destination)
+        else:
+            raise ValueError(f"Standalone runtime contains an unsupported entry: {path}")
 
 
 def stage_runtime(source: Path, target: Path = DEFAULT_TARGET, *, expected_version: str) -> Path:
-    source = source.expanduser().resolve(strict=True)
+    source = source.expanduser()
+    if source.is_symlink():
+        raise ValueError("Standalone runtime source must not be a symlink")
+    source = source.resolve(strict=True)
     target = target.expanduser().resolve(strict=False)
     if not source.is_dir():
         raise ValueError(f"Standalone runtime source is not a directory: {source}")

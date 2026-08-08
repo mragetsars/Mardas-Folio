@@ -17,6 +17,7 @@ preflight_timeout="${MARDAS_PREFLIGHT_TIMEOUT:-60}"
 
 bash scripts/check.sh
 bash scripts/check_critical_coverage.sh
+npm --prefix apps/desktop run check:editor
 python scripts/build_desktop_frontend.py
 python scripts/verify_desktop_frontend.py apps/desktop/dist
 python scripts/audit_desktop_accessibility.py --output-dir build/release/desktop-accessibility

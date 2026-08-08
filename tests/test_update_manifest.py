@@ -17,6 +17,13 @@ def _load():
     return module
 
 
+def _symlink_or_skip(link: Path, target: Path) -> None:
+    try:
+        link.symlink_to(target)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symbolic links are unavailable: {exc}")
+
+
 def test_signed_update_manifest_round_trip(tmp_path: Path) -> None:
     module = _load()
     sig_win = tmp_path / "win.sig"
@@ -75,3 +82,36 @@ def test_update_manifest_rejects_missing_or_unknown_signatures(tmp_path: Path) -
             version="1.29.0",
             platform_specs=[("android-x86_64", "https://example.invalid/a", sig)],
         )
+
+
+def test_update_manifest_rejects_symlink_signature_input(tmp_path: Path) -> None:
+    module = _load()
+    target = tmp_path / "real.sig"
+    target.write_text("signature", encoding="utf-8")
+    link = tmp_path / "linked.sig"
+    _symlink_or_skip(link, target)
+
+    with pytest.raises(module.UpdateManifestError, match="missing or unsafe"):
+        module.build_update_manifest(
+            version="1.29.0",
+            platform_specs=[("windows-x86_64", "https://example.invalid/update", link)],
+        )
+
+
+def test_update_manifest_verifier_rejects_symlink_input(tmp_path: Path) -> None:
+    module = _load()
+    signature = tmp_path / "release.sig"
+    signature.write_text("signature", encoding="utf-8")
+    payload = module.build_update_manifest(
+        version="1.29.0",
+        platform_specs=[
+            ("windows-x86_64", "https://example.invalid/update", signature),
+        ],
+    )
+    target = tmp_path / "real-latest.json"
+    module.write_manifest(target, payload)
+    link = tmp_path / "latest.json"
+    _symlink_or_skip(link, target)
+
+    with pytest.raises(module.UpdateManifestError, match="missing or unsafe"):
+        module.verify_update_manifest(link, expected_version="1.29.0")

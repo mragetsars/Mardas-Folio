@@ -6,8 +6,10 @@ import hashlib
 import json
 import os
 import re
+import stat
 # Security: subprocess calls use explicit trusted executables and fixed argument arrays.
 import subprocess  # nosec B404
+import sys
 import zipfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -18,6 +20,22 @@ from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from runtime_manifest import (  # noqa: E402
+    LEGACY_RUNTIME_MANIFEST_SCHEMA,
+    MAX_SYMLINK_TARGET_BYTES,
+    RUNTIME_FILE_TYPE,
+    RUNTIME_MANIFEST_SCHEMA,
+    RUNTIME_SYMLINK_TYPE,
+    has_bundled_browser_file,
+    safe_runtime_path,
+    validate_symlink_graph,
+    validate_symlink_target,
+)
+
 PROJECT_NAME = "mardas-md2pdf"
 REPOSITORY_URL = "https://github.com/mragetsars/Mardas-MD2PDF"
 SPDX_VERSION = "SPDX-2.3"
@@ -27,6 +45,7 @@ MAX_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024
 MAX_BUNDLE_MEMBER_BYTES = 1024 * 1024 * 1024
 MAX_STANDALONE_FILES = 20_000
 MAX_STANDALONE_UNCOMPRESSED_BYTES = 4 * 1024 * 1024 * 1024
+MAX_RUNTIME_MANIFEST_BYTES = 32 * 1024 * 1024
 MAX_SBOM_BYTES = 16 * 1024 * 1024
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _SAFE_LABEL_RE = re.compile(r"[^A-Za-z0-9._-]+")
@@ -749,35 +768,60 @@ def verify_standalone_runtime(path: Path, *, expected_version: str) -> None:
             "Standalone runtime filename does not contain the release version"
         )
     with zipfile.ZipFile(path) as archive:
-        infos = [item for item in archive.infolist() if not item.is_dir()]
-        if len(infos) > MAX_STANDALONE_FILES:
+        infos = archive.infolist()
+        content_infos = [item for item in infos if not item.is_dir()]
+        # The root manifest is metadata beside, not part of, its bounded file inventory.
+        if len(content_infos) > MAX_STANDALONE_FILES + 1:
             raise ReleaseProvenanceError("Standalone runtime contains too many files")
-        total_uncompressed = sum(item.file_size for item in infos)
+        total_uncompressed = sum(item.file_size for item in content_infos)
         if total_uncompressed > MAX_STANDALONE_UNCOMPRESSED_BYTES:
             raise ReleaseProvenanceError("Standalone runtime expands beyond the size limit")
         names: set[str] = set()
+        content_names: set[str] = set()
+        directory_names: set[str] = set()
+        members: dict[str, zipfile.ZipInfo] = {}
         roots: set[str] = set()
         for info in infos:
             name = safe_zip_member(info.filename).as_posix()
             if name in names:
                 raise ReleaseProvenanceError(f"Duplicate standalone runtime member: {name}")
             names.add(name)
+            members[name] = info
             roots.add(PurePosixPath(name).parts[0])
             if info.file_size > MAX_BUNDLE_MEMBER_BYTES:
                 raise ReleaseProvenanceError(f"Standalone runtime member is too large: {name}")
-            mode = (info.external_attr >> 16) & 0o170000
-            if mode == 0o120000:
-                raise ReleaseProvenanceError(f"Standalone runtime contains a symlink: {name}")
+            entry_kind = (info.external_attr >> 16) & 0o170000
+            if info.is_dir():
+                if entry_kind not in {0, stat.S_IFDIR}:
+                    raise ReleaseProvenanceError(
+                        f"Standalone runtime directory has an invalid ZIP mode: {name}"
+                    )
+                directory_names.add(name)
+            else:
+                if entry_kind not in {0, stat.S_IFREG, stat.S_IFLNK}:
+                    raise ReleaseProvenanceError(
+                        f"Standalone runtime contains an unsupported ZIP entry: {name}"
+                    )
+                content_names.add(name)
         if len(roots) != 1:
             raise ReleaseProvenanceError(
                 "Standalone runtime must contain exactly one top-level directory"
             )
         root = next(iter(roots))
         manifest_name = f"{root}/runtime-manifest.json"
-        if manifest_name not in names:
+        if manifest_name not in content_names:
             raise ReleaseProvenanceError("Standalone runtime manifest is missing")
+        manifest_info = members[manifest_name]
+        if (manifest_info.external_attr >> 16) & 0o170000 == stat.S_IFLNK:
+            raise ReleaseProvenanceError("Standalone runtime manifest must be a regular file")
+        if manifest_info.file_size > MAX_RUNTIME_MANIFEST_BYTES:
+            raise ReleaseProvenanceError("Standalone runtime manifest is unreasonably large")
         manifest = json.loads(archive.read(manifest_name).decode("utf-8"))
-        if manifest.get("schema_version") != 1:
+        schema_version = manifest.get("schema_version")
+        if schema_version not in {
+            LEGACY_RUNTIME_MANIFEST_SCHEMA,
+            RUNTIME_MANIFEST_SCHEMA,
+        }:
             raise ReleaseProvenanceError("Unsupported standalone runtime manifest schema")
         if manifest.get("version") != expected_version:
             raise ReleaseProvenanceError("Standalone runtime version is incorrect")
@@ -791,17 +835,27 @@ def verify_standalone_runtime(path: Path, *, expected_version: str) -> None:
                 "Standalone runtime must include its pinned Chromium runtime"
             )
         file_entries = manifest.get("files")
-        if not isinstance(file_entries, list) or not file_entries:
+        if (
+            not isinstance(file_entries, list)
+            or not file_entries
+            or len(file_entries) > MAX_STANDALONE_FILES
+        ):
             raise ReleaseProvenanceError("Standalone runtime file inventory is invalid")
         expected_names = {manifest_name}
         executable_found = False
+        inventory_paths: set[str] = set()
+        regular_inventory_paths: set[str] = set()
+        symlinks: dict[str, str] = {}
         for entry in file_entries:
             if not isinstance(entry, dict):
                 raise ReleaseProvenanceError("Standalone runtime file entry is not an object")
-            relative = str(entry.get("path", ""))
-            pure = safe_zip_member(relative)
-            if len(pure.parts) < 1:
-                raise ReleaseProvenanceError("Standalone runtime inventory path is invalid")
+            try:
+                pure = safe_runtime_path(entry.get("path"))
+            except ValueError as exc:
+                raise ReleaseProvenanceError(
+                    "Standalone runtime inventory path is invalid"
+                ) from exc
+            relative = pure.as_posix()
             member_name = f"{root}/{pure.as_posix()}"
             if member_name in expected_names:
                 raise ReleaseProvenanceError(
@@ -812,20 +866,103 @@ def verify_standalone_runtime(path: Path, *, expected_version: str) -> None:
                 raise ReleaseProvenanceError(
                     f"Standalone runtime inventory member is missing: {relative}"
                 )
-            data = archive.read(member_name)
-            if len(data) != int(entry.get("size", -1)):
-                raise ReleaseProvenanceError(f"Standalone runtime size mismatch: {relative}")
-            digest = str(entry.get("sha256", ""))
-            if not _SHA256_RE.fullmatch(digest) or hashlib.sha256(data).hexdigest() != digest:
-                raise ReleaseProvenanceError(f"Standalone runtime checksum mismatch: {relative}")
-            if pure.name in {"mardas-sidecar", "mardas-sidecar.exe"}:
-                executable_found = True
-        if expected_names != names:
-            extra = sorted(names - expected_names)
-            missing = sorted(expected_names - names)
+            inventory_paths.add(relative)
+            info = members[member_name]
+            zip_entry_kind = (info.external_attr >> 16) & 0o170000
+            entry_type = entry.get("type")
+            if schema_version == LEGACY_RUNTIME_MANIFEST_SCHEMA:
+                if entry_type not in {None, RUNTIME_FILE_TYPE}:
+                    raise ReleaseProvenanceError(
+                        "Legacy standalone runtime manifests may contain only regular files"
+                    )
+                entry_type = RUNTIME_FILE_TYPE
+            if entry_type == RUNTIME_FILE_TYPE:
+                if (
+                    zip_entry_kind == stat.S_IFLNK
+                    or info.is_dir()
+                    or (
+                        schema_version == RUNTIME_MANIFEST_SCHEMA
+                        and zip_entry_kind != stat.S_IFREG
+                    )
+                ):
+                    raise ReleaseProvenanceError(
+                        f"Standalone runtime file has an unsafe ZIP type: {relative}"
+                    )
+                expected_size = entry.get("size")
+                if (
+                    not isinstance(expected_size, int)
+                    or isinstance(expected_size, bool)
+                    or info.file_size != expected_size
+                ):
+                    raise ReleaseProvenanceError(f"Standalone runtime size mismatch: {relative}")
+                digest = str(entry.get("sha256", ""))
+                checksum = hashlib.sha256()
+                with archive.open(info) as member:
+                    for chunk in iter(lambda: member.read(1024 * 1024), b""):
+                        checksum.update(chunk)
+                if not _SHA256_RE.fullmatch(digest) or checksum.hexdigest() != digest:
+                    raise ReleaseProvenanceError(
+                        f"Standalone runtime checksum mismatch: {relative}"
+                    )
+                if relative in {"mardas-sidecar", "mardas-sidecar.exe"}:
+                    executable_found = True
+                regular_inventory_paths.add(relative)
+            elif (
+                entry_type == RUNTIME_SYMLINK_TYPE
+                and schema_version == RUNTIME_MANIFEST_SCHEMA
+            ):
+                if (
+                    zip_entry_kind != stat.S_IFLNK
+                    or info.is_dir()
+                    or info.create_system != 3
+                ):
+                    raise ReleaseProvenanceError(
+                        f"Standalone runtime symlink has an unsafe ZIP type: {relative}"
+                    )
+                if info.file_size > MAX_SYMLINK_TARGET_BYTES:
+                    raise ReleaseProvenanceError(
+                        f"Standalone runtime symlink target is too large: {relative}"
+                    )
+                data = archive.read(member_name)
+                try:
+                    target = data.decode("utf-8", errors="strict")
+                    validate_symlink_target(target)
+                except (UnicodeDecodeError, ValueError) as exc:
+                    raise ReleaseProvenanceError(
+                        f"Standalone runtime symlink target is invalid: {relative}"
+                    ) from exc
+                if target != entry.get("target"):
+                    raise ReleaseProvenanceError(
+                        f"Standalone runtime symlink target mismatch: {relative}"
+                    )
+                symlinks[relative] = target
+            else:
+                raise ReleaseProvenanceError(
+                    f"Standalone runtime manifest entry type is invalid: {relative}"
+                )
+        if not has_bundled_browser_file(regular_inventory_paths):
+            raise ReleaseProvenanceError(
+                "Standalone runtime claims bundled Chromium without an inventoried browser file"
+            )
+        if expected_names != content_names:
+            extra = sorted(content_names - expected_names)
+            missing = sorted(expected_names - content_names)
             raise ReleaseProvenanceError(
                 f"Standalone runtime archive inventory mismatch; missing={missing}, extra={extra}"
             )
+        runtime_directories = []
+        for name in directory_names:
+            pure = PurePosixPath(name)
+            if len(pure.parts) > 1:
+                runtime_directories.append(PurePosixPath(*pure.parts[1:]).as_posix())
+        try:
+            validate_symlink_graph(
+                inventory_paths,
+                symlinks,
+                directories=runtime_directories,
+            )
+        except ValueError as exc:
+            raise ReleaseProvenanceError(str(exc)) from exc
         if not executable_found:
             raise ReleaseProvenanceError("Standalone runtime sidecar executable is missing")
 

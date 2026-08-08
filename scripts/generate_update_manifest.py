@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import stat
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -54,9 +55,11 @@ def _validate_https_url(value: str) -> str:
 
 
 def _read_signature(path: Path) -> str:
-    path = path.expanduser().resolve(strict=True)
-    if path.is_symlink() or not path.is_file():
-        raise UpdateManifestError(f"Signature file is missing or unsafe: {path}")
+    candidate = path.expanduser()
+    metadata = candidate.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise UpdateManifestError(f"Signature file is missing or unsafe: {candidate}")
+    path = candidate.resolve(strict=True)
     if path.stat().st_size <= 0 or path.stat().st_size > MAX_SIGNATURE_BYTES:
         raise UpdateManifestError("Signature file is empty or exceeds the size limit")
     signature = path.read_text(encoding="utf-8").strip()
@@ -143,9 +146,11 @@ def write_manifest(path: Path, payload: dict[str, object]) -> None:
 
 
 def verify_update_manifest(path: Path, *, expected_version: str | None = None) -> dict[str, object]:
-    path = path.expanduser().resolve(strict=True)
-    if path.is_symlink() or not path.is_file():
-        raise UpdateManifestError(f"Update manifest is missing or unsafe: {path}")
+    candidate = path.expanduser()
+    metadata = candidate.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise UpdateManifestError(f"Update manifest is missing or unsafe: {candidate}")
+    path = candidate.resolve(strict=True)
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise UpdateManifestError("Update manifest must be a JSON object")

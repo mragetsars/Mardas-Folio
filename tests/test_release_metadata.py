@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import stat
@@ -7,6 +8,13 @@ import subprocess
 import sys
 import tarfile
 from pathlib import Path
+
+import pytest
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility
+    import tomli as tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -75,6 +83,7 @@ def test_maintenance_scripts_are_executable() -> None:
         "scripts/generate_update_manifest.py",
         "scripts/assemble_signed_updates.py",
         "scripts/release_preflight.py",
+        "scripts/verify_platform_signing.py",
         "scripts/extract_release_notes.py",
     ]:
         path = ROOT / relative_path
@@ -129,6 +138,17 @@ def test_build_dist_supports_no_isolation_mode() -> None:
     assert "scripts/normalize_sdist.py" in script
 
 
+def test_python_build_backend_is_security_fixed_and_reproducible() -> None:
+    metadata = tomllib.loads(_read("pyproject.toml"))
+
+    assert metadata["build-system"]["requires"] == [
+        "setuptools==83.0.0",
+        "wheel==0.47.0",
+    ]
+    assert "setuptools==83.0.0" in metadata["project"]["optional-dependencies"]["dev"]
+    assert "wheel==0.47.0" in metadata["project"]["optional-dependencies"]["dev"]
+
+
 
 def test_normalize_sdist_preserves_archive_permissions(tmp_path: Path) -> None:
     archive = tmp_path / "sample.tar.gz"
@@ -163,6 +183,8 @@ def test_source_distribution_manifest_includes_release_support_files() -> None:
     manifest = _read("MANIFEST.in")
 
     for expected in [
+        "include pyrightconfig.json",
+        "include apps/desktop/src-tauri/Cargo.lock",
         "recursive-include docs *.md *.png *.bib *.json",
         "recursive-include examples *.pdf",
         "recursive-include scripts *.py *.sh",
@@ -170,6 +192,7 @@ def test_source_distribution_manifest_includes_release_support_files() -> None:
         "recursive-include schemas *.json",
         "recursive-include tests *.py",
         "recursive-include apps *.html *.css *.mjs *.json *.toml *.rs *.png *.ico *.icns *.svg *.md",
+        "prune apps/desktop/node_modules",
         "prune apps/desktop/dist",
         "prune apps/desktop/src-tauri/target",
         "prune apps/desktop/src-tauri/resources/sidecar",
@@ -180,6 +203,20 @@ def test_source_distribution_manifest_includes_release_support_files() -> None:
         "prune patches",
     ]:
         assert expected in manifest
+
+
+def test_native_desktop_builds_use_the_committed_cargo_lock() -> None:
+    native = _read("scripts/build_native_desktop.py")
+    legacy = _read("scripts/build_desktop_app.py")
+    ci = _read(".github/workflows/ci.yml")
+    release = _read(".github/workflows/release.yml")
+
+    assert 'command.extend(["--", "--locked"])' in native
+    assert '"nsis", "--", "--locked"' in legacy
+    assert "dtolnay/rust-toolchain@1.97.1" in ci
+    assert "dtolnay/rust-toolchain@1.97.1" in release
+    assert "dtolnay/rust-toolchain@stable" not in ci + release
+    assert ci.count("cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked") == 2
 
 
 def test_release_gate_consolidates_release_checks() -> None:
@@ -201,6 +238,207 @@ def test_release_gate_consolidates_release_checks() -> None:
     assert "./scripts/release_gate.sh" in release_doc
 
 
+def test_dependency_audit_skips_the_local_editable_project() -> None:
+    script = _read("scripts/security_audit.sh")
+
+    assert "--strict" in script
+    assert "--exclude-editable" in script
+    assert "--no-deps" in script
+    assert "--disable-pip" in script
+    assert "pip freeze --all" in script
+    assert "editable_project_location" in script
+    assert '--requirement "$requirements"' in script
+
+
+def _run_security_audit_harness(
+    case_dir: Path,
+    *,
+    editables: list[dict[str, str]] | None = None,
+    freeze: str = "packaging==25.0\npip==25.1\n",
+    audit_exit: int = 0,
+    audit_payload: str = '{"dependencies": []}\n',
+) -> tuple[subprocess.CompletedProcess[str], Path, list[list[str]], str | None]:
+    case_dir.mkdir(parents=True, exist_ok=True)
+    fake_bin = case_dir / "bin"
+    fake_bin.mkdir()
+    driver = case_dir / "fake_python.py"
+    driver.write_text(
+        """from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+args = sys.argv[1:]
+with Path(os.environ["FAKE_CALL_LOG"]).open("a", encoding="utf-8") as log:
+    log.write(json.dumps(args) + "\\n")
+
+if args == ["-m", "pip", "list", "--editable", "--format=json"]:
+    sys.stdout.write(os.environ["FAKE_EDITABLES_JSON"])
+    raise SystemExit(0)
+if args == ["-m", "pip", "freeze", "--all", "--exclude-editable"]:
+    sys.stdout.write(os.environ["FAKE_FREEZE_TEXT"])
+    raise SystemExit(0)
+if args[:2] == ["-m", "pip_audit"]:
+    expected_flags = [
+        "--strict",
+        "--no-deps",
+        "--disable-pip",
+        "--requirement",
+    ]
+    if args[2:6] != expected_flags or args[7:9] != ["--format", "json"] or args[9] != "--output":
+        raise SystemExit("Unexpected pip-audit arguments")
+    final_output = Path(os.environ["FAKE_FINAL_OUTPUT"])
+    observation = Path(os.environ["FAKE_AUDIT_OBSERVATION"])
+    observation.write_text("present" if final_output.exists() else "absent", encoding="utf-8")
+    audit_output = Path(args[10])
+    audit_output.write_text(os.environ["FAKE_AUDIT_PAYLOAD"], encoding="utf-8")
+    raise SystemExit(int(os.environ["FAKE_AUDIT_EXIT"]))
+if args and args[0] == "-":
+    completed = subprocess.run(
+        [os.environ["MARDAS_REAL_PYTHON"], *args],
+        stdin=sys.stdin,
+        check=False,
+    )
+    raise SystemExit(completed.returncode)
+raise SystemExit(f"Unexpected fake-python invocation: {args!r}")
+""",
+        encoding="utf-8",
+    )
+    fake_python = fake_bin / "python"
+    fake_python.write_text(
+        '#!/usr/bin/env bash\nexec "$MARDAS_REAL_PYTHON" "$MARDAS_FAKE_PYTHON_DRIVER" "$@"\n',
+        encoding="utf-8",
+    )
+    fake_python.chmod(0o755)
+
+    output = case_dir / "published" / "pip-audit.json"
+    output.parent.mkdir()
+    output.write_text("stale-success", encoding="utf-8")
+    call_log = case_dir / "calls.jsonl"
+    observation = case_dir / "audit-observation.txt"
+    temp_root = case_dir / "tmp"
+    temp_root.mkdir()
+    if editables is None:
+        editables = [
+            {
+                "name": "Mardas_MD2PDF",
+                "version": "1.26.0",
+                "editable_project_location": str(ROOT),
+            }
+        ]
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+            "TMPDIR": str(temp_root),
+            "MARDAS_SECURITY_AUDIT_OUTPUT": str(output),
+            "MARDAS_REAL_PYTHON": sys.executable,
+            "MARDAS_FAKE_PYTHON_DRIVER": str(driver),
+            "FAKE_EDITABLES_JSON": json.dumps(editables),
+            "FAKE_FREEZE_TEXT": freeze,
+            "FAKE_AUDIT_EXIT": str(audit_exit),
+            "FAKE_AUDIT_PAYLOAD": audit_payload,
+            "FAKE_CALL_LOG": str(call_log),
+            "FAKE_FINAL_OUTPUT": str(output),
+            "FAKE_AUDIT_OBSERVATION": str(observation),
+        }
+    )
+    completed = subprocess.run(
+        ["bash", str(ROOT / "scripts/security_audit.sh")],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    calls = [json.loads(line) for line in call_log.read_text(encoding="utf-8").splitlines()]
+    observed = observation.read_text(encoding="utf-8") if observation.exists() else None
+    return completed, output, calls, observed
+
+
+@pytest.mark.skipif(os.name == "nt", reason="The security audit is a POSIX Bash CI job")
+def test_dependency_audit_requires_exact_checkout_editable(tmp_path: Path) -> None:
+    valid = {
+        "name": "mardas-md2pdf",
+        "version": "1.26.0",
+        "editable_project_location": str(ROOT),
+    }
+    invalid_inventories = [
+        [],
+        [valid, {"name": "other", "version": "1.0", "editable_project_location": str(ROOT)}],
+        [{**valid, "editable_project_location": str(tmp_path)}],
+    ]
+
+    for index, inventory in enumerate(invalid_inventories):
+        completed, output, calls, _ = _run_security_audit_harness(
+            tmp_path / f"editable-{index}",
+            editables=inventory,
+        )
+
+        assert completed.returncode != 0
+        assert not output.exists()
+        assert not any(call[:2] == ["-m", "pip_audit"] for call in calls)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="The security audit is a POSIX Bash CI job")
+@pytest.mark.parametrize(
+    "freeze",
+    [
+        "sample @ https://example.invalid/sample.whl\n",
+        "sample>=1.0\n",
+    ],
+    ids=["url", "non-pin"],
+)
+def test_dependency_audit_rejects_urls_and_non_pins(tmp_path: Path, freeze: str) -> None:
+    completed, output, calls, _ = _run_security_audit_harness(tmp_path, freeze=freeze)
+
+    assert completed.returncode != 0
+    assert "not an exact registry pin" in completed.stderr
+    assert not output.exists()
+    assert not any(call[:2] == ["-m", "pip_audit"] for call in calls)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="The security audit is a POSIX Bash CI job")
+def test_dependency_audit_failure_removes_stale_report(tmp_path: Path) -> None:
+    completed, output, _, observed = _run_security_audit_harness(
+        tmp_path,
+        audit_exit=1,
+        audit_payload='{"partial": true',
+    )
+
+    assert completed.returncode == 1
+    assert observed == "absent"
+    assert not output.exists()
+    assert not list(output.parent.glob(".pip-audit-result.*"))
+    assert not list((tmp_path / "tmp").glob("mardas-pip-audit.*"))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="The security audit is a POSIX Bash CI job")
+def test_dependency_audit_success_publishes_atomically(tmp_path: Path) -> None:
+    payload = '{"dependencies": []}\n'
+    completed, output, calls, observed = _run_security_audit_harness(
+        tmp_path,
+        audit_payload=payload,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert observed == "absent"
+    assert output.read_text(encoding="utf-8") == payload
+    audit_calls = [call for call in calls if call[:2] == ["-m", "pip_audit"]]
+    assert len(audit_calls) == 1
+    audit_temp = Path(audit_calls[0][audit_calls[0].index("--output") + 1])
+    assert audit_temp.parent == output.parent
+    assert audit_temp != output
+    assert audit_temp.name.startswith(".pip-audit-result.")
+    assert not audit_temp.exists()
+    assert not list(output.parent.glob(".pip-audit-result.*"))
+
+
 def test_release_workflow_runs_the_complete_release_gate() -> None:
     workflow = _read(".github/workflows/release.yml")
 
@@ -212,7 +450,7 @@ def test_release_workflow_runs_the_complete_release_gate() -> None:
     assert "actions/attest@v4" in workflow
     assert "subject-checksums" in workflow
     assert "sbom-path" in workflow
-    assert "scripts/release_preflight.py --mode draft" in workflow
+    assert 'scripts/release_preflight.py --mode "$MARDAS_RELEASE_MODE"' in workflow
     assert "--create-updater-artifacts" in workflow
     assert "scripts/assemble_signed_updates.py" in workflow
     assert "--require-update-manifest" in workflow

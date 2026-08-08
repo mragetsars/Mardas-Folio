@@ -6,13 +6,13 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -29,10 +29,23 @@ from mardas_md2pdf import __version__  # noqa: E402
 
 DESKTOP_ROOT = ROOT / "apps" / "desktop"
 TAURI_ROOT = DESKTOP_ROOT / "src-tauri"
+CARGO_LOCK = TAURI_ROOT / "Cargo.lock"
 RESOURCE_RUNTIME = TAURI_ROOT / "resources" / "sidecar"
 DEFAULT_OUTPUT = ROOT / "build" / "desktop-native"
 DEFAULT_UPDATE_ENDPOINT = "https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json"
 MAX_UPDATER_PUBKEY_BYTES = 32 * 1024
+MAX_SIGNING_VALUE_BYTES = 4096
+MAX_CARGO_LOCK_BYTES = 4 * 1024 * 1024
+WINDOWS_THUMBPRINT_RE = re.compile(r"^[0-9A-Fa-f]{40}$")
+APPLE_IDENTITY_RE = re.compile(
+    r"^Developer ID Application: [^\x00-\x1f\x7f]{1,350} \((?P<team>[A-Z0-9]{10})\)$"
+)
+APPLE_API_ISSUER_RE = re.compile(
+    r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
+)
+APPLE_API_KEY_RE = re.compile(r"^[A-Z0-9]{10}$")
+APPLE_TEAM_ID_RE = re.compile(r"^[A-Z0-9]{10}$")
+APPLE_ID_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 
@@ -79,6 +92,141 @@ def _validate_update_endpoint(value: str) -> str:
     return candidate
 
 
+def _bounded_environment_value(environment: dict[str, str], name: str) -> str:
+    value = environment.get(name, "").strip()
+    if (
+        not value
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+        or len(value.encode("utf-8")) > MAX_SIGNING_VALUE_BYTES
+    ):
+        raise SystemExit(f"{name} is required and must contain one bounded line of text.")
+    return value
+
+
+def _validate_timestamp_url(value: str) -> str:
+    candidate = value.strip()
+    try:
+        parsed = urlparse(candidate)
+    except ValueError as exc:
+        raise SystemExit("Windows timestamp URL is invalid.") from exc
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.netloc
+        or parsed.username
+        or parsed.password
+        or parsed.fragment
+        or any(character.isspace() for character in candidate)
+    ):
+        raise SystemExit(
+            "Windows timestamp URL must use HTTP(S) without credentials or fragments."
+        )
+    return candidate
+
+
+def _windows_signing_config(environment: dict[str, str]) -> dict[str, object]:
+    thumbprint = _bounded_environment_value(
+        environment, "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT"
+    )
+    if not WINDOWS_THUMBPRINT_RE.fullmatch(thumbprint):
+        raise SystemExit(
+            "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT must be exactly 40 hexadecimal characters."
+        )
+    digest = environment.get("MARDAS_WINDOWS_DIGEST_ALGORITHM", "sha256").strip().lower()
+    if digest != "sha256":
+        raise SystemExit("MARDAS_WINDOWS_DIGEST_ALGORITHM must be sha256.")
+    timestamp_url = _validate_timestamp_url(
+        _bounded_environment_value(environment, "MARDAS_WINDOWS_TIMESTAMP_URL")
+    )
+    return {
+        "certificateThumbprint": thumbprint.upper(),
+        "digestAlgorithm": digest,
+        "timestampUrl": timestamp_url,
+    }
+
+
+def _macos_signing_config(environment: dict[str, str]) -> dict[str, object]:
+    identity = _bounded_environment_value(environment, "APPLE_SIGNING_IDENTITY")
+    identity_match = APPLE_IDENTITY_RE.fullmatch(identity)
+    if identity_match is None:
+        raise SystemExit(
+            "APPLE_SIGNING_IDENTITY must name a Developer ID Application certificate "
+            "and end with its 10-character team ID."
+        )
+
+    api_names = ("APPLE_API_ISSUER", "APPLE_API_KEY", "APPLE_API_KEY_PATH")
+    apple_id_names = ("APPLE_ID", "APPLE_PASSWORD", "APPLE_TEAM_ID")
+    api_values = tuple(environment.get(name, "").strip() for name in api_names)
+    apple_id_values = tuple(environment.get(name, "").strip() for name in apple_id_names)
+    api_present = any(api_values)
+    apple_id_present = any(apple_id_values[:2])
+    api_ready = all(api_values)
+    apple_id_ready = all(apple_id_values)
+    if api_present and not api_ready:
+        raise SystemExit(
+            "App Store Connect notarization credentials are incomplete; set issuer, key ID, "
+            "and key path together."
+        )
+    if apple_id_present and not apple_id_ready:
+        raise SystemExit(
+            "Apple ID notarization credentials are incomplete; set Apple ID, app-specific "
+            "password, and team ID together."
+        )
+    if api_ready == apple_id_ready:
+        raise SystemExit(
+            "Public macOS builds require exactly one complete notarization credential set: "
+            "App Store Connect API or Apple ID."
+        )
+    if api_ready:
+        issuer, key_id, raw_path = api_values
+        if not APPLE_API_ISSUER_RE.fullmatch(issuer) or not APPLE_API_KEY_RE.fullmatch(key_id):
+            raise SystemExit("App Store Connect issuer or key ID has an invalid format.")
+        key_path = Path(raw_path).expanduser()
+        if not key_path.is_absolute() or key_path.is_symlink():
+            raise SystemExit("APPLE_API_KEY_PATH must be an absolute, non-symbolic path.")
+        try:
+            key_path = key_path.resolve(strict=True)
+            key_size = key_path.stat().st_size
+            key_text = key_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise SystemExit("APPLE_API_KEY_PATH is missing or unreadable.") from exc
+        if (
+            not key_path.is_file()
+            or not 64 <= key_size <= 64 * 1024
+            or "\x00" in key_text
+            or "-----BEGIN PRIVATE KEY-----" not in key_text
+            or "-----END PRIVATE KEY-----" not in key_text
+        ):
+            raise SystemExit("APPLE_API_KEY_PATH does not contain a bounded PEM private key.")
+        configured_team = apple_id_values[2]
+        if configured_team and (
+            not APPLE_TEAM_ID_RE.fullmatch(configured_team)
+            or configured_team != identity_match.group("team")
+        ):
+            raise SystemExit(
+                "APPLE_TEAM_ID does not match the Developer ID signing identity."
+            )
+    else:
+        apple_id, password, team_id = apple_id_values
+        if (
+            not APPLE_ID_RE.fullmatch(apple_id)
+            or not APPLE_TEAM_ID_RE.fullmatch(team_id)
+            or team_id != identity_match.group("team")
+            or any(
+                not value
+                or "\x00" in value
+                or "\r" in value
+                or "\n" in value
+                or len(value.encode("utf-8")) > MAX_SIGNING_VALUE_BYTES
+                for value in (apple_id, password, team_id)
+            )
+        ):
+            raise SystemExit(
+                "Apple ID credentials are invalid or their team ID does not match the signing "
+                "identity."
+            )
+    return {"signingIdentity": identity}
+
+
 def _read_updater_pubkey(path: Path | None, environment: dict[str, str]) -> str:
     if path is not None:
         resolved = path.expanduser().resolve(strict=True)
@@ -97,16 +245,82 @@ def _read_updater_pubkey(path: Path | None, environment: dict[str, str]) -> str:
     return value
 
 
-def _updater_build_config(output: Path) -> Path:
-    fd, raw = tempfile.mkstemp(prefix=".mardas-updater-", suffix=".json", dir=output)
-    os.close(fd)
+def _write_temporary_build_config(
+    output: Path, *, prefix: str, payload: dict[str, object]
+) -> Path:
+    fd, raw = tempfile.mkstemp(prefix=prefix, suffix=".json", dir=output)
     path = Path(raw)
-    path.write_text(
-        json.dumps({"bundle": {"createUpdaterArtifacts": True}}, indent=2) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            json.dump(payload, handle, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
     return path
+
+
+def _updater_build_config(output: Path) -> Path:
+    return _write_temporary_build_config(
+        output,
+        prefix=".mardas-updater-",
+        payload={"bundle": {"createUpdaterArtifacts": True}},
+    )
+
+
+def _native_build_config(
+    output: Path,
+    *,
+    create_updater_artifacts: bool,
+    release_mode: str,
+    platform_name: str,
+    environment: dict[str, str],
+) -> tuple[Path | None, dict[str, object]]:
+    if release_mode not in {"draft", "public"}:
+        raise SystemExit(f"Unsupported native release mode: {release_mode}")
+    bundle: dict[str, object] = {}
+    if create_updater_artifacts:
+        bundle["createUpdaterArtifacts"] = True
+
+    signing_required = release_mode == "public" and platform_name in {"windows", "macos"}
+    signing: dict[str, object] = {
+        "release_mode": release_mode,
+        "required": signing_required,
+        "requested": signing_required,
+        "verified": False,
+        "status": "pending-verification" if signing_required else "not-requested",
+        "method": None,
+    }
+    if release_mode == "public" and platform_name == "windows":
+        windows = _windows_signing_config(environment)
+        bundle["windows"] = windows
+        signing["method"] = "certificate-thumbprint"
+        signing["certificate_thumbprint"] = windows["certificateThumbprint"]
+        signing["digest_algorithm"] = windows["digestAlgorithm"]
+        signing["timestamp_url"] = windows["timestampUrl"]
+    elif release_mode == "public" and platform_name == "macos":
+        macos = _macos_signing_config(environment)
+        bundle["macOS"] = macos
+        signing["method"] = "developer-id"
+        signing["identity"] = macos["signingIdentity"]
+        signing["notarization_method"] = (
+            "app-store-connect-api"
+            if environment.get("APPLE_API_ISSUER", "").strip()
+            else "apple-id"
+        )
+    elif release_mode == "public":
+        signing["status"] = "not-required"
+
+    if not bundle:
+        return None, signing
+    path = _write_temporary_build_config(
+        output,
+        prefix=".mardas-native-build-",
+        payload={"bundle": bundle},
+    )
+    return path, signing
 
 
 def require_tauri_cli() -> None:
@@ -126,6 +340,19 @@ def require_tauri_cli() -> None:
         ) from exc
     if "tauri-cli" not in completed.stdout.casefold():
         raise SystemExit(f"Unexpected Tauri CLI response: {completed.stdout.strip()}")
+
+
+def require_cargo_lock() -> None:
+    if CARGO_LOCK.is_symlink() or not CARGO_LOCK.is_file():
+        raise SystemExit("A regular committed src-tauri/Cargo.lock is required.")
+    try:
+        size = CARGO_LOCK.stat().st_size
+        content = CARGO_LOCK.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise SystemExit("Could not read the committed src-tauri/Cargo.lock.") from exc
+    valid_version = re.search(r"(?m)^version = [34]$", content[:256]) is not None
+    if not 0 < size <= MAX_CARGO_LOCK_BYTES or not valid_version:
+        raise SystemExit("The committed src-tauri/Cargo.lock is invalid.")
 
 
 def _latest_candidate(bundle: str) -> Path:
@@ -305,6 +532,18 @@ def _copy_updater_artifacts(
     return created
 
 
+def _run_tauri_build(
+    command: list[str], *, environment: dict[str, str], build_config: Path | None
+) -> None:
+    if command[-2:] != ["--", "--locked"]:
+        raise SystemExit("Native desktop builds must use the committed Cargo.lock.")
+    try:
+        subprocess.run(command, cwd=TAURI_ROOT, env=environment, check=True)
+    finally:
+        if build_config is not None:
+            build_config.unlink(missing_ok=True)
+
+
 def build(args: argparse.Namespace) -> list[Path]:
     platform_name = platform_tag()
     architecture = architecture_tag()
@@ -324,11 +563,11 @@ def build(args: argparse.Namespace) -> list[Path]:
     frontend = build_frontend(version=__version__)
     verify_frontend(frontend, expected_version=__version__)
     stage_runtime(runtime, expected_version=__version__)
+    require_cargo_lock()
     require_tauri_cli()
 
     environment = os.environ.copy()
     environment["MARDAS_DESKTOP_VERSION"] = __version__
-    updater_config: Path | None = None
     if args.create_updater_artifacts:
         private_key = environment.get("TAURI_SIGNING_PRIVATE_KEY", "").strip()
         if not private_key:
@@ -341,16 +580,19 @@ def build(args: argparse.Namespace) -> list[Path]:
         environment["MARDAS_UPDATE_ENDPOINT"] = _validate_update_endpoint(
             args.updater_endpoint or DEFAULT_UPDATE_ENDPOINT
         )
-        updater_config = _updater_build_config(output)
+    build_config, signing_contract = _native_build_config(
+        output,
+        create_updater_artifacts=args.create_updater_artifacts,
+        release_mode=args.release_mode,
+        platform_name=platform_name,
+        environment=environment,
+    )
 
     command = ["cargo", "tauri", "build", "--bundles", ",".join(bundles)]
-    if updater_config is not None:
-        command.extend(["--config", str(updater_config)])
-    try:
-        subprocess.run(command, cwd=TAURI_ROOT, env=environment, check=True)
-    finally:
-        if updater_config is not None:
-            updater_config.unlink(missing_ok=True)
+    if build_config is not None:
+        command.extend(["--config", str(build_config)])
+    command.extend(["--", "--locked"])
+    _run_tauri_build(command, environment=environment, build_config=build_config)
 
     artifacts = [
         _copy_verified(
@@ -382,6 +624,8 @@ def build(args: argparse.Namespace) -> list[Path]:
         "version": __version__,
         "platform": platform_name,
         "architecture": architecture,
+        "release_mode": args.release_mode,
+        "os_signing": signing_contract,
         "signed_updater_artifacts": bool(args.create_updater_artifacts),
         "artifacts": payloads,
     }
@@ -406,6 +650,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override the default bundle(s) for the current platform",
     )
     parser.add_argument("--no-portable", action="store_true")
+    parser.add_argument(
+        "--release-mode",
+        choices=("draft", "public"),
+        default="draft",
+        help="Draft builds omit OS trust signing; public builds require and verify it.",
+    )
     parser.add_argument(
         "--create-updater-artifacts",
         action="store_true",

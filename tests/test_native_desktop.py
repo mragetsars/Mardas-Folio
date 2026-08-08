@@ -60,6 +60,22 @@ def test_native_binary_signatures_are_verified(tmp_path: Path) -> None:
         verify_native_artifact(installer, expected_version=version)
 
 
+def test_native_artifact_verifier_rejects_symlink_input(tmp_path: Path) -> None:
+    version = "1.29.0"
+    name = f"Mardas-Studio-{version}-linux-x86_64.AppImage"
+    target = tmp_path / "real" / name
+    target.parent.mkdir()
+    target.write_bytes(_pad(b"\x7fELF"))
+    link = tmp_path / name
+    try:
+        link.symlink_to(target)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symbolic links are unavailable: {exc}")
+
+    with pytest.raises(ValueError, match="missing or unsafe"):
+        verify_native_artifact(link, expected_version=version)
+
+
 def test_portable_archive_requires_exact_integrity_manifest(tmp_path: Path) -> None:
     version = "1.29.0"
     architecture = "x86_64"

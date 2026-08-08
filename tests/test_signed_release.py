@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import base64
 import importlib.util
 import io
 import json
 import os
+import subprocess
 import tarfile
 import sys
 from pathlib import Path
@@ -54,6 +56,14 @@ def _signed_release_files(root: Path, version: str) -> None:
         (root / f"{payload.name}.sig").write_text(
             f"signed:{payload.name}", encoding="utf-8"
         )
+
+
+def _fake_pkcs12() -> str:
+    return base64.b64encode(b"\x30" + b"test-pkcs12" * 64).decode("ascii")
+
+
+def _fake_api_key() -> str:
+    return "-----BEGIN PRIVATE KEY-----\n" + ("A" * 128) + "\n-----END PRIVATE KEY-----\n"
 
 
 def test_signed_update_assembly_uses_verified_native_payloads(tmp_path: Path) -> None:
@@ -123,16 +133,63 @@ def test_release_preflight_separates_draft_and_public_signing_requirements() -> 
 
     production_env = {
         **draft_env,
-        "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT": "thumbprint",
-        "APPLE_SIGNING_IDENTITY": "Developer ID Application: Example",
-        "APPLE_API_ISSUER": "issuer",
-        "APPLE_API_KEY": "key",
-        "APPLE_API_KEY_PATH": "/secure/key.p8",
+        "MARDAS_WINDOWS_CERTIFICATE": _fake_pkcs12(),
+        "MARDAS_WINDOWS_CERTIFICATE_PASSWORD": "windows-password",
+        "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT": "A" * 40,
+        "MARDAS_WINDOWS_DIGEST_ALGORITHM": "sha256",
+        "MARDAS_WINDOWS_TIMESTAMP_URL": "https://timestamp.example.invalid",
+        "APPLE_CERTIFICATE": _fake_pkcs12(),
+        "APPLE_CERTIFICATE_PASSWORD": "certificate-password",
+        "KEYCHAIN_PASSWORD": "keychain-password",
+        "APPLE_SIGNING_IDENTITY": "Developer ID Application: Example (ABCDEFGHIJ)",
+        "APPLE_API_ISSUER": "01234567-89ab-cdef-0123-456789abcdef",
+        "APPLE_API_KEY": "K123456789",
+        "APPLE_API_KEY_P8": _fake_api_key(),
+        "APPLE_TEAM_ID": "ABCDEFGHIJ",
     }
     production = module.report(
         module.evaluate(production_env, mode="public"), mode="public"
     )
     assert production["ready"] is True
+
+    apple_id_environment = dict(production_env)
+    for name in ("APPLE_API_ISSUER", "APPLE_API_KEY", "APPLE_API_KEY_P8"):
+        apple_id_environment.pop(name)
+    apple_id_environment.update(
+        {
+            "APPLE_ID": "release@example.invalid",
+            "APPLE_PASSWORD": "app-specific-password",
+        }
+    )
+    apple_id_release = module.report(
+        module.evaluate(apple_id_environment, mode="public"), mode="public"
+    )
+    assert apple_id_release["ready"] is True
+
+    production_env["MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT"] = "not-a-thumbprint"
+    malformed = module.report(
+        module.evaluate(production_env, mode="public"), mode="public"
+    )
+    assert "windows_code_signing" in malformed["blocking"]
+
+
+def test_release_preflight_rejects_ambiguous_notarization_and_free_sign_command() -> None:
+    module = _load("release_preflight.py")
+    env = {
+        "TAURI_SIGNING_PRIVATE_KEY": "private",
+        "MARDAS_UPDATER_PUBKEY": "public",
+        "MARDAS_WINDOWS_SIGN_COMMAND": "unsafe-tool %1",
+        "APPLE_SIGNING_IDENTITY": "Developer ID Application: Example (ABCDEFGHIJ)",
+        "APPLE_API_ISSUER": "01234567-89ab-cdef-0123-456789abcdef",
+        "APPLE_API_KEY": "K123456789",
+        "APPLE_API_KEY_P8": _fake_api_key(),
+        "APPLE_ID": "release@example.invalid",
+        "APPLE_PASSWORD": "app-password",
+        "APPLE_TEAM_ID": "ABCDEFGHIJ",
+    }
+    payload = module.report(module.evaluate(env, mode="public"), mode="public")
+    assert "windows_code_signing" in payload["blocking"]
+    assert "macos_notarization" in payload["blocking"]
 
 
 def test_release_preflight_rejects_insecure_update_endpoint() -> None:
@@ -174,7 +231,7 @@ def test_release_workflow_stages_signed_updater_assets_in_draft_only() -> None:
 
     for marker in (
         "release-preflight:",
-        "python scripts/release_preflight.py --mode draft",
+        "python scripts/release_preflight.py --mode \"$MARDAS_RELEASE_MODE\"",
         "TAURI_SIGNING_PRIVATE_KEY",
         "MARDAS_UPDATER_PUBKEY",
         "--create-updater-artifacts",
@@ -185,8 +242,21 @@ def test_release_workflow_stages_signed_updater_assets_in_draft_only() -> None:
         "--draft",
         "--verify-tag",
         "Refusing to overwrite a published GitHub Release",
+        "release_mode:",
+        "MARDAS_RELEASE_MODE: ${{ inputs.release_mode || 'draft' }}",
+        "Import-PfxCertificate",
+        "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT",
+        "APPLE_SIGNING_IDENTITY",
+        "security set-key-partition-list",
+        "APPLE_API_KEY_PATH",
+        "Notarize and staple macOS disk image",
+        "scripts/notarize_macos_dmg.py",
+        "scripts/verify_platform_signing.py",
+        "--verify-evidence-set",
+        "Mardas-Studio-*-signing-evidence.json",
     ):
         assert marker in workflow
+    assert "MARDAS_WINDOWS_SIGN_COMMAND" not in workflow
     assert "gh release create" in workflow
     assert "gh release upload" in workflow
     assert "gh release edit" in workflow
@@ -211,6 +281,155 @@ def test_native_builder_requires_https_and_materializes_updater_config(tmp_path:
         assert payload == {"bundle": {"createUpdaterArtifacts": True}}
     finally:
         config.unlink(missing_ok=True)
+
+    apple_id_config, apple_id_contract = module._native_build_config(
+        tmp_path,
+        create_updater_artifacts=False,
+        release_mode="public",
+        platform_name="macos",
+        environment={
+            "APPLE_SIGNING_IDENTITY": "Developer ID Application: Example (ABCDEFGHIJ)",
+            "APPLE_ID": "release@example.invalid",
+            "APPLE_PASSWORD": "must-not-be-serialized",
+            "APPLE_TEAM_ID": "ABCDEFGHIJ",
+        },
+    )
+    assert apple_id_config is not None
+    try:
+        assert apple_id_contract["notarization_method"] == "apple-id"
+        assert "must-not-be-serialized" not in apple_id_config.read_text(encoding="utf-8")
+    finally:
+        apple_id_config.unlink(missing_ok=True)
+
+
+def test_native_builder_materializes_only_public_tauri_signing_settings(
+    tmp_path: Path,
+) -> None:
+    module = _load("build_native_desktop.py")
+    windows_environment = {
+        "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT": "a" * 40,
+        "MARDAS_WINDOWS_DIGEST_ALGORITHM": "sha256",
+        "MARDAS_WINDOWS_TIMESTAMP_URL": "https://timestamp.example.invalid",
+        "MARDAS_WINDOWS_CERTIFICATE_PASSWORD": "must-not-be-serialized",
+        "MARDAS_WINDOWS_SIGN_COMMAND": "unsafe-tool %1",
+    }
+    config, contract = module._native_build_config(
+        tmp_path,
+        create_updater_artifacts=True,
+        release_mode="public",
+        platform_name="windows",
+        environment=windows_environment,
+    )
+    assert config is not None
+    try:
+        payload = json.loads(config.read_text(encoding="utf-8"))
+        assert payload == {
+            "bundle": {
+                "createUpdaterArtifacts": True,
+                "windows": {
+                    "certificateThumbprint": "A" * 40,
+                    "digestAlgorithm": "sha256",
+                    "timestampUrl": "https://timestamp.example.invalid",
+                },
+            }
+        }
+        assert "must-not-be-serialized" not in config.read_text(encoding="utf-8")
+        assert "signCommand" not in config.read_text(encoding="utf-8")
+        assert contract["status"] == "pending-verification"
+        assert contract["verified"] is False
+    finally:
+        config.unlink(missing_ok=True)
+
+    draft_config, draft_contract = module._native_build_config(
+        tmp_path,
+        create_updater_artifacts=False,
+        release_mode="draft",
+        platform_name="windows",
+        environment={},
+    )
+    assert draft_config is None
+    assert draft_contract["status"] == "not-requested"
+    assert draft_contract["verified"] is False
+
+
+def test_native_builder_validates_macos_notarization_key_without_serializing_it(
+    tmp_path: Path,
+) -> None:
+    module = _load("build_native_desktop.py")
+    key = tmp_path / "AuthKey_K123456789.p8"
+    key.write_text(_fake_api_key(), encoding="utf-8")
+    environment = {
+        "APPLE_SIGNING_IDENTITY": "Developer ID Application: Example (ABCDEFGHIJ)",
+        "APPLE_API_ISSUER": "01234567-89ab-cdef-0123-456789abcdef",
+        "APPLE_API_KEY": "K123456789",
+        "APPLE_API_KEY_PATH": str(key),
+        "APPLE_TEAM_ID": "ABCDEFGHIJ",
+    }
+    config, contract = module._native_build_config(
+        tmp_path,
+        create_updater_artifacts=False,
+        release_mode="public",
+        platform_name="macos",
+        environment=environment,
+    )
+    assert config is not None
+    try:
+        payload = json.loads(config.read_text(encoding="utf-8"))
+        assert payload == {
+            "bundle": {
+                "macOS": {
+                    "signingIdentity": "Developer ID Application: Example (ABCDEFGHIJ)"
+                }
+            }
+        }
+        assert str(key) not in config.read_text(encoding="utf-8")
+        assert contract["notarization_method"] == "app-store-connect-api"
+    finally:
+        config.unlink(missing_ok=True)
+
+
+def test_native_builder_removes_temporary_config_when_tauri_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load("build_native_desktop.py")
+    config = tmp_path / ".mardas-native-build-test.json"
+    config.write_text("{}", encoding="utf-8")
+
+    def failed(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, args[0])
+
+    monkeypatch.setattr(module.subprocess, "run", failed)
+    with pytest.raises(subprocess.CalledProcessError):
+        module._run_tauri_build(
+            ["cargo", "tauri", "build", "--", "--locked"],
+            environment={},
+            build_config=config,
+        )
+    assert not config.exists()
+
+
+def test_native_builder_requires_a_regular_locked_cargo_graph(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load("build_native_desktop.py")
+    assert module.CARGO_LOCK.is_file()
+    module.require_cargo_lock()
+
+    missing = tmp_path / "Cargo.lock"
+    monkeypatch.setattr(module, "CARGO_LOCK", missing)
+    with pytest.raises(SystemExit, match="regular committed"):
+        module.require_cargo_lock()
+
+    missing.write_text("version = 2\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="invalid"):
+        module.require_cargo_lock()
+
+    with pytest.raises(SystemExit, match="must use"):
+        module._run_tauri_build(
+            ["cargo", "tauri", "build"],
+            environment={},
+            build_config=None,
+        )
 
 def test_updater_rust_boundary_is_secret_driven_and_https_only() -> None:
     updates = (
