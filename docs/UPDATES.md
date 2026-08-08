@@ -1,51 +1,160 @@
-# Desktop Update Readiness
+# Signed Desktop Updates
 
-Mardas Studio uses the Tauri v2 updater trust model. Update installation is not considered production-ready until the maintainer creates and safely stores a long-lived updater signing key and the application contains the matching public key.
+Mardas Studio 1.30.0 implements the application-side and release-side Tauri v2 updater flow, but update capability is **secret-driven**. Development builds and ordinary source builds remain offline and report updates as unavailable unless a maintainer-controlled public key is embedded at build time.
 
-## Security boundary
+## Trust boundary
 
-Updater signatures are mandatory. The private signing key must stay outside the repository and outside ordinary build artifacts. The public key may be distributed with the application.
+Tauri updater signatures are mandatory. The long-lived updater private key must stay outside:
 
-Recommended secret names for CI:
+- source control;
+- `.env` files committed to Git;
+- test fixtures;
+- support bundles;
+- release metadata;
+- release artifacts other than the detached signatures generated from it.
+
+GitHub release secrets/variables used by the tag workflow:
 
 ```text
-TAURI_SIGNING_PRIVATE_KEY
-TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+Secret:   TAURI_SIGNING_PRIVATE_KEY
+Secret:   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   # only when the key is encrypted
+Variable: MARDAS_UPDATER_PUBKEY
 ```
 
-Do not store these values in `.env`, source files, test fixtures, support bundles, or generated release metadata.
+The application embeds only the public key and an HTTPS endpoint. The default stable feed is:
 
-Generate the key pair on a trusted maintainer machine using the Tauri CLI and make multiple secure backups of the private key. Losing the updater private key can prevent safe updates for already-installed clients.
+```text
+https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json
+```
 
-## Static update metadata
+`release_preflight.py` rejects an HTTP endpoint, embedded credentials, or fragments.
 
-`scripts/generate_update_manifest.py` creates and verifies the static multi-platform `latest.json` format used by Tauri. It intentionally requires signature **contents**, not signature URLs.
+## Generate the updater key once
 
-Example after signed updater bundles exist:
+Run the Tauri key-generation command on a trusted maintainer machine using the same Tauri v2 toolchain used for release engineering. Store multiple secure backups of the private key and its password. Losing this key can prevent already-installed clients from accepting future updates.
+
+Never paste the private key into an issue, release note, support bundle, source file, or chat transcript.
+
+After creating the key:
+
+1. store the private key as the GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY`;
+2. store its password, when used, as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`;
+3. store only the public key as the repository/environment variable `MARDAS_UPDATER_PUBKEY`.
+
+Before creating a tag, the draft release preflight can be exercised locally without exposing values:
 
 ```bash
-python scripts/generate_update_manifest.py   --version X.Y.Z   --platform "windows-x86_64=https://github.com/.../windows-update.zip,windows-update.zip.sig"   --platform "linux-x86_64=https://github.com/.../Mardas-Studio.AppImage,Mardas-Studio.AppImage.sig"   --platform "darwin-aarch64=https://github.com/.../Mardas-Studio.app.tar.gz,Mardas-Studio.app.tar.gz.sig"   --output latest.json
+TAURI_SIGNING_PRIVATE_KEY='...' \
+MARDAS_UPDATER_PUBKEY='...' \
+python scripts/release_preflight.py --mode draft
 ```
 
-Verify before publication:
+The preflight reports names and readiness only; it does not print secret contents.
+
+## Signed native updater artifacts
+
+Release builds call:
 
 ```bash
-python scripts/generate_update_manifest.py   --verify latest.json   --expected-version X.Y.Z
+python scripts/build_native_desktop.py \
+  --runtime <verified-runtime> \
+  --create-updater-artifacts \
+  --clean
 ```
 
-The generator rejects HTTP URLs, embedded URL credentials, duplicate/unsupported targets, empty signatures, invalid semantic versions, and malformed publication dates.
+Tauri creates signatures with `TAURI_SIGNING_PRIVATE_KEY`. Mardas normalizes and verifies:
 
-## Activation sequence
+```text
+Windows:
+Mardas-Studio-X.Y.Z-windows-x86_64-setup.exe
+Mardas-Studio-X.Y.Z-windows-x86_64-setup.exe.sig
 
-Do not enable automatic updates merely by adding a placeholder public key. Production activation requires all of the following:
+Linux:
+Mardas-Studio-X.Y.Z-linux-x86_64.AppImage
+Mardas-Studio-X.Y.Z-linux-x86_64.AppImage.sig
 
-1. Generate the maintainer updater signing key.
-2. Store the private key and optional password as protected release secrets.
-3. Add only the public key to the application updater configuration.
-4. Enable Tauri updater artifact generation.
-5. Build signed updater artifacts on every supported target.
-6. Publish a verified HTTPS `latest.json`.
-7. Add UI for check/download/install/restart with clear user consent.
-8. Test update, interrupted update, signature failure, no-update, downgrade policy, and rollback/recovery scenarios on clean machines.
+macOS:
+Mardas-Studio-X.Y.Z-macos-arm64-updater.tar.gz
+Mardas-Studio-X.Y.Z-macos-arm64-updater.tar.gz.sig
+Mardas-Studio-X.Y.Z-macos-x86_64-updater.tar.gz
+Mardas-Studio-X.Y.Z-macos-x86_64-updater.tar.gz.sig
+```
 
-Until these steps are completed, the repository is **update-ready**, not auto-update-enabled.
+The ordinary DMG/DEB/portable artifacts are still produced for direct installation. Updater payloads are separate release assets.
+
+## Assemble `latest.json`
+
+After all required native jobs finish:
+
+```bash
+python scripts/extract_release_notes.py \
+  --version X.Y.Z \
+  --output build/RELEASE-NOTES.md
+
+python scripts/assemble_signed_updates.py \
+  --artifact-dir build/release \
+  --version X.Y.Z \
+  --repository mragetsars/Mardas-MD2PDF \
+  --tag vX.Y.Z \
+  --notes-file build/RELEASE-NOTES.md
+```
+
+The assembler verifies each native payload and detached signature before creating `latest.json`. The manifest generator rejects insecure URLs, credentials in URLs, unknown/duplicate targets, empty signatures, invalid versions, and malformed publication dates.
+
+Verify independently:
+
+```bash
+python scripts/generate_update_manifest.py \
+  --verify build/release/latest.json \
+  --expected-version X.Y.Z
+```
+
+## Application behavior
+
+The **Settings → Software Updates** panel is intentionally manual:
+
+1. the application reads its embedded update configuration;
+2. if no public key was embedded, the UI clearly reports that updates are unavailable for this build;
+3. the user presses **Check for updates**;
+4. the native Rust boundary fetches the HTTPS metadata with a bounded timeout;
+5. when an update is available, the user explicitly chooses **Install update**;
+6. Tauri verifies the detached updater signature before installation.
+
+The frontend does not fetch release metadata directly and has no updater private key.
+
+On Windows, the installer step exits the application as required by the Tauri updater. macOS/Linux installs can complete before the user restarts the application.
+
+## GitHub Draft Release
+
+A successful tag workflow stages a **Draft Release**, never an automatically published release. The workflow:
+
+1. builds the verified core and platform artifacts;
+2. builds signed updater payloads;
+3. assembles `latest.json`;
+4. validates the release manifest and checksums;
+5. attests the finalized artifacts;
+6. creates or refreshes a draft GitHub Release.
+
+If the same tag already exists as a published release, the workflow refuses to overwrite it.
+
+Draft releases are intentionally excluded from the stable `releases/latest` updater endpoint. Publishing is a maintainer decision after platform-signing and final acceptance checks.
+
+## Public-release gate
+
+Updater signatures protect application-update integrity, but they do **not** replace operating-system publisher trust.
+
+Before a public stable release, verify:
+
+```bash
+python scripts/release_preflight.py --mode public
+```
+
+A production release still needs:
+
+- Windows Authenticode/code-signing readiness;
+- macOS Developer ID signing;
+- macOS notarization;
+- green native Windows/macOS/Linux build and smoke jobs;
+- final release-manifest/checksum/attestation review.
+
+Until those requirements are actually verified, keep the GitHub Release in Draft state.

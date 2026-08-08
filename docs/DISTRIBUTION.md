@@ -62,8 +62,20 @@ python scripts/verify_native_desktop.py   build/desktop-native/Mardas-Studio-X.Y
 
 The builder verifies the deterministic frontend and the complete standalone-runtime hash inventory before invoking Tauri.
 
+## Signed updater payloads
+
+Version 1.30.0 can ask Tauri to create signed updater artifacts in addition to the normal installers:
+
+```bash
+python scripts/build_native_desktop.py   --runtime <verified-runtime>   --create-updater-artifacts   --clean
+```
+
+The updater private key is supplied only through the release environment. The normalized detached signatures and macOS updater archives are verified with the same native-artifact boundary before entering release metadata. See `docs/UPDATES.md` for the trust model and `latest.json` assembly.
+
 ## GitHub Release boundary
 
-The tag workflow may assemble and attest release artifacts, but a GitHub Release should be published only when the native matrix is green and the maintainer has reviewed the release manifest, checksums, known limitations, signing state, and update metadata.
+A version tag now stages a **Draft GitHub Release** only after the verified native matrix, signed updater assets, checksums, SBOM, release manifest, and attestations have completed. The workflow refuses to overwrite a release that has already been published.
+
+A draft is not permission to publish. Public release remains a maintainer gate and requires review of the native matrix, signing/notarization state, checksums, update metadata, known limitations, and release notes.
 
 Code-signing and updater private keys are external release secrets. Do not add them to source, test fixtures, support bundles, `.env` files, or GitHub artifacts.

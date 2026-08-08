@@ -217,14 +217,34 @@ The release finalizer can enforce platform coverage:
 python scripts/finalize_release_artifacts.py   --artifact-dir build/release   --version X.Y.Z   --source-revision "$GITHUB_SHA"   --require-sbom   --minimum-native-desktop-count 5   --require-desktop-platform windows   --require-desktop-platform macos   --require-desktop-platform linux
 ```
 
-## Signed updater readiness
+## Signed updater and draft-release boundary
 
-Automatic updates remain disabled until maintainer-owned signing keys are provisioned. Tauri updater signatures are a release trust boundary; never commit the private updater key.
+Version 1.30.0 wires the updater end to end but keeps it secret-driven. Development builds do not contact an update service unless a maintainer-controlled public key is embedded at build time.
 
-When signed update artifacts exist, generate and verify static update metadata with:
+Before a tag workflow can build signed updater artifacts, configure the external release secret/variable boundary described in `docs/UPDATES.md`. The draft preflight is:
 
 ```bash
-python scripts/generate_update_manifest.py --help
+python scripts/release_preflight.py --mode draft
 ```
 
-See `docs/UPDATES.md` for key handling, `latest.json`, and activation gates.
+Platform jobs call `scripts/build_native_desktop.py --create-updater-artifacts`, and the finalization job verifies those payloads before assembling the multi-platform `latest.json` with `scripts/assemble_signed_updates.py`.
+
+Final release verification requires the update manifest:
+
+```bash
+python scripts/finalize_release_artifacts.py   --artifact-dir build/release   --version X.Y.Z   --source-revision "$GITHUB_SHA"   --require-sbom   --minimum-native-desktop-count 5   --require-desktop-platform windows   --require-desktop-platform macos   --require-desktop-platform linux   --require-update-manifest
+```
+
+For a version tag, the workflow then creates or refreshes a **Draft GitHub Release**. It never automatically publishes the release and refuses to replace an already-published tag.
+
+Before a human publishes the draft, run or review the equivalent public preflight:
+
+```bash
+python scripts/release_preflight.py --mode public
+```
+
+Updater signatures do not substitute for Windows publisher signing or macOS Developer ID signing/notarization. See `docs/UPDATES.md` and `docs/DISTRIBUTION.md`.
+
+## Release signing operations
+
+See `docs/RELEASE_SIGNING.md` before provisioning updater, Windows, or Apple credentials and before publishing a draft release.

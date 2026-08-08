@@ -1,6 +1,6 @@
 [package]
 name = "mardas-studio"
-version = "1.29.0"
+version = "1.30.0"
 description = "Native desktop shell for the Mardas MD2PDF publishing engine"
 authors = ["mragetsars <mragetsars@gmail.com>"]
 license = "MIT"

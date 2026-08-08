@@ -2,7 +2,7 @@
 
 > **Professional Markdown to PDF converter for Persian, English, and mixed RTL/LTR technical documents**
 
-![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.29.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
+![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.30.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
 
 ## Overview
 
@@ -56,11 +56,11 @@ The README is intentionally short. Mardas MD2PDF uses a **guide-first documentat
 
 Generated PDF versions of the guides are available in the [`examples/`](./examples/) directory. Feature documentation is not split across parallel reference pages; user-facing explanations, runnable examples, and renderer smoke cases belong in the guides so the Markdown source and the official PDFs stay synchronized.
 
-Release and operations references are [Changelog](./docs/CHANGELOG.md), [Release checklist](./docs/RELEASE.md), [Maintenance workflow](./docs/MAINTENANCE.md), [Security policy](./docs/SECURITY.md), and [Documentation policy](./docs/DOCUMENTATION.md).
+Release and operations references are [Changelog](./docs/CHANGELOG.md), [Release checklist](./docs/RELEASE.md), [Maintenance workflow](./docs/MAINTENANCE.md), [Security policy](./docs/SECURITY.md), [Release signing](./docs/RELEASE_SIGNING.md), and [Documentation policy](./docs/DOCUMENTATION.md).
 
 ## Native Desktop Authoring and Book Projects
 
-Version 1.29.0 keeps the guided, conflict-safe authoring and Book Project workflows and hardens Mardas Studio for native distribution. The release pipeline now verifies normalized Windows, macOS, and Linux desktop packages, Windows also receives a portable ZIP, and the Help surface can create a privacy-safe support bundle for troubleshooting. The Start Center can create or open a local book project without requiring the user to edit `mardas.toml`. The Book panel lists configured chapters, opens them in the multi-document editor, adds or duplicates chapters, changes chapter order with buttons or drag-and-drop, safely removes a chapter from the book without deleting its Markdown file, validates the whole project, previews the assembled book, and exports one PDF through a native save dialog.
+Version 1.30.0 keeps the guided, conflict-safe authoring and Book Project workflows and adds signed release/update plumbing on top of the cross-platform native distribution pipeline. The release pipeline verifies normalized Windows, macOS, and Linux desktop packages, Windows also receives a portable ZIP, and the Help surface can create a privacy-safe support bundle for troubleshooting. Signed release builds can expose a manual **Settings → Software Updates** workflow; development builds remain update-disabled unless a maintainer public key is embedded. Version tags stage a verified GitHub **Draft Release** rather than publishing automatically. The Start Center can create or open a local book project without requiring the user to edit `mardas.toml`. The Book panel lists configured chapters, opens them in the multi-document editor, adds or duplicates chapters, changes chapter order with buttons or drag-and-drop, safely removes a chapter from the book without deleting its Markdown file, validates the whole project, previews the assembled book, and exports one PDF through a native save dialog.
 
 Every chapter-order change is guarded by the current SHA-256 revision of `mardas.toml`; if another program changes the project configuration, Mardas Studio refuses to overwrite it and asks the user to refresh. New projects are created with bounded names, Unicode-safe paths, dedicated `chapters`, `assets`, `bibliography`, and `dist` directories, and a ready-to-edit first chapter. Full-book validation and export reuse the existing Python Book Mode so CLI, sidecar, and desktop output remain consistent.
 
@@ -102,7 +102,7 @@ Verify the frozen executable, internal SHA-256 manifest, bundled browser, JSON-R
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-1.29.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-MD2PDF-1.30.0-runtime-windows-x86_64 \
   --render
 ```
 
@@ -110,7 +110,7 @@ Build the native Windows installer after creating the standalone runtime:
 
 ```powershell
 python scripts/build_desktop_app.py `
-  --runtime build/standalone-runtime/Mardas-MD2PDF-1.29.0-runtime-windows-x86_64 `
+  --runtime build/standalone-runtime/Mardas-MD2PDF-1.30.0-runtime-windows-x86_64 `
   --clean
 ```
 

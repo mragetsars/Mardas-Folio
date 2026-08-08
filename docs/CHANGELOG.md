@@ -4,6 +4,35 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.30.0 - 2026-08-08
+
+### Added
+- Added a native in-app update surface in Settings and the command palette. Update checking is manual, uses a bounded HTTPS endpoint, and remains disabled in builds that do not embed the maintainer-controlled updater public key.
+- Added signed updater payload collection for Windows NSIS, Linux AppImage, and architecture-specific macOS updater archives, plus verified assembly of the multi-platform `latest.json` feed.
+- Added release preflight checks that distinguish updater-signing requirements from production Windows/macOS code-signing and notarization readiness.
+- Added version-scoped release-note extraction and a tag workflow stage that creates or refreshes a GitHub **Draft Release** from the fully verified release directory.
+
+### Changed
+- Pinned the Tauri updater Rust plugin to the verified `2.10.1` release because the desktop source tree does not currently commit a Cargo lockfile.
+- Extended release provenance to classify updater signatures, macOS updater bundles, and `latest.json`, and optionally require exactly one verified update manifest.
+- Hardened the tag workflow so signed updater metadata is assembled only after all required Windows, macOS, and Linux native jobs finish.
+- Kept GitHub publication draft-only: the workflow refuses to overwrite an already-published release and never auto-publishes a tag.
+
+### Security
+- Kept `TAURI_SIGNING_PRIVATE_KEY` and its password outside source control; only the updater public key and HTTPS feed URL are embedded into signed release builds.
+- Added validation that rejects updater endpoints using HTTP, embedded credentials, or URL fragments.
+- Kept updater installation disabled by default in ordinary development builds and required a matching signed release version before installation.
+- Kept production release publication blocked on real Windows code-signing and macOS Developer ID/notarization readiness; updater signatures do not substitute for operating-system trust.
+
+### Fixed
+- Corrected the frontend-to-Rust updater installation argument to use Tauri's default camelCase command payload convention, preventing an available update from failing at the install invocation boundary.
+
+### Documentation
+- Expanded release, distribution, and updater operations with signing-secret setup, draft-release review, and explicit public-release gates.
+
+### Tests
+- Added signed-update assembly, release preflight, release-note extraction, updater IPC, workflow, and native-updater artifact contracts.
+
 ## 1.29.0 - 2026-08-08
 
 ### Added
