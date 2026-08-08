@@ -4,6 +4,30 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.29.0 - 2026-08-08
+
+### Added
+- Added a privacy-safe Support Bundle workflow to the native Help surface and command palette; the generated ZIP contains bounded product/runtime diagnostics while excluding document content, document paths, environment variables, and the user home path.
+- Added normalized native artifact builders and verifiers for Windows Setup/portable ZIP, macOS DMG, Linux AppImage, and Linux Debian packages.
+- Added signed static updater-manifest generation and verification tooling for future Tauri updater activation without committing updater private keys.
+- Added platform-specific Tauri bundle configuration for Windows, macOS, and Linux, including a Windows WebView2 offline-installer strategy.
+
+### Changed
+- Extended the desktop engine API to 1.4.0 with the support-bundle operation.
+- Hardened the release manifest so a complete native release can require Windows, macOS, and Linux coverage instead of accepting a Windows-only desktop artifact.
+- Expanded CI and tag-release workflows to build and verify native desktop artifacts on Windows, Ubuntu 22.04, macOS ARM64, and macOS Intel runners.
+- Added canonical macOS `.icns` and high-resolution PNG application icons generated from the existing project mark.
+
+### Security
+- Kept support diagnostics deliberately free of document contents, document paths, environment variables, and home-directory disclosure.
+- Kept updater signing private keys outside source control and made signed HTTPS metadata a prerequisite for future automatic-update activation.
+
+### Documentation
+- Added native desktop distribution and updater-readiness operations guides.
+
+### Tests
+- Added support-bundle privacy, native artifact signature/inventory, multi-platform release-manifest, updater metadata, desktop UI, and workflow contract coverage.
+
 ## 1.28.0 - 2026-08-08
 
 ### Added

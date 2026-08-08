@@ -5,7 +5,7 @@ The sidecar implements JSON-RPC 2.0, reads one UTF-8 request per line from `stdi
 ## Lifecycle
 
 ```json
-{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.28.0","pid":1234}}
+{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.29.0","pid":1234}}
 ```
 
 Recommended startup sequence:
@@ -74,6 +74,16 @@ The chapter lifecycle is deliberately non-destructive. `book.remove_chapter` rem
 
 `book.validate`, `book.preview`, and `book.export` provide the graphical full-book workflow. Preview and export operations remain cancellable through `job.cancel`.
 
+## Privacy-safe support bundle
+
+The desktop Help surface can request a local troubleshooting archive without exposing document content or user paths:
+
+```json
+{"jsonrpc":"2.0","id":"support-1","method":"system.support_bundle","params":{"output_path":"C:/Users/user/Desktop/Mardas-Studio-Support.zip"}}
+```
+
+The archive contains bounded product/runtime metadata and explicitly excludes document content, document paths, environment variables, and the home-directory path. It is intended for support diagnostics rather than project backup.
+
 ## Document rendering
 
 ```json
@@ -129,6 +139,7 @@ Cancellation is cooperative. The engine checks the cancellation flag between ren
 - `validate.book`
 - `job.cancel`
 - `system.health`
+- `system.support_bundle`
 - `system.capabilities`
 - `system.shutdown`
 

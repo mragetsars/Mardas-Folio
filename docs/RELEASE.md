@@ -202,3 +202,29 @@ python scripts/verify_desktop_installer.py `
 ```
 
 The tag workflow downloads the already-tested standalone runtime, stages it as a Tauri resource, builds the dependency-free frontend, compiles the Tauri shell, and uploads the NSIS setup executable. Finalization requires at least one `desktop-installer`, verifies its versioned filename, bounded size, and Windows PE header, then includes it in checksums and attestations. A release must never substitute an unverified runtime directory or a locally installed browser.
+
+## Cross-platform native desktop release
+
+Version 1.29.0 treats native desktop packages as first-class release artifacts. CI builds the frozen Python/Chromium runtime on the same target platform as the Tauri package, then normalizes and verifies the resulting files with `scripts/build_native_desktop.py` and `scripts/verify_native_desktop.py`.
+
+A complete native release must include Windows, macOS, and Linux coverage. Windows produces the recommended NSIS Setup plus a portable ZIP; macOS produces architecture-specific DMGs; Linux produces AppImage and Debian packages. See `docs/DISTRIBUTION.md` for the exact artifact contract.
+
+The Windows Setup configuration embeds the WebView2 offline installer. The portable ZIP intentionally does not bundle WebView2 and is secondary to Setup.
+
+The release finalizer can enforce platform coverage:
+
+```bash
+python scripts/finalize_release_artifacts.py   --artifact-dir build/release   --version X.Y.Z   --source-revision "$GITHUB_SHA"   --require-sbom   --minimum-native-desktop-count 5   --require-desktop-platform windows   --require-desktop-platform macos   --require-desktop-platform linux
+```
+
+## Signed updater readiness
+
+Automatic updates remain disabled until maintainer-owned signing keys are provisioned. Tauri updater signatures are a release trust boundary; never commit the private updater key.
+
+When signed update artifacts exist, generate and verify static update metadata with:
+
+```bash
+python scripts/generate_update_manifest.py --help
+```
+
+See `docs/UPDATES.md` for key handling, `latest.json`, and activation gates.

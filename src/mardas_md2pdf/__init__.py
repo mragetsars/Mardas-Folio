@@ -1,3 +1,3 @@
 """Mardas MD2PDF - beautiful Markdown to PDF conversion."""
 
-__version__ = "1.28.0"
+__version__ = "1.29.0"

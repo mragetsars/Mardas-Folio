@@ -20,6 +20,8 @@ Generated PDF versions are stored in:
 - [Release checklist](./RELEASE.md) — release gate, build, tag, and artifact workflow.
 - [Maintenance workflow](./MAINTENANCE.md) — routine local checks, guide builds, distribution builds, and patch hygiene.
 - [Security policy](./SECURITY.md) — trust boundaries for Markdown, HTML, assets, Studio, Chromium, and PDF metadata.
+- [Native distribution](./DISTRIBUTION.md) — Windows/macOS/Linux package contracts and clean-machine release boundary.
+- [Desktop update readiness](./UPDATES.md) — signed updater metadata, key handling, and activation gates.
 - [Documentation system](./DOCUMENTATION.md) — ownership rules for guides, operations docs, changelog entries, and generated examples.
 - [Architecture decisions](./architecture/) — accepted desktop product boundaries, sidecar protocol, and frozen-runtime design:
   - [Desktop product boundaries](./architecture/ADR-001-desktop-product-boundaries.md)

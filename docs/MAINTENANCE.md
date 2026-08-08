@@ -269,3 +269,34 @@ python -m pytest -q tests/test_desktop_app.py
 On Windows, stage only a runtime that passes its complete SHA-256 manifest and includes pinned Chromium. `scripts/build_desktop_app.py` performs frontend verification and runtime staging before invoking Tauri. Do not commit `apps/desktop/dist/`, Rust `target/`, or staged sidecar files. Regenerate checked-in application icons from the canonical SVG with `python scripts/generate_desktop_icons.py`.
 
 Authoring changes must keep the document lifecycle tests green. In particular, verify atomic save, revision conflicts, unsaved-buffer preview/validation, symlink rejection for imported assets, bounded recovery/session storage, literal find/replace, and the static no-localhost/no-external-browser contracts. The top-level front-matter form intentionally edits only scalar fields; preserve unknown and nested YAML rather than trying to flatten it in the frontend.
+
+## Cross-platform native desktop package checks
+
+Native desktop changes require the target-platform builder and verifier:
+
+```bash
+python scripts/build_native_desktop.py --help
+python scripts/verify_native_desktop.py --help
+python -m pytest -q tests/test_native_desktop.py tests/test_release_provenance.py
+```
+
+The standalone sidecar runtime must be built on the same operating system as the native package. Linux release CI intentionally uses Ubuntu 22.04 as the compatibility baseline. Windows Setup embeds the WebView2 offline installer, while the portable ZIP expects a system WebView2 runtime.
+
+Support-bundle changes additionally require:
+
+```bash
+python -m pytest -q tests/test_support_bundle.py tests/test_sidecar_protocol.py
+```
+
+Do not add document paths, document contents, home paths, environment variables, tokens, or credentials to the support archive.
+
+## Updater metadata checks
+
+Until updater signing keys are provisioned, update support is readiness-only. Validate the static manifest tool independently:
+
+```bash
+python -m pytest -q tests/test_update_manifest.py
+python scripts/generate_update_manifest.py --help
+```
+
+Never commit `TAURI_SIGNING_PRIVATE_KEY` or its password. See `docs/UPDATES.md`.
