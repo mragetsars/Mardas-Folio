@@ -17,6 +17,12 @@ preflight_timeout="${MARDAS_PREFLIGHT_TIMEOUT:-60}"
 
 bash scripts/check.sh
 bash scripts/check_critical_coverage.sh
+python scripts/build_desktop_frontend.py
+python scripts/verify_desktop_frontend.py apps/desktop/dist
+python scripts/audit_desktop_accessibility.py --output-dir build/release/desktop-accessibility
+if [[ "${MARDAS_RELEASE_DESKTOP_UI:-0}" == "1" ]]; then
+  python scripts/audit_desktop_ui.py --output-dir build/release/desktop-ui-audit
+fi
 if [[ "${MARDAS_SKIP_SECURITY_AUDIT:-0}" != "1" ]]; then
   bash scripts/security_audit.sh
 fi

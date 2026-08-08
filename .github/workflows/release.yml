@@ -45,6 +45,7 @@ jobs:
         env:
           MARDAS_RENDER_SMOKE: '1'
           MARDAS_RELEASE_VISUAL_QA: '1'
+          MARDAS_RELEASE_DESKTOP_UI: '1'
         run: ./scripts/release_gate.sh
 
       - name: Assemble core release directory

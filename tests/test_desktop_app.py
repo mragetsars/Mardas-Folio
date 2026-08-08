@@ -128,6 +128,12 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "book-validate",
         "book-preview",
         "book-export",
+        "template-grid",
+        "onboarding-modal",
+        "settings-modal",
+        "help-modal",
+        "command-modal",
+        "command-query",
     ):
         assert f'id="{element_id}"' in index
     assert 'type="module" src="./js/main.mjs"' in index
@@ -180,6 +186,10 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "editor-adapter.mjs",
         "project-api.mjs",
         "book-api.mjs",
+        "preferences.mjs",
+        "templates.mjs",
+        "command-palette.mjs",
+        "modal-manager.mjs",
     ):
         assert (DESKTOP / "frontend" / "js" / "core" / module).is_file()
     assert "fetch(" not in main
@@ -243,3 +253,69 @@ def test_authoring_dom_ids_are_unique_and_controller_targets_exist() -> None:
     assert len(ids) == len(set(ids))
     controller_ids = set(re.findall(r'\$\("#([A-Za-z0-9_-]+)"\)', main))
     assert controller_ids <= set(ids)
+
+
+def test_desktop_accessibility_contracts_cover_navigation_and_modals() -> None:
+    index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
+    modal_manager = (DESKTOP / "frontend" / "js" / "core" / "modal-manager.mjs").read_text(
+        encoding="utf-8"
+    )
+    soup = BeautifulSoup(index, "html.parser")
+    skip = soup.select_one('a.skip-link[href="#app-main"]')
+    assert skip is not None
+    assert soup.select_one("#app-main[tabindex='-1']") is not None
+    assert soup.select_one("#toast-region[aria-live='polite']") is not None
+
+    modal_ids = {
+        "onboarding-modal",
+        "settings-modal",
+        "help-modal",
+        "command-modal",
+        "book-project-modal",
+        "chapter-modal",
+        "recovery-modal",
+    }
+    for modal_id in modal_ids:
+        modal = soup.select_one(f"#{modal_id}")
+        assert modal is not None
+        assert modal.get("role") == "dialog"
+        assert modal.get("aria-modal") == "true"
+        assert modal.get("aria-hidden") == "true"
+        assert modal.get("aria-labelledby")
+
+    for button in soup.find_all("button"):
+        accessible_name = (
+            button.get("aria-label")
+            or button.get("title")
+            or button.get("data-i18n-title")
+            or button.get_text(" ", strip=True)
+        )
+        assert accessible_name, f"button #{button.get('id')} has no accessible name"
+
+    assert "background.inert = active" in modal_manager
+    assert 'event.key !== "Tab"' in modal_manager
+    assert 'event.key === "Escape"' in modal_manager
+    assert "previousFocus" in modal_manager
+
+
+def test_desktop_ux_is_offline_and_exposes_guided_entry_points() -> None:
+    index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    styles = (DESKTOP / "frontend" / "styles.css").read_text(encoding="utf-8")
+    assert 'id="template-grid"' in index
+    assert 'id="settings-search"' in index
+    assert 'id="restart-onboarding"' in index
+    assert 'id="command-button"' in index
+    assert 'id="help-button"' in index
+    assert 'id="settings-button"' in index
+    assert "createDocumentFromTemplate" in main
+    assert "openCommandPalette" in main
+    assert "openOnboarding" in main
+    assert 'event.key === "F1"' in main
+    assert 'key === "p" && event.shiftKey' in main
+    assert 'data-reduced-motion="reduce"' in styles
+    assert 'data-theme="dark"' in styles
+    assert "https://" not in index
+    assert "fetch(" not in main
+    # Recovery/session restore takes precedence over first-run onboarding.
+    assert main.count("openOnboarding();") == 1

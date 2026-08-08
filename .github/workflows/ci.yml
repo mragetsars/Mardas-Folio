@@ -331,6 +331,24 @@ jobs:
         run: |
           python scripts/build_desktop_frontend.py
           python scripts/verify_desktop_frontend.py apps/desktop/dist
+          python scripts/audit_desktop_accessibility.py --output-dir build/desktop-accessibility
+
+      - name: Install desktop UI smoke browser
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run browser-backed desktop UI smoke
+        run: python scripts/audit_desktop_ui.py --output-dir build/desktop-ui-audit
+
+      - name: Upload desktop UX audit evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-ux-audit
+          path: |
+            build/desktop-accessibility/
+            build/desktop-ui-audit/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Run desktop JavaScript contracts
         run: node --test apps/desktop/tests/*.test.mjs
