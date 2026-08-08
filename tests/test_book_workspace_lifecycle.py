@@ -12,6 +12,7 @@ from mardas_md2pdf.workspace import (
     add_workspace_book_chapter,
     create_book_workspace,
     duplicate_workspace_book_chapter,
+    load_workspace,
     remove_workspace_book_chapter,
     reorder_workspace_book_chapters,
     workspace_payload,
@@ -167,6 +168,41 @@ def test_chapter_lifecycle_preserves_sources_and_detects_stale_config(
     assert removed_source.is_file(), "Remove from book must never delete the chapter file"
     remaining = workspace_payload(workspace)
     assert paths[0] not in [item["path"] for item in remaining["book"]["chapters"]]
+
+
+def test_chapter_update_preserves_quoted_toml_sections_after_book(tmp_path: Path) -> None:
+    workspace = _create(tmp_path)
+    config_path = workspace.root / "mardas.toml"
+    original = config_path.read_text(encoding="utf-8")
+    book_start = original.index("[book]")
+    book_section = original[book_start:].strip()
+    before_book = original[:book_start].rstrip()
+    output_start = before_book.index("[output]")
+    reordered = (
+        before_book[:output_start].rstrip()
+        + "\n\n"
+        + book_section
+        + "\n\n"
+        + before_book[output_start:].lstrip()
+    )
+    reordered = reordered.replace("[output]", '["output"]', 1)
+    reordered = reordered.replace("[appearance]", "['appearance']", 1)
+    config_path.write_text(reordered.rstrip() + "\n", encoding="utf-8")
+    workspace = load_workspace(workspace.root)
+    payload = workspace_payload(workspace)
+
+    workspace, _chapter = add_workspace_book_chapter(
+        workspace,
+        title="Preserved sections",
+        expected_config_sha256=str(payload["config_sha256"]),
+    )
+
+    updated = (workspace.root / "mardas.toml").read_text(encoding="utf-8")
+    assert '["output"]' in updated
+    assert "['appearance']" in updated
+    assert 'page_size = "A4"' in updated
+    assert 'style = "modern"' in updated
+    assert workspace_payload(workspace)["book"]["chapter_count"] == 2
 
 
 def test_chapter_reorder_requires_exact_unique_set(tmp_path: Path) -> None:

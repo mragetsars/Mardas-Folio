@@ -66,6 +66,7 @@ from .quality import (
     profile_policy,
     validate_quality_profile,
 )
+from .runtime import resolved_chromium_path
 
 
 LOGGER = logging.getLogger(__name__)
@@ -2779,6 +2780,16 @@ def _chromium_launch_args(options: PdfOptions) -> list[str]:
     return args
 
 
+def _resolve_pdf_chromium_path(options: PdfOptions) -> None:
+    """Attach the lazily discovered browser only at the PDF rendering boundary."""
+
+    if options.chromium_path:
+        return
+    resolved = resolved_chromium_path()
+    if resolved is not None:
+        options.chromium_path = str(resolved)
+
+
 class RenderSession:
     """Thread-affine reusable Chromium session for repeated PDF exports.
 
@@ -2836,6 +2847,7 @@ class RenderSession:
 
     def _ensure_browser(self, options: PdfOptions) -> tuple[Browser, bool]:
         self._claim_thread()
+        _resolve_pdf_chromium_path(options)
         executable = options.chromium_path or shutil.which("chromium") or shutil.which("google-chrome")
         key = (executable, tuple(_chromium_launch_args(options)))
         reusable = bool(

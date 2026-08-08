@@ -3,13 +3,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 import sys
 import threading
 import traceback
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, BinaryIO, TextIO
 
 from . import __version__
@@ -18,7 +18,6 @@ from .protocol import (
     APPLICATION_ERROR,
     INTERNAL_ERROR,
     INVALID_PARAMS,
-    INVALID_REQUEST,
     JOB_CANCELLED,
     MAX_REQUEST_BYTES,
     METHOD_NOT_FOUND,
@@ -39,7 +38,9 @@ LOGGER = logging.getLogger("mardas_md2pdf.sidecar")
 _HEAVY_METHODS = {
     "system.support_bundle",
     "document.read",
+    "document.read_text",
     "document.save",
+    "document.save_text",
     "document.list_assets",
     "document.import_asset",
     "project.open",
@@ -80,10 +81,55 @@ class _JsonLineWriter:
         self._lock = threading.Lock()
 
     def write(self, payload: dict[str, Any]) -> None:
-        encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        try:
+            encoded = json.dumps(
+                payload,
+                ensure_ascii=True,
+                allow_nan=False,
+                default=str,
+                separators=(",", ":"),
+            )
+        except (TypeError, ValueError, RecursionError) as exc:
+            LOGGER.error("Could not serialize a JSON-RPC response: %s", exc)
+            request_id = payload.get("id")
+            if isinstance(request_id, bool) or not isinstance(request_id, (str, int)):
+                request_id = None
+            fallback = error_response(
+                request_id,
+                INTERNAL_ERROR,
+                "The rendering engine returned a non-serializable response.",
+                data={"application_code": "MARDAS-INTERNAL-ERROR"},
+            )
+            encoded = json.dumps(
+                fallback,
+                ensure_ascii=True,
+                allow_nan=False,
+                separators=(",", ":"),
+            )
         with self._lock:
             self._stream.write(encoded + "\n")
             self._stream.flush()
+
+
+_MAX_JSON_INTEGER_DIGITS = 4_300
+
+
+def _parse_json_integer(value: str) -> int:
+    digits = value[1:] if value.startswith("-") else value
+    if len(digits) > _MAX_JSON_INTEGER_DIGITS:
+        raise ValueError("JSON integer exceeds the supported digit limit.")
+    return int(value)
+
+
+def _parse_json_float(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise ValueError("JSON number is outside the supported finite range.")
+    return parsed
+
+
+def _reject_json_constant(value: str) -> Any:
+    raise ValueError(f"Non-standard JSON constant {value!r} is not accepted.")
 
 
 class SidecarServer:
@@ -229,9 +275,11 @@ class SidecarServer:
             return
         with self._state_lock:
             active = self._active
-            matched = active is not None and active.request.request_id == target_id
-            if matched:
+            if active is not None and active.request.request_id == target_id:
+                matched = True
                 active.cancelled.set()
+            else:
+                matched = False
         self._writer.write(
             success_response(
                 request.request_id,
@@ -328,8 +376,13 @@ class SidecarServer:
                 if not raw.strip():
                     continue
                 try:
-                    payload = json.loads(raw.decode("utf-8"))
-                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    payload = json.loads(
+                        raw.decode("utf-8"),
+                        parse_constant=_reject_json_constant,
+                        parse_float=_parse_json_float,
+                        parse_int=_parse_json_integer,
+                    )
+                except (ValueError, RecursionError) as exc:
                     self._send_error(ProtocolError(PARSE_ERROR, f"Invalid JSON: {exc}"))
                     continue
                 try:

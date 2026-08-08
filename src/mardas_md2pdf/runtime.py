@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import platform
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
 _CHROMIUM_ENV = "MARDAS_CHROMIUM_PATH"
 _RUNTIME_ROOT_ENV = "MARDAS_RUNTIME_ROOT"
+_UNRESOLVED_CHROMIUM = object()
+_chromium_resolution_lock = threading.Lock()
+_resolved_chromium_cache: Path | None | object = _UNRESOLVED_CHROMIUM
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,22 +155,54 @@ def playwright_chromium_path() -> Path | None:
     """
 
     try:
-        from playwright.sync_api import sync_playwright
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+    else:
+        return None
 
-        playwright = sync_playwright().start()
-        try:
-            candidate = Path(playwright.chromium.executable_path).resolve(strict=False)
-        finally:
-            playwright.stop()
+    async def probe() -> str:
+        from playwright.async_api import async_playwright
+
+        async with async_playwright() as playwright:
+            return playwright.chromium.executable_path
+
+    try:
+        candidate = Path(asyncio.run(probe())).resolve(strict=False)
     except Exception:
         return None
     return candidate if candidate.is_file() else None
 
 
 def resolved_chromium_path() -> Path | None:
-    """Resolve packaged Chromium first, then an installed Playwright browser."""
+    """Resolve Chromium once, serializing the probe across rendering threads."""
 
-    return bundled_chromium_path() or playwright_chromium_path()
+    global _resolved_chromium_cache
+    with _chromium_resolution_lock:
+        if _resolved_chromium_cache is _UNRESOLVED_CHROMIUM:
+            try:
+                resolved = bundled_chromium_path() or playwright_chromium_path()
+            except Exception:
+                resolved = None
+            _resolved_chromium_cache = resolved
+        cached = _resolved_chromium_cache
+    return cached if isinstance(cached, Path) else None
+
+
+def cached_chromium_path() -> Path | None:
+    """Return an already resolved browser without triggering discovery."""
+
+    with _chromium_resolution_lock:
+        cached = _resolved_chromium_cache
+    return cached if isinstance(cached, Path) else None
+
+
+def _clear_chromium_resolution_cache() -> None:
+    """Reset browser discovery state for isolated tests."""
+
+    global _resolved_chromium_cache
+    with _chromium_resolution_lock:
+        _resolved_chromium_cache = _UNRESOLVED_CHROMIUM
 
 
 def runtime_info() -> RuntimeInfo:
@@ -174,7 +211,7 @@ def runtime_info() -> RuntimeInfo:
         executable=executable_path(),
         bundle_root=bundle_root(),
         runtime_root=runtime_root(),
-        chromium_path=bundled_chromium_path(),
+        chromium_path=cached_chromium_path(),
         platform=platform.system().lower() or sys.platform,
         architecture=platform.machine().lower() or "unknown",
         python_version=platform.python_version(),

@@ -32,6 +32,7 @@ from .config import (
 )
 from .diagnostics import Diagnostic, format_diagnostic, has_errors, write_diagnostics
 from .markdown import MarkdownInputError, render_markdown_file
+from .runtime import playwright_chromium_path
 
 PROJECT_COMMANDS = (
     "init",
@@ -367,15 +368,9 @@ def _doctor_main(argv: list[str]) -> int:
 
     chromium = shutil.which("chromium") or shutil.which("google-chrome") or shutil.which("chrome")
     if not chromium:
-        try:
-            from playwright.sync_api import sync_playwright
-
-            with sync_playwright() as playwright:
-                managed_browser = Path(playwright.chromium.executable_path)
-            if managed_browser.is_file():
-                chromium = str(managed_browser)
-        except Exception:
-            chromium = None
+        managed_browser = playwright_chromium_path()
+        if managed_browser is not None:
+            chromium = str(managed_browser)
     configured_chromium = config.values.get("chromium_path")
     if configured_chromium:
         configured_path = Path(configured_chromium)

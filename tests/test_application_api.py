@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 import os
-import os
 import stat
 from pathlib import Path
+from typing import Callable
 
 import pytest
 
-from mardas_md2pdf import application
+from mardas_md2pdf import application, renderer, runtime
 from mardas_md2pdf.application import EngineError, EngineService
 from mardas_md2pdf.diagnostics import Diagnostic
 from mardas_md2pdf.quality import RenderQualityLog
@@ -33,23 +33,22 @@ def test_atomic_text_write_honors_umask_and_preserves_existing_mode(
         assert stat.S_IMODE(target.stat().st_mode) == 0o600
 
 
-def test_pdf_options_request_resolves_relative_paths_and_runtime_browser(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_pdf_options_request_resolves_relative_paths_and_configured_browser(
+    tmp_path: Path,
 ) -> None:
     source = tmp_path / "doc.md"
     source.write_text("# Test", encoding="utf-8")
     browser = tmp_path / "runtime" / "chrome"
     browser.parent.mkdir()
     browser.write_bytes(b"browser")
-    monkeypatch.setattr(application, "resolved_chromium_path", lambda: browser)
-
     options = application.pdf_options_from_request(
         input_path=source,
         output_path="out/result.pdf",
         discover_config=False,
         options={
             "debug_html": "out/debug.html",
-            "required_fonts": ["Vazirmatn", "Vazirmatn", ""],
+            "chromium_path": "runtime/chrome",
+            "required_fonts": ["Vazirmatn", "Vazirmatn", "JetBrains Mono"],
             "bibliography_sources": ["refs.bib"],
         },
     )
@@ -57,8 +56,235 @@ def test_pdf_options_request_resolves_relative_paths_and_runtime_browser(
     assert options.output_path == (tmp_path / "out/result.pdf").resolve()
     assert options.debug_html == (tmp_path / "out/debug.html").resolve()
     assert options.chromium_path == str(browser)
-    assert options.required_fonts == ("Vazirmatn", "Vazirmatn")
+    assert options.required_fonts == ("Vazirmatn", "JetBrains Mono")
     assert options.bibliography_sources == ((tmp_path / "refs.bib").resolve(),)
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        pytest.param("margin_top", "18mm; color: red", id="css-injection"),
+        pytest.param("toc", "false", id="wrong-boolean"),
+        pytest.param("toc_depth", True, id="boolean-is-not-integer"),
+        pytest.param("style", "minimal", id="unknown-enum"),
+        pytest.param("timeout_ms", -1, id="integer-below-range"),
+        pytest.param("watermark_opacity", 1.01, id="number-above-range"),
+        pytest.param("watermark_opacity", float("nan"), id="nan"),
+        pytest.param("watermark_opacity", float("inf"), id="infinity"),
+        pytest.param("font_dir", 7, id="path-is-not-string"),
+        pytest.param("required_fonts", ["Vazirmatn", 7], id="font-is-not-string"),
+        pytest.param("required_fonts", ["Font"] * 33, id="too-many-fonts"),
+        pytest.param("bibliography_sources", ["refs.bib", 7], id="bib-is-not-string"),
+        pytest.param("bibliography_sources", ["refs.bib"] * 33, id="too-many-bibs"),
+        pytest.param("bibliography_sources", ["refs.txt"], id="wrong-bib-extension"),
+        pytest.param("title", "x" * 4_097, id="free-text-too-long"),
+        pytest.param("title", "\ud800", id="free-text-invalid-unicode"),
+        pytest.param("font_dir", "\ud800", id="path-invalid-unicode"),
+    ],
+)
+def test_pdf_options_request_rejects_invalid_untrusted_overrides(
+    tmp_path: Path,
+    option: str,
+    value: object,
+) -> None:
+    source = tmp_path / "doc.md"
+    source.write_text("# Test", encoding="utf-8")
+
+    with pytest.raises(EngineError) as caught:
+        application.pdf_options_from_request(
+            input_path=source,
+            discover_config=False,
+            options={option: value},
+        )
+
+    assert caught.value.code == "MARDAS-INVALID-PARAMS"
+    assert caught.value.details["option"] == option
+    assert isinstance(caught.value.details["reason"], str)
+
+
+def test_pdf_options_request_validates_and_normalizes_all_supported_overrides(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "doc.md"
+    source.write_text("# Test", encoding="utf-8")
+    values: dict[str, object] = {
+        "title": " Report ",
+        "author": "Author",
+        "description": "Summary",
+        "toc": True,
+        "toc_depth": 4,
+        "toc_page_break": True,
+        "h1_page_break": True,
+        "debug_html": "artifacts/debug.html",
+        "page_size": "Letter landscape",
+        "document_language": "fa_IR",
+        "document_direction": "RTL",
+        "margin_top": "12.5mm",
+        "margin_bottom": "0",
+        "margin_x": "5%",
+        "font_dir": "fonts",
+        "chromium_path": "runtime/chrome",
+        "chromium_sandbox": "OFF",
+        "no_header_footer": True,
+        "no_mathjax": True,
+        "timeout_ms": 1_500,
+        "style": "ACADEMIC",
+        "palette": "EMERALD",
+        "mode": "DARK",
+        "cover": False,
+        "cover_logo": "assets/cover.svg",
+        "cover_logo_enabled": False,
+        "branding": "SUBTLE",
+        "brand_name": "Brand",
+        "brand_logo": "assets/brand.svg",
+        "brand_footer": "Footer",
+        "watermark_text": "Draft",
+        "watermark_image": "assets/watermark.svg",
+        "watermark_opacity": 0.25,
+        "watermark_width": "105mm",
+        "unsafe_html": False,
+        "allow_remote_assets": False,
+        "references_enabled": True,
+        "numbering_scope": "CHAPTER",
+        "list_of_figures": True,
+        "list_of_tables": False,
+        "list_of_equations": True,
+        "list_of_listings": False,
+        "citations_enabled": True,
+        "bibliography_sources": ["refs/library.bib", "refs/library.json"],
+        "citation_style": "NUMERIC",
+        "bibliography_title": "References",
+        "bibliography_include_uncited": True,
+        "quality_profile": "STRICT-PUBLICATION",
+        "math_error_policy": "ERROR",
+        "font_error_policy": "WARN",
+        "navigation_error_policy": "IGNORE",
+        "required_fonts": ["Vazirmatn", "Vazirmatn", "JetBrains Mono"],
+        "quality_report": "artifacts/quality.json",
+    }
+
+    options = application.pdf_options_from_request(
+        input_path=source,
+        discover_config=False,
+        options=values,
+    )
+
+    assert options.title == " Report "
+    assert options.toc_depth == 4
+    assert options.page_size == "Letter landscape"
+    assert options.document_language == "fa-IR"
+    assert options.document_direction == "rtl"
+    assert options.chromium_sandbox == "off"
+    assert options.style == "academic"
+    assert options.palette == "emerald"
+    assert options.mode == "dark"
+    assert options.numbering_scope == "chapter"
+    assert options.citation_style == "numeric"
+    assert options.quality_profile == "strict-publication"
+    assert options.required_fonts == ("Vazirmatn", "JetBrains Mono")
+    assert options.debug_html == (tmp_path / "artifacts/debug.html").resolve()
+    assert options.font_dir == (tmp_path / "fonts").resolve()
+    assert options.chromium_path == str((tmp_path / "runtime/chrome").resolve())
+    assert options.bibliography_sources == (
+        (tmp_path / "refs/library.bib").resolve(),
+        (tmp_path / "refs/library.json").resolve(),
+    )
+
+
+def test_pdf_options_request_accepts_null_only_for_nullable_overrides(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "doc.md"
+    source.write_text("# Test", encoding="utf-8")
+
+    options = application.pdf_options_from_request(
+        input_path=source,
+        discover_config=False,
+        options={
+            "title": None,
+            "list_of_figures": None,
+            "bibliography_include_uncited": None,
+            "bibliography_sources": None,
+            "required_fonts": None,
+        },
+    )
+    assert options.title is None
+    assert options.list_of_figures is None
+    assert options.bibliography_include_uncited is None
+    assert options.bibliography_sources == ()
+    assert options.required_fonts == ()
+
+    with pytest.raises(EngineError) as caught:
+        application.pdf_options_from_request(
+            input_path=source,
+            discover_config=False,
+            options={"toc": None},
+        )
+    assert caught.value.code == "MARDAS-INVALID-PARAMS"
+    assert caught.value.details == {"option": "toc", "reason": "value cannot be null"}
+
+
+def test_source_authoring_defers_cached_browser_resolution_until_pdf(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "doc.md"
+    source.write_text("# Source\n", encoding="utf-8")
+    browser = tmp_path / "runtime" / "chrome"
+    browser.parent.mkdir()
+    browser.write_bytes(b"browser")
+    probe_calls = 0
+
+    def probe_bundled_browser() -> Path:
+        nonlocal probe_calls
+        probe_calls += 1
+        return browser
+
+    runtime._clear_chromium_resolution_cache()
+    monkeypatch.setattr(runtime, "bundled_chromium_path", probe_bundled_browser)
+    try:
+        service = EngineService()
+        assert service.health()["status"] == "ok"
+        assert service.dispatch(
+            "validate.document",
+            {"input_path": str(source), "discover_config": False},
+        )["ok"] is True
+        assert service.dispatch(
+            "validate.document_text",
+            {
+                "input_path": str(source),
+                "content": "# Dirty validate\n",
+                "discover_config": False,
+            },
+        )["ok"] is True
+        assert service.dispatch(
+            "preview.document_text",
+            {
+                "input_path": str(source),
+                "content": "# Dirty preview\n",
+                "discover_config": False,
+            },
+        )["title"] == "Dirty preview"
+        preview = tmp_path / "preview.html"
+        assert service.dispatch(
+            "preview.document",
+            {
+                "input_path": str(source),
+                "output_path": str(preview),
+                "discover_config": False,
+            },
+        )["output_path"] == str(preview)
+        assert probe_calls == 0
+
+        first = PdfOptions(source, tmp_path / "first.pdf")
+        second = PdfOptions(source, tmp_path / "second.pdf")
+        renderer._resolve_pdf_chromium_path(first)
+        renderer._resolve_pdf_chromium_path(second)
+        assert first.chromium_path == str(browser)
+        assert second.chromium_path == str(browser)
+        assert probe_calls == 1
+    finally:
+        runtime._clear_chromium_resolution_cache()
 
 
 def test_render_document_returns_structured_result(
@@ -97,6 +323,50 @@ def test_validate_and_preview_document_without_chromium(tmp_path: Path) -> None:
     assert preview["output_path"] == str(preview_path)
     assert preview_path.is_file()
     assert "آزمایشی" in preview_path.read_text(encoding="utf-8")
+
+
+def test_preview_document_rejects_unsafe_output_paths_without_touching_source(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "doc.md"
+    original = "# Original\n"
+    source.write_text(original, encoding="utf-8")
+    options = PdfOptions(input_path=source, output_path=tmp_path / "unused.pdf", cover=False)
+
+    with pytest.raises(EngineError) as collision:
+        application.preview_document(options, output_path=source)
+    assert collision.value.code == "MARDAS-PREVIEW-PATH-COLLISION"
+    assert source.read_text(encoding="utf-8") == original
+
+    with pytest.raises(EngineError) as wrong_type:
+        application.preview_document(options, output_path=tmp_path / "preview.pdf")
+    assert wrong_type.value.code == "MARDAS-PREVIEW-OUTPUT-TYPE"
+    assert not (tmp_path / "preview.pdf").exists()
+
+    hardlink = tmp_path / "preview.html"
+    try:
+        hardlink.hardlink_to(source)
+    except OSError:
+        return
+    with pytest.raises(EngineError) as alias:
+        application.preview_document(options, output_path=hardlink)
+    assert alias.value.code == "MARDAS-PREVIEW-PATH-COLLISION"
+    assert source.read_text(encoding="utf-8") == original
+
+
+def test_preview_document_text_normalizes_non_finite_frontmatter(tmp_path: Path) -> None:
+    source = tmp_path / "doc.md"
+    source.write_text("# Saved\n", encoding="utf-8")
+    options = PdfOptions(input_path=source, output_path=tmp_path / "unused.pdf", cover=False)
+
+    preview = application.preview_document_text(
+        options,
+        "---\nnot_a_number: .nan\npositive_infinity: .inf\n---\n\n# Preview\n",
+    )
+
+    assert preview["document"]["metadata"]["not_a_number"] is None
+    assert preview["document"]["metadata"]["positive_infinity"] is None
+    json.dumps(preview, allow_nan=False)
 
 
 def test_validate_document_returns_controlled_parse_diagnostic(tmp_path: Path) -> None:
@@ -143,7 +413,6 @@ def test_engine_service_dispatches_document_methods(
         "render_document",
         lambda options, *, session=None: {"output_path": str(options.output_path)},
     )
-    monkeypatch.setattr(application, "resolved_chromium_path", lambda: None)
     service = EngineService()
 
     assert service.dispatch(
@@ -267,6 +536,7 @@ def test_document_read_save_conflict_and_asset_import(tmp_path: Path) -> None:
     source.write_text("# One\n", encoding="utf-8")
     opened = application.read_document(source)
     assert opened["content"] == "# One\n"
+    assert opened["kind"] == "markdown"
 
     saved = application.save_document(
         source,
@@ -290,6 +560,98 @@ def test_document_read_save_conflict_and_asset_import(tmp_path: Path) -> None:
     assert imported["relative_path"] == "assets/outside.png"
     assets = application.list_document_assets(source)["assets"]
     assert any(item["relative_path"] == "assets/outside.png" for item in assets)
+
+
+@pytest.mark.parametrize("suffix", [".txt", ".toml", ".json", ".yaml", ".yml", ".bib"])
+def test_engine_service_saves_supported_text_documents_with_revision_conflicts(
+    tmp_path: Path,
+    suffix: str,
+) -> None:
+    target = tmp_path / f"notes{suffix}"
+    service = EngineService()
+    saved = service.dispatch(
+        "document.save_text",
+        {"path": str(target), "content": "سلام\n", "force": False},
+    )
+    assert target.read_text(encoding="utf-8") == "سلام\n"
+    assert saved["path"] == str(target)
+    expected_kind = {
+        ".bib": "bibliography",
+        ".json": "json",
+        ".toml": "toml",
+    }.get(suffix, "text")
+    assert saved["kind"] == expected_kind
+    assert isinstance(saved["revision"], str)
+    assert saved["size_bytes"] == len("سلام\n".encode("utf-8"))
+    opened = service.dispatch("document.read_text", {"path": str(target)})
+    assert opened["content"] == "سلام\n"
+    assert opened["kind"] == expected_kind
+    assert opened["revision"] == saved["revision"]
+
+    target.write_text("external\n", encoding="utf-8")
+    with pytest.raises(EngineError) as conflict:
+        service.dispatch(
+            "document.save_text",
+            {
+                "path": str(target),
+                "content": "editor\n",
+                "expected_revision": saved["revision"],
+                "force": False,
+            },
+        )
+    assert conflict.value.code == "MARDAS-DOCUMENT-CONFLICT"
+    assert target.read_text(encoding="utf-8") == "external\n"
+
+
+def test_text_document_save_rejects_unsupported_extensions_and_invalid_utf8(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(EngineError) as unsupported:
+        application.save_text_document(tmp_path / "notes.ini", "value=1\n")
+    assert unsupported.value.code == "MARDAS-DOCUMENT-TYPE"
+
+    with pytest.raises(EngineError) as encoding:
+        application.save_text_document(tmp_path / "notes.txt", "bad surrogate: \ud800")
+    assert encoding.value.code == "MARDAS-DOCUMENT-ENCODING"
+    assert not (tmp_path / "notes.txt").exists()
+
+    unsupported_read = tmp_path / "notes.md"
+    unsupported_read.write_text("# Markdown\n", encoding="utf-8")
+    with pytest.raises(EngineError) as read_type:
+        application.read_text_document(unsupported_read)
+    assert read_type.value.code == "MARDAS-DOCUMENT-TYPE"
+
+    invalid_utf8 = tmp_path / "invalid.txt"
+    invalid_utf8.write_bytes(b"\xff")
+    with pytest.raises(EngineError) as read_encoding:
+        application.read_text_document(invalid_utf8)
+    assert read_encoding.value.code == "MARDAS-DOCUMENT-ENCODING"
+
+
+@pytest.mark.parametrize(
+    ("reader", "suffix"),
+    [
+        pytest.param(application.read_document, ".md", id="markdown"),
+        pytest.param(application.read_text_document, ".txt", id="text"),
+    ],
+)
+@pytest.mark.parametrize("case", ["missing", "directory"])
+def test_document_read_maps_filesystem_failures_to_stable_engine_errors(
+    tmp_path: Path,
+    reader: Callable[[Path], dict[str, object]],
+    suffix: str,
+    case: str,
+) -> None:
+    path = tmp_path / f"document{suffix}"
+    if case == "directory":
+        path.mkdir()
+
+    with pytest.raises(EngineError) as caught:
+        reader(path)
+
+    assert caught.value.code == "MARDAS-DOCUMENT-READ"
+    assert caught.value.details == {"path": str(path)}
+    assert "[Errno" not in str(caught.value)
 
 
 def test_engine_service_dispatches_authoring_methods(tmp_path: Path) -> None:
@@ -318,6 +680,7 @@ def test_engine_service_dispatches_authoring_methods(tmp_path: Path) -> None:
     assert preview["title"] == "Dirty buffer"
     assert preview["source_map"][0]["line"] == 1
     assert "document.read" in service.capabilities()["methods"]
+    assert "document.read_text" in service.capabilities()["methods"]
     assert "validate.document_text" in service.capabilities()["methods"]
 
 
@@ -399,6 +762,9 @@ def test_engine_service_dispatches_project_and_bibliography_methods(tmp_path: Pa
     )
     assert document["absolute_path"] == str((root / "chapter.md").resolve())
     assert document["content"].startswith("# سلام")
+    assert document["kind"] == "markdown"
+    assert isinstance(document["revision"], str)
+    assert document["read_only"] is False
 
     searched = service.dispatch(
         "project.search",
@@ -427,6 +793,9 @@ def test_engine_service_dispatches_project_and_bibliography_methods(tmp_path: Pa
         },
     )
     assert saved["absolute_path"] == str((root / "chapter.md").resolve())
+    assert saved["kind"] == "markdown"
+    assert isinstance(saved["revision"], str)
+    assert saved["read_only"] is False
     assert (root / "chapter.md").read_text(encoding="utf-8") == "# Updated\n"
 
 
@@ -447,3 +816,29 @@ def test_engine_service_project_parameters_are_strict(tmp_path: Path) -> None:
             {"project_path": str(root), "query": r"(a+)+$", "regex": True},
         )
     assert unsafe.value.code == "MARDAS-UNSAFE-PROJECT-SEARCH-REGEX"
+
+
+def test_engine_service_rejects_non_utf8_project_content_without_codec_leak(
+    tmp_path: Path,
+) -> None:
+    root = _desktop_project(tmp_path)
+    service = EngineService()
+    opened = service.dispatch(
+        "project.read",
+        {"project_path": str(root), "relative_path": "chapter.md"},
+    )
+
+    with pytest.raises(EngineError) as caught:
+        service.dispatch(
+            "project.save",
+            {
+                "project_path": str(root),
+                "relative_path": "chapter.md",
+                "content": "\ud800",
+                "expected_sha256": opened["sha256"],
+            },
+        )
+
+    assert caught.value.code == "MARDAS-INVALID-PROJECT-CONTENT"
+    assert str(caught.value) == "Project file content must be valid UTF-8 text."
+    assert (root / "chapter.md").read_text(encoding="utf-8").startswith("# سلام")

@@ -264,6 +264,7 @@ def read_workspace_file(workspace: ProjectWorkspace, relative_path: str) -> dict
         ) from exc
     return {
         "path": path.relative_to(workspace.root).as_posix(),
+        "kind": _kind_for_path(path),
         "content": text,
         "sha256": _file_hash(data),
         "size": len(data),
@@ -281,7 +282,13 @@ def write_workspace_file(
     path = _safe_workspace_file(workspace, relative_path)
     if not isinstance(content, str):
         raise WorkspaceError("Project file content must be text.", code="invalid_project_content")
-    data = content.encode("utf-8")
+    try:
+        data = content.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise WorkspaceError(
+            "Project file content must be valid UTF-8 text.",
+            code="invalid_project_content",
+        ) from exc
     if len(data) > MAX_WORKSPACE_TEXT_BYTES:
         raise WorkspaceError(
             f"Project text file exceeds the {MAX_WORKSPACE_TEXT_BYTES}-byte Studio limit.",
@@ -457,12 +464,20 @@ def _book_section_text(
     return "\n".join(lines) + "\n"
 
 
-_TOML_TABLE_HEADER = re.compile(r"^\s*\[\[?[A-Za-z0-9_.-]+\]?\]\s*(?:#.*)?$")
+_TOML_KEY_PATTERN = r'(?:[A-Za-z0-9_-]+|"(?:\\.|[^"\\\r\n])*"|\'[^\'\r\n]*\')'
+_TOML_TABLE_HEADER = re.compile(
+    rf"^\s*\[(?P<array>\[)?\s*{_TOML_KEY_PATTERN}"
+    rf"(?:\s*\.\s*{_TOML_KEY_PATTERN})*\s*\](?(array)\])\s*(?:#.*)?$"
+)
 
 
 def _replace_toml_section(text: str, section: str, replacement: str) -> str:
     lines = text.splitlines(keepends=True)
-    header = re.compile(rf"^\s*\[{re.escape(section)}\]\s*(?:#.*)?$")
+    escaped_section = re.escape(section)
+    header = re.compile(
+        rf"^\s*\[\s*(?:{escaped_section}|\"{escaped_section}\"|'{escaped_section}')"
+        r"\s*\]\s*(?:#.*)?$"
+    )
     start: int | None = None
     end: int | None = None
     for index, line in enumerate(lines):
@@ -1294,11 +1309,95 @@ _UNSAFE_REGEX_TOKENS = (
     "\\1",
     "\\2",
     "\\3",
+    "\\4",
+    "\\5",
+    "\\6",
+    "\\7",
+    "\\8",
+    "\\9",
     "\\g<",
 )
-_QUANTIFIED_REGEX_GROUP = re.compile(r"\([^)]*\)(?:[+*]|\{)")
 _LARGE_REGEX_REPEAT = re.compile(r"\{\s*(\d+)(?:\s*,\s*(\d*)?)?\s*\}")
 _MAX_REGEX_REPEAT = 1_000
+
+
+def _has_quantified_regex_group(query: str) -> bool:
+    escaped = False
+    in_character_class = False
+    for index, character in enumerate(query):
+        if escaped:
+            escaped = False
+            continue
+        if character == "\\":
+            escaped = True
+            continue
+        if in_character_class:
+            if character == "]":
+                in_character_class = False
+            continue
+        if character == "[":
+            in_character_class = True
+            continue
+        if character != ")" or index + 1 >= len(query):
+            continue
+        following = query[index + 1]
+        if following in {"*", "+", "?"}:
+            return True
+        if following == "{" and _LARGE_REGEX_REPEAT.match(query, index + 1):
+            return True
+    return False
+
+
+def _variable_regex_quantifier_count(query: str) -> int:
+    """Count variable-width quantifiers while ignoring literals and character classes."""
+
+    count = 0
+    escaped = False
+    in_character_class = False
+    index = 0
+    while index < len(query):
+        character = query[index]
+        if escaped:
+            escaped = False
+            index += 1
+            continue
+        if character == "\\":
+            escaped = True
+            index += 1
+            continue
+        if in_character_class:
+            if character == "]":
+                in_character_class = False
+            index += 1
+            continue
+        if character == "[":
+            in_character_class = True
+            index += 1
+            continue
+        if character in {"*", "+", "?"}:
+            if character == "?" and index > 0 and query[index - 1] == "(":
+                index += 1
+                continue
+            count += 1
+            index += 1
+            if index < len(query) and query[index] in {"?", "+"}:
+                index += 1
+            continue
+        if character == "{":
+            repeat = _LARGE_REGEX_REPEAT.match(query, index)
+            if repeat is not None:
+                lower = int(repeat.group(1))
+                upper_text = repeat.group(2)
+                if "," in repeat.group(0) and (
+                    not upper_text or int(upper_text) != lower
+                ):
+                    count += 1
+                index = repeat.end()
+                if index < len(query) and query[index] in {"?", "+"}:
+                    index += 1
+                continue
+        index += 1
+    return count
 
 
 def _compile_workspace_regex(query: str, flags: int) -> re.Pattern[str]:
@@ -1314,8 +1413,9 @@ def _compile_workspace_regex(query: str, flags: int) -> re.Pattern[str]:
     )
     if (
         any(token in query for token in _UNSAFE_REGEX_TOKENS)
-        or _QUANTIFIED_REGEX_GROUP.search(query)
+        or _has_quantified_regex_group(query)
         or unsafe_repeat
+        or _variable_regex_quantifier_count(query) > 1
     ):
         raise WorkspaceError(
             "Project regex uses an advanced or potentially expensive construct.",

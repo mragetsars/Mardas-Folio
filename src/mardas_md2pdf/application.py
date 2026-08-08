@@ -12,12 +12,16 @@ from . import __version__
 from .book import (
     BookManifest,
     book_context,
-    book_pdf_options,
     convert_book,
     load_book_manifest,
     render_book,
 )
-from .config import LoadedProjectConfig, load_project_config
+from .config import (
+    ConfigValueError,
+    LoadedProjectConfig,
+    RENDER_OPTION_SPECS,
+    load_project_config,
+)
 from .diagnostics import Diagnostic, has_errors
 from .markdown import (
     MarkdownInputError,
@@ -27,7 +31,7 @@ from .markdown import (
 )
 from .protocol import PROTOCOL_NAME, PROTOCOL_VERSION
 from .renderer import PdfOptions, RenderSession, build_html, convert
-from .runtime import resolved_chromium_path, runtime_info
+from .runtime import runtime_info
 from .support import SupportBundleError, create_support_bundle
 from .workspace import (
     ProjectWorkspace,
@@ -50,9 +54,11 @@ from .workspace import (
 
 ProgressCallback = Callable[[str, float], None]
 CancellationCallback = Callable[[], bool]
-ENGINE_API_VERSION = "1.4.0"
+ENGINE_API_VERSION = "1.5.0"
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_IMPORTED_ASSET_BYTES = 64 * 1024 * 1024
+_MARKDOWN_DOCUMENT_EXTENSIONS = frozenset({".md", ".markdown"})
+_TEXT_DOCUMENT_EXTENSIONS = frozenset({".bib", ".json", ".toml", ".txt", ".yaml", ".yml"})
 _ASSET_EXTENSIONS = {
     ".avif",
     ".bib",
@@ -88,6 +94,15 @@ _CONFIG_ALIASES = {
     "no_cover_logo": ("cover_logo_enabled", lambda value: not bool(value)),
     "watermark": ("watermark_text", lambda value: value),
 }
+
+_OPTION_SPEC_FIELDS = frozenset(RENDER_OPTION_SPECS)
+if _OPTION_SPEC_FIELDS != _OPTION_FIELDS:
+    missing = sorted(_OPTION_FIELDS - _OPTION_SPEC_FIELDS)
+    extra = sorted(_OPTION_SPEC_FIELDS - _OPTION_FIELDS)
+    raise RuntimeError(
+        "Render option validation schema is out of sync with PdfOptions "
+        f"(missing={missing}, extra={extra})."
+    )
 
 
 class EngineError(RuntimeError):
@@ -177,18 +192,71 @@ def _document_revision(path: Path) -> str:
     return f"{stat_result.st_mtime_ns}:{stat_result.st_size}:{digest}"
 
 
-def read_document(path: str | os.PathLike[str]) -> dict[str, Any]:
-    source = Path(path).expanduser().resolve(strict=True)
-    if source.suffix.casefold() not in {".md", ".markdown"}:
+def _paths_refer_to_same_file(left: Path, right: Path) -> bool:
+    """Detect textual aliases, symlinks, hardlinks, and case-folded path aliases."""
+
+    left = Path(left).expanduser()
+    right = Path(right).expanduser()
+    try:
+        if left.exists() and right.exists() and os.path.samefile(left, right):
+            return True
+    except OSError:
+        pass
+    return os.path.normcase(str(left.resolve(strict=False))) == os.path.normcase(
+        str(right.resolve(strict=False))
+    )
+
+
+def _document_kind_for_path(path: Path) -> str:
+    suffix = path.suffix.casefold()
+    if suffix in _MARKDOWN_DOCUMENT_EXTENSIONS:
+        return "markdown"
+    if suffix == ".bib":
+        return "bibliography"
+    if suffix in {".json", ".toml"}:
+        return suffix.removeprefix(".")
+    return "text"
+
+
+def _read_document_text(
+    path: str | os.PathLike[str],
+    *,
+    allowed_extensions: frozenset[str],
+    type_message: str,
+    document_label: str,
+) -> dict[str, Any]:
+    requested = Path(path).expanduser()
+    try:
+        source = requested.resolve(strict=True)
+    except (OSError, RuntimeError, UnicodeError) as exc:
         raise EngineError(
-            "Only Markdown documents can be opened in the authoring workspace.",
+            "Document could not be opened.",
+            code="MARDAS-DOCUMENT-READ",
+            details={"path": str(requested)},
+        ) from exc
+    if source.suffix.casefold() not in allowed_extensions:
+        raise EngineError(
+            type_message,
             code="MARDAS-DOCUMENT-TYPE",
             details={"path": str(source)},
         )
-    size = source.stat().st_size
+    if not source.is_file():
+        raise EngineError(
+            "Document path must reference a regular file.",
+            code="MARDAS-DOCUMENT-READ",
+            details={"path": str(source)},
+        )
+    try:
+        size = source.stat().st_size
+    except OSError as exc:
+        raise EngineError(
+            "Document metadata could not be read.",
+            code="MARDAS-DOCUMENT-READ",
+            details={"path": str(source)},
+        ) from exc
     if size > MAX_DOCUMENT_BYTES:
         raise EngineError(
-            "Markdown document exceeds the editor size limit.",
+            f"{document_label} exceeds the editor size limit.",
             code="MARDAS-DOCUMENT-TOO-LARGE",
             details={"size_bytes": size, "limit_bytes": MAX_DOCUMENT_BYTES},
         )
@@ -196,30 +264,70 @@ def read_document(path: str | os.PathLike[str]) -> dict[str, Any]:
         content = source.read_text(encoding="utf-8-sig")
     except UnicodeDecodeError as exc:
         raise EngineError(
-            "Markdown document must be UTF-8 encoded.",
+            f"{document_label} must be UTF-8 encoded.",
             code="MARDAS-DOCUMENT-ENCODING",
+            details={"path": str(source)},
+        ) from exc
+    except OSError as exc:
+        raise EngineError(
+            "Document content could not be read.",
+            code="MARDAS-DOCUMENT-READ",
+            details={"path": str(source)},
+        ) from exc
+    try:
+        revision = _document_revision(source)
+    except OSError as exc:
+        raise EngineError(
+            "Document revision could not be read.",
+            code="MARDAS-DOCUMENT-READ",
             details={"path": str(source)},
         ) from exc
     return {
         "path": str(source),
+        "kind": _document_kind_for_path(source),
         "content": content,
         "size_bytes": size,
-        "revision": _document_revision(source),
+        "revision": revision,
         "read_only": not os.access(source, os.W_OK),
     }
 
 
-def save_document(
+def read_document(path: str | os.PathLike[str]) -> dict[str, Any]:
+    return _read_document_text(
+        path,
+        allowed_extensions=_MARKDOWN_DOCUMENT_EXTENSIONS,
+        type_message="Only Markdown documents can be opened in the authoring workspace.",
+        document_label="Markdown document",
+    )
+
+
+def read_text_document(path: str | os.PathLike[str]) -> dict[str, Any]:
+    """Read one supported non-Markdown UTF-8 authoring file."""
+
+    return _read_document_text(
+        path,
+        allowed_extensions=_TEXT_DOCUMENT_EXTENSIONS,
+        type_message=(
+            "Text documents must use the .txt, .toml, .json, .yaml, .yml, or .bib extension."
+        ),
+        document_label="Text document",
+    )
+
+
+def _save_document_text(
     path: str | os.PathLike[str],
     content: str,
     *,
+    allowed_extensions: frozenset[str],
+    extension_message: str,
+    document_label: str,
     expected_revision: str | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
     target = Path(path).expanduser().resolve(strict=False)
-    if target.suffix.casefold() not in {".md", ".markdown"}:
+    if target.suffix.casefold() not in allowed_extensions:
         raise EngineError(
-            "Markdown documents must use the .md or .markdown extension.",
+            extension_message,
             code="MARDAS-DOCUMENT-TYPE",
             details={"path": str(target)},
         )
@@ -229,10 +337,17 @@ def save_document(
             code="MARDAS-INVALID-PARAMS",
             details={"parameter": "content"},
         )
-    payload = content.encode("utf-8")
+    try:
+        payload = content.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise EngineError(
+            f"{document_label} must contain valid UTF-8 text.",
+            code="MARDAS-DOCUMENT-ENCODING",
+            details={"path": str(target)},
+        ) from exc
     if len(payload) > MAX_DOCUMENT_BYTES:
         raise EngineError(
-            "Markdown document exceeds the editor size limit.",
+            f"{document_label} exceeds the editor size limit.",
             code="MARDAS-DOCUMENT-TOO-LARGE",
             details={"size_bytes": len(payload), "limit_bytes": MAX_DOCUMENT_BYTES},
         )
@@ -251,16 +366,57 @@ def save_document(
         _atomic_write_text(target, content)
     except OSError as exc:
         raise EngineError(
-            f"Could not save Markdown document: {exc}",
+            f"Could not save {document_label.lower()}: {exc}",
             code="MARDAS-DOCUMENT-SAVE",
             details={"path": str(target)},
         ) from exc
     return {
         "path": str(target),
+        "kind": _document_kind_for_path(target),
         "size_bytes": target.stat().st_size,
         "revision": _document_revision(target),
         "read_only": not os.access(target, os.W_OK),
     }
+
+
+def save_document(
+    path: str | os.PathLike[str],
+    content: str,
+    *,
+    expected_revision: str | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    return _save_document_text(
+        path,
+        content,
+        allowed_extensions=_MARKDOWN_DOCUMENT_EXTENSIONS,
+        extension_message="Markdown documents must use the .md or .markdown extension.",
+        document_label="Markdown document",
+        expected_revision=expected_revision,
+        force=force,
+    )
+
+
+def save_text_document(
+    path: str | os.PathLike[str],
+    content: str,
+    *,
+    expected_revision: str | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Atomically save a supported non-Markdown UTF-8 authoring file."""
+
+    return _save_document_text(
+        path,
+        content,
+        allowed_extensions=_TEXT_DOCUMENT_EXTENSIONS,
+        extension_message=(
+            "Text documents must use the .txt, .toml, .json, .yaml, .yml, or .bib extension."
+        ),
+        document_label="Text document",
+        expected_revision=expected_revision,
+        force=force,
+    )
 
 
 def list_document_assets(path: str | os.PathLike[str]) -> dict[str, Any]:
@@ -404,6 +560,40 @@ def _config_option_values(config: LoadedProjectConfig) -> dict[str, Any]:
     return values
 
 
+def _validate_option_values(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate untrusted per-request overrides before path normalization."""
+
+    unknown = sorted(set(values) - _OPTION_FIELDS)
+    if unknown:
+        raise EngineError(
+            "Unsupported render options were supplied.",
+            code="MARDAS-INVALID-PARAMS",
+            details={"unknown_options": unknown},
+        )
+
+    validated: dict[str, Any] = {}
+    for option, value in values.items():
+        spec = RENDER_OPTION_SPECS[option]
+        if value is None:
+            if spec.nullable:
+                validated[option] = None
+                continue
+            raise EngineError(
+                f"Render option '{option}' cannot be null.",
+                code="MARDAS-INVALID-PARAMS",
+                details={"option": option, "reason": "value cannot be null"},
+            )
+        try:
+            validated[option] = spec.validator(value)
+        except ConfigValueError as exc:
+            raise EngineError(
+                f"Invalid render option '{option}': {exc}.",
+                code="MARDAS-INVALID-PARAMS",
+                details={"option": option, "reason": str(exc)},
+            ) from exc
+    return validated
+
+
 def _normalize_option_values(values: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
     unknown = sorted(set(values) - _OPTION_FIELDS)
     if unknown:
@@ -439,11 +629,12 @@ def _normalize_option_values(values: Mapping[str, Any], *, base_dir: Path) -> di
             if value is None:
                 normalized[key] = ()
             elif isinstance(value, (list, tuple)):
-                normalized[key] = tuple(str(entry).strip() for entry in value if str(entry).strip())
+                normalized[key] = tuple(value)
             else:
                 raise EngineError(
                     f"{key} must be an array of strings.",
                     code="MARDAS-INVALID-PARAMS",
+                    details={"option": key},
                 )
         else:
             normalized[key] = value
@@ -496,12 +687,8 @@ def pdf_options_from_request(
     assert target is not None
 
     merged = _config_option_values(config)
-    merged.update(dict(options or {}))
+    merged.update(_validate_option_values(dict(options or {})))
     normalized = _normalize_option_values(merged, base_dir=base_dir)
-    if not normalized.get("chromium_path"):
-        chromium = resolved_chromium_path()
-        if chromium is not None:
-            normalized["chromium_path"] = str(chromium)
     return PdfOptions(
         input_path=source,
         output_path=target,
@@ -584,14 +771,15 @@ def _render_markdown_text_for_options(options: PdfOptions, content: str) -> Mark
 
 
 def _json_safe(value: Any) -> Any:
-    return json.loads(json.dumps(value, ensure_ascii=False, default=str))
+    encoded = json.dumps(value, ensure_ascii=True, default=str)
+    return json.loads(encoded, parse_constant=lambda _value: None)
 
 
 def _document_summary(result: MarkdownRenderResult) -> dict[str, Any]:
     return {
         "title": result.title,
         "headings": len(result.toc_entries),
-        "metadata_keys": sorted(result.metadata),
+        "metadata_keys": sorted(str(key) for key in result.metadata),
         "numbered_objects": len(result.reference_objects),
         "cited_entries": len(result.cited_keys),
         "outline": [
@@ -665,6 +853,19 @@ def preview_document_text(options: PdfOptions, content: str) -> dict[str, Any]:
 
 
 def preview_document(options: PdfOptions, *, output_path: Path) -> dict[str, Any]:
+    target = Path(output_path).expanduser().resolve(strict=False)
+    if _paths_refer_to_same_file(options.input_path, target):
+        raise EngineError(
+            "Preview HTML and input Markdown paths must reference different files.",
+            code="MARDAS-PREVIEW-PATH-COLLISION",
+            details={"input_path": str(options.input_path), "output_path": str(target)},
+        )
+    if target.suffix.casefold() not in {".htm", ".html"}:
+        raise EngineError(
+            "Preview output must use the .html or .htm extension.",
+            code="MARDAS-PREVIEW-OUTPUT-TYPE",
+            details={"output_path": str(target)},
+        )
     result = _render_markdown_for_options(options)
     if has_errors(result.diagnostics):
         raise EngineValidationError("Document validation failed.", result.diagnostics)
@@ -675,10 +876,10 @@ def preview_document(options: PdfOptions, *, output_path: Path) -> dict[str, Any
         include_content=True,
         include_watermark=True,
     )
-    _atomic_write_text(output_path, html_text)
+    _atomic_write_text(target, html_text)
     return {
-        "output_path": str(output_path),
-        "size_bytes": output_path.stat().st_size,
+        "output_path": str(target),
+        "size_bytes": target.stat().st_size,
         "title": result.title,
         "headings": len(result.toc_entries),
     }
@@ -788,10 +989,9 @@ class EngineService:
 
     def health(self) -> dict[str, Any]:
         info = runtime_info()
-        resolved_browser = resolved_chromium_path()
         runtime_payload = info.to_dict()
         runtime_payload["resolved_chromium_path"] = (
-            str(resolved_browser) if resolved_browser else None
+            str(info.chromium_path) if info.chromium_path else None
         )
         return {
             "status": "ok",
@@ -800,7 +1000,7 @@ class EngineService:
             "protocol": PROTOCOL_NAME,
             "protocol_version": PROTOCOL_VERSION,
             "runtime": runtime_payload,
-            "chromium_available": bool(resolved_browser),
+            "chromium_available": bool(info.chromium_path),
         }
 
     def capabilities(self) -> dict[str, Any]:
@@ -816,7 +1016,9 @@ class EngineService:
                 "system.support_bundle",
                 "job.cancel",
                 "document.read",
+                "document.read_text",
                 "document.save",
+                "document.save_text",
                 "document.list_assets",
                 "document.import_asset",
                 "project.open",
@@ -867,14 +1069,16 @@ class EngineService:
                     str(exc),
                     code="MARDAS-SUPPORT-BUNDLE-ERROR",
                 ) from exc
-        if method == "document.read":
+        if method in {"document.read", "document.read_text"}:
             _validate_params(params, {"path"})
-            return read_document(_required_string(params, "path"))
-        if method == "document.save":
+            read = read_document if method == "document.read" else read_text_document
+            return read(_required_string(params, "path"))
+        if method in {"document.save", "document.save_text"}:
             _validate_params(params, {"path", "content", "expected_revision", "force"})
             force = _optional_bool(params, "force", default=False)
             expected_revision = _optional_string(params, "expected_revision")
-            return save_document(
+            save = save_document if method == "document.save" else save_text_document
+            return save(
                 _required_string(params, "path"),
                 _required_content(params),
                 expected_revision=expected_revision,
@@ -908,7 +1112,7 @@ class EngineService:
             payload = _workspace_call(
                 lambda: read_workspace_file(workspace, relative_path)
             )
-            absolute_path = (workspace.root / relative_path).resolve(strict=False)
+            absolute_path = (workspace.root / str(payload["path"])).resolve(strict=False)
             payload["absolute_path"] = str(absolute_path)
             payload["revision"] = _document_revision(absolute_path)
             payload["read_only"] = not os.access(absolute_path, os.W_OK)
@@ -931,9 +1135,10 @@ class EngineService:
                     expected_sha256=_required_string(params, "expected_sha256"),
                 )
             )
-            payload["absolute_path"] = str(
-                (workspace.root / relative_path).resolve(strict=False)
-            )
+            absolute_path = (workspace.root / str(payload["path"])).resolve(strict=False)
+            payload["absolute_path"] = str(absolute_path)
+            payload["revision"] = _document_revision(absolute_path)
+            payload["read_only"] = not os.access(absolute_path, os.W_OK)
             return payload
         if method == "project.search":
             _validate_params(

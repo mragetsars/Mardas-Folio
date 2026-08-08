@@ -6,7 +6,9 @@ from typing import Any
 JSONRPC_VERSION = "2.0"
 PROTOCOL_NAME = "mardas-sidecar"
 PROTOCOL_VERSION = 1
-MAX_REQUEST_BYTES = 8 * 1024 * 1024
+# A maximum-size UTF-8 editor buffer can expand sixfold when JSON escapes control
+# characters. Keep the bounded RPC envelope large enough for that worst case.
+MAX_REQUEST_BYTES = 64 * 1024 * 1024
 
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600

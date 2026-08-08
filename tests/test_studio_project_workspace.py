@@ -461,10 +461,19 @@ def test_workspace_search_is_bounded_unicode_aware_and_cancellable(tmp_path):
     assert len(bounded["matches"]) == 1
     assert bounded["truncated"] is True
 
-    for unsafe_query in (r"(a+)+$", r"(a|aa)+$", r"a{1,1001}"):
+    for unsafe_query in (
+        r"(a+)+$",
+        r"(a|aa)+$",
+        r"(a(a|aa)){1000}b",
+        r"a{1,1001}",
+        r"a*a*a*a*a*a*a*a*a*a*b",
+    ):
         with pytest.raises(WorkspaceError) as unsafe:
             search_workspace(workspace, unsafe_query, regex=True)
         assert unsafe.value.code == "unsafe_project_search_regex"
+
+    escaped_quantifiers = search_workspace(workspace, r"\*\+\?", regex=True)
+    assert escaped_quantifiers["matches"] == []
 
     with pytest.raises(WorkspaceError) as cancelled:
         search_workspace(workspace, "سلام", cancelled=lambda: True)

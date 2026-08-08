@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,7 @@ CONFIG_SCHEMA_VERSION = 1
 MAX_CONFIG_BYTES = 1_048_576
 MAX_BOOK_CHAPTERS = 512
 MAX_BIBLIOGRAPHY_SOURCES = 32
+MAX_CONFIG_TEXT_CHARS = 4_096
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,20 +55,40 @@ class ConfigField:
         return f"{self.section}.{self.key}"
 
 
+@dataclass(frozen=True, slots=True)
+class RenderOptionSpec:
+    validator: Callable[[Any], Any]
+    nullable: bool = False
+
+
 class ConfigValueError(ValueError):
     pass
 
 
-def _string(value: Any) -> str:
-    if not isinstance(value, str) or not value.strip():
+def _validate_text(value: Any, *, allow_empty: bool) -> str:
+    if not isinstance(value, str):
+        raise ConfigValueError("expected a string")
+    if len(value) > MAX_CONFIG_TEXT_CHARS:
+        raise ConfigValueError(
+            f"expected no more than {MAX_CONFIG_TEXT_CHARS} characters"
+        )
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ConfigValueError("expected valid UTF-8 text") from exc
+    if any(ord(character) < 32 and character not in "\t\n\r" for character in value):
+        raise ConfigValueError("control characters are not allowed")
+    if not allow_empty and not value.strip():
         raise ConfigValueError("expected a non-empty string")
-    return value.strip()
+    return value
+
+
+def _string(value: Any) -> str:
+    return _validate_text(value, allow_empty=False).strip()
 
 
 def _optional_string(value: Any) -> str:
-    if not isinstance(value, str):
-        raise ConfigValueError("expected a string")
-    return value
+    return _validate_text(value, allow_empty=True)
 
 
 def _book_chapters(value: Any) -> tuple[dict[str, str | None], ...]:
@@ -162,6 +184,8 @@ def _number(minimum: float, maximum: float) -> Callable[[Any], float]:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ConfigValueError("expected a number")
         result = float(value)
+        if not math.isfinite(result):
+            raise ConfigValueError("expected a finite number")
         if not minimum <= result <= maximum:
             raise ConfigValueError(f"expected a value between {minimum} and {maximum}")
         return result
@@ -204,10 +228,31 @@ def _page_size(value: Any) -> str:
 
 def _css_length(value: Any) -> str:
     result = _string(value)
-    if len(result) > 64 or not re.fullmatch(
-        r"(?:0|[0-9]+(?:\.[0-9]+)?(?:mm|cm|in|pt|px|%))", result
-    ):
+    match = re.fullmatch(
+        r"(?:(?P<zero>0)|(?P<number>[0-9]+(?:\.[0-9]+)?)(?P<unit>mm|cm|in|pt|px|%))",
+        result,
+    )
+    if len(result) > 64 or match is None:
         raise ConfigValueError("expected a non-negative CSS length such as 18mm, 1.5cm, or 45%")
+    if match.group("zero"):
+        return result
+    number = float(match.group("number"))
+    unit = str(match.group("unit"))
+    if not math.isfinite(number):
+        raise ConfigValueError("expected a finite CSS length")
+    if unit == "%":
+        if number > 100:
+            raise ConfigValueError("percentage lengths cannot exceed 100%")
+    else:
+        millimetres = number * {
+            "mm": 1.0,
+            "cm": 10.0,
+            "in": 25.4,
+            "pt": 25.4 / 72.0,
+            "px": 25.4 / 96.0,
+        }[unit]
+        if millimetres > 2_000:
+            raise ConfigValueError("CSS lengths cannot exceed 2000mm")
     return result
 
 
@@ -275,6 +320,86 @@ CONFIG_FIELDS: tuple[ConfigField, ...] = (
     ConfigField("book", "chapters", "book_chapters", _book_chapters),
     ConfigField("book", "output", "book_output", _string, path_value=True),
     ConfigField("book", "chapter_page_break", "book_chapter_page_break", _boolean),
+)
+
+_RENDER_DEST_ALIASES = {
+    "no_cover": "cover",
+    "no_cover_logo": "cover_logo_enabled",
+    "watermark": "watermark_text",
+}
+_NULLABLE_RENDER_OPTIONS = frozenset(
+    {
+        "bibliography_sources",
+        "bibliography_title",
+        "bibliography_include_uncited",
+        "brand_footer",
+        "brand_logo",
+        "brand_name",
+        "branding",
+        "chromium_path",
+        "citation_style",
+        "cover_logo",
+        "debug_html",
+        "description",
+        "document_direction",
+        "document_language",
+        "font_dir",
+        "font_error_policy",
+        "list_of_equations",
+        "list_of_figures",
+        "list_of_listings",
+        "list_of_tables",
+        "math_error_policy",
+        "mode",
+        "navigation_error_policy",
+        "numbering_scope",
+        "palette",
+        "quality_report",
+        "references_enabled",
+        "required_fonts",
+        "style",
+        "title",
+        "author",
+        "citations_enabled",
+        "watermark_image",
+        "watermark_text",
+    }
+)
+
+
+def _strict_render_string_list(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        raise ConfigValueError("expected an array of strings")
+    return _string_list(list(value))
+
+
+def _strict_render_bibliography_sources(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        raise ConfigValueError("expected an array of bibliography paths")
+    if not value:
+        return ()
+    return _bibliography_sources(list(value))
+
+
+RENDER_OPTION_SPECS: dict[str, RenderOptionSpec] = {}
+for _config_field in CONFIG_FIELDS:
+    _render_dest = _RENDER_DEST_ALIASES.get(_config_field.dest, _config_field.dest)
+    if _render_dest.startswith("book_"):
+        continue
+    RENDER_OPTION_SPECS[_render_dest] = RenderOptionSpec(
+        _config_field.validator,
+        nullable=_render_dest in _NULLABLE_RENDER_OPTIONS,
+    )
+RENDER_OPTION_SPECS.update(
+    {
+        "bibliography_sources": RenderOptionSpec(
+            _strict_render_bibliography_sources,
+            nullable=True,
+        ),
+        "cover_logo": RenderOptionSpec(_string, nullable=True),
+        "debug_html": RenderOptionSpec(_string, nullable=True),
+        "required_fonts": RenderOptionSpec(_strict_render_string_list, nullable=True),
+    }
 )
 
 _ALLOWED_SECTIONS = {field.section for field in CONFIG_FIELDS}

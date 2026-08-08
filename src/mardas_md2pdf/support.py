@@ -7,11 +7,11 @@ import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from . import __version__
 from .protocol import PROTOCOL_NAME, PROTOCOL_VERSION
-from .runtime import resolved_chromium_path, runtime_info, runtime_root
+from .runtime import runtime_info, runtime_root
 
 SUPPORT_BUNDLE_SCHEMA = 1
 MAX_RUNTIME_MANIFEST_BYTES = 8 * 1024 * 1024
@@ -58,7 +58,7 @@ def _runtime_manifest_summary() -> dict[str, Any] | None:
 
 def support_payload(*, engine_api_version: str) -> dict[str, Any]:
     info = runtime_info()
-    browser = resolved_chromium_path()
+    browser = info.chromium_path
     return {
         "schema_version": SUPPORT_BUNDLE_SCHEMA,
         "created_at": datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z"),
