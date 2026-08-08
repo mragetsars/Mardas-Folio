@@ -2,7 +2,7 @@
 
 > **Professional Markdown to PDF converter for Persian, English, and mixed RTL/LTR technical documents**
 
-![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.27.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
+![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Math](https://img.shields.io/badge/Math-MathJax-purple) ![Version](https://img.shields.io/badge/Version-v1.28.0-success) ![Status](https://img.shields.io/badge/Status-Stable-success) ![CI](https://github.com/mragetsars/Mardas-MD2PDF/actions/workflows/ci.yml/badge.svg)
 
 ## Overview
 
@@ -60,7 +60,7 @@ Release and operations references are [Changelog](./docs/CHANGELOG.md), [Release
 
 ## Native Desktop Authoring and Book Projects
 
-Version 1.27.0 extends the native **Mardas Studio** authoring workspace with a complete, conflict-safe Book Project workflow. The Start Center can create or open a local book project without requiring the user to edit `mardas.toml`. The Book panel lists configured chapters, opens them in the multi-document editor, adds or duplicates chapters, changes chapter order with buttons or drag-and-drop, safely removes a chapter from the book without deleting its Markdown file, validates the whole project, previews the assembled book, and exports one PDF through a native save dialog.
+Version 1.28.0 keeps the conflict-safe Book Project workflow and adds a guided, accessibility-focused desktop experience for ordinary users. The Start Center can create or open a local book project without requiring the user to edit `mardas.toml`. The Book panel lists configured chapters, opens them in the multi-document editor, adds or duplicates chapters, changes chapter order with buttons or drag-and-drop, safely removes a chapter from the book without deleting its Markdown file, validates the whole project, previews the assembled book, and exports one PDF through a native save dialog.
 
 Every chapter-order change is guarded by the current SHA-256 revision of `mardas.toml`; if another program changes the project configuration, Mardas Studio refuses to overwrite it and asks the user to refresh. New projects are created with bounded names, Unicode-safe paths, dedicated `chapters`, `assets`, `bibliography`, and `dist` directories, and a ready-to-edit first chapter. Full-book validation and export reuse the existing Python Book Mode so CLI, sidecar, and desktop output remain consistent.
 
@@ -69,6 +69,14 @@ The intelligent, bounded project workspace from version 1.26 remains available. 
 The desktop bibliography panel now indexes configured local BibTeX and CSL JSON sources, searches by key, title, author, publisher, or year, marks cited entries, exposes parse diagnostics, and inserts citations at the editor cursor. Preview headings carry trusted source-line metadata produced by the Python Markdown engine, enabling duplicate-safe preview-to-editor navigation and editor-to-preview section synchronization instead of relying only on heading text order.
 
 The existing conflict-safe document workflow remains intact: multiple tabs, bounded recovery snapshots, atomic saves with external-change detection, literal find/replace, front-matter controls, assets, validation, and dirty-buffer preview. The editor is now isolated behind a stable adapter so a fully bundled CodeMirror surface can replace the current dependency-free textarea without coupling recovery or save logic to one widget. PDF export remains authoritative for MathJax, Mermaid, pagination, embedded fonts, and print layout.
+
+## Guided UX and Accessibility
+
+Mardas Studio now includes a first-run onboarding flow, local document templates, searchable settings, contextual help, and a keyboard command palette. These features are fully bundled with the desktop frontend and do not depend on a CDN or network connection.
+
+Interface preferences are stored locally and include system/light/dark appearance, comfortable or enlarged content density, reduced-motion behavior, automatic preview, and Persian/English interface language. The Start Center exposes reusable templates for blank documents, reports, academic writing, and technical documents so a new user can begin without writing YAML front matter first.
+
+Keyboard and accessibility contracts include a skip-to-content link, visible focus treatment, labelled form controls and icon buttons, modal focus trapping with focus restoration, Escape handling where safe, ARIA live feedback, and keyboard entry points such as `Ctrl/Cmd+Shift+P` for the command palette and `F1` for Help. Structural accessibility is audited in CI, and a browser-backed desktop UX smoke runs against the built frontend on CI runners where Chromium navigation is available.
 
 A Windows release now produces:
 
@@ -94,7 +102,7 @@ Verify the frozen executable, internal SHA-256 manifest, bundled browser, JSON-R
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-1.27.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-MD2PDF-1.28.0-runtime-windows-x86_64 \
   --render
 ```
 
@@ -102,7 +110,7 @@ Build the native Windows installer after creating the standalone runtime:
 
 ```powershell
 python scripts/build_desktop_app.py `
-  --runtime build/standalone-runtime/Mardas-MD2PDF-1.27.0-runtime-windows-x86_64 `
+  --runtime build/standalone-runtime/Mardas-MD2PDF-1.28.0-runtime-windows-x86_64 `
   --clean
 ```
 

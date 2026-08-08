@@ -4,6 +4,26 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.28.0 - 2026-08-08
+
+### Added
+- Added a first-run desktop onboarding flow with document/book guidance, recovery and offline-safety explanations, restartable help, and local template-based document creation.
+- Added local document templates, searchable Settings and Help surfaces, and a keyboard command palette without introducing runtime CDN dependencies.
+- Added local interface preferences for system/light/dark appearance, content scale, reduced-motion behavior, automatic preview, and Persian/English UI language.
+
+### Changed
+- Made primary desktop actions discoverable from the top bar and command palette while keeping advanced publishing controls progressively disclosed.
+- Localized editor status, runtime state, tooltips, icon-only control names, and new UX surfaces in both Persian and English.
+- Improved responsive desktop layouts for the expanded authoring sidebar, templates, help, settings, and modal surfaces.
+
+### Accessibility
+- Added a skip-to-content link, visible keyboard focus treatment, accessible names for interactive controls, modal focus trapping and restoration, safe Escape handling, and ARIA live feedback.
+- Added reduced-motion and enlarged-content preferences without changing document or PDF content.
+
+### Tests
+- Added deterministic preference, template, command-palette, modal-focus, desktop UX, and accessibility contracts.
+- Added a structural accessibility audit to desktop CI and release gates, plus a browser-backed Chromium UX smoke in CI for onboarding, templates, settings, command navigation, and RTL behavior.
+
 ## 1.27.0 - 2026-08-06
 
 ### Added

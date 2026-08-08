@@ -5,7 +5,7 @@ The sidecar implements JSON-RPC 2.0, reads one UTF-8 request per line from `stdi
 ## Lifecycle
 
 ```json
-{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.27.0","pid":1234}}
+{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.28.0","pid":1234}}
 ```
 
 Recommended startup sequence:
