@@ -267,6 +267,25 @@ function closeHelp() {
   modalManager.close($("#help-modal"));
 }
 
+async function saveSupportBundle() {
+  try {
+    const path = await invoke("pick_support_bundle_output");
+    if (!path) {
+      toast(t("supportBundleCancelled"));
+      return;
+    }
+    const id = requestId("support");
+    const result = await invoke("sidecar_request", {
+      request_id: id,
+      method: "system.support_bundle",
+      params: { output_path: path },
+    });
+    toast(`${t("supportBundleSaved")} ${result?.output_path || path}`, "success");
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
 function setOnboardingStep(step) {
   state.onboardingStep = Math.max(0, Math.min(2, Number(step) || 0));
   $$("[data-onboarding-step]").forEach((section) => {
@@ -322,6 +341,7 @@ function commandDefinitions() {
     { id: "export", icon: "PDF", label: t("commandExport"), keywords: "pdf publish render", priority: 85, enabled: hasDocument, run: () => exportActiveDocument() },
     { id: "find", icon: "⌕", label: t("commandFind"), keywords: "find replace search", shortcut: "Ctrl F", priority: 60, enabled: hasDocument, run: () => openFind({ replace: false }) },
     { id: "settings", icon: "⚙", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
+    { id: "support-bundle", icon: "ZIP", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
     { id: "help", icon: "?", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
     { id: "home", icon: "⌂", label: t("commandHome"), keywords: "start home center", priority: 20, run: () => showView("start") },
   ];
@@ -2151,6 +2171,7 @@ function bindEvents() {
   });
   $("#close-help").addEventListener("click", closeHelp);
   $("#help-done").addEventListener("click", closeHelp);
+  $("#save-support-bundle").addEventListener("click", saveSupportBundle);
   $("#skip-onboarding").addEventListener("click", () => completeOnboarding({ runIntent: false }));
   $("#onboarding-next").addEventListener("click", onboardingNext);
   $("#onboarding-back").addEventListener("click", onboardingBack);

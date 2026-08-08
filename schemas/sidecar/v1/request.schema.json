@@ -28,6 +28,7 @@
       "enum": [
         "system.health",
         "system.capabilities",
+        "system.support_bundle",
         "system.shutdown",
         "job.cancel",
         "document.read",

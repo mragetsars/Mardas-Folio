@@ -28,6 +28,7 @@ from .markdown import (
 from .protocol import PROTOCOL_NAME, PROTOCOL_VERSION
 from .renderer import PdfOptions, RenderSession, build_html, convert
 from .runtime import resolved_chromium_path, runtime_info
+from .support import SupportBundleError, create_support_bundle
 from .workspace import (
     ProjectWorkspace,
     WorkspaceError,
@@ -49,7 +50,7 @@ from .workspace import (
 
 ProgressCallback = Callable[[str, float], None]
 CancellationCallback = Callable[[], bool]
-ENGINE_API_VERSION = "1.3.0"
+ENGINE_API_VERSION = "1.4.0"
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_IMPORTED_ASSET_BYTES = 64 * 1024 * 1024
 _ASSET_EXTENSIONS = {
@@ -812,6 +813,7 @@ class EngineService:
                 "system.health",
                 "system.capabilities",
                 "system.shutdown",
+                "system.support_bundle",
                 "job.cancel",
                 "document.read",
                 "document.save",
@@ -853,6 +855,18 @@ class EngineService:
         progress: ProgressCallback | None = None,
         cancelled: CancellationCallback | None = None,
     ) -> dict[str, Any]:
+        if method == "system.support_bundle":
+            _validate_params(params, {"output_path"})
+            try:
+                return create_support_bundle(
+                    Path(_required_string(params, "output_path")),
+                    engine_api_version=ENGINE_API_VERSION,
+                )
+            except SupportBundleError as exc:
+                raise EngineError(
+                    str(exc),
+                    code="MARDAS-SUPPORT-BUNDLE-ERROR",
+                ) from exc
         if method == "document.read":
             _validate_params(params, {"path"})
             return read_document(_required_string(params, "path"))

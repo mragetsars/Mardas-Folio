@@ -139,6 +139,15 @@ fn pick_document_asset() -> Option<String> {
 }
 
 #[tauri::command]
+fn pick_support_bundle_output() -> Option<String> {
+    rfd::FileDialog::new()
+        .add_filter("ZIP archive", &["zip"])
+        .set_file_name("Mardas-Studio-Support.zip")
+        .save_file()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
 fn pick_pdf_output(suggested_path: Option<String>) -> Option<String> {
     let mut dialog = rfd::FileDialog::new().add_filter("PDF document", &["pdf"]);
     if let Some(suggested) = suggested_path.filter(|value| !value.trim().is_empty()) {
@@ -267,6 +276,7 @@ fn main() {
             pick_project_directory,
             pick_document_asset,
             pick_pdf_output,
+            pick_support_bundle_output,
             open_path,
             reveal_path,
             sidecar_request,

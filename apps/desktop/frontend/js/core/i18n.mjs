@@ -28,8 +28,11 @@ Object.assign(fa,{
   keyboardShortcuts:"میانبرهای صفحه‌کلید",typeACommand:"یک فرمان بنویس…",navigate:"حرکت",runCommand:"اجرا",noCommands:"فرمانی پیدا نشد.",
   commandNewDocument:"سند جدید",commandOpenDocument:"باز کردن Markdown",commandOpenProject:"باز کردن پروژه",commandNewBook:"پروژه کتاب جدید",
   commandSave:"ذخیره سند",commandSaveAs:"ذخیره با نام",commandValidate:"بررسی سند",commandExport:"ساخت PDF",commandFind:"جست‌وجو در سند",
-  commandSettings:"باز کردن تنظیمات",commandHelp:"باز کردن راهنما",commandHome:"رفتن به صفحه شروع",
+  commandSettings:"باز کردن تنظیمات",commandHelp:"باز کردن راهنما",commandSupportBundle:"ساخت بسته پشتیبانی",commandHome:"رفتن به صفحه شروع",
   templateCreated:"سند از قالب آماده ساخته شد.",tourCompleted:"راهنمای شروع تکمیل شد.",
+  supportBundle:"بسته پشتیبانی",supportBundleHelp:"یک ZIP تشخیصی بدون محتوای سند، مسیر فایل‌ها یا متغیرهای محیطی بساز.",
+  saveSupportBundle:"ذخیره بسته پشتیبانی",supportBundleSaved:"بسته پشتیبانی ذخیره شد.",supportBundleCancelled:"ذخیره بسته پشتیبانی لغو شد.",
+  supportPrivacy:"این بسته محتوای سندها و مسیر فایل‌های شخصی را جمع‌آوری نمی‌کند.",
   lineShort:"خط",columnShort:"ستون",wordsLabel:"واژه",charactersLabel:"نویسه",sidecarUnavailableDetail:"موتور محلی در دسترس نیست",localRuntime:"محلی"
 });
 Object.assign(en,{
@@ -59,8 +62,11 @@ Object.assign(en,{
   keyboardShortcuts:"Keyboard shortcuts",typeACommand:"Type a command…",navigate:"Navigate",runCommand:"Run",noCommands:"No commands found.",
   commandNewDocument:"New document",commandOpenDocument:"Open Markdown",commandOpenProject:"Open project",commandNewBook:"New Book Project",
   commandSave:"Save document",commandSaveAs:"Save As",commandValidate:"Validate document",commandExport:"Export PDF",commandFind:"Find in document",
-  commandSettings:"Open settings",commandHelp:"Open help",commandHome:"Go to Start Center",
+  commandSettings:"Open settings",commandHelp:"Open help",commandSupportBundle:"Create support bundle",commandHome:"Go to Start Center",
   templateCreated:"Document created from template.",tourCompleted:"Onboarding completed.",
+  supportBundle:"Support bundle",supportBundleHelp:"Create a diagnostic ZIP without document contents, document paths, or environment variables.",
+  saveSupportBundle:"Save support bundle",supportBundleSaved:"Support bundle saved.",supportBundleCancelled:"Support bundle save was cancelled.",
+  supportPrivacy:"This bundle does not collect document contents or personal file paths.",
   lineShort:"Ln",columnShort:"Col",wordsLabel:"words",charactersLabel:"chars",sidecarUnavailableDetail:"local engine unavailable",localRuntime:"local"
 });
 const messages={fa,en};export function supportedLocale(value){return String(value||"").toLowerCase().startsWith("fa")?"fa":"en"}export function createTranslator(locale="fa"){let current=supportedLocale(locale);return{get locale(){return current},set locale(value){current=supportedLocale(value)},t(key){return messages[current][key]??messages.en[key]??key}}}

@@ -37,6 +37,7 @@ from .renderer import RenderCancelledError
 
 LOGGER = logging.getLogger("mardas_md2pdf.sidecar")
 _HEAVY_METHODS = {
+    "system.support_bundle",
     "document.read",
     "document.save",
     "document.list_assets",

@@ -95,3 +95,7 @@ html[data-theme="dark"] .step,html[data-theme="dark"] .summary{border-color:var(
 html[data-reduced-motion="reduce"] *,html[data-reduced-motion="reduce"] *::before,html[data-reduced-motion="reduce"] *::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
 @media(max-width:1100px){.template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:860px){.top-actions{gap:7px}.engine{display:none}.template-grid{grid-template-columns:1fr}.help-grid,.shortcut-table,.onboarding-choice,.shortcut-hints{grid-template-columns:1fr}.settings-section>label{grid-template-columns:1fr}.onboarding-card{padding:22px}.hero-actions{flex-wrap:wrap}}
+
+.support-panel{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:18px 0;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel-soft,#f6faf9)}
+.support-panel>div{min-width:0}.support-panel h3{margin:0 0 4px}.support-panel p{margin:0 0 4px;line-height:1.6;color:var(--text)}.support-panel small{display:block;color:var(--muted);line-height:1.5}
+@media(max-width:680px){.support-panel{align-items:stretch;flex-direction:column}.support-panel .button{width:100%}}
