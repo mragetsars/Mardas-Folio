@@ -119,6 +119,26 @@ fn pick_markdown_output(suggested_path: Option<String>) -> Option<String> {
 }
 
 #[tauri::command]
+fn pick_text_output(suggested_path: Option<String>) -> Option<String> {
+    let mut dialog = rfd::FileDialog::new().add_filter(
+        "Editable text",
+        &["txt", "toml", "json", "yaml", "yml", "bib"],
+    );
+    if let Some(suggested) = suggested_path.filter(|value| !value.trim().is_empty()) {
+        let path = PathBuf::from(suggested);
+        if let Some(parent) = path.parent().filter(|candidate| candidate.is_dir()) {
+            dialog = dialog.set_directory(parent);
+        }
+        if let Some(name) = path.file_name().and_then(|value| value.to_str()) {
+            dialog = dialog.set_file_name(name);
+        }
+    }
+    dialog
+        .save_file()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
 fn pick_project_directory() -> Option<String> {
     rfd::FileDialog::new()
         .pick_folder()
@@ -131,8 +151,8 @@ fn pick_document_asset() -> Option<String> {
         .add_filter(
             "Images and references",
             &[
-                "png", "jpg", "jpeg", "webp", "gif", "svg", "avif", "bmp", "bib",
-                "json", "yaml", "yml",
+                "png", "jpg", "jpeg", "webp", "gif", "svg", "avif", "bmp", "bib", "json", "yaml",
+                "yml",
             ],
         )
         .pick_file()
@@ -275,6 +295,7 @@ fn main() {
             pick_markdown_file,
             pick_markdown_files,
             pick_markdown_output,
+            pick_text_output,
             pick_project_directory,
             pick_document_asset,
             pick_pdf_output,
@@ -306,6 +327,16 @@ fn main() {
         .expect("failed to build Mardas Studio");
 
     app.run(|app, event| match event {
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Opened { urls } => {
+            let files = markdown_paths(
+                urls.into_iter()
+                    .filter_map(|url| url.to_file_path().ok())
+                    .map(|path| path.into_os_string()),
+                None,
+            );
+            queue_launch_files(app, files);
+        }
         tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. } => {
             app.state::<ManagedSidecar>().shutdown();
         }

@@ -1,16 +1,27 @@
+function escapeRegularExpression(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function findLiteralMatches(text, query, { limit = 10_000 } = {}) {
   const source = String(text ?? "");
   const needle = String(query ?? "");
   if (!needle) return [];
-  const haystack = source.toLocaleLowerCase();
-  const normalizedNeedle = needle.toLocaleLowerCase();
+
+  const numericLimit = Number(limit);
+  const maximum = Number.isFinite(numericLimit)
+    ? Math.max(0, Math.floor(numericLimit))
+    : 10_000;
+  if (!maximum) return [];
+
+  // Match against the original string so offsets always remain valid UTF-16
+  // selection positions. Lowercasing a Unicode string first is unsafe because
+  // characters such as U+0130 can expand into multiple code points.
+  const expression = new RegExp(escapeRegularExpression(needle), "giu");
   const matches = [];
-  let offset = 0;
-  while (offset <= haystack.length - normalizedNeedle.length && matches.length < limit) {
-    const index = haystack.indexOf(normalizedNeedle, offset);
-    if (index < 0) break;
-    matches.push({ start: index, end: index + normalizedNeedle.length });
-    offset = index + Math.max(1, normalizedNeedle.length);
+  for (const match of source.matchAll(expression)) {
+    const start = match.index ?? 0;
+    matches.push({ start, end: start + match[0].length });
+    if (matches.length >= maximum) break;
   }
   return matches;
 }

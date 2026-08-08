@@ -25,6 +25,7 @@ from mardas_md2pdf import __version__  # noqa: E402
 
 DESKTOP_ROOT = ROOT / "apps" / "desktop"
 TAURI_ROOT = DESKTOP_ROOT / "src-tauri"
+CARGO_LOCK = TAURI_ROOT / "Cargo.lock"
 DEFAULT_OUTPUT = ROOT / "build" / "desktop"
 
 
@@ -52,6 +53,11 @@ def require_tauri_cli() -> None:
         raise SystemExit(f"Unexpected Tauri CLI response: {completed.stdout.strip()}")
 
 
+def require_cargo_lock() -> None:
+    if CARGO_LOCK.is_symlink() or not CARGO_LOCK.is_file():
+        raise SystemExit("A regular committed src-tauri/Cargo.lock is required.")
+
+
 def build(args: argparse.Namespace) -> Path:
     if platform.system() != "Windows" and not args.allow_non_windows:
         raise SystemExit("The NSIS desktop installer must be built on Windows.")
@@ -64,12 +70,13 @@ def build(args: argparse.Namespace) -> Path:
     frontend = build_frontend(version=__version__)
     verify_frontend(frontend, expected_version=__version__)
     stage_runtime(runtime, expected_version=__version__)
+    require_cargo_lock()
     require_tauri_cli()
 
     environment = os.environ.copy()
     environment["MARDAS_DESKTOP_VERSION"] = __version__
     subprocess.run(
-        ["cargo", "tauri", "build", "--bundles", "nsis"],
+        ["cargo", "tauri", "build", "--bundles", "nsis", "--", "--locked"],
         cwd=TAURI_ROOT,
         env=environment,
         check=True,

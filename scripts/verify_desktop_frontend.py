@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import stat
 import sys
 from pathlib import Path, PurePosixPath
 
@@ -10,9 +11,11 @@ from build_desktop_frontend import MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, p
 
 
 def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[str, object]:
-    root = root.expanduser().resolve(strict=True)
-    if root.is_symlink() or not root.is_dir():
-        raise ValueError(f"Desktop frontend is missing or unsafe: {root}")
+    candidate = root.expanduser()
+    metadata = candidate.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+        raise ValueError(f"Desktop frontend is missing or unsafe: {candidate}")
+    root = candidate.resolve(strict=True)
     manifest_path = root / "frontend-manifest.json"
     if manifest_path.stat().st_size > MAX_FILE_BYTES:
         raise ValueError("Desktop frontend manifest exceeds the size limit")
@@ -55,7 +58,14 @@ def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[
         raise ValueError(
             f"Desktop frontend inventory mismatch; missing={sorted(names-actual)}, extra={sorted(actual-names)}"
         )
-    required = {"index.html", "styles.css", "js/main.mjs", "assets/app-icon.svg"}
+    required = {
+        "THIRD_PARTY_NOTICES.md",
+        "assets/app-icon.svg",
+        "index.html",
+        "js/main.mjs",
+        "js/vendor/codemirror-editor.bundle.mjs",
+        "styles.css",
+    }
     if not required.issubset(names):
         raise ValueError(f"Desktop frontend is missing required files: {sorted(required-names)}")
     index = (root / "index.html").read_text(encoding="utf-8")

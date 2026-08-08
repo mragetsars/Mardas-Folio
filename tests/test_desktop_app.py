@@ -29,6 +29,13 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _symlink_or_skip(link: Path, target: Path, *, directory: bool = False) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=directory)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symbolic links are unavailable: {exc}")
+
+
 def _synthetic_runtime(root: Path) -> Path:
     root.mkdir(parents=True)
     executable = root / ("mardas-sidecar.exe" if sys.platform == "win32" else "mardas-sidecar")
@@ -73,7 +80,8 @@ def test_tauri_configuration_is_native_and_versioned() -> None:
     assert windows_config["bundle"]["windows"]["webviewInstallMode"]["type"] == "offlineInstaller"
     assert windows_config["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
     assert macos_config["bundle"]["targets"] == ["dmg"]
-    assert macos_config["bundle"]["macOS"]["signingIdentity"] == "-"
+    assert "signingIdentity" not in macos_config["bundle"]["macOS"]
+    assert macos_config["bundle"]["macOS"]["minimumSystemVersion"] == "14.0"
     assert linux_config["bundle"]["targets"] == ["appimage", "deb"]
     assert {"icons/icon.icns", "icons/icon.ico", "icons/icon.png"} <= set(config["bundle"]["icon"])
     assert 'name = "mardas-studio"' in cargo
@@ -220,6 +228,30 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
     assert index.count("http://ipc.localhost") == 1
 
 
+def test_professional_editor_is_locked_bundled_and_offline() -> None:
+    package = json.loads((DESKTOP / "package.json").read_text(encoding="utf-8"))
+    lock = json.loads((DESKTOP / "package-lock.json").read_text(encoding="utf-8"))
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    bundle = DESKTOP / "frontend" / "js" / "vendor" / "codemirror-editor.bundle.mjs"
+    notices = (DESKTOP / "frontend" / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+
+    assert package["version"] == __version__
+    assert package["private"] is True
+    assert package["dependencies"]["codemirror"] == "6.0.2"
+    assert all(
+        not str(version).startswith(("^", "~", ">", "<", "*"))
+        for group in ("dependencies", "devDependencies")
+        for version in package[group].values()
+    )
+    assert lock["lockfileVersion"] == 3
+    assert lock["packages"][""]["version"] == __version__
+    assert 100_000 < bundle.stat().st_size < 2_000_000
+    assert 'import("./vendor/codemirror-editor.bundle.mjs")' in main
+    assert "createCodeMirrorEditorAdapter" in main
+    assert "CodeMirror 6" in notices
+    assert "MIT License" in notices
+
+
 def test_frontend_build_is_atomic_and_does_not_remove_working_directory(tmp_path: Path) -> None:
     source = DESKTOP / "frontend"
     output = tmp_path / "dist"
@@ -230,6 +262,19 @@ def test_frontend_build_is_atomic_and_does_not_remove_working_directory(tmp_path
     assert survivor.read_text(encoding="utf-8") == "keep"
     assert payload["version"] == __version__
     assert __version__ in (built / "index.html").read_text(encoding="utf-8")
+
+
+def test_frontend_verifier_rejects_symlink_root(tmp_path: Path) -> None:
+    built = build_frontend(
+        DESKTOP / "frontend",
+        tmp_path / "real-frontend",
+        version=__version__,
+    )
+    link = tmp_path / "linked-frontend"
+    _symlink_or_skip(link, built, directory=True)
+
+    with pytest.raises(ValueError, match="missing or unsafe"):
+        verify_frontend(link, expected_version=__version__)
 
 
 def test_runtime_staging_is_verified_and_atomic(tmp_path: Path) -> None:
@@ -254,6 +299,18 @@ def test_installer_verifier_accepts_versioned_pe_payload(tmp_path: Path) -> None
     assert payload["version"] == __version__
     assert payload["architecture"] == "x86_64"
     assert payload["sha256"] == _sha256(path)
+
+
+def test_installer_verifier_rejects_symlink_input(tmp_path: Path) -> None:
+    name = f"Mardas-Studio-{__version__}-windows-x86_64-setup.exe"
+    target = tmp_path / "real" / name
+    target.parent.mkdir()
+    target.write_bytes(b"MZ" + b"\0" * (MIN_INSTALLER_BYTES + 32))
+    link = tmp_path / name
+    _symlink_or_skip(link, target)
+
+    with pytest.raises(ValueError, match="missing or unsafe"):
+        verify_installer(link, expected_version=__version__)
 
 
 def test_node_frontend_contracts() -> None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
-import os
 import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -47,7 +46,11 @@ globalThis.__TAURI__ = {
           return {engine_version: "desktop-ui-audit", runtime: {platform: "browser-smoke"}};
         }
         if (args.method === "preview.document_text") {
-          return {html: "<h1 data-source-line='1'>Preview</h1>", source_map: []};
+          return {
+            body_html: "<style>body{display:none}</style><form><button>spoof</button></form><img src='https://example.invalid/tracker.png' srcset='https://example.invalid/tracker-2.png 2x' onerror='globalThis.__previewXss=true' style='position:fixed'><h1 id='preview-heading' data-source-line='1'>Preview</h1>",
+            source_map: [{id: "preview-heading", line: 1, level: 1, title: "Preview"}],
+            diagnostics: []
+          };
         }
         if (args.method === "validate.document_text") return {diagnostics: [], valid: true};
         return {};
@@ -75,6 +78,7 @@ def run_audit(
     output_dir.mkdir(parents=True, exist_ok=True)
     checks: dict[str, object] = {}
     page_errors: list[str] = []
+    console_issues: list[str] = []
     with serve(dist) as url, sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             headless=True,
@@ -85,6 +89,12 @@ def run_audit(
         page.set_default_timeout(timeout_ms)
         page.add_init_script(INIT_SCRIPT)
         page.on("pageerror", lambda error: page_errors.append(str(error)))
+        page.on(
+            "console",
+            lambda message: console_issues.append(f"{message.type}: {message.text}")
+            if message.type in {"error", "warning"}
+            else None,
+        )
         page.goto(url, wait_until="networkidle")
 
         checks["onboarding_visible"] = _visible(page, "#onboarding-modal")
@@ -100,11 +110,44 @@ def run_audit(
         checks["workspace_active"] = page.locator("#workspace-view").evaluate(
             "(node) => node.classList.contains('active')"
         )
+        page.locator(".codemirror-mount .cm-editor").wait_for(state="visible")
+        checks["professional_editor"] = (
+            page.locator(".editor-surface").get_attribute("data-editor") == "codemirror"
+        )
+        checks["editor_line_numbers"] = page.locator(".cm-lineNumbers .cm-gutterElement").count() > 0
         editor = page.locator("#markdown-editor")
         checks["template_content"] = "# Executive Summary" in editor.input_value()
+        page.locator(".codemirror-mount .cm-content").click()
+        page.keyboard.press("Control+End")
+        page.keyboard.insert_text("\n\nمتن فارسی and English")
+        checks["professional_editor_input"] = (
+            "متن فارسی and English" in editor.input_value()
+        )
+        page.locator("#preview-preview-heading").wait_for(state="visible")
+        checks["preview_contract"] = page.locator("#preview-preview-heading").inner_text() == "Preview"
+        checks["preview_sanitized"] = page.evaluate(
+            """() => {
+              const preview = document.querySelector('#preview-document');
+              const image = preview?.querySelector('img');
+              return !globalThis.__previewXss
+                && !preview?.querySelector('style,form,button')
+                && image
+                && !image.hasAttribute('src')
+                && !image.hasAttribute('srcset')
+                && !image.hasAttribute('style')
+                && !image.hasAttribute('onerror');
+            }"""
+        )
+        active_tab = page.locator(".document-tab .tab-activate[aria-selected='true']")
+        checks["accessible_document_tab"] = (
+            active_tab.count() == 1 and active_tab.get_attribute("tabindex") == "0"
+        )
 
         page.locator("#settings-button").click()
         checks["settings_visible"] = _visible(page, "#settings-modal")
+        tab_count = page.locator(".document-tab").count()
+        page.keyboard.press("Control+N")
+        checks["modal_shortcuts_blocked"] = page.locator(".document-tab").count() == tab_count
         page.locator("#setting-theme").select_option("dark")
         page.locator("#setting-motion").select_option("reduce")
         page.locator("#settings-form button[type='submit']").click()
@@ -127,14 +170,19 @@ def run_audit(
         page.screenshot(path=str(output_dir / "desktop-fa-dark.png"), full_page=True)
 
         checks["page_errors"] = page_errors
+        checks["console_issues"] = console_issues
         browser.close()
 
     required = {
         key: value
         for key, value in checks.items()
-        if key not in {"page_errors", "onboarding_focus"}
+        if key not in {"page_errors", "console_issues", "onboarding_focus"}
     }
-    passed = all(value is True for value in required.values()) and not page_errors
+    passed = (
+        all(value is True for value in required.values())
+        and not page_errors
+        and not console_issues
+    )
     payload = {
         "schema_version": 1,
         "status": "passed" if passed else "failed",

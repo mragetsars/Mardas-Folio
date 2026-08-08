@@ -1,12 +1,12 @@
 [package]
 name = "mardas-studio"
-version = "1.30.0"
+version = "1.31.0"
 description = "Native desktop shell for the Mardas MD2PDF publishing engine"
 authors = ["mragetsars <mragetsars@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/mragetsars/Mardas-MD2PDF"
 edition = "2021"
-rust-version = "1.77.2"
+rust-version = "1.97.1"
 
 [[bin]]
 name = "mardas-studio"

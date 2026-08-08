@@ -1,4 +1,15 @@
 const FRONT_MATTER_BOUNDARY = /^---\s*$/;
+const FENCE_MARKER = /^( {0,3})(`{3,}|~{3,})([^\r\n]*)$/;
+
+function fenceMarker(line) {
+  const match = FENCE_MARKER.exec(line);
+  if (!match) return null;
+  return {
+    character: match[2][0],
+    length: match[2].length,
+    trailing: match[3],
+  };
+}
 
 function stripMarkdown(value) {
   return String(value)
@@ -75,20 +86,25 @@ export function upsertFrontMatter(text, key, value) {
 export function extractOutline(text) {
   const outline = [];
   const lines = String(text ?? "").split(/\r?\n/);
-  let fenced = false;
-  let fence = "";
+  let fence = null;
   lines.forEach((line, index) => {
-    const marker = /^\s*(```+|~~~+)/.exec(line)?.[1];
-    if (marker) {
-      if (!fenced) {
-        fenced = true;
-        fence = marker[0];
-      } else if (marker[0] === fence) {
-        fenced = false;
+    const marker = fenceMarker(line);
+    if (!fence && marker) {
+      // CommonMark does not allow a backtick in the info string of a backtick
+      // fence. Tilde info strings have no equivalent restriction.
+      if (marker.character !== "`" || !marker.trailing.includes("`")) {
+        fence = marker;
       }
       return;
     }
-    if (fenced) return;
+    if (fence) {
+      const closesFence = marker
+        && marker.character === fence.character
+        && marker.length >= fence.length
+        && !marker.trailing.trim();
+      if (closesFence) fence = null;
+      return;
+    }
     const match = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
     if (!match) return;
     outline.push({ level: match[1].length, title: stripMarkdown(match[2]), line: index + 1 });

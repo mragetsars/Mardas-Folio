@@ -1,4 +1,5 @@
 import { basename } from "./export-request.mjs";
+import { pathIdentity } from "./path-identity.mjs";
 
 let untitledSequence = 1;
 
@@ -7,18 +8,29 @@ function cleanPath(value) {
 }
 
 export function pathKey(path) {
-  return cleanPath(path)?.replaceAll("\\", "/").toLocaleLowerCase() ?? null;
+  return pathIdentity(cleanPath(path));
 }
 
-export function createDocument({ path = null, content = "", revision = null, readOnly = false } = {}) {
+export function createDocument({
+  path = null,
+  content = "",
+  revision = null,
+  readOnly = false,
+  kind = "markdown",
+  persisted = null,
+} = {}) {
   const resolvedPath = cleanPath(path);
+  const initialContent = String(content ?? "");
   const title = resolvedPath ? basename(resolvedPath) : `Untitled ${untitledSequence++}`;
   return {
     id: globalThis.crypto?.randomUUID?.() ?? `doc-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     path: resolvedPath,
     title,
-    content: String(content ?? ""),
-    savedContent: String(content ?? ""),
+    content: initialContent,
+    savedContent: initialContent,
+    contentVersion: 0,
+    persisted: persisted === null ? Boolean(resolvedPath) : Boolean(persisted),
+    kind: typeof kind === "string" && kind.trim() ? kind.trim().toLowerCase() : "text",
     revision: typeof revision === "string" ? revision : null,
     readOnly: Boolean(readOnly),
     diagnostics: [],
@@ -29,11 +41,15 @@ export function createDocument({ path = null, content = "", revision = null, rea
 }
 
 export function documentDirty(document) {
-  return document.content !== document.savedContent;
+  return !document.persisted || document.content !== document.savedContent;
 }
 
 export function updateDocumentContent(document, content) {
-  document.content = String(content ?? "");
+  const next = String(content ?? "");
+  if (next !== document.content) {
+    document.content = next;
+    document.contentVersion = (Number(document.contentVersion) || 0) + 1;
+  }
   return document;
 }
 
@@ -41,9 +57,9 @@ export function markDocumentSaved(document, result, content = document.content) 
   document.path = cleanPath(result?.path) ?? document.path;
   document.title = document.path ? basename(document.path) : document.title;
   document.revision = typeof result?.revision === "string" ? result.revision : document.revision;
-  document.readOnly = Boolean(result?.read_only);
-  document.content = String(content ?? "");
-  document.savedContent = document.content;
+  if (typeof result?.read_only === "boolean") document.readOnly = result.read_only;
+  document.savedContent = String(content ?? "");
+  document.persisted = true;
   document.lastSavedAt = Date.now();
   return document;
 }
@@ -52,6 +68,11 @@ export function findDocumentByPath(documents, path) {
   const key = pathKey(path);
   if (!key) return null;
   return documents.find((document) => pathKey(document.path) === key) ?? null;
+}
+
+export function findSavePathCollision(documents, currentDocument, path) {
+  const existing = findDocumentByPath(documents, path);
+  return existing && existing !== currentDocument ? existing : null;
 }
 
 export function closeDocument(documents, id) {

@@ -61,3 +61,25 @@ test("modal manager makes background inert and restores focus", async () => {
   manager.destroy();
   delete globalThis.CustomEvent;
 });
+
+test("Escape uses the modal close callback for control-specific ARIA cleanup", async () => {
+  globalThis.CustomEvent = class { constructor(type) { this.type = type; } };
+  const documentRef = new Document();
+  const modal = new Element("modal");
+  modal.document = documentRef;
+  const reasons = [];
+  const manager = createModalManager(documentRef);
+  manager.open(modal, { onClose: (reason) => reasons.push(reason) });
+  await new Promise((resolve) => queueMicrotask(resolve));
+
+  let prevented = false;
+  documentRef.listeners.get("keydown")({
+    key: "Escape",
+    preventDefault: () => { prevented = true; },
+  });
+  assert.equal(prevented, true);
+  assert.deepEqual(reasons, ["escape"]);
+  assert.equal(manager.hasOpenModal(), false);
+  manager.destroy();
+  delete globalThis.CustomEvent;
+});

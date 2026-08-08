@@ -8,7 +8,9 @@ import {
   closeDocument,
   documentDirty,
   findDocumentByPath,
+  findSavePathCollision,
   markDocumentSaved,
+  pathKey,
   updateDocumentContent,
 } from "./core/documents.mjs";
 import {
@@ -30,6 +32,16 @@ import { prefixSelectedLines, replaceSelection, wrapSelection } from "./core/edi
 import { findLiteralMatches, replaceAllLiteral } from "./core/find-replace.mjs";
 import { createEditorAdapter } from "./core/editor-adapter.mjs";
 import {
+  captureDocumentContext,
+  captureProjectContext,
+  documentContextCurrent,
+  projectContextCurrent,
+} from "./core/request-context.mjs";
+import { createSaveCoordinator } from "./core/save-coordinator.mjs";
+import { beginCancellationHandoff } from "./core/task-handoff.mjs";
+import { inlineDiagnosticsForDocument } from "./core/diagnostics.mjs";
+import { bookTaskBlocked, claimBookTask } from "./core/book-task-state.mjs";
+import {
   DEFAULT_PREFERENCES,
   applyPreferences,
   readPreferences,
@@ -45,6 +57,7 @@ import {
   openProject,
   readProjectFile,
   refreshProject,
+  saveProjectFile,
   startProjectSearch,
 } from "./core/project-api.mjs";
 import {
@@ -62,7 +75,9 @@ import {
   listDocumentAssets,
   previewDocumentText,
   readDocument,
+  readTextDocument,
   saveDocument,
+  saveTextDocument,
   validateDocumentText,
 } from "./core/authoring-api.mjs";
 
@@ -79,20 +94,28 @@ const state = {
   documents: [],
   activeDocumentId: null,
   previewTimer: null,
-  recoveryTimer: null,
+  recoveryTimers: new Map(),
   previewSequence: 0,
+  validationSequence: 0,
+  assetSequence: 0,
   pendingRecovery: null,
   recoveryQueue: [],
   findMatches: [],
   findIndex: -1,
   activeSidebar: "outline",
   project: null,
+  projectGeneration: 0,
+  projectRequestSequence: 0,
+  projectFileRequests: new Map(),
+  documentOpenRequests: new Map(),
   projectSearchSequence: 0,
   activeProjectSearchRequestId: null,
   bibliographySequence: 0,
   bibliographyEntries: [],
   projectDiagnostics: [],
   activeBookRequestId: null,
+  activeBookCompletion: null,
+  bookCancellationHandoff: null,
   bookRequestSequence: 0,
   chapterModalMode: null,
   chapterModalPath: null,
@@ -110,8 +133,13 @@ const state = {
 };
 let editorAdapter = null;
 let modalManager = null;
+const saveCoordinator = createSaveCoordinator({ isDirty: documentDirty });
 const translator = createTranslator(state.locale);
 const t = (key) => translator.t(key);
+
+function currentEditor() {
+  return editorAdapter || $("#markdown-editor");
+}
 
 function requestId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -119,6 +147,41 @@ function requestId(prefix) {
 
 function activeDocument() {
   return state.documents.find((document) => document.id === state.activeDocumentId) ?? null;
+}
+
+function activeProjectPath() {
+  return state.project?.path ?? null;
+}
+
+function requestContext(model = activeDocument()) {
+  return captureDocumentContext(model, activeProjectPath());
+}
+
+function contextIsCurrent(context, options = {}) {
+  return documentContextCurrent(context, {
+    documents: state.documents,
+    activeDocumentId: state.activeDocumentId,
+    projectPath: activeProjectPath(),
+  }, options);
+}
+
+function currentProjectContext() {
+  return captureProjectContext(activeProjectPath(), state.projectGeneration);
+}
+
+function projectContextIsCurrent(context) {
+  return projectContextCurrent(context, {
+    projectPath: activeProjectPath(),
+    projectGeneration: state.projectGeneration,
+  });
+}
+
+function isMarkdownModel(model) {
+  return !model || ["markdown", "md"].includes(String(model.kind || "markdown").toLowerCase());
+}
+
+function isMarkdownPath(path) {
+  return /\.(?:md|markdown)$/i.test(String(path || ""));
 }
 
 function setLocale(value) {
@@ -142,6 +205,8 @@ function setLocale(value) {
   $$('[data-i18n-aria-label]').forEach((element) => {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
   });
+  editorAdapter?.setAriaLabel?.(t("markdownEditor"));
+  editorAdapter?.setLocale?.(state.locale);
   const localeSetting = $("#setting-locale");
   if (localeSetting) localeSetting.value = state.locale;
   renderPresets();
@@ -203,7 +268,7 @@ function createDocumentFromTemplate(templateId = "blank") {
   renderWorkspace();
   scheduleRecovery();
   schedulePreview(100);
-  (editorAdapter || $("#markdown-editor")).focus();
+  currentEditor().focus();
   toast(t("templateCreated"), "success");
   return model;
 }
@@ -474,6 +539,9 @@ function highlightCommand(index) {
     item.classList.toggle("active", active);
     item.setAttribute("aria-selected", String(active));
   });
+  const active = $("#command-list .command-item.active");
+  if (active) $("#command-query").setAttribute("aria-activedescendant", active.id);
+  else $("#command-query").removeAttribute("aria-activedescendant");
   $("#command-list .command-item.active")?.scrollIntoView?.({ block: "nearest" });
 }
 
@@ -484,6 +552,7 @@ function renderCommandPalette() {
   const container = $("#command-list");
   container.replaceChildren();
   if (!state.visibleCommands.length) {
+    $("#command-query").removeAttribute("aria-activedescendant");
     const empty = document.createElement("div");
     empty.className = "command-empty";
     empty.textContent = t("noCommands");
@@ -495,6 +564,7 @@ function renderCommandPalette() {
     button.type = "button";
     button.className = `command-item${index === state.commandIndex ? " active" : ""}`;
     button.dataset.commandId = command.id;
+    button.id = `command-option-${command.id}`;
     button.setAttribute("role", "option");
     button.setAttribute("aria-selected", String(index === state.commandIndex));
     button.innerHTML = "<i></i><span><strong></strong></span><kbd></kbd>";
@@ -508,6 +578,8 @@ function renderCommandPalette() {
     container.append(button);
   });
   container.querySelector(".command-item.active")?.scrollIntoView?.({ block: "nearest" });
+  const active = container.querySelector(".command-item.active");
+  if (active) $("#command-query").setAttribute("aria-activedescendant", active.id);
 }
 
 function openCommandPalette() {
@@ -515,7 +587,16 @@ function openCommandPalette() {
   state.commandIndex = 0;
   $("#command-query").value = "";
   renderCommandPalette();
-  modalManager.open($("#command-modal"), { initialFocus: "#command-query" });
+  $("#command-query").setAttribute("aria-expanded", "true");
+  modalManager.open($("#command-modal"), {
+    initialFocus: "#command-query",
+    onClose: resetCommandPaletteA11y,
+  });
+}
+
+function resetCommandPaletteA11y() {
+  $("#command-query").setAttribute("aria-expanded", "false");
+  $("#command-query").removeAttribute("aria-activedescendant");
 }
 
 function closeCommandPalette() {
@@ -809,22 +890,29 @@ function persistSession() {
 
 function tabElement(model) {
   const tab = window.document.createElement("div");
-  tab.tabIndex = 0;
   tab.className = `document-tab${model.id === state.activeDocumentId ? " active" : ""}${documentDirty(model) ? " dirty" : ""}`;
   tab.dataset.documentId = model.id;
-  tab.setAttribute("role", "tab");
-  tab.setAttribute("aria-selected", String(model.id === state.activeDocumentId));
-  tab.innerHTML = `<i class="dirty-dot"></i><span class="tab-name"></span><button class="tab-close" type="button" aria-label="${t("close")}">×</button>`;
+  tab.innerHTML = `<button class="tab-activate" type="button" role="tab"><i class="dirty-dot"></i><span class="tab-name"></span></button><button class="tab-close" type="button" aria-label="${t("close")}">×</button>`;
   tab.querySelector(".tab-name").textContent = model.title;
-  tab.addEventListener("click", (event) => {
-    if (event.target.closest(".tab-close")) return;
-    activateDocument(model.id);
-  });
-  tab.addEventListener("keydown", (event) => {
+  const activate = tab.querySelector(".tab-activate");
+  activate.tabIndex = model.id === state.activeDocumentId ? 0 : -1;
+  activate.setAttribute("aria-selected", String(model.id === state.activeDocumentId));
+  activate.addEventListener("click", () => activateDocument(model.id));
+  activate.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       activateDocument(model.id);
+      return;
     }
+    const index = state.documents.findIndex((item) => item.id === model.id);
+    let target = null;
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") target = state.documents[(index - 1 + state.documents.length) % state.documents.length];
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") target = state.documents[(index + 1) % state.documents.length];
+    if (event.key === "Home") target = state.documents[0];
+    if (event.key === "End") target = state.documents.at(-1);
+    if (!target) return;
+    event.preventDefault();
+    activateDocument(target.id);
   });
   tab.querySelector(".tab-close").addEventListener("click", (event) => {
     event.stopPropagation();
@@ -847,14 +935,20 @@ function setSaveState(kind) {
 }
 
 function updateLineGutter() {
-  const editor = $("#markdown-editor");
+  const editor = currentEditor();
+  const gutter = $("#line-gutter");
+  if (editorAdapter?.usesNativeLineNumbers) {
+    gutter.hidden = true;
+    return;
+  }
+  gutter.hidden = false;
   const lines = Math.max(1, editor.value.split("\n").length);
-  $("#line-gutter").textContent = Array.from({ length: lines }, (_, index) => index + 1).join("\n");
-  $("#line-gutter").scrollTop = editor.scrollTop;
+  gutter.textContent = Array.from({ length: lines }, (_, index) => index + 1).join("\n");
+  gutter.scrollTop = editor.scrollTop;
 }
 
 function updateEditorMetrics() {
-  const editor = $("#markdown-editor");
+  const editor = currentEditor();
   const metrics = textMetrics(editor.value, editor.selectionStart);
   $("#cursor-status").textContent = `${t("lineShort")} ${metrics.line}, ${t("columnShort")} ${metrics.column}`;
   $("#word-status").textContent = `${metrics.words} ${t("wordsLabel")} · ${metrics.characters} ${t("charactersLabel")}`;
@@ -893,7 +987,7 @@ function loadFrontMatterForm(model) {
 
 function renderCitations(model) {
   const used = extractCitationKeys(model?.content || "");
-  if (state.project) {
+  if (state.project?.path && model?.projectPath === state.project.path) {
     renderBibliographyEntries(state.bibliographyEntries, used);
     return;
   }
@@ -923,8 +1017,11 @@ function renderProblems(model) {
   const diagnostics = [
     ...(Array.isArray(model?.diagnostics) ? model.diagnostics : []),
     ...(Array.isArray(model?.bibliographyDiagnostics) ? model.bibliographyDiagnostics : []),
-    ...(Array.isArray(state.projectDiagnostics) ? state.projectDiagnostics : []),
+    ...(model?.projectPath === state.project?.path && Array.isArray(state.projectDiagnostics)
+      ? state.projectDiagnostics
+      : []),
   ];
+  editorAdapter?.setDiagnostics?.(inlineDiagnosticsForDocument(diagnostics, model));
   $("#problem-count").textContent = String(diagnostics.length);
   const list = $("#problem-list");
   list.replaceChildren();
@@ -972,10 +1069,32 @@ function renderAssets(items = []) {
   }
 }
 
+function updateAuthoringMode(model) {
+  const hasDocument = Boolean(model);
+  const markdown = isMarkdownModel(model);
+  const editable = hasDocument && !model.readOnly;
+  $("#workspace-save").disabled = !editable;
+  $("#workspace-save-as").disabled = !hasDocument;
+  for (const element of $$('[data-editor-command], #workspace-import-asset, #import-asset, #refresh-assets')) {
+    element.disabled = !editable || !markdown;
+  }
+  for (const selector of ["#workspace-validate", "#workspace-export", "#refresh-preview", "#auto-preview"]) {
+    $(selector).disabled = !hasDocument || !markdown;
+  }
+  for (const name of ["frontmatter", "assets", "citations"]) {
+    const button = $(`[data-sidebar="${name}"]`);
+    if (button) button.disabled = !hasDocument || !markdown;
+  }
+  $("#frontmatter-form")?.querySelectorAll("input,select,button").forEach((element) => {
+    element.disabled = !editable || !markdown;
+  });
+  $("#workspace-view")?.classList.toggle("plain-text-mode", hasDocument && !markdown);
+}
+
 function renderWorkspace() {
   const model = activeDocument();
   renderDocumentTabs();
-  const editor = editorAdapter || $("#markdown-editor");
+  const editor = currentEditor();
   renderProjectWorkspace();
   renderBookWorkspace();
   if (!model) {
@@ -986,18 +1105,20 @@ function renderWorkspace() {
     renderOutline(null);
     renderCitations(null);
     renderProblems(null);
+    updateAuthoringMode(null);
     return;
   }
-  editor.disabled = false;
+  editor.disabled = model.readOnly;
+  updateAuthoringMode(model);
   if (editor.value !== model.content) editor.value = model.content;
   $("#editor-title").textContent = model.title;
   $("#editor-path").textContent = model.path || t("untitled");
   setSaveState(documentDirty(model) ? "dirty" : "saved");
   updateLineGutter();
   updateEditorMetrics();
-  renderOutline(model);
-  loadFrontMatterForm(model);
-  renderCitations(model);
+  renderOutline(isMarkdownModel(model) ? model : null);
+  if (isMarkdownModel(model)) loadFrontMatterForm(model);
+  renderCitations(isMarkdownModel(model) ? model : null);
   renderProblems(model);
   renderPreview(model);
 }
@@ -1006,9 +1127,12 @@ function activateDocument(id) {
   const model = state.documents.find((document) => document.id === id);
   if (!model) return;
   state.activeDocumentId = id;
+  state.validationSequence += 1;
+  state.assetSequence += 1;
+  state.bibliographySequence += 1;
   persistSession();
   renderWorkspace();
-  (editorAdapter || $("#markdown-editor")).focus();
+  currentEditor().focus();
   schedulePreview(80);
   if (model.path) refreshAssets();
 }
@@ -1021,7 +1145,7 @@ function createUntitledDocument() {
   renderWorkspace();
   scheduleRecovery();
   schedulePreview(120);
-  (editorAdapter || $("#markdown-editor")).focus();
+  currentEditor().focus();
 }
 
 async function openAuthoringPaths(paths) {
@@ -1035,9 +1159,23 @@ async function openAuthoringPaths(paths) {
       continue;
     }
     try {
-      const result = await readDocument(path);
-      const model = createDocument({ path: result.path, content: result.content, revision: result.revision, readOnly: result.read_only });
-      state.documents.push(model);
+      const key = pathKey(path) || String(path);
+      let request = state.documentOpenRequests.get(key);
+      if (!request) {
+        const readStandalone = isMarkdownPath(path) ? readDocument : readTextDocument;
+        request = readStandalone(path).finally(() => state.documentOpenRequests.delete(key));
+        state.documentOpenRequests.set(key, request);
+      }
+      const result = await request;
+      const duplicate = findDocumentByPath(state.documents, result.path);
+      const model = duplicate || createDocument({
+        path: result.path,
+        content: result.content,
+        revision: result.revision,
+        readOnly: result.read_only,
+        kind: result.kind || (isMarkdownPath(result.path) ? "markdown" : "text"),
+      });
+      if (!duplicate) state.documents.push(model);
       state.activeDocumentId = model.id;
       saveRecent(model.path);
       const recovery = recoveryForPath(model.path);
@@ -1072,8 +1210,15 @@ async function chooseProjectDirectory() {
 }
 
 async function loadProject(path, { announce = true, openFirstChapter = true } = {}) {
+  const handoff = pathKey(path) !== pathKey(state.project?.path)
+    ? invalidateBookTaskForProjectChange()
+    : Promise.resolve(true);
+  const sequence = ++state.projectRequestSequence;
   await cancelActiveProjectSearch({ announce: false });
+  await handoff;
+  if (sequence !== state.projectRequestSequence) return null;
   const payload = await openProject(path);
+  if (sequence !== state.projectRequestSequence) return null;
   applyProjectPayload(payload);
   state.bibliographyEntries = [];
   showView("workspace");
@@ -1092,8 +1237,12 @@ async function refreshActiveProject() {
     return;
   }
   try {
+    const projectPath = state.project.path;
+    const sequence = ++state.projectRequestSequence;
     await cancelActiveProjectSearch({ announce: false });
-    applyProjectPayload(await refreshProject(state.project.path));
+    const payload = await refreshProject(projectPath);
+    if (sequence !== state.projectRequestSequence || state.project?.path !== projectPath) return;
+    applyProjectPayload(payload);
     toast(t("projectRefreshed"), "success");
   } catch (error) {
     toast(errorText(error), "error");
@@ -1135,23 +1284,50 @@ function renderProjectWorkspace() {
 }
 
 async function openProjectRelativeFile(relativePath, { line = null, column = 1 } = {}) {
-  if (!state.project?.path) return;
+  const projectPath = state.project?.path;
+  const projectGeneration = state.projectGeneration;
+  if (!projectPath) return;
   try {
-    const result = await readProjectFile(state.project.path, relativePath);
+    const requestKey = `${projectGeneration}:${relativePath}`;
+    let request = state.projectFileRequests.get(requestKey);
+    if (!request) {
+      request = readProjectFile(projectPath, relativePath)
+        .finally(() => state.projectFileRequests.delete(requestKey));
+      state.projectFileRequests.set(requestKey, request);
+    }
+    const result = await request;
+    if (state.project?.path !== projectPath || state.projectGeneration !== projectGeneration) return;
     const existing = findDocumentByPath(state.documents, result.absolute_path);
     let model = existing;
+    const file = state.project.files?.find((item) => item.path === result.path || item.path === relativePath);
+    const kind = result.kind || file?.kind || "text";
     if (!model) {
       model = createDocument({
         path: result.absolute_path,
         content: result.content,
         revision: result.revision,
         readOnly: result.read_only,
+        kind,
       });
-      model.projectPath = state.project.path;
-      model.projectRelativePath = result.path;
-      model.projectSha256 = result.sha256;
       state.documents.push(model);
+    } else if (result.content !== model.savedContent) {
+      if (documentDirty(model)) {
+        state.activeDocumentId = model.id;
+        renderWorkspace();
+        toast(t("projectFileConflict"), "error");
+        return;
+      }
+      updateDocumentContent(model, result.content);
+      markDocumentSaved(model, {
+        path: result.absolute_path,
+        revision: result.revision,
+        read_only: result.read_only,
+      }, result.content);
     }
+    model.kind = kind;
+    model.projectPath = projectPath;
+    model.projectRelativePath = result.path;
+    model.projectSha256 = result.sha256;
     state.activeDocumentId = model.id;
     showView("workspace");
     renderWorkspace();
@@ -1263,7 +1439,15 @@ async function runProjectSearch() {
 function applyProjectPayload(payload) {
   const project = payload?.project || payload;
   if (!project?.path) return null;
+  if (pathKey(project.path) !== pathKey(state.project?.path)) {
+    invalidateBookTaskForProjectChange();
+  }
   state.project = project;
+  state.projectGeneration += 1;
+  state.bibliographySequence += 1;
+  state.assetSequence += 1;
+  state.validationSequence += 1;
+  state.previewSequence += 1;
   state.projectDiagnostics = Array.isArray(project.diagnostics) ? project.diagnostics : [];
   persistSession();
   renderProjectWorkspace();
@@ -1324,7 +1508,9 @@ async function submitNewBookProject(event) {
   }
   const submit = event.submitter || $("#book-project-form button[type='submit']");
   submit.disabled = true;
+  const handoff = invalidateBookTaskForProjectChange();
   try {
+    await handoff;
     const project = await createBookProject({
       parentPath,
       folderName,
@@ -1383,6 +1569,30 @@ function setBookOperationStatus(message = "", { kind = "info", running = false }
   container.dataset.kind = kind;
   text.textContent = message;
   cancel.classList.toggle("hidden", !running);
+  syncBookOperationControls();
+}
+
+function syncBookOperationControls() {
+  const locked = bookTaskBlocked(state);
+  const tools = $("#book-tools");
+  if (locked) tools?.setAttribute("aria-busy", "true");
+  else tools?.removeAttribute("aria-busy");
+  for (const control of $$(
+    "#book-add-chapter, #book-validate, #book-preview, #book-export, #book-chapter-list button",
+  )) {
+    if (locked) {
+      if (!("bookDisabledBeforeLock" in control.dataset)) {
+        control.dataset.bookDisabledBeforeLock = String(control.disabled);
+      }
+      control.disabled = true;
+    } else if ("bookDisabledBeforeLock" in control.dataset) {
+      control.disabled = control.dataset.bookDisabledBeforeLock === "true";
+      delete control.dataset.bookDisabledBeforeLock;
+    }
+  }
+  $$("#book-chapter-list .book-chapter-row").forEach((row) => {
+    row.draggable = !locked;
+  });
 }
 
 async function cancelActiveBookOperation() {
@@ -1396,17 +1606,68 @@ async function cancelActiveBookOperation() {
   }
 }
 
-async function runBookTask(task, {
+function invalidateBookTaskForProjectChange() {
+  const requestId = state.activeBookRequestId;
+  const completion = state.activeBookCompletion;
+  state.bookRequestSequence += 1;
+  state.activeBookRequestId = null;
+  state.activeBookCompletion = null;
+  setBookOperationStatus("");
+  if (!requestId && !completion) {
+    syncBookOperationControls();
+    return state.bookCancellationHandoff || Promise.resolve(true);
+  }
+  const handoff = beginCancellationHandoff({
+    completion,
+    cancel: requestId ? () => cancelSidecarRequest(requestId) : null,
+  });
+  let trackedHandoff;
+  trackedHandoff = handoff.finally(() => {
+    if (state.bookCancellationHandoff === trackedHandoff) {
+      state.bookCancellationHandoff = null;
+    }
+    syncBookOperationControls();
+  });
+  state.bookCancellationHandoff = trackedHandoff;
+  syncBookOperationControls();
+  return trackedHandoff;
+}
+
+function clearProjectState() {
+  invalidateBookTaskForProjectChange();
+  state.project = null;
+  state.projectGeneration += 1;
+  state.projectDiagnostics = [];
+  state.bibliographyEntries = [];
+  state.bibliographySequence += 1;
+  state.assetSequence += 1;
+  state.validationSequence += 1;
+  state.previewSequence += 1;
+}
+
+async function runBookTask(startTask, {
   successMessage = "",
   onSuccess = null,
   showProblems = false,
 } = {}) {
+  const task = claimBookTask(state, startTask);
+  if (!task) {
+    toast(t("bookOperationAlreadyRunning"), "warning");
+    syncBookOperationControls();
+    return null;
+  }
+  const projectContext = currentProjectContext();
   const sequence = ++state.bookRequestSequence;
-  state.activeBookRequestId = task.requestId;
+  const taskPromise = task.promise;
   setBookOperationStatus(t("bookOperationRunning"), { running: true });
   try {
-    const result = await task.promise;
-    if (sequence !== state.bookRequestSequence) return null;
+    const result = await taskPromise;
+    if (sequence !== state.bookRequestSequence || !projectContextIsCurrent(projectContext)) {
+      return null;
+    }
+    if (result?.project?.path && pathKey(result.project.path) !== projectContext.projectIdentity) {
+      return null;
+    }
     if (result?.project) applyProjectPayload(result.project);
     if (typeof onSuccess === "function") await onSuccess(result);
     setBookOperationStatus(successMessage || t("bookValid"), { kind: "success" });
@@ -1414,7 +1675,9 @@ async function runBookTask(task, {
     if (showProblems) activateSidebar("problems");
     return result;
   } catch (error) {
-    if (sequence !== state.bookRequestSequence) return null;
+    if (sequence !== state.bookRequestSequence || !projectContextIsCurrent(projectContext)) {
+      return null;
+    }
     const payload = errorPayload(error);
     const applicationCode =
       payload?.application_code
@@ -1440,8 +1703,10 @@ async function runBookTask(task, {
   } finally {
     if (sequence === state.bookRequestSequence) {
       state.activeBookRequestId = null;
+      state.activeBookCompletion = null;
       $("#book-cancel-operation")?.classList.add("hidden");
     }
+    syncBookOperationControls();
   }
 }
 
@@ -1584,16 +1849,20 @@ function renderBookWorkspace() {
   tools.classList.toggle("hidden", !enabled);
   $("#book-chapter-count").textContent = String(book?.chapter_count || 0);
   list.replaceChildren();
-  if (!book) return;
+  if (!book) {
+    syncBookOperationControls();
+    return;
+  }
   $("#book-project-title").textContent = book.title || state.project.name || t("bookProject");
   $("#book-output-path").textContent = book.output || "dist/book.pdf";
   const chapters = Array.isArray(book.chapters) ? book.chapters : [];
   list.replaceChildren(...chapters.map((chapter, index) => bookChapterRow(chapter, index, chapters)));
+  syncBookOperationControls();
 }
 
 async function validateActiveBook() {
   if (!state.project?.path || !bookProject()) return;
-  await runBookTask(startBookValidation(state.project.path), {
+  await runBookTask(() => startBookValidation(state.project.path), {
     successMessage: t("bookValid"),
     showProblems: true,
   });
@@ -1603,11 +1872,8 @@ function renderFullBookPreview(html) {
   const parsed = new DOMParser().parseFromString(String(html || ""), "text/html");
   const container = $("#preview-document");
   container.replaceChildren();
-  parsed.head.querySelectorAll("style").forEach((source) => {
-    const style = document.createElement("style");
-    style.textContent = source.textContent || "";
-    container.append(style);
-  });
+  // Full renderer styles target html/body and must never escape into the desktop
+  // shell. The authoring preview uses the app's isolated preview stylesheet.
   container.append(safePreviewHtml(parsed.body.innerHTML));
   $("#preview-detail").textContent = t("fullBookPreview");
   document.body.classList.add("book-preview-mode");
@@ -1615,7 +1881,7 @@ function renderFullBookPreview(html) {
 
 async function previewActiveBook() {
   if (!state.project?.path || !bookProject()) return;
-  await runBookTask(startBookPreview(state.project.path), {
+  await runBookTask(() => startBookPreview(state.project.path), {
     successMessage: t("bookPreviewReady"),
     onSuccess: (result) => renderFullBookPreview(result.html),
   });
@@ -1635,7 +1901,7 @@ async function exportActiveBook() {
     return;
   }
   if (!outputPath) return;
-  await runBookTask(startBookExport({
+  await runBookTask(() => startBookExport({
     projectPath: project.path,
     outputPath,
   }), {
@@ -1663,7 +1929,7 @@ function renderBibliographyEntries(entries, usedKeys = []) {
   for (const entry of state.bibliographyEntries) {
     const key = entry.key || entry.id;
     if (!key) continue;
-    const cited = Boolean(entry.cited || usedKeys.includes(key));
+    const cited = usedKeys.includes(key);
     const row = document.createElement("div");
     row.className = "tool-item citation-entry";
     row.dataset.cited = String(cited);
@@ -1683,19 +1949,21 @@ function renderBibliographyEntries(entries, usedKeys = []) {
 async function refreshBibliography() {
   const model = activeDocument();
   const used = extractCitationKeys(model?.content || "");
-  if (!state.project?.path) {
+  if (!state.project?.path || model?.projectPath !== state.project.path) {
     renderCitations(model);
     return;
   }
   const sequence = ++state.bibliographySequence;
+  const context = requestContext(model);
+  const projectPath = state.project.path;
   try {
     const result = await bibliographyIndex({
-      projectPath: state.project.path,
+      projectPath,
       query: $("#citation-search").value.trim(),
       citedKeys: used,
       maxResults: 500,
     });
-    if (sequence !== state.bibliographySequence) return;
+    if (sequence !== state.bibliographySequence || !contextIsCurrent(context)) return;
     renderBibliographyEntries(result.entries, used);
     if (model) {
       model.bibliographyDiagnostics = Array.isArray(result.diagnostics)
@@ -1704,7 +1972,7 @@ async function refreshBibliography() {
       renderProblems(model);
     }
   } catch (error) {
-    if (sequence !== state.bibliographySequence) return;
+    if (sequence !== state.bibliographySequence || !contextIsCurrent(context)) return;
     toast(errorText(error), "error");
   }
 }
@@ -1738,43 +2006,110 @@ function resolveRecovery(restore) {
 async function saveActiveDocument({ saveAs = false, force = false } = {}) {
   const model = activeDocument();
   if (!model) return false;
+  return saveCoordinator.save(
+    model,
+    () => persistDocumentModel(model, { saveAs, force }),
+    { alwaysRun: saveAs },
+  );
+}
+
+async function persistDocumentModel(model, { saveAs = false, force = false } = {}) {
+  if (!state.documents.includes(model)) return false;
+  if (model.readOnly && !saveAs) {
+    toast(t("readOnlyDocument"), "error");
+    return false;
+  }
   let path = model.path;
   if (!path || saveAs) {
     try {
-      path = await invoke("pick_markdown_output", { suggested_path: model.path || `${model.title.replace(/\s+/g, "-")}.md` });
+      const picker = isMarkdownModel(model) ? "pick_markdown_output" : "pick_text_output";
+      path = await invoke(picker, {
+        suggested_path: model.path || `${model.title.replace(/\s+/g, "-")}.md`,
+      });
     } catch (error) {
-      toast(errorText(error), "error");
+      if (activeDocument()?.id === model.id) toast(errorText(error), "error");
       return false;
     }
     if (!path) return false;
   }
-  setSaveState("saving");
+  const collision = findSavePathCollision(state.documents, model, path);
+  if (collision) {
+    activateDocument(collision.id);
+    toast(t("saveAsPathAlreadyOpen"), "error");
+    return false;
+  }
+  if (activeDocument()?.id === model.id) setSaveState("saving");
+  const contentSnapshot = model.content;
+  const isProjectSave = !saveAs && Boolean(model.projectPath && model.projectRelativePath);
   try {
     const previousRecoveryKey = recoveryKey(model);
-    const result = await saveDocument({
-      path,
-      content: model.content,
-      expectedRevision: path === model.path ? model.revision : null,
-      force,
-    });
-    markDocumentSaved(model, result);
+    let result;
+    if (isProjectSave) {
+      result = await saveProjectFile({
+        projectPath: model.projectPath,
+        relativePath: model.projectRelativePath,
+        content: contentSnapshot,
+        expectedSha256: model.projectSha256,
+      });
+      model.projectSha256 = result.sha256;
+      markDocumentSaved(model, {
+        path: result.absolute_path || model.path,
+        revision: result.revision,
+        read_only: result.read_only,
+      }, contentSnapshot);
+    } else {
+      const saveStandalone = isMarkdownModel(model) ? saveDocument : saveTextDocument;
+      result = await saveStandalone({
+        path,
+        content: contentSnapshot,
+        expectedRevision: pathKey(path) === pathKey(model.path) ? model.revision : null,
+        force,
+      });
+      markDocumentSaved(model, result, contentSnapshot);
+      if (saveAs && model.projectPath) {
+        delete model.projectPath;
+        delete model.projectRelativePath;
+        delete model.projectSha256;
+      }
+    }
     removeRecovery(previousRecoveryKey);
-    removeRecovery(model);
+    if (documentDirty(model)) saveRecovery(model);
+    else {
+      removeRecovery(model);
+      cancelRecoveryTimer(model);
+    }
     saveRecent(model.path);
     persistSession();
-    renderWorkspace();
-    toast(t("documentSaved"), "success");
+    if (activeDocument()?.id === model.id) {
+      renderWorkspace();
+      toast(t("documentSaved"), "success");
+    } else {
+      renderDocumentTabs();
+    }
+    if (isProjectSave && model.projectRelativePath === "mardas.toml") {
+      void refreshActiveProject();
+    }
     return true;
   } catch (error) {
     const payload = errorPayload(error);
-    if (payload?.code === "MARDAS-DOCUMENT-CONFLICT" || payload?.application_code === "MARDAS-DOCUMENT-CONFLICT") {
-      setSaveState("dirty");
+    const applicationCode = payload?.application_code || payload?.data?.application_code || payload?.code;
+    const conflict = applicationCode === "MARDAS-DOCUMENT-CONFLICT"
+      || applicationCode === "MARDAS-PROJECT-FILE-CHANGED"
+      || applicationCode === "project_file_changed";
+    if (conflict) {
+      if (activeDocument()?.id === model.id) setSaveState("dirty");
+      if (isProjectSave) {
+        if (activeDocument()?.id === model.id) toast(t("projectFileConflict"), "error");
+        return false;
+      }
       const overwrite = globalThis.confirm(`${t("documentConflict")}\n\n${t("forceSave")}?`);
-      if (overwrite) return saveActiveDocument({ saveAs: false, force: true });
+      if (overwrite) return persistDocumentModel(model, { saveAs: false, force: true });
       return false;
     }
-    setSaveState("dirty");
-    toast(errorText(error), "error");
+    if (activeDocument()?.id === model.id) {
+      setSaveState("dirty");
+      toast(errorText(error), "error");
+    }
     return false;
   }
 }
@@ -1783,6 +2118,7 @@ function requestCloseDocument(id) {
   const model = state.documents.find((document) => document.id === id);
   if (!model) return;
   if (documentDirty(model) && !globalThis.confirm(`${model.title}: ${t("unsaved")}. ${t("close")}?`)) return;
+  cancelRecoveryTimer(model);
   removeRecovery(model);
   const result = closeDocument(state.documents, id);
   state.documents = result.documents;
@@ -1795,7 +2131,9 @@ function requestCloseDocument(id) {
 function onEditorInput() {
   const model = activeDocument();
   if (!model) return;
-  updateDocumentContent(model, (editorAdapter || $("#markdown-editor")).value);
+  updateDocumentContent(model, currentEditor().value);
+  state.validationSequence += 1;
+  state.bibliographySequence += 1;
   model.diagnostics = [];
   setSaveState("dirty");
   renderDocumentTabs();
@@ -1807,45 +2145,142 @@ function onEditorInput() {
   schedulePreview();
 }
 
-function scheduleRecovery() {
-  clearTimeout(state.recoveryTimer);
-  state.recoveryTimer = setTimeout(() => {
-    const model = activeDocument();
-    if (!model || !documentDirty(model)) return;
+function cancelRecoveryTimer(model) {
+  if (!model?.id) return;
+  const timer = state.recoveryTimers.get(model.id);
+  if (timer !== undefined) clearTimeout(timer);
+  state.recoveryTimers.delete(model.id);
+}
+
+function scheduleRecovery(model = activeDocument()) {
+  if (!model) return;
+  cancelRecoveryTimer(model);
+  const timer = setTimeout(() => {
+    state.recoveryTimers.delete(model.id);
+    if (!state.documents.includes(model) || !documentDirty(model)) return;
     const result = saveRecovery(model);
-    $("#recovery-status").textContent = result.ok ? t("recoverySaved") : result.reason === "too_large" ? t("recoveryTooLarge") : "";
-    setTimeout(() => { if ($("#recovery-status")) $("#recovery-status").textContent = ""; }, 2500);
+    if (activeDocument()?.id === model.id) {
+      $("#recovery-status").textContent = result.ok ? t("recoverySaved") : result.reason === "too_large" ? t("recoveryTooLarge") : "";
+      setTimeout(() => {
+        if ($("#recovery-status") && activeDocument()?.id === model.id) {
+          $("#recovery-status").textContent = "";
+        }
+      }, 2500);
+    }
   }, 700);
+  state.recoveryTimers.set(model.id, timer);
 }
 
 function schedulePreview(delay = 650) {
-  if (!$("#auto-preview")?.checked) return;
+  const sequence = ++state.previewSequence;
   clearTimeout(state.previewTimer);
-  state.previewTimer = setTimeout(refreshPreview, delay);
+  const model = activeDocument();
+  if (!model || !isMarkdownModel(model) || !model.content.trim()) {
+    if (model) model.preview = null;
+    renderPreview(model);
+    $("#preview-loading")?.classList.add("hidden");
+    return;
+  }
+  if (!$("#auto-preview")?.checked) return;
+  state.previewTimer = setTimeout(() => refreshPreview(sequence), delay);
 }
 
 function previewOptions() {
-  const model = activeDocument();
-  const metadata = parseFrontMatter(model?.content || "").fields;
-  return {
-    toc: Boolean(metadata.toc),
-    document_language: metadata.lang || "auto",
-    style: metadata.style || "modern",
-    mode: metadata.mode || "light",
-  };
+  // The engine already applies project configuration and the buffer's front matter.
+  // Keeping request overrides sparse preserves that documented precedence.
+  return {};
 }
 
 function safePreviewHtml(value) {
   const template = document.createElement("template");
   template.innerHTML = String(value || "");
-  template.content.querySelectorAll("script,iframe,object,embed,meta,base,link").forEach((element) => element.remove());
+  template.content
+    .querySelectorAll("script,style,iframe,object,embed,meta,base,link,form,button,select,option,textarea")
+    .forEach((element) => element.remove());
+  const idMap = new Map();
+  template.content.querySelectorAll("[id]").forEach((element) => {
+    const original = element.id;
+    const prefixed = `preview-${original}`;
+    idMap.set(original, prefixed);
+    element.dataset.previewSourceId = original;
+    element.id = prefixed;
+  });
   template.content.querySelectorAll("*").forEach((element) => {
+    const reservedClasses = new Set(["active", "hidden", "modal", "toast", "view", "sidebar-panel", "source-active"]);
+    for (const className of [...element.classList]) {
+      if (reservedClasses.has(className)) element.classList.remove(className);
+    }
     for (const attribute of [...element.attributes]) {
-      if (attribute.name.toLowerCase().startsWith("on")) element.removeAttribute(attribute.name);
-      if (["href", "src"].includes(attribute.name.toLowerCase()) && /^\s*javascript:/i.test(attribute.value)) element.removeAttribute(attribute.name);
+      const name = attribute.name.toLowerCase();
+      if (
+        name.startsWith("on")
+        || [
+          "action",
+          "autofocus",
+          "background",
+          "contenteditable",
+          "data",
+          "download",
+          "draggable",
+          "formaction",
+          "ping",
+          "poster",
+          "srcdoc",
+          "srcset",
+          "style",
+          "target",
+          "xlink:href",
+        ].includes(name)
+      ) {
+        element.removeAttribute(attribute.name);
+        continue;
+      }
+      if (name === "href") {
+        if (attribute.value.startsWith("#")) {
+          const target = attribute.value.slice(1);
+          element.setAttribute("href", `#${idMap.get(target) || `preview-${target}`}`);
+        } else {
+          element.removeAttribute("href");
+          element.setAttribute("aria-disabled", "true");
+        }
+      }
+      if (name === "src" && !/^\s*data:image\//i.test(attribute.value)) {
+        element.removeAttribute(attribute.name);
+      }
+      if (["for", "aria-labelledby", "aria-describedby"].includes(name)) {
+        const rewritten = attribute.value
+          .split(/\s+/)
+          .map((id) => idMap.get(id) || `preview-${id}`)
+          .join(" ");
+        element.setAttribute(attribute.name, rewritten);
+      }
+    }
+    if (element instanceof HTMLInputElement) {
+      if (element.type !== "checkbox") {
+        element.remove();
+      } else {
+        element.disabled = true;
+        element.tabIndex = -1;
+      }
     }
   });
   return template.content;
+}
+
+function renderPreviewMessage(title, detail = "") {
+  document.body.classList.remove("book-preview-mode");
+  const container = $("#preview-document");
+  const message = document.createElement("div");
+  message.className = "empty-preview";
+  const heading = document.createElement("strong");
+  heading.textContent = String(title || "");
+  message.append(heading);
+  if (detail) {
+    const description = document.createElement("small");
+    description.textContent = String(detail);
+    message.append(description);
+  }
+  container.replaceChildren(message);
 }
 
 function previewSourceEntries(model = activeDocument()) {
@@ -1875,7 +2310,7 @@ function syncPreviewToEditorLine(line, { center = false } = {}) {
     active = entry;
   }
   container.querySelectorAll(".source-active").forEach((element) => element.classList.remove("source-active"));
-  const target = container.querySelector(`#${CSS.escape(active.id)}`)
+  const target = container.querySelector(`#${CSS.escape(`preview-${active.id}`)}`)
     || container.querySelector(`[data-source-line="${active.line}"]`);
   if (!target) return;
   target.classList.add("source-active");
@@ -1895,9 +2330,14 @@ function syncPreviewFromEditorScroll(scrollTop) {
 }
 
 function renderPreview(model) {
+  document.body.classList.remove("book-preview-mode");
   const container = $("#preview-document");
+  if (model && !isMarkdownModel(model)) {
+    renderPreviewMessage(t("plainTextMode"));
+    return;
+  }
   if (!model?.preview) {
-    container.innerHTML = `<div class="empty-preview"><strong>${t("previewEmpty")}</strong></div>`;
+    renderPreviewMessage(t("previewEmpty"));
     return;
   }
   container.replaceChildren();
@@ -1910,30 +2350,41 @@ function renderPreview(model) {
   const sourceEntries = previewSourceEntries(model);
   const byId = new Map(sourceEntries.map((entry) => [entry.id, entry]));
   container.querySelectorAll("h1,h2,h3,h4,h5,h6").forEach((heading) => {
-    const sourceLine = Number(heading.dataset.sourceLine) || byId.get(heading.id)?.line || 0;
+    const sourceId = heading.dataset.previewSourceId || heading.id.replace(/^preview-/, "");
+    const sourceLine = Number(heading.dataset.sourceLine) || byId.get(sourceId)?.line || 0;
     if (!sourceLine) return;
     heading.dataset.sourceLine = String(sourceLine);
     heading.classList.add("preview-source-link");
     heading.title = `Line ${sourceLine}`;
+    heading.tabIndex = 0;
+    heading.setAttribute("role", "button");
     heading.addEventListener("click", () => goToLine(sourceLine));
+    heading.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      goToLine(sourceLine);
+    });
   });
-  const cursor = (editorAdapter || $("#markdown-editor"));
+  const cursor = currentEditor();
   const position = editorAdapter?.lineAtOffset(cursor.selectionStart)
     || textMetrics(cursor.value, cursor.selectionStart);
   syncPreviewToEditorLine(position.line);
 }
 
-async function refreshPreview() {
+async function refreshPreview(scheduledSequence = null) {
+  const sequence = scheduledSequence ?? ++state.previewSequence;
+  if (sequence !== state.previewSequence) return;
   const model = activeDocument();
-  if (!model || !model.content.trim()) {
+  if (!model || !isMarkdownModel(model) || !model.content.trim()) {
+    if (model) model.preview = null;
     renderPreview(model);
     return;
   }
-  const sequence = ++state.previewSequence;
+  const context = requestContext(model);
   $("#preview-loading").classList.remove("hidden");
   try {
     const result = await previewDocumentText({ path: model.path, content: model.content, options: previewOptions() });
-    if (sequence !== state.previewSequence || activeDocument()?.id !== model.id) return;
+    if (sequence !== state.previewSequence || !contextIsCurrent(context)) return;
     model.preview = result;
     model.diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
     renderPreview(model);
@@ -1941,11 +2392,11 @@ async function refreshPreview() {
     renderProblems(model);
     $("#preview-detail").textContent = result.title || t("previewHelp");
   } catch (error) {
-    if (sequence !== state.previewSequence) return;
+    if (sequence !== state.previewSequence || !contextIsCurrent(context)) return;
     const payload = errorPayload(error);
     model.diagnostics = payload?.details?.diagnostics || payload?.diagnostics || [];
     renderProblems(model);
-    $("#preview-document").innerHTML = `<div class="empty-preview"><strong>${t("previewFailed")}</strong><small>${errorText(error)}</small></div>`;
+    renderPreviewMessage(t("previewFailed"), errorText(error));
   } finally {
     if (sequence === state.previewSequence) $("#preview-loading").classList.add("hidden");
   }
@@ -1953,14 +2404,18 @@ async function refreshPreview() {
 
 async function validateActiveDocument() {
   const model = activeDocument();
-  if (!model) return;
+  if (!model || !isMarkdownModel(model)) return;
+  const sequence = ++state.validationSequence;
+  const context = requestContext(model);
   try {
     const result = await validateDocumentText({ path: model.path, content: model.content, options: previewOptions() });
+    if (sequence !== state.validationSequence || !contextIsCurrent(context)) return;
     model.diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
     renderProblems(model);
     activateSidebar("problems");
     toast(result.ok ? t("validMessage") : t("invalidMessage"), result.ok ? "success" : "error");
   } catch (error) {
+    if (sequence !== state.validationSequence || !contextIsCurrent(context)) return;
     toast(errorText(error), "error");
   }
 }
@@ -1971,10 +2426,14 @@ async function refreshAssets() {
     renderAssets([]);
     return;
   }
+  const sequence = ++state.assetSequence;
+  const context = requestContext(model);
   try {
     const result = await listDocumentAssets(model.path);
+    if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false })) return;
     renderAssets(Array.isArray(result.assets) ? result.assets : []);
   } catch (error) {
+    if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false })) return;
     renderAssets([]);
     toast(errorText(error), "error");
   }
@@ -1982,29 +2441,32 @@ async function refreshAssets() {
 
 async function importAsset() {
   const model = activeDocument();
-  if (!model?.path) {
+  if (!model?.path || !isMarkdownModel(model)) {
     toast(t("saveBeforeAsset"), "error");
     return;
   }
+  const context = requestContext(model);
   try {
     const source = await invoke("pick_document_asset");
     if (!source) return;
+    if (!contextIsCurrent(context, { requireContent: false })) return;
     const asset = await importDocumentAsset(model.path, source);
+    if (!contextIsCurrent(context, { requireContent: false })) return;
     toast(t("assetImported"), "success");
-    insertAssetReference(asset);
+    insertAssetReference(asset, model);
     await refreshAssets();
   } catch (error) {
     toast(errorText(error), "error");
   }
 }
 
-function insertAssetReference(asset) {
+function insertAssetReference(asset, model = activeDocument()) {
+  if (!model || activeDocument()?.id !== model.id || !isMarkdownModel(model)) return;
   const extension = String(asset.extension || asset.name?.slice(asset.name.lastIndexOf(".")) || "").toLowerCase();
   const path = asset.relative_path || asset.name;
   if ([".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif", ".bmp"].includes(extension)) {
     insertAtCursor(`![${asset.name || "Image"}](${path})`);
   } else if (extension === ".bib") {
-    const model = activeDocument();
     let content = upsertFrontMatter(model.content, "bibliography", [path]);
     content = upsertFrontMatter(content, "citations", true);
     applyEditorContent(content);
@@ -2021,7 +2483,7 @@ function activateSidebar(name) {
 }
 
 function goToLine(line, column = 1) {
-  const editor = editorAdapter || $("#markdown-editor");
+  const editor = currentEditor();
   if (editorAdapter) editorAdapter.goToLine(line, column);
   else {
     const lines = editor.value.split("\n");
@@ -2036,7 +2498,7 @@ function goToLine(line, column = 1) {
 }
 
 function updateFindMatches({ preserveIndex = false } = {}) {
-  const editor = $("#markdown-editor");
+  const editor = currentEditor();
   const query = $("#find-query").value;
   const matches = findLiteralMatches(editor.value, query);
   state.findMatches = matches;
@@ -2050,7 +2512,7 @@ function selectFindMatch(index) {
   if (!matches.length) return;
   state.findIndex = (index + matches.length) % matches.length;
   const match = matches[state.findIndex];
-  const editor = $("#markdown-editor");
+  const editor = currentEditor();
   editor.focus();
   editor.setSelectionRange(match.start, match.end);
   const before = editor.value.slice(0, match.start);
@@ -2066,7 +2528,7 @@ function openFind({ replace = false } = {}) {
   $("#replace-query").classList.toggle("hidden", !replace);
   $("#replace-one").classList.toggle("hidden", !replace);
   $("#replace-all").classList.toggle("hidden", !replace);
-  const editor = $("#markdown-editor");
+  const editor = currentEditor();
   const selected = editor.value.slice(editor.selectionStart, editor.selectionEnd);
   if (selected && !selected.includes("\n")) $("#find-query").value = selected;
   updateFindMatches();
@@ -2078,7 +2540,7 @@ function closeFind() {
   $("#find-bar").classList.add("hidden");
   state.findMatches = [];
   state.findIndex = -1;
-  $("#markdown-editor").focus();
+  currentEditor().focus();
 }
 
 function moveFind(direction) {
@@ -2087,7 +2549,7 @@ function moveFind(direction) {
 }
 
 function replaceCurrentMatch() {
-  const editor = $("#markdown-editor");
+  const editor = currentEditor();
   if (!state.findMatches.length) return;
   const match = state.findMatches[state.findIndex];
   const replacement = $("#replace-query").value;
@@ -2100,7 +2562,7 @@ function replaceAllMatches() {
   const query = $("#find-query").value;
   if (!query) return;
   const replacement = $("#replace-query").value;
-  const editor = $("#markdown-editor");
+  const editor = currentEditor();
   editor.value = replaceAllLiteral(editor.value, query, replacement).text;
   editor.setSelectionRange(0, 0);
   onEditorInput();
@@ -2108,7 +2570,7 @@ function replaceAllMatches() {
 }
 
 function applyEditorResult(result) {
-  const editor = $("#markdown-editor");
+  const editor = currentEditor();
   editor.value = result.text;
   editor.focus();
   editor.setSelectionRange(result.start, result.end);
@@ -2116,7 +2578,7 @@ function applyEditorResult(result) {
 }
 
 function applyEditorContent(content) {
-  const editor = $("#markdown-editor");
+  const editor = currentEditor();
   const cursor = Math.min(editor.selectionStart, content.length);
   editor.value = content;
   editor.setSelectionRange(cursor, cursor);
@@ -2124,12 +2586,14 @@ function applyEditorContent(content) {
 }
 
 function insertAtCursor(value) {
-  const editor = $("#markdown-editor");
+  const editor = currentEditor();
   applyEditorResult(replaceSelection(editor.value, editor.selectionStart, editor.selectionEnd, value));
 }
 
 function editorCommand(command) {
-  const editor = $("#markdown-editor");
+  const model = activeDocument();
+  if (!model || model.readOnly || !isMarkdownModel(model)) return;
+  const editor = currentEditor();
   let result;
   if (command === "bold") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "**", "**", "bold text");
   if (command === "italic") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "_", "_", "italic text");
@@ -2143,7 +2607,7 @@ function editorCommand(command) {
 function applyFrontMatter(event) {
   event.preventDefault();
   const model = activeDocument();
-  if (!model) return;
+  if (!model || model.readOnly || !isMarkdownModel(model)) return;
   const form = event.currentTarget;
   let content = model.content;
   for (const key of ["title", "subtitle", "author", "lang", "dir"]) {
@@ -2156,7 +2620,7 @@ function applyFrontMatter(event) {
 
 async function exportActiveDocument() {
   const model = activeDocument();
-  if (!model) return;
+  if (!model || !isMarkdownModel(model)) return;
   if (!model.path || documentDirty(model)) {
     const saved = await saveActiveDocument();
     if (!saved) return;
@@ -2311,6 +2775,11 @@ function bindEvents() {
     const modifier = event.ctrlKey || event.metaKey;
     if (!modifier) return;
     const key = event.key.toLowerCase();
+    if (modalManager.hasOpenModal()) return;
+    const formControl = event.target instanceof Element
+      && event.target.matches("input,textarea,select,[contenteditable='true']")
+      && !event.target.closest(".editor-surface");
+    if (formControl) return;
     if (key === "p" && event.shiftKey) {
       event.preventDefault();
       openCommandPalette();
@@ -2354,7 +2823,11 @@ async function boot() {
       // Older WebViews still use the saved explicit preference values.
     }
   }
-  editorAdapter = createEditorAdapter($("#markdown-editor"), {
+  const textarea = $("#markdown-editor");
+  const editorOptions = {
+    getCompletions: () => activeDocument()?.projectPath === state.project?.path
+      ? state.bibliographyEntries
+      : [],
     onChange: onEditorInput,
     onSelectionChange: () => {
       updateEditorMetrics();
@@ -2362,10 +2835,20 @@ async function boot() {
       syncPreviewToEditorLine(position.line);
     },
     onScroll: (scrollTop) => {
-      $("#line-gutter").scrollTop = scrollTop;
+      if (!editorAdapter?.usesNativeLineNumbers) $("#line-gutter").scrollTop = scrollTop;
       syncPreviewFromEditorScroll(scrollTop);
     },
-  });
+  };
+  try {
+    const { createCodeMirrorEditorAdapter } = await import("./vendor/codemirror-editor.bundle.mjs");
+    editorAdapter = createCodeMirrorEditorAdapter(textarea, editorOptions);
+    textarea.closest(".editor-surface")?.classList.add("professional-editor");
+    textarea.closest(".editor-surface")?.setAttribute("data-editor", "codemirror");
+  } catch (error) {
+    console.error("CodeMirror initialization failed; using the safe textarea fallback.", error);
+    editorAdapter = createEditorAdapter(textarea, editorOptions);
+    textarea.closest(".editor-surface")?.setAttribute("data-editor", "textarea");
+  }
   setLocale(state.locale);
   selectPreset("general");
   bindEvents();
@@ -2413,8 +2896,7 @@ async function boot() {
             openFirstChapter: false,
           });
         } catch {
-          state.project = null;
-          state.projectDiagnostics = [];
+          clearProjectState();
           renderBookWorkspace();
         }
       }
@@ -2429,20 +2911,24 @@ async function boot() {
   }
   await engineHealth();
   await initializeUpdater();
-  if (!state.documents.length) {
-    const drafts = readRecoveries().filter((item) => !item.path);
-    for (const recovery of drafts) {
-      const model = createDocument({ content: recovery.content });
-      if (recovery.key.startsWith("draft:")) model.id = recovery.key.slice("draft:".length);
-      model.title = recovery.title || model.title;
-      state.documents.push(model);
-      state.activeDocumentId = model.id;
-    }
-    if (drafts.length) {
-      showView("workspace");
-      renderWorkspace();
-      schedulePreview(120);
-    }
+  const drafts = readRecoveries().filter((item) => !item.path);
+  let restoredDrafts = 0;
+  for (const recovery of drafts) {
+    const recoveredId = recovery.key.startsWith("draft:")
+      ? recovery.key.slice("draft:".length)
+      : null;
+    if (recoveredId && state.documents.some((model) => model.id === recoveredId)) continue;
+    const model = createDocument({ content: recovery.content });
+    if (recoveredId) model.id = recoveredId;
+    model.title = recovery.title || model.title;
+    state.documents.push(model);
+    if (!state.activeDocumentId) state.activeDocumentId = model.id;
+    restoredDrafts += 1;
+  }
+  if (restoredDrafts) {
+    showView("workspace");
+    renderWorkspace();
+    schedulePreview(120);
   }
   if (!state.documents.length && !state.preferences.onboardingComplete) {
     openOnboarding();

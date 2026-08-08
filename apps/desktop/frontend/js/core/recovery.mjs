@@ -1,3 +1,5 @@
+import { pathIdentity } from "./path-identity.mjs";
+
 export const RECOVERY_STORAGE_KEY = "mardas.desktop.authoring-recovery.v1";
 export const MAX_RECOVERY_DOCUMENTS = 12;
 export const MAX_RECOVERY_CHARS = 1_000_000;
@@ -32,7 +34,7 @@ function safeEntries(value) {
 }
 
 export function recoveryKey(document) {
-  return document.path ? `path:${document.path.replaceAll("\\", "/").toLocaleLowerCase()}` : `draft:${document.id}`;
+  return document.path ? `path:${pathIdentity(document.path)}` : `draft:${document.id}`;
 }
 
 export function readRecoveries(storage = globalThis.localStorage) {
@@ -79,6 +81,6 @@ export function removeRecovery(documentOrKey, storage = globalThis.localStorage)
 
 export function recoveryForPath(path, storage = globalThis.localStorage) {
   if (typeof path !== "string" || !path.trim()) return null;
-  const key = `path:${path.replaceAll("\\", "/").toLocaleLowerCase()}`;
+  const key = `path:${pathIdentity(path)}`;
   return readRecoveries(storage).find((item) => item.key === key) ?? null;
 }

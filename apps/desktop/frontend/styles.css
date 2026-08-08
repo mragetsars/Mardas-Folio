@@ -103,3 +103,59 @@ html[data-reduced-motion="reduce"] *,html[data-reduced-motion="reduce"] *::befor
 .update-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px}.update-summary>div{display:grid;gap:3px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-soft,#f6faf9)}.update-summary span{font-size:10px;color:var(--muted)}.update-summary strong{font-size:12px;direction:ltr;text-align:start}.update-state{font-weight:800;font-size:12px}.update-state[data-state="working"]{color:#8a5a00}.update-state[data-state="available"]{color:#087268}.update-state[data-state="error"]{color:#b42318}.update-state[data-state="disabled"]{color:var(--muted)}.update-detail{margin:0;color:var(--muted);font-size:11px;line-height:1.6}.update-notes{max-height:130px;overflow:auto;margin:0;padding:10px;border:1px solid var(--line);border-radius:9px;background:#f8fbfa;color:inherit;white-space:pre-wrap;font:11px/1.6 inherit}.update-actions{display:flex;gap:8px;flex-wrap:wrap}.update-progress{position:relative;height:24px;overflow:hidden;border-radius:12px;background:#e7efed}.update-progress i{position:absolute;inset:0 auto 0 0;width:0;background:#72c5b8;transition:width .2s ease}.update-progress span{position:relative;z-index:1;display:grid;place-items:center;height:100%;font:700 10px ui-monospace,monospace}.update-settings>small{color:var(--muted);line-height:1.55}
 html[data-theme="dark"] .update-summary>div,html[data-theme="dark"] .update-notes{background:#1d2d2f}
 @media(max-width:520px){.update-summary{grid-template-columns:1fr}}
+
+/* Offline professional Markdown editor (CodeMirror 6). */
+.editor-surface.professional-editor{display:block;position:relative;min-width:0;min-height:0;overflow:hidden;background:#fff}
+.editor-surface.professional-editor .line-gutter{display:none}
+.codemirror-mount{width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;direction:ltr;background:#fff}
+.codemirror-mount .cm-editor{width:100%;height:100%;font-size:calc(14px * var(--content-scale));color:#172f32;background:#fff}
+.codemirror-mount .cm-editor.cm-focused{outline:3px solid var(--focus);outline-offset:-3px}
+.codemirror-mount .cm-scroller{overflow:auto;font-family:"Cascadia Mono","JetBrains Mono","Vazirmatn",ui-monospace,monospace;line-height:1.7;tab-size:4}
+.codemirror-mount .cm-content{min-height:100%;padding:14px 18px 64px;caret-color:var(--brand)}
+.codemirror-mount .cm-line{unicode-bidi:plaintext;text-align:start}
+.codemirror-mount .cm-gutters{border-inline-end:1px solid #e2ecea;border-inline-start:0;background:#f4f8f7;color:#819698}
+.codemirror-mount .cm-activeLine,.codemirror-mount .cm-activeLineGutter{background:rgba(15,118,110,.065)}
+.codemirror-mount .cm-selectionBackground,.codemirror-mount .cm-content ::selection{background:#bde7df!important}
+.codemirror-mount .cm-cursor,.codemirror-mount .cm-dropCursor{border-inline-start-color:var(--brand)}
+.codemirror-mount .cm-tooltip{z-index:30;border:1px solid var(--line);border-radius:10px;background:#fff;color:#183b3e;box-shadow:0 14px 36px rgba(11,55,52,.18);overflow:hidden}
+.codemirror-mount .cm-tooltip-autocomplete>ul{max-height:260px;font-family:"Segoe UI Variable","Vazirmatn",system-ui,sans-serif}
+.codemirror-mount .cm-tooltip-autocomplete>ul>li{padding:5px 9px}
+.codemirror-mount .cm-tooltip-autocomplete>ul>li[aria-selected]{background:#dff3ef;color:#0a5e58}
+.codemirror-mount[data-read-only="true"] .cm-content{background:#f5f8f7;color:#6e8082}
+html[data-theme="dark"] .editor-surface.professional-editor,
+html[data-theme="dark"] .codemirror-mount,
+html[data-theme="dark"] .codemirror-mount .cm-editor{background:#1d2b2d;color:#e5efee}
+html[data-theme="dark"] .codemirror-mount .cm-gutters{background:#142022;color:#9db0b1;border-color:var(--line)}
+html[data-theme="dark"] .codemirror-mount .cm-activeLine,
+html[data-theme="dark"] .codemirror-mount .cm-activeLineGutter{background:rgba(94,234,212,.075)}
+html[data-theme="dark"] .codemirror-mount .cm-selectionBackground,
+html[data-theme="dark"] .codemirror-mount .cm-content ::selection{background:rgba(45,212,191,.28)!important}
+html[data-theme="dark"] .codemirror-mount .cm-tooltip{background:#203033;color:#e5efee;border-color:var(--line)}
+html[data-theme="dark"] .codemirror-mount .cm-tooltip-autocomplete>ul>li[aria-selected]{background:#28433f;color:#d9fffa}
+html[data-theme="dark"] .codemirror-mount[data-read-only="true"] .cm-content{background:#182426;color:#9fb0b1}
+
+/* Accessible document tabs keep activation and close as separate controls. */
+.document-tab{padding-inline:4px;cursor:default}
+.document-tab .tab-activate{min-width:0;min-height:34px;display:flex;align-items:center;gap:8px;flex:1;border:0;background:transparent;color:inherit;cursor:pointer}
+.document-tab .tab-activate:focus-visible,.document-tab .tab-close:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+
+/* Locale direction follows the selected UI language; editor content remains bidi-auto. */
+html[dir="ltr"] .author-sidebar,html[dir="ltr"] .sidebar-tabs,html[dir="ltr"] .sidebar-panel,html[dir="ltr"] .pane-header{direction:ltr}
+.sidebar-tabs{grid-template-columns:repeat(auto-fit,minmax(54px,1fr))}
+@media(max-width:860px){.author-sidebar{display:grid}.authoring-grid{grid-template-columns:220px minmax(0,1fr)}}
+.toggle input:focus-visible+i{outline:3px solid var(--focus);outline-offset:3px}
+
+/* Dark authoring surfaces retain readable controls and preview navigation. */
+html[data-theme="dark"] .formatting{background:#182628;border-color:#40585a}
+html[data-theme="dark"] .formatting button{color:#d9efec}
+html[data-theme="dark"] .formatting button:hover{background:#2a4241;color:var(--brand2)}
+html[data-theme="dark"] .preview-document h1,
+html[data-theme="dark"] .preview-document h2,
+html[data-theme="dark"] .preview-document h3,
+html[data-theme="dark"] .preview-document h4,
+html[data-theme="dark"] .preview-document h5,
+html[data-theme="dark"] .preview-document h6,
+html[data-theme="dark"] .preview-source-link{color:var(--brand2)}
+html[data-theme="dark"] .preview-document h1{border-bottom-color:#40585a}
+html[data-theme="dark"] .preview-source-link:hover{outline-color:rgba(94,234,212,.55)}
+html[data-theme="dark"] .preview-source-link.source-active{background:rgba(94,234,212,.14)}

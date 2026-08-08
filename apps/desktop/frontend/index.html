@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'">
   <title>Mardas Studio</title>
   <link rel="icon" href="./assets/app-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
@@ -79,7 +79,7 @@
             <div class="settings-grid">
               <label><span data-i18n="documentLanguage">زبان سند</span><select id="document-language"><option value="auto" data-i18n="automatic">خودکار</option><option value="fa">فارسی</option><option value="en">English</option></select></label>
               <label><span data-i18n="pageSize">اندازه صفحه</span><select id="page-size"><option>A4</option><option>Letter</option><option>A5</option></select></label>
-              <label><span data-i18n="appearance">ظاهر</span><select id="appearance-style"><option value="modern" data-i18n="modern">مدرن</option><option value="classic" data-i18n="classic">کلاسیک</option><option value="minimal" data-i18n="minimal">مینیمال</option></select></label>
+              <label><span data-i18n="appearance">ظاهر</span><select id="appearance-style"><option value="modern" data-i18n="modern">مدرن</option><option value="github" data-i18n="github">گیت‌هاب</option><option value="textbook" data-i18n="textbook">کتابی</option><option value="academic" data-i18n="academic">دانشگاهی</option></select></label>
               <label class="toggle"><input id="include-toc" type="checkbox" checked><i></i><span data-i18n="includeToc">فهرست مطالب</span></label>
             </div>
           </section>
@@ -334,7 +334,7 @@
 <div class="modal hidden command-modal" id="command-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="command-title">
   <div class="modal-card command-card">
     <h2 class="sr-only" id="command-title" data-i18n="commandPalette">فرمان‌ها</h2>
-    <label class="command-search"><span aria-hidden="true">⌘</span><input id="command-query" type="search" autocomplete="off" data-i18n-placeholder="typeACommand" placeholder="یک فرمان بنویس..."></label>
+    <label class="command-search"><span aria-hidden="true">⌘</span><input id="command-query" type="search" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="command-list" aria-expanded="false" data-i18n-placeholder="typeACommand" placeholder="یک فرمان بنویس..."></label>
     <div class="command-list" id="command-list" role="listbox" data-i18n-aria-label="commandPalette" aria-label="فرمان‌ها"></div>
     <footer><span><kbd>↑</kbd><kbd>↓</kbd> <small data-i18n="navigate">حرکت</small></span><span><kbd>Enter</kbd> <small data-i18n="runCommand">اجرا</small></span><span><kbd>Esc</kbd> <small data-i18n="close">بستن</small></span></footer>
   </div>

@@ -24,6 +24,41 @@ test("outline ignores fenced headings and returns source lines", () => {
   ]);
 });
 
+test("outline requires a matching fence character and sufficient closing length", () => {
+  const outline = extractOutline([
+    "# Before",
+    "````markdown",
+    "## Hidden one",
+    "```",
+    "## Hidden after short fence",
+    "~~~~",
+    "### Hidden after different fence",
+    "````   ",
+    "## After",
+  ].join("\n"));
+  assert.deepEqual(outline, [
+    { level: 1, title: "Before", line: 1 },
+    { level: 2, title: "After", line: 9 },
+  ]);
+});
+
+test("outline accepts longer closers and rejects non-closing trailing content", () => {
+  const outline = extractOutline([
+    "   ~~~ language",
+    "## Hidden",
+    "   ~~~ not-a-closer",
+    "### Still hidden",
+    "  ~~~~\t",
+    "# Visible",
+    "    ```",
+    "## Visible after indented code marker",
+  ].join("\n"));
+  assert.deepEqual(outline, [
+    { level: 1, title: "Visible", line: 6 },
+    { level: 2, title: "Visible after indented code marker", line: 8 },
+  ]);
+});
+
 test("citation and cursor metrics are deterministic", () => {
   assert.deepEqual(extractCitationKeys("See [@doe2024; @smith]. mail@example.com"), ["doe2024", "smith"]);
   assert.deepEqual(textMetrics("one two\nthree", 10), { line: 2, column: 3, words: 3, characters: 13 });

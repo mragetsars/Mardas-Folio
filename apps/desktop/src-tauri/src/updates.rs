@@ -60,9 +60,8 @@ fn validated_endpoint() -> Result<Url, String> {
 }
 
 fn update_configuration(app: &AppHandle) -> Result<(&'static str, Url), String> {
-    let pubkey = compile_time_pubkey().ok_or_else(|| {
-        "Automatic updates are not configured for this build.".to_string()
-    })?;
+    let pubkey = compile_time_pubkey()
+        .ok_or_else(|| "Automatic updates are not configured for this build.".to_string())?;
     if pubkey.contains('\0') || pubkey.len() > 32 * 1024 {
         return Err("Embedded update public key is invalid.".to_string());
     }

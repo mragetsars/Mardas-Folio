@@ -12,8 +12,21 @@ export function readDocument(path) {
   return sidecar("document.read", { path });
 }
 
+export function readTextDocument(path) {
+  return sidecar("document.read_text", { path });
+}
+
 export function saveDocument({ path, content, expectedRevision = null, force = false }) {
   return sidecar("document.save", {
+    path,
+    content,
+    expected_revision: expectedRevision,
+    force,
+  });
+}
+
+export function saveTextDocument({ path, content, expectedRevision = null, force = false }) {
+  return sidecar("document.save_text", {
     path,
     content,
     expected_revision: expectedRevision,

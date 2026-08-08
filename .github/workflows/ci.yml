@@ -327,8 +327,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
-      - name: Build and verify dependency-free frontend
+      - name: Install locked desktop editor dependencies
+        run: npm --prefix apps/desktop ci --no-audit --no-fund
+
+      - name: Build and verify offline frontend
         run: |
+          npm --prefix apps/desktop run check:editor
           python scripts/build_desktop_frontend.py
           python scripts/verify_desktop_frontend.py apps/desktop/dist
           python scripts/audit_desktop_accessibility.py --output-dir build/desktop-accessibility
@@ -379,7 +383,7 @@ jobs:
           node-version: '22'
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.97.1
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
@@ -408,6 +412,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[desktop]"
           cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Run locked Rust tests
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 
       - name: Build native Windows packages
         shell: pwsh
@@ -459,7 +466,7 @@ jobs:
           cache: pip
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.97.1
 
       - name: Install Tauri Linux system dependencies
         if: runner.os == 'Linux'
@@ -481,6 +488,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[desktop]"
           cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Run locked Rust tests
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 
       - name: Install Chromium runtime
         if: runner.os != 'Linux'

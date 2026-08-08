@@ -1,3 +1,5 @@
+import { pathIdentity } from "./path-identity.mjs";
+
 export const SESSION_STORAGE_KEY = "mardas.desktop.authoring-session.v1";
 export const MAX_SESSION_PATHS = 10;
 
@@ -8,7 +10,7 @@ export function normalizeSession(value) {
   for (const path of rawPaths) {
     if (typeof path !== "string" || !path.trim()) continue;
     const normalized = path.trim();
-    const key = normalized.replaceAll("\\", "/").toLocaleLowerCase();
+    const key = pathIdentity(normalized);
     if (seen.has(key)) continue;
     seen.add(key);
     paths.push(normalized);

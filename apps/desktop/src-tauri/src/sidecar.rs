@@ -1,27 +1,74 @@
 use serde_json::{json, Value};
 use std::{
-    collections::HashMap,
+    collections::{hash_map::Entry, HashMap},
     env,
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
-    sync::{mpsc, Arc, Mutex},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        mpsc, Arc, Mutex, Weak,
+    },
     thread,
     time::Duration,
 };
 use tauri::{AppHandle, Emitter, Manager};
 
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(60 * 60);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const CONTROL_TIMEOUT: Duration = Duration::from_secs(15);
+static NEXT_PROCESS_ID: AtomicU64 = AtomicU64::new(1);
+
+type ResponseSender = mpsc::Sender<Value>;
+type ManagedProcessSlot = Arc<Mutex<Option<(u64, Arc<SidecarProcess>)>>>;
+type WeakManagedProcessSlot = Weak<Mutex<Option<(u64, Arc<SidecarProcess>)>>>;
+
+struct RequestRegistry {
+    accepting: bool,
+    pending: HashMap<String, ResponseSender>,
+}
+
+impl RequestRegistry {
+    fn new() -> Self {
+        Self {
+            accepting: true,
+            pending: HashMap::new(),
+        }
+    }
+
+    fn register(&mut self, key: String, sender: ResponseSender) -> Result<(), String> {
+        if !self.accepting {
+            return Err("The rendering engine is not running.".into());
+        }
+        match self.pending.entry(key) {
+            Entry::Vacant(entry) => {
+                entry.insert(sender);
+                Ok(())
+            }
+            Entry::Occupied(_) => {
+                Err("A rendering request with the same ID is already active.".into())
+            }
+        }
+    }
+
+    fn remove(&mut self, key: &str) -> Option<ResponseSender> {
+        self.pending.remove(key)
+    }
+
+    fn stop(&mut self) {
+        self.accepting = false;
+        self.pending.clear();
+    }
+}
 
 pub(crate) struct SidecarProcess {
+    instance_id: u64,
     child: Mutex<Child>,
     stdin: Mutex<ChildStdin>,
-    pending: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
+    registry: Arc<Mutex<RequestRegistry>>,
 }
 
 impl SidecarProcess {
-    fn start(app: &AppHandle) -> Result<Arc<Self>, String> {
+    fn start(app: &AppHandle, managed_slot: WeakManagedProcessSlot) -> Result<Arc<Self>, String> {
         let (program, arguments, working_dir) = resolve_sidecar(app)?;
         let mut command = Command::new(&program);
         command
@@ -54,30 +101,75 @@ impl SidecarProcess {
             .take()
             .ok_or_else(|| "The rendering engine did not expose stderr.".to_string())?;
 
-        let pending = Arc::new(Mutex::new(HashMap::<String, mpsc::Sender<Value>>::new()));
+        let instance_id = next_process_id();
+        let registry = Arc::new(Mutex::new(RequestRegistry::new()));
         let client = Arc::new(Self {
+            instance_id,
             child: Mutex::new(child),
             stdin: Mutex::new(stdin),
-            pending: Arc::clone(&pending),
+            registry: Arc::clone(&registry),
         });
 
         let stdout_app = app.clone();
-        thread::Builder::new()
+        if let Err(error) = thread::Builder::new()
             .name("mardas-sidecar-stdout".into())
-            .spawn(move || read_stdout(stdout_app, stdout, pending))
-            .map_err(|error| format!("Could not monitor the rendering engine: {error}"))?;
+            .spawn(move || read_stdout(stdout_app, stdout, registry, managed_slot, instance_id))
+        {
+            client.terminate();
+            return Err(format!("Could not monitor the rendering engine: {error}"));
+        }
 
         let stderr_app = app.clone();
-        thread::Builder::new()
+        if let Err(error) = thread::Builder::new()
             .name("mardas-sidecar-stderr".into())
             .spawn(move || {
                 for line in BufReader::new(stderr).lines().map_while(Result::ok) {
                     let _ = stderr_app.emit("sidecar-log", json!({"level":"error","message":line}));
                 }
             })
-            .map_err(|error| format!("Could not monitor rendering logs: {error}"))?;
+        {
+            client.terminate();
+            return Err(format!("Could not monitor rendering logs: {error}"));
+        }
 
         Ok(client)
+    }
+
+    fn register_request(&self, key: String, sender: ResponseSender) -> Result<(), String> {
+        self.registry
+            .lock()
+            .map_err(|_| "The rendering request registry is unavailable.".to_string())?
+            .register(key, sender)
+    }
+
+    fn remove_request(&self, key: &str) {
+        if let Ok(mut registry) = self.registry.lock() {
+            registry.remove(key);
+        }
+    }
+
+    fn mark_stopped(&self) {
+        stop_registry(&self.registry);
+    }
+
+    fn is_alive(&self) -> bool {
+        let accepting = self
+            .registry
+            .lock()
+            .map(|registry| registry.accepting)
+            .unwrap_or(false);
+        if !accepting {
+            return false;
+        }
+        let running = self
+            .child
+            .lock()
+            .map(|mut child| matches!(child.try_wait(), Ok(None)))
+            .unwrap_or(false);
+        if !running {
+            self.mark_stopped();
+        }
+        running
     }
 
     fn request(
@@ -89,15 +181,7 @@ impl SidecarProcess {
     ) -> Result<Value, String> {
         let key = response_key(&request_id)?;
         let (sender, receiver) = mpsc::channel();
-        {
-            let mut pending = self
-                .pending
-                .lock()
-                .map_err(|_| "The rendering request registry is unavailable.".to_string())?;
-            if pending.insert(key.clone(), sender).is_some() {
-                return Err("A rendering request with the same ID is already active.".into());
-            }
-        }
+        self.register_request(key.clone(), sender)?;
 
         let payload = json!({
             "jsonrpc": "2.0",
@@ -105,8 +189,13 @@ impl SidecarProcess {
             "method": method,
             "params": params,
         });
-        let encoded = serde_json::to_string(&payload)
-            .map_err(|error| format!("Could not encode rendering request: {error}"))?;
+        let encoded = match serde_json::to_string(&payload) {
+            Ok(encoded) => encoded,
+            Err(error) => {
+                self.remove_request(&key);
+                return Err(format!("Could not encode rendering request: {error}"));
+            }
+        };
         let write_result = self
             .stdin
             .lock()
@@ -117,25 +206,25 @@ impl SidecarProcess {
                     .map_err(|error| format!("Could not send request to rendering engine: {error}"))
             });
         if let Err(error) = write_result {
-            if let Ok(mut pending) = self.pending.lock() {
-                pending.remove(&key);
-            }
+            self.terminate();
             return Err(error);
         }
 
-        let response = receiver.recv_timeout(timeout).map_err(|error| {
-            if let Ok(mut pending) = self.pending.lock() {
-                pending.remove(&key);
+        let response = match receiver.recv_timeout(timeout) {
+            Ok(response) => response,
+            Err(error) => {
+                self.terminate();
+                return Err(match error {
+                    mpsc::RecvTimeoutError::Timeout => {
+                        "The rendering engine did not respond before the request timeout."
+                            .to_string()
+                    }
+                    mpsc::RecvTimeoutError::Disconnected => {
+                        "The rendering engine stopped before completing the request.".to_string()
+                    }
+                });
             }
-            match error {
-                mpsc::RecvTimeoutError::Timeout => {
-                    "The rendering engine did not respond before the request timeout.".to_string()
-                }
-                mpsc::RecvTimeoutError::Disconnected => {
-                    "The rendering engine stopped before completing the request.".to_string()
-                }
-            }
-        })?;
+        };
 
         if let Some(error) = response.get("error") {
             return Err(serde_json::to_string(error).unwrap_or_else(|_| error.to_string()));
@@ -146,7 +235,12 @@ impl SidecarProcess {
             .ok_or_else(|| "The rendering engine returned a response without a result.".to_string())
     }
 
-    pub(crate) fn request_method(&self, request_id: String, method: String, params: Value) -> Result<Value, String> {
+    pub(crate) fn request_method(
+        &self,
+        request_id: String,
+        method: String,
+        params: Value,
+    ) -> Result<Value, String> {
         if method == "system.shutdown" || method == "job.cancel" {
             return Err("Control methods must use their dedicated desktop command.".into());
         }
@@ -163,13 +257,8 @@ impl SidecarProcess {
         )
     }
 
-    fn shutdown(&self) {
-        let _ = self.request(
-            Value::String(format!("desktop-shutdown-{}", unique_suffix())),
-            "system.shutdown",
-            json!({"force": true}),
-            CONTROL_TIMEOUT,
-        );
+    fn terminate(&self) {
+        self.mark_stopped();
         if let Ok(mut child) = self.child.lock() {
             match child.try_wait() {
                 Ok(Some(_)) => {}
@@ -180,12 +269,26 @@ impl SidecarProcess {
             }
         }
     }
+
+    fn shutdown(&self) {
+        if self.is_alive() {
+            let _ = self.request(
+                Value::String(format!("desktop-shutdown-{}", unique_suffix())),
+                "system.shutdown",
+                json!({"force": true}),
+                CONTROL_TIMEOUT,
+            );
+        }
+        self.terminate();
+    }
 }
 
 fn read_stdout(
     app: AppHandle,
     stdout: impl std::io::Read,
-    pending: Arc<Mutex<HashMap<String, mpsc::Sender<Value>>>>,
+    registry: Arc<Mutex<RequestRegistry>>,
+    managed_slot: WeakManagedProcessSlot,
+    instance_id: u64,
 ) {
     for line in BufReader::new(stdout).lines().map_while(Result::ok) {
         let payload: Value = match serde_json::from_str(&line) {
@@ -195,12 +298,12 @@ fn read_stdout(
                     "sidecar-log",
                     json!({"level":"error","message":format!("Invalid engine response: {error}")}),
                 );
-                continue;
+                break;
             }
         };
         if let Some(id) = payload.get("id") {
             if let Ok(key) = response_key(id) {
-                if let Ok(mut requests) = pending.lock() {
+                if let Ok(mut requests) = registry.lock() {
                     if let Some(sender) = requests.remove(&key) {
                         let _ = sender.send(payload);
                         continue;
@@ -226,13 +329,46 @@ fn read_stdout(
             }
         }
     }
-    if let Ok(mut requests) = pending.lock() {
-        requests.clear();
-    }
+    stop_registry(&registry);
     let _ = app.emit(
         "sidecar-log",
         json!({"level":"error","message":"The rendering engine has stopped."}),
     );
+    invalidate_managed_process(&managed_slot, instance_id);
+}
+
+fn stop_registry(registry: &Arc<Mutex<RequestRegistry>>) {
+    match registry.lock() {
+        Ok(mut registry) => registry.stop(),
+        Err(poisoned) => poisoned.into_inner().stop(),
+    }
+}
+
+fn take_matching_process<T>(slot: &mut Option<(u64, T)>, instance_id: u64) -> Option<T> {
+    if slot
+        .as_ref()
+        .is_some_and(|(current_id, _)| *current_id == instance_id)
+    {
+        slot.take().map(|(_, process)| process)
+    } else {
+        None
+    }
+}
+
+fn invalidate_managed_process(slot: &WeakManagedProcessSlot, instance_id: u64) {
+    let Some(slot) = slot.upgrade() else {
+        return;
+    };
+    let stale = match slot.lock() {
+        Ok(mut slot) => take_matching_process(&mut slot, instance_id),
+        Err(poisoned) => {
+            let mut slot = poisoned.into_inner();
+            take_matching_process(&mut slot, instance_id)
+        }
+    };
+    if let Some(process) = stale {
+        process.terminate();
+    }
 }
 
 fn response_key(value: &Value) -> Result<String, String> {
@@ -241,6 +377,10 @@ fn response_key(value: &Value) -> Result<String, String> {
     } else {
         Err("Request IDs must be strings or numbers.".into())
     }
+}
+
+fn next_process_id() -> u64 {
+    NEXT_PROCESS_ID.fetch_add(1, Ordering::Relaxed)
 }
 
 fn unique_suffix() -> u128 {
@@ -268,7 +408,13 @@ fn resolve_sidecar(app: &AppHandle) -> Result<(PathBuf, Vec<String>, PathBuf), S
     if cfg!(debug_assertions) || env::var_os("MARDAS_ALLOW_DEV_SIDECAR").is_some() {
         let python = env::var_os("MARDAS_PYTHON")
             .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(if cfg!(windows) { "python.exe" } else { "python3" }));
+            .unwrap_or_else(|| {
+                PathBuf::from(if cfg!(windows) {
+                    "python.exe"
+                } else {
+                    "python3"
+                })
+            });
         let cwd = env::current_dir().map_err(|error| error.to_string())?;
         return Ok((
             python,
@@ -305,9 +451,16 @@ fn sidecar_filename() -> &'static str {
     }
 }
 
-#[derive(Default)]
 pub struct ManagedSidecar {
-    process: Mutex<Option<Arc<SidecarProcess>>>,
+    process: ManagedProcessSlot,
+}
+
+impl Default for ManagedSidecar {
+    fn default() -> Self {
+        Self {
+            process: Arc::new(Mutex::new(None)),
+        }
+    }
 }
 
 impl ManagedSidecar {
@@ -316,11 +469,20 @@ impl ManagedSidecar {
             .process
             .lock()
             .map_err(|_| "The rendering engine state is unavailable.".to_string())?;
-        if let Some(process) = slot.as_ref() {
-            return Ok(Arc::clone(process));
+        if let Some((_, process)) = slot.as_ref() {
+            if process.is_alive() {
+                return Ok(Arc::clone(process));
+            }
         }
-        let process = SidecarProcess::start(app)?;
-        *slot = Some(Arc::clone(&process));
+        if let Some((_, stale)) = slot.take() {
+            stale.terminate();
+        }
+        let process = SidecarProcess::start(app, Arc::downgrade(&self.process))?;
+        if !process.is_alive() {
+            process.terminate();
+            return Err("The rendering engine stopped while it was starting.".into());
+        }
+        *slot = Some((process.instance_id, Arc::clone(&process)));
         Ok(process)
     }
 
@@ -331,7 +493,8 @@ impl ManagedSidecar {
         method: String,
         params: Value,
     ) -> Result<Value, String> {
-        self.process(app)?.request_method(request_id, method, params)
+        self.process(app)?
+            .request_method(request_id, method, params)
     }
 
     pub fn cancel(&self, app: &AppHandle, request_id: String) -> Result<Value, String> {
@@ -339,10 +502,89 @@ impl ManagedSidecar {
     }
 
     pub fn shutdown(&self) {
-        if let Ok(mut slot) = self.process.lock() {
-            if let Some(process) = slot.take() {
-                process.shutdown();
-            }
+        let process = self
+            .process
+            .lock()
+            .ok()
+            .and_then(|mut slot| slot.take().map(|(_, process)| process));
+        if let Some(process) = process {
+            process.shutdown();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duplicate_request_id_preserves_the_original_waiter() {
+        let mut registry = RequestRegistry::new();
+        let (first_sender, first_receiver) = mpsc::channel();
+        let (duplicate_sender, duplicate_receiver) = mpsc::channel();
+
+        registry
+            .register("same-id".into(), first_sender)
+            .expect("first request should register");
+        let error = registry
+            .register("same-id".into(), duplicate_sender)
+            .expect_err("duplicate request IDs must be rejected");
+        assert!(error.contains("same ID"));
+
+        let response = json!({"jsonrpc":"2.0","id":"same-id","result":{"ok":true}});
+        registry
+            .remove("same-id")
+            .expect("original sender must remain registered")
+            .send(response.clone())
+            .expect("original receiver should still be connected");
+        let received = first_receiver
+            .recv_timeout(Duration::from_millis(100))
+            .expect("original response should be delivered");
+        assert_eq!(received, response);
+        assert!(matches!(
+            duplicate_receiver.try_recv(),
+            Err(mpsc::TryRecvError::Disconnected)
+        ));
+    }
+
+    #[test]
+    fn stopping_registry_disconnects_pending_requests_and_rejects_new_ones() {
+        let registry = Arc::new(Mutex::new(RequestRegistry::new()));
+        let (sender, receiver) = mpsc::channel();
+        registry
+            .lock()
+            .expect("registry lock")
+            .register("pending".into(), sender)
+            .expect("request should register");
+
+        stop_registry(&registry);
+
+        assert!(matches!(
+            receiver.recv_timeout(Duration::from_millis(100)),
+            Err(mpsc::RecvTimeoutError::Disconnected)
+        ));
+        let (sender, _receiver) = mpsc::channel();
+        let error = registry
+            .lock()
+            .expect("registry lock")
+            .register("after-stop".into(), sender)
+            .expect_err("a stopped process must not accept requests");
+        assert!(error.contains("not running"));
+    }
+
+    #[test]
+    fn stale_eof_cannot_invalidate_a_replacement_process() {
+        let mut slot = Some((2, "replacement"));
+        assert_eq!(take_matching_process(&mut slot, 1), None);
+        assert_eq!(slot, Some((2, "replacement")));
+        assert_eq!(take_matching_process(&mut slot, 2), Some("replacement"));
+        assert_eq!(slot, None);
+    }
+
+    #[test]
+    fn request_timeout_is_bounded_well_below_the_previous_hour() {
+        assert_eq!(REQUEST_TIMEOUT, Duration::from_secs(10 * 60));
+        assert!(REQUEST_TIMEOUT < Duration::from_secs(60 * 60));
+        assert!(CONTROL_TIMEOUT < REQUEST_TIMEOUT);
     }
 }
