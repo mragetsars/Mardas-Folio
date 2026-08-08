@@ -38,6 +38,7 @@ import {
 import { templateContent, templateList } from "./core/templates.mjs";
 import { filterCommands } from "./core/command-palette.mjs";
 import { createModalManager } from "./core/modal-manager.mjs";
+import { updaterStatus, checkForUpdates, installUpdate } from "./core/updater-api.mjs";
 import {
   bibliographyIndex,
   cancelSidecarRequest,
@@ -101,6 +102,11 @@ const state = {
   onboardingIntent: null,
   commandIndex: 0,
   visibleCommands: [],
+  updateStatus: null,
+  updateCheck: null,
+  updateInstalling: false,
+  updateDownloaded: 0,
+  updateTotal: 0,
 };
 let editorAdapter = null;
 let modalManager = null;
@@ -286,6 +292,114 @@ async function saveSupportBundle() {
   }
 }
 
+
+function updateUi() {
+  const status = state.updateStatus;
+  const check = state.updateCheck;
+  const configured = Boolean(status?.configured);
+  const current = status?.current_version || $("#app-version")?.textContent || "";
+  $("#update-current-version").textContent = current;
+  $("#update-channel").textContent = status?.channel || "stable";
+  $("#check-updates").disabled = !configured || state.updateInstalling;
+  $("#install-update").disabled = state.updateInstalling || !check?.available;
+  $("#install-update").classList.toggle("hidden", !check?.available);
+  $("#update-progress").classList.toggle("hidden", !state.updateInstalling);
+  if (!configured) {
+    $("#update-state").dataset.state = "disabled";
+    $("#update-state").textContent = t("updatesUnavailable");
+    $("#update-detail").textContent = t("updatesUnavailableHelp");
+    return;
+  }
+  if (state.updateInstalling) {
+    $("#update-state").dataset.state = "working";
+    $("#update-state").textContent = t("updateInstalling");
+    const total = Number(state.updateTotal) || 0;
+    const downloaded = Number(state.updateDownloaded) || 0;
+    const percent = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
+    $("#update-progress-bar").style.width = `${percent}%`;
+    $("#update-progress-label").textContent = total > 0 ? `${percent}%` : "…";
+    $("#update-detail").textContent = check?.version ? `${t("updateVersion")} ${check.version}` : "";
+    return;
+  }
+  if (check?.available) {
+    $("#update-state").dataset.state = "available";
+    $("#update-state").textContent = t("updateAvailable");
+    $("#update-detail").textContent = `${t("updateVersion")} ${check.version}${check.pub_date ? ` · ${check.pub_date}` : ""}`;
+    $("#update-notes").textContent = check.notes || t("noReleaseNotes");
+    $("#update-notes").classList.remove("hidden");
+    return;
+  }
+  $("#update-notes").classList.add("hidden");
+  if (check && !check.available) {
+    $("#update-state").dataset.state = "ready";
+    $("#update-state").textContent = t("upToDate");
+    $("#update-detail").textContent = `${t("currentVersion")} ${current}`;
+  } else {
+    $("#update-state").dataset.state = "ready";
+    $("#update-state").textContent = t("updatesReady");
+    $("#update-detail").textContent = t("updatesManualHelp");
+  }
+}
+
+async function initializeUpdater() {
+  try {
+    state.updateStatus = await updaterStatus();
+  } catch {
+    state.updateStatus = {
+      configured: false,
+      current_version: $("#app-version")?.textContent || "",
+      channel: "stable",
+      reason: "unavailable",
+    };
+  }
+  updateUi();
+}
+
+async function checkUpdates() {
+  if (!state.updateStatus?.configured || state.updateInstalling) {
+    updateUi();
+    return;
+  }
+  const button = $("#check-updates");
+  button.disabled = true;
+  $("#update-state").dataset.state = "working";
+  $("#update-state").textContent = t("checkingUpdates");
+  $("#update-detail").textContent = t("checkingUpdatesHelp");
+  $("#update-notes").classList.add("hidden");
+  try {
+    state.updateCheck = await checkForUpdates();
+    updateUi();
+    if (!state.updateCheck?.available) toast(t("upToDate"), "success");
+  } catch (error) {
+    state.updateCheck = null;
+    $("#update-state").dataset.state = "error";
+    $("#update-state").textContent = t("updateCheckFailed");
+    $("#update-detail").textContent = errorText(error);
+    button.disabled = false;
+  }
+}
+
+async function installAvailableUpdate() {
+  if (!state.updateCheck?.available || state.updateInstalling) return;
+  state.updateInstalling = true;
+  state.updateDownloaded = 0;
+  state.updateTotal = 0;
+  updateUi();
+  try {
+    await installUpdate(state.updateCheck.version);
+    state.updateInstalling = false;
+    updateUi();
+    toast(t("updateInstalled"), "success");
+  } catch (error) {
+    state.updateInstalling = false;
+    $("#update-state").dataset.state = "error";
+    $("#update-state").textContent = t("updateInstallFailed");
+    $("#update-detail").textContent = errorText(error);
+    $("#check-updates").disabled = false;
+    $("#install-update").disabled = false;
+  }
+}
+
 function setOnboardingStep(step) {
   state.onboardingStep = Math.max(0, Math.min(2, Number(step) || 0));
   $$("[data-onboarding-step]").forEach((section) => {
@@ -342,6 +456,7 @@ function commandDefinitions() {
     { id: "find", icon: "⌕", label: t("commandFind"), keywords: "find replace search", shortcut: "Ctrl F", priority: 60, enabled: hasDocument, run: () => openFind({ replace: false }) },
     { id: "settings", icon: "⚙", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
     { id: "support-bundle", icon: "ZIP", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
+    { id: "updates", icon: "↑", label: t("commandCheckUpdates"), keywords: "update upgrade release version", priority: 37, run: () => { openSettings(); setTimeout(() => checkUpdates(), 0); } },
     { id: "help", icon: "?", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
     { id: "home", icon: "⌂", label: t("commandHome"), keywords: "start home center", priority: 20, run: () => showView("start") },
   ];
@@ -2172,6 +2287,8 @@ function bindEvents() {
   $("#close-help").addEventListener("click", closeHelp);
   $("#help-done").addEventListener("click", closeHelp);
   $("#save-support-bundle").addEventListener("click", saveSupportBundle);
+  $("#check-updates").addEventListener("click", checkUpdates);
+  $("#install-update").addEventListener("click", installAvailableUpdate);
   $("#skip-onboarding").addEventListener("click", () => completeOnboarding({ runIntent: false }));
   $("#onboarding-next").addEventListener("click", onboardingNext);
   $("#onboarding-back").addEventListener("click", onboardingBack);
@@ -2271,6 +2388,18 @@ async function boot() {
       $("#progress-label").textContent = `${percent}%`;
       if (params.message) $("#status-message").textContent = params.message;
     });
+    await listen("desktop-update-progress", (event) => {
+      const payload = event.payload || {};
+      if (!state.updateInstalling) return;
+      if (payload.event === "progress") {
+        state.updateDownloaded += Number(payload.chunk_length) || 0;
+        if (Number(payload.content_length) > 0) state.updateTotal = Number(payload.content_length);
+        updateUi();
+      } else if (payload.event === "finished") {
+        state.updateDownloaded = state.updateTotal || state.updateDownloaded;
+        updateUi();
+      }
+    });
     await listen("desktop-open-files", (event) => openAuthoringPaths(event.payload || []));
     const launchFiles = await invoke("take_launch_files");
     if (launchFiles?.length) {
@@ -2299,6 +2428,7 @@ async function boot() {
     toast(errorText(error), "error");
   }
   await engineHealth();
+  await initializeUpdater();
   if (!state.documents.length) {
     const drafts = readRecoveries().filter((item) => !item.path);
     for (const recovery of drafts) {

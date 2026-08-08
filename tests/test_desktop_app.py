@@ -100,6 +100,12 @@ def test_native_shell_uses_stdio_sidecar_and_single_instance_first() -> None:
     assert "Stdio::piped()" in sidecar
     assert "MARDAS_RUNTIME_ROOT" in sidecar
     assert "mardas-sidecar.exe" in sidecar
+    updates = (TAURI / "src" / "updates.rs").read_text(encoding="utf-8")
+    assert "updater_status" in main
+    assert "updater_check" in main
+    assert "updater_install" in main
+    assert 'option_env!("MARDAS_UPDATER_PUBKEY")' in updates
+    assert 'parsed.scheme() != "https"' in updates
     combined = (main + sidecar).casefold()
     assert "webbrowser" not in combined
     assert "threadinghttpserver" not in combined
@@ -144,6 +150,10 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "command-modal",
         "command-query",
         "save-support-bundle",
+        "check-updates",
+        "install-update",
+        "update-state",
+        "update-progress",
     ):
         assert f'id="{element_id}"' in index
     assert 'type="module" src="./js/main.mjs"' in index
@@ -200,6 +210,7 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "templates.mjs",
         "command-palette.mjs",
         "modal-manager.mjs",
+        "updater-api.mjs",
     ):
         assert (DESKTOP / "frontend" / "js" / "core" / module).is_file()
     assert "fetch(" not in main

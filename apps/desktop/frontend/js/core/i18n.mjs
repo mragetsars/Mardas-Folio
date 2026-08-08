@@ -33,6 +33,14 @@ Object.assign(fa,{
   supportBundle:"بسته پشتیبانی",supportBundleHelp:"یک ZIP تشخیصی بدون محتوای سند، مسیر فایل‌ها یا متغیرهای محیطی بساز.",
   saveSupportBundle:"ذخیره بسته پشتیبانی",supportBundleSaved:"بسته پشتیبانی ذخیره شد.",supportBundleCancelled:"ذخیره بسته پشتیبانی لغو شد.",
   supportPrivacy:"این بسته محتوای سندها و مسیر فایل‌های شخصی را جمع‌آوری نمی‌کند.",
+  softwareUpdates:"بروزرسانی نرم‌افزار",currentVersion:"نسخه فعلی",updateChannel:"کانال انتشار",updatesReady:"آماده بررسی",
+  updatesManualHelp:"بررسی بروزرسانی فقط با درخواست شما به GitHub Releases متصل می‌شود.",checkForUpdates:"بررسی بروزرسانی",installUpdate:"نصب بروزرسانی",
+  updateSecurityHelp:"فقط بسته‌های امضاشده با کلید رسمی Mardas Studio نصب می‌شوند.",updatesUnavailable:"بروزرسانی خودکار در این build فعال نیست",
+  updatesUnavailableHelp:"این نسخه بدون کلید عمومی updater ساخته شده است. می‌توانی همچنان نسخه جدید را از GitHub Releases نصب کنی.",
+  checkingUpdates:"در حال بررسی بروزرسانی",checkingUpdatesHelp:"فقط اطلاعات نسخه از endpoint رسمی دریافت می‌شود.",upToDate:"آخرین نسخه نصب است.",
+  updateAvailable:"نسخه جدید آماده است",updateVersion:"نسخه",noReleaseNotes:"برای این نسخه توضیح انتشار ثبت نشده است.",updateInstalling:"در حال دریافت و نصب بروزرسانی",
+  updateInstalled:"بروزرسانی نصب شد. در macOS و Linux برنامه را دوباره اجرا کن.",updateCheckFailed:"بررسی بروزرسانی ناموفق بود",
+  updateInstallFailed:"نصب بروزرسانی ناموفق بود",commandCheckUpdates:"بررسی بروزرسانی نرم‌افزار",
   lineShort:"خط",columnShort:"ستون",wordsLabel:"واژه",charactersLabel:"نویسه",sidecarUnavailableDetail:"موتور محلی در دسترس نیست",localRuntime:"محلی"
 });
 Object.assign(en,{
@@ -67,6 +75,14 @@ Object.assign(en,{
   supportBundle:"Support bundle",supportBundleHelp:"Create a diagnostic ZIP without document contents, document paths, or environment variables.",
   saveSupportBundle:"Save support bundle",supportBundleSaved:"Support bundle saved.",supportBundleCancelled:"Support bundle save was cancelled.",
   supportPrivacy:"This bundle does not collect document contents or personal file paths.",
+  softwareUpdates:"Software updates",currentVersion:"Current version",updateChannel:"Release channel",updatesReady:"Ready to check",
+  updatesManualHelp:"Mardas Studio contacts GitHub Releases only when you ask it to check for an update.",checkForUpdates:"Check for updates",installUpdate:"Install update",
+  updateSecurityHelp:"Only packages signed with the official Mardas Studio update key are installed.",updatesUnavailable:"Automatic updates are not enabled in this build",
+  updatesUnavailableHelp:"This build was produced without an updater public key. You can still install a newer version from GitHub Releases.",
+  checkingUpdates:"Checking for updates",checkingUpdatesHelp:"Only version metadata is requested from the configured release endpoint.",upToDate:"You already have the latest version.",
+  updateAvailable:"A new version is available",updateVersion:"Version",noReleaseNotes:"No release notes were provided for this version.",updateInstalling:"Downloading and installing update",
+  updateInstalled:"Update installed. Restart Mardas Studio on macOS or Linux.",updateCheckFailed:"Update check failed",
+  updateInstallFailed:"Update installation failed",commandCheckUpdates:"Check for software updates",
   lineShort:"Ln",columnShort:"Col",wordsLabel:"words",charactersLabel:"chars",sidecarUnavailableDetail:"local engine unavailable",localRuntime:"local"
 });
 const messages={fa,en};export function supportedLocale(value){return String(value||"").toLowerCase().startsWith("fa")?"fa":"en"}export function createTranslator(locale="fa"){let current=supportedLocale(locale);return{get locale(){return current},set locale(value){current=supportedLocale(value)},t(key){return messages[current][key]??messages.en[key]??key}}}

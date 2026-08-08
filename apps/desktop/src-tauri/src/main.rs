@@ -1,4 +1,5 @@
 mod sidecar;
+mod updates;
 
 use serde_json::{json, Value};
 use sidecar::ManagedSidecar;
@@ -265,6 +266,7 @@ fn main() {
         // Single-instance must be the first plugin so second launches are intercepted early.
         .plugin(single_instance)
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(LaunchFiles(Mutex::new(initial_files)))
         .manage(ManagedSidecar::default())
         .invoke_handler(tauri::generate_handler![
@@ -281,6 +283,9 @@ fn main() {
             reveal_path,
             sidecar_request,
             sidecar_cancel,
+            updates::updater_status,
+            updates::updater_check,
+            updates::updater_install,
         ])
         .setup(|app| {
             let queued = app

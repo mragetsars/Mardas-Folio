@@ -290,6 +290,22 @@
         <label><span data-i18n="interfaceLanguage">زبان رابط</span><select id="setting-locale"><option value="fa">فارسی</option><option value="en">English</option></select></label>
         <button class="button secondary compact" id="restart-onboarding" type="button" data-i18n="restartOnboarding">اجرای دوباره راهنمای شروع</button>
       </section>
+      <section class="settings-section update-settings" data-settings-terms="update upgrade version release بروزرسانی نسخه انتشار">
+        <h3 data-i18n="softwareUpdates">بروزرسانی نرم‌افزار</h3>
+        <div class="update-summary">
+          <div><span data-i18n="currentVersion">نسخه فعلی</span><strong id="update-current-version">—</strong></div>
+          <div><span data-i18n="updateChannel">کانال انتشار</span><strong id="update-channel">stable</strong></div>
+        </div>
+        <div class="update-state" id="update-state" data-state="ready" role="status" aria-live="polite" data-i18n="updatesReady">آماده بررسی</div>
+        <p class="update-detail" id="update-detail" data-i18n="updatesManualHelp">بررسی بروزرسانی فقط با درخواست شما به GitHub Releases متصل می‌شود.</p>
+        <pre class="update-notes hidden" id="update-notes"></pre>
+        <div class="update-progress hidden" id="update-progress" aria-label="Update progress"><i id="update-progress-bar"></i><span id="update-progress-label">0%</span></div>
+        <div class="update-actions">
+          <button class="button secondary compact" id="check-updates" type="button" data-i18n="checkForUpdates">بررسی بروزرسانی</button>
+          <button class="button primary compact hidden" id="install-update" type="button" data-i18n="installUpdate">نصب بروزرسانی</button>
+        </div>
+        <small data-i18n="updateSecurityHelp">فقط بسته‌های امضاشده با کلید رسمی Mardas Studio نصب می‌شوند.</small>
+      </section>
     </div>
     <div class="settings-empty hidden" id="settings-empty" data-i18n="noSettingsMatch">تنظیمی با این عبارت پیدا نشد.</div>
     <div class="modal-actions"><button class="button secondary" id="reset-settings" type="button" data-i18n="resetSettings">بازنشانی تنظیمات</button><button class="button primary" type="submit" data-i18n="saveSettings">ذخیره تنظیمات</button></div>
