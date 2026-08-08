@@ -199,3 +199,15 @@ Mardas Studio does not expose the rendering engine through localhost. The Tauri 
 Native open/save dialogs are the primary source of document paths. Open/reveal actions canonicalize an existing path and launch fixed operating-system commands without interpolating a shell command. The installer build accepts only a standalone runtime whose manifest version, browser flag, file inventory, sizes, and SHA-256 digests all verify. The staged runtime and generated frontend are build inputs and are not accepted from arbitrary user-controlled directories during normal application use.
 
 The authoring API limits Markdown buffers and imported assets, accepts only UTF-8 Markdown document types, saves through same-directory temporary files plus atomic replacement, and compares revision tokens before overwriting an existing document. Asset imports reject symbolic-link selections and symbolic-link `assets/` directories. Browser recovery is bounded, local to the user's application profile, and is never treated as permission to write the source file automatically. Unsaved preview HTML is produced by the existing sanitized Markdown pipeline and is sanitized again before insertion into the desktop DOM.
+
+## Support bundle privacy boundary
+
+The native Help workflow can export a troubleshooting ZIP. This archive is intentionally narrower than a crash dump or project backup: it may contain Mardas/runtime version information, platform/architecture, browser availability, and a bounded summary of the frozen-runtime manifest. It must not include document content, document paths, environment variables, credentials, tokens, or the user's home-directory path.
+
+Tests must treat any future expansion of the support payload as a privacy-sensitive change.
+
+## Desktop updater signing boundary
+
+Updater private keys are release secrets. They must never be committed, copied into `.env`, included in support bundles, printed in CI logs, or uploaded as ordinary artifacts. Static update metadata must use HTTPS URLs and the exact generated signature contents for every target.
+
+The application must not enable production automatic updates with a placeholder public key. See `docs/UPDATES.md` for the activation gates.
