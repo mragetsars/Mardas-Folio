@@ -73,6 +73,9 @@ def test_maintenance_scripts_are_executable() -> None:
         "scripts/build_native_desktop.py",
         "scripts/verify_native_desktop.py",
         "scripts/generate_update_manifest.py",
+        "scripts/assemble_signed_updates.py",
+        "scripts/release_preflight.py",
+        "scripts/extract_release_notes.py",
     ]:
         path = ROOT / relative_path
         assert path.is_file()
@@ -209,6 +212,13 @@ def test_release_workflow_runs_the_complete_release_gate() -> None:
     assert "actions/attest@v4" in workflow
     assert "subject-checksums" in workflow
     assert "sbom-path" in workflow
+    assert "scripts/release_preflight.py --mode draft" in workflow
+    assert "--create-updater-artifacts" in workflow
+    assert "scripts/assemble_signed_updates.py" in workflow
+    assert "--require-update-manifest" in workflow
+    assert "publish-draft:" in workflow
+    assert "gh release create" in workflow
+    assert "--draft" in workflow
 
 
 def test_check_render_smoke_uses_process_tree_safe_command_runner() -> None:

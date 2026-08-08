@@ -10,10 +10,30 @@ permissions:
   contents: read
 
 jobs:
+  release-preflight:
+    name: Verify signed draft release prerequisites
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Verify updater signing configuration
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          MARDAS_UPDATER_PUBKEY: ${{ vars.MARDAS_UPDATER_PUBKEY }}
+        run: python scripts/release_preflight.py --mode draft --json build/release-preflight.json
+
   build-core:
     name: Build verified core artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    needs: release-preflight
     outputs:
       version: ${{ steps.metadata.outputs.version }}
     steps:
@@ -198,18 +218,30 @@ jobs:
           python -m pip install -e ".[desktop]"
           cargo install tauri-cli --version 2.11.4 --locked
 
-      - name: Build Windows setup and portable package
+      - name: Build Windows setup, portable package, and signed updater
         shell: pwsh
-        run: python scripts/build_native_desktop.py --runtime "$env:RUNTIME_DIR" --clean
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          MARDAS_UPDATER_PUBKEY: ${{ vars.MARDAS_UPDATER_PUBKEY }}
+          MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json
+        run: |
+          python scripts/build_native_desktop.py `
+            --runtime "$env:RUNTIME_DIR" `
+            --create-updater-artifacts `
+            --updater-endpoint "$env:MARDAS_UPDATE_ENDPOINT" `
+            --clean
 
       - name: Verify Windows native artifacts
         shell: pwsh
         run: |
           $version = "${{ needs.build-core.outputs.version }}"
           $files = Get-ChildItem build/desktop-native -File | Where-Object {
-            $_.Name -like 'Mardas-Studio-*-setup.exe' -or $_.Name -like 'Mardas-Studio-*-portable.zip'
+            $_.Name -like 'Mardas-Studio-*-setup.exe' -or
+            $_.Name -like 'Mardas-Studio-*-setup.exe.sig' -or
+            $_.Name -like 'Mardas-Studio-*-portable.zip'
           }
-          if ($files.Count -lt 2) { throw 'Expected Windows setup and portable artifacts.' }
+          if ($files.Count -lt 3) { throw 'Expected Windows setup, updater signature, and portable artifacts.' }
           foreach ($file in $files) {
             python scripts/verify_native_desktop.py $file.FullName --version $version
           }
@@ -220,6 +252,7 @@ jobs:
           name: desktop-native-windows
           path: |
             build/desktop-native/Mardas-Studio-*-setup.exe
+            build/desktop-native/Mardas-Studio-*-setup.exe.sig
             build/desktop-native/Mardas-Studio-*-portable.zip
             build/desktop-native/desktop-native-manifest.json
           if-no-files-found: error
@@ -299,9 +332,15 @@ jobs:
           python scripts/verify_standalone_runtime.py "$runtime" --render
           echo "RUNTIME_DIR=$runtime" >> "$GITHUB_ENV"
 
-      - name: Build native packages
+      - name: Build native packages and signed updater artifacts
         shell: bash
-        run: python scripts/build_native_desktop.py --runtime "$RUNTIME_DIR" --clean
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          MARDAS_UPDATER_PUBKEY: ${{ vars.MARDAS_UPDATER_PUBKEY }}
+          MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json
+        run: |
+          python scripts/build_native_desktop.py             --runtime "$RUNTIME_DIR"             --create-updater-artifacts             --updater-endpoint "$MARDAS_UPDATE_ENDPOINT"             --clean
 
       - name: Verify native packages
         shell: bash
@@ -311,13 +350,17 @@ jobs:
           for artifact in build/desktop-native/Mardas-Studio-*; do
             test -f "$artifact" || continue
             case "$artifact" in
-              *.dmg|*.AppImage|*.deb)
+              *.dmg|*.AppImage|*.deb|*.AppImage.sig|*-updater.tar.gz|*-updater.tar.gz.sig)
                 python scripts/verify_native_desktop.py "$artifact" --version "$version"
                 count=$((count + 1))
                 ;;
             esac
           done
-          test "$count" -ge 1
+          if ${{ matrix.linux }}; then
+            test "$count" -ge 3
+          else
+            test "$count" -ge 3
+          fi
 
       - name: Upload native packages
         uses: actions/upload-artifact@v7
@@ -326,7 +369,10 @@ jobs:
           path: |
             build/desktop-native/Mardas-Studio-*.dmg
             build/desktop-native/Mardas-Studio-*.AppImage
+            build/desktop-native/Mardas-Studio-*.AppImage.sig
             build/desktop-native/Mardas-Studio-*.deb
+            build/desktop-native/Mardas-Studio-*-updater.tar.gz
+            build/desktop-native/Mardas-Studio-*-updater.tar.gz.sig
             build/desktop-native/desktop-native-manifest.json
           if-no-files-found: error
           retention-days: 30
@@ -388,6 +434,15 @@ jobs:
           cp build/offline/*.zip build/release/
           cp build/standalone/*.zip build/release/
           find build/desktop-native -maxdepth 1 -type f -name 'Mardas-Studio-*' -exec cp {} build/release/ \;
+          python scripts/extract_release_notes.py \
+            --version "${{ needs.build-core.outputs.version }}" \
+            --output build/RELEASE-NOTES.md
+          python scripts/assemble_signed_updates.py \
+            --artifact-dir build/release \
+            --version "${{ needs.build-core.outputs.version }}" \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "v${{ needs.build-core.outputs.version }}" \
+            --notes-file build/RELEASE-NOTES.md
           python scripts/finalize_release_artifacts.py \
             --artifact-dir build/release \
             --version "${{ needs.build-core.outputs.version }}" \
@@ -399,7 +454,8 @@ jobs:
             --minimum-native-desktop-count 5 \
             --require-desktop-platform windows \
             --require-desktop-platform macos \
-            --require-desktop-platform linux
+            --require-desktop-platform linux \
+            --require-update-manifest
           python - <<'PY'
           from pathlib import Path
           source = Path("build/release/CHECKSUMS.sha256")
@@ -463,3 +519,76 @@ jobs:
           path: build/attestations/
           if-no-files-found: error
           retention-days: 90
+
+  publish-draft:
+    name: Stage draft GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-core, attest]
+    if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'mragetsars/Mardas-MD2PDF'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Download finalized release package
+        uses: actions/download-artifact@v8
+        with:
+          name: release-${{ needs.build-core.outputs.version }}
+          path: build/release
+
+      - name: Verify tag and finalized release package
+        shell: bash
+        run: |
+          version="${{ needs.build-core.outputs.version }}"
+          test "$GITHUB_REF_NAME" = "v$version"
+          python scripts/finalize_release_artifacts.py \
+            --artifact-dir build/release \
+            --version "$version" \
+            --source-revision "$GITHUB_SHA" \
+            --require-sbom \
+            --minimum-bundle-count 3 \
+            --minimum-standalone-runtime-count 1 \
+            --minimum-desktop-installer-count 1 \
+            --minimum-native-desktop-count 5 \
+            --require-desktop-platform windows \
+            --require-desktop-platform macos \
+            --require-desktop-platform linux \
+            --require-update-manifest \
+            --verify-only
+          python scripts/extract_release_notes.py \
+            --version "$version" \
+            --output build/RELEASE-NOTES.md
+
+      - name: Create or refresh draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version="${{ needs.build-core.outputs.version }}"
+          tag="v$version"
+          title="Mardas Studio $version"
+          if gh release view "$tag" --json isDraft >/tmp/mardas-release.json 2>/dev/null; then
+            is_draft="$(python -c 'import json; print(str(json.load(open("/tmp/mardas-release.json"))["isDraft"]).lower())')"
+            if [ "$is_draft" != "true" ]; then
+              echo "Refusing to overwrite a published GitHub Release: $tag" >&2
+              exit 1
+            fi
+            gh release edit "$tag" --draft --title "$title" --notes-file build/RELEASE-NOTES.md
+            gh release upload "$tag" build/release/* --clobber
+          else
+            gh release create "$tag" build/release/* \
+              --draft \
+              --verify-tag \
+              --title "$title" \
+              --notes-file build/RELEASE-NOTES.md
+          fi
+          test "$(gh release view "$tag" --json isDraft --jq '.isDraft')" = "true"

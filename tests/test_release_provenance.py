@@ -360,6 +360,9 @@ def test_release_scripts_are_executable() -> None:
         "build_native_desktop.py",
         "verify_native_desktop.py",
         "generate_update_manifest.py",
+        "assemble_signed_updates.py",
+        "release_preflight.py",
+        "extract_release_notes.py",
     ):
         path = SCRIPTS / name
         assert path.is_file()
@@ -408,6 +411,14 @@ def test_cross_platform_and_provenance_workflows_use_current_contracts() -> None
     assert "ubuntu-22.04" in ci
     assert "macos-15-intel" in ci
     assert "cargo install tauri-cli --version 2.11.4 --locked" in ci
+    assert "release-preflight:" in release
+    assert "scripts/release_preflight.py --mode draft" in release
+    assert "--create-updater-artifacts" in release
+    assert "scripts/assemble_signed_updates.py" in release
+    assert "--require-update-manifest" in release
+    assert "publish-draft:" in release
+    assert "gh release create" in release
+    assert "--draft" in release
     assert "github/codeql-action/init@v4" in codeql
     assert "github/codeql-action/analyze@v4" in codeql
     assert "package-ecosystem: pip" in dependabot
