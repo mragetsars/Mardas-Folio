@@ -12,7 +12,7 @@ summary: |
   This document also acts as a live rendering sample for cover pages, tables of contents, mixed RTL/LTR text, formulas, code, Mermaid flowcharts, images, tables, footnotes, page breaks, and safe HTML.
 institution: "Mardas Lab"
 course: "Markdown Publishing"
-version: "1.30.0"
+version: "1.31.0"
 status: "Stable"
 keywords:
   - Markdown
@@ -152,7 +152,7 @@ The package exposes three process interfaces:
 
 ## Standalone runtime for desktop packaging
 
-Release engineering can build a portable sidecar runtime that includes Python, the Mardas engine, Playwright resources, and pinned Chromium. The target computer does not need Python, pip, Node.js, Git, or Chrome. Version 1.30.0 embeds this verified runtime in the first native Mardas Studio Windows installer.
+Release engineering can build a portable sidecar runtime that includes Python, the Mardas engine, Playwright resources, and pinned Chromium. The target computer does not need Python, pip, Node.js, Git, or Chrome. Version 1.31.0 can embed this verified runtime in the native Mardas Studio packages produced by target-platform release jobs.
 
 ```bash
 python -m pip install -e '.[desktop]'
@@ -164,29 +164,31 @@ Verify the runtime manifest, protocol lifecycle, bundled browser, and a real Uni
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-1.30.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-MD2PDF-1.31.0-runtime-windows-x86_64 \
   --render
 ```
 
-The sidecar opens no localhost port. It reads one JSON-RPC request per line from `stdin`, writes protocol messages only to `stdout`, and sends logs to `stderr`. Desktop clients must call `system.health` and `system.capabilities` before rendering.
+Runtime manifest schema v2 records regular files and explicitly declared relative symbolic links. Build, staging, archive, and provenance checks preserve safe links while rejecting absolute or escaping targets, dangling links, cycles, paths traversing links, and inventory mismatches. Legacy schema-v1 regular-file manifests remain verifiable.
+
+The sidecar opens no localhost port. It reads one JSON-RPC request per line from `stdin`, writes protocol messages only to `stdout`, and sends logs to `stderr`. The encoded request envelope is limited to 64 MiB and each standalone document operation to 8 MiB of decoded UTF-8 text; project files retain their stricter 4 MiB workspace limit. Desktop clients must call `system.health` and `system.capabilities` before rendering.
 
 ## Installable desktop packages and support diagnostics
 
-Release builds now treat Mardas Studio as an installable desktop application rather than requiring end users to prepare a development environment. The verified release matrix produces Windows Setup and portable packages, architecture-specific macOS DMGs, and Linux AppImage/Debian packages. The normal application bundles the Mardas sidecar and its pinned Chromium renderer; users do not need Python, Node.js, Rust, Git, or a separate Playwright installation.
+Release engineering treats Mardas Studio as an installable desktop application rather than requiring end users to prepare a development environment. Credentialed target-platform jobs are configured to produce Windows Setup and portable packages, architecture-specific macOS DMGs, and Linux AppImage/Debian packages. The supported native targets are Windows 11 x86-64 (or Windows Server 2019+), macOS 14+ on Apple Silicon or Intel, and x86-64 Linux packages tested on Ubuntu 22.04. Other compatible glibc-based Linux distributions may run the AppImage but are outside the published acceptance matrix. A source checkout or portable test run does not prove that those native builds or installer smoke tests completed. The normal application bundles the Mardas sidecar and its pinned Chromium renderer; users do not need Python, Node.js, Rust, Git, or a separate Playwright installation.
 
 From **Help → Save Support Bundle**, users can create a troubleshooting ZIP that records the Mardas/runtime versions and renderer availability. The bundle deliberately excludes document contents, document paths, environment variables, and the home-directory path.
 
-Signed release builds in version 1.30.0 expose **Settings → Software Updates**. Update checks are user-initiated, run through the native Rust boundary, use an HTTPS metadata endpoint, and install only Tauri-signed payloads. Development/source builds without the maintainer public key show updates as unavailable rather than contacting the network. Version tags stage a GitHub Draft Release after Windows, macOS, Linux, checksums, SBOM, updater metadata, and attestations verify; a maintainer still decides whether the draft is safe to publish. The updater private key must never be stored in a document, project, support bundle, or repository.
+Credentialed release builds in version 1.31.0 can expose **Settings → Software Updates** when the maintainer public key is embedded. Update checks are user-initiated, run through the native Rust boundary, use an HTTPS metadata endpoint, and install only Tauri-signed payloads. Development/source builds without that key show updates as unavailable rather than contacting the network. A version tag can stage a GitHub Draft Release only after the required Windows, macOS, Linux, checksum, SBOM, updater-metadata, and attestation jobs succeed; it never publishes automatically. Windows code signing and macOS Developer ID signing/notarization are not guaranteed by repository tests and require evidence from the actual credentialed release run. The updater private key must never be stored in a document, project, support bundle, or repository.
 
 ## Native Mardas Studio authoring preview
 
-Mardas Studio opens in a native Tauri window instead of a browser tab. Its Start Center provides native file selection, recent documents, Quick Export, and a project-directory picker. Version 1.30.0 adds an intelligent project sidebar that restores the last project, lists supported files below the `mardas.toml` root, searches Unicode content with bounded literal or restricted-regex queries, and opens each result at its exact line.
+Mardas Studio opens in a native Tauri window instead of a browser tab. Its Start Center provides native file selection, recent documents, Quick Export, and a project-directory picker. Version 1.31.0 includes an intelligent project sidebar that restores the last project, lists supported files below the `mardas.toml` root, searches Unicode content with bounded literal or restricted-regex queries, and opens each result at its exact line.
 
 The bibliography panel indexes the project's configured local BibTeX and CSL JSON sources, supports title/author/year/key search, marks cited entries, reports malformed sources, and inserts a selected citation at the editor cursor. Preview headings now contain trusted source-line metadata produced by the Python Markdown engine, so duplicate headings navigate reliably between preview, outline, and editor.
 
-Document saving remains conflict-aware. The engine returns a revision when a file is opened, writes changes atomically, and stops instead of silently overwriting a file changed by another program. Browser storage keeps bounded recovery snapshots for dirty buffers, but recovery never saves to the source file without an explicit user action. Imported assets remain restricted to supported local file types below the document's `assets/` directory.
+Document saving remains conflict-aware. Engine API 1.5.0 uses `document.read`/`document.save` for Markdown and `document.read_text`/`document.save_text` for supported `.bib`, `.json`, `.toml`, `.txt`, `.yaml`, and `.yml` UTF-8 files. Reads and saves report `kind`, `revision`, and `read_only`; project reads/saves carry the same metadata plus their SHA-256 conflict token. Changes are written atomically and stop instead of silently overwriting a file changed by another program. Browser storage keeps bounded per-document recovery snapshots for dirty buffers, but recovery never saves to the source file without an explicit user action. Imported assets remain restricted to supported local file types below the document's `assets/` directory.
 
-The current editor is still a dependency-free textarea, but it now sits behind a tested editor adapter so future local-bundled editor replacement does not own recovery, save-conflict, project, or preview state. PDF export remains authoritative for MathJax, Mermaid, pagination, fonts, and print layout. The Windows installer includes the frozen engine and pinned Chromium, so a normal user does not install Python, Playwright, Rust, or a local server.
+The former textarea editor has been replaced by CodeMirror 6 behind the tested editor adapter. Its deterministic bundle and notices ship inside the application, so the complete editing surface works offline without a CDN or runtime dependency download; recovery, save-conflict, project, and preview state remain outside the widget. PDF export remains authoritative for MathJax, Mermaid, pagination, fonts, and print layout. Native packages include the frozen engine and pinned Chromium, so a normal user does not install Python, Playwright, Rust, or a local server.
 
 
 ### Create and publish a Book Project
@@ -290,7 +292,7 @@ department: "Department name"
 course: "Course or project title"
 supervisor: "Supervisor name"
 date: "2026-05-20"
-version: "1.30.0"
+version: "1.31.0"
 status: "Draft"
 keywords: [Markdown, PDF, RTL, MathJax]
 cover_label: "Technical Report"
@@ -390,12 +392,12 @@ Inline code remains stable: `mrs-md2pdf input.md -o output.pdf --toc`.
 
 This compact sample is intentionally part of the guide because the guide is both user documentation and a live renderer test case.[^rtl-smoke] It keeps Persian punctuation, Latin package names, Persian digits, semantic table captions, and mixed-direction cells in the official PDF examples.
 
-آیا خروجی PDF برای `version 1.30.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید RTL، mixed-script، و mixed-number hooks را فعال کند.
+آیا خروجی PDF برای `version 1.31.0` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید RTL، mixed-script، و mixed-number hooks را فعال کند.
 
 | بخش نمونه | مقدار | انتظار در PDF |
 | :--- | :--- | :--- |
 | شماره فارسی | ۱۴۰۵ | عدد فارسی با متن RTL پایدار بماند. |
-| نسخه فنی | version 1.30.0 و ۱.۹.۹ | Latin/Persian numerals در یک سلول خوانا بمانند. |
+| نسخه فنی | version 1.31.0 و ۱.۹.۹ | Latin/Persian numerals در یک سلول خوانا بمانند. |
 | شناسه انگلیسی | `PDF`, `TOC`, `MathJax` | identifierهای English داخل جدول فارسی جابه‌جا نشوند. |
 
 جدول ۱۲. نمونه جدول فارسی/RTL با عددهای ترکیبی.

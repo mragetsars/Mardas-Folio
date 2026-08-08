@@ -15,9 +15,21 @@ Mardas-Studio-X.Y.Z-linux-x86_64.AppImage
 Mardas-Studio-X.Y.Z-linux-x86_64.deb
 ```
 
-Platform CI is authoritative. PyInstaller and Tauri are not treated as cross-compilers: the frozen sidecar runtime and native package are built and smoke-tested on the target operating system.
+Platform CI is authoritative. PyInstaller and Tauri are not treated as cross-compilers: the frozen sidecar runtime and native package must be built and smoke-tested on the target operating system. Source-level or portable tests alone are not evidence that those native jobs completed for a particular release.
 
 The release manifest records the normalized file name, artifact kind, size, SHA-256 digest, platform, and architecture. Release finalization fails if Windows, macOS, or Linux native coverage is missing.
+
+## Supported native targets
+
+| Platform | Architecture | Release-tested minimum |
+|---|---|---|
+| Windows | x86-64 | Windows 11 or Windows Server 2019 |
+| macOS | ARM64 and x86-64 | macOS 14 (Sonoma) |
+| Linux | x86-64 | Ubuntu 22.04 |
+
+These minimums follow the pinned Playwright/Chromium renderer and the actual
+native release runners. AppImage may run on other compatible glibc-based Linux
+distributions, but those systems are outside the published acceptance matrix.
 
 ## Windows
 
@@ -25,11 +37,24 @@ The primary Windows distribution is the NSIS Setup executable. Its Tauri configu
 
 The portable ZIP contains the same Mardas sidecar runtime and rendering browser but does not bundle WebView2. It is a secondary convenience artifact for systems that already provide WebView2; Setup remains the recommended Windows download.
 
+In a public release run, Tauri signs with the externally provisioned certificate
+thumbprint. The release verifier requires valid timestamped Authenticode on the
+NSIS installer and packaged executable, and proves that the portable ZIP contains
+that same verified binary.
+
 ## macOS
 
-macOS produces one DMG per supported architecture. CI builds ARM64 and Intel artifacts on separate runners. The source configuration uses an ad-hoc signing identity for unsigned development artifacts so local/CI packaging can be exercised without private Apple credentials.
+The release workflow is configured to produce one DMG per supported architecture, with ARM64 and Intel artifacts built on separate macOS runners. Source configuration does not embed a production signing identity: local/development packages may be unsigned or use toolchain-provided ad-hoc behavior, and are not public-release evidence.
 
 A public stable macOS release must be signed and notarized with maintainer-owned Apple credentials. Those credentials and private keys must never be committed to this repository.
+
+The public workflow imports the Developer ID certificate into a temporary
+keychain and uses exactly one notarization credential method. After Tauri
+notarizes the application, an explicit accepted-only `notarytool` step submits
+and staples the normalized DMG and refreshes its manifest digest. Both
+architecture jobs must then prove strict code signatures, the expected
+identity/team, Gatekeeper acceptance, and stapled notary tickets for the
+application and DMG.
 
 ## Linux
 
@@ -60,11 +85,11 @@ Verify an individual normalized artifact:
 python scripts/verify_native_desktop.py   build/desktop-native/Mardas-Studio-X.Y.Z-<platform>-<arch>.<suffix>   --version X.Y.Z
 ```
 
-The builder verifies the deterministic frontend and the complete standalone-runtime hash inventory before invoking Tauri.
+The builder verifies the deterministic offline frontend, including the checked-in CodeMirror 6 bundle, and the complete schema-v2 standalone-runtime file/symlink inventory before invoking Tauri.
 
 ## Signed updater payloads
 
-Version 1.30.0 can ask Tauri to create signed updater artifacts in addition to the normal installers:
+Version 1.31.0 can ask Tauri to create signed updater artifacts in addition to the normal installers:
 
 ```bash
 python scripts/build_native_desktop.py   --runtime <verified-runtime>   --create-updater-artifacts   --clean
@@ -74,8 +99,8 @@ The updater private key is supplied only through the release environment. The no
 
 ## GitHub Release boundary
 
-A version tag now stages a **Draft GitHub Release** only after the verified native matrix, signed updater assets, checksums, SBOM, release manifest, and attestations have completed. The workflow refuses to overwrite a release that has already been published.
+A version tag can stage a **Draft GitHub Release** only when the updater credentials are provisioned and the native matrix, signed updater assets, checksums, SBOM, release manifest, and attestations complete successfully. The workflow refuses to overwrite a release that has already been published.
 
-A draft is not permission to publish. Public release remains a maintainer gate and requires review of the native matrix, signing/notarization state, checksums, update metadata, known limitations, and release notes.
+A draft is not permission to publish and does not itself prove code signing or notarization. A manually dispatched public run fails closed unless the final evidence set contains one verified Windows target, two verified macOS targets, and the expected Linux target. Publication remains a maintainer gate and also requires installer smoke results, checksums, update metadata, known limitations, and release-note review.
 
 Code-signing and updater private keys are external release secrets. Do not add them to source, test fixtures, support bundles, `.env` files, or GitHub artifacts.

@@ -203,7 +203,7 @@ python scripts/verify_standalone_runtime.py \
   --render
 ```
 
-The verifier checks every manifest digest before launching the frozen sidecar. Release artifacts must include Chromium; `--allow-missing-chromium` is only for protocol/build diagnostics. Build each platform runtime on that platform because PyInstaller is not a cross-compiler.
+The schema-v2 verifier checks every regular-file digest and declared relative symlink target before launching the frozen sidecar. It rejects escapes, dangling links, cycles, traversal through links, and inventory mismatches; legacy schema-v1 manifests may contain regular files only. Release artifacts must include Chromium; `--allow-missing-chromium` is only for protocol/build diagnostics. Build each platform runtime on that platform because PyInstaller is not a cross-compiler.
 
 ## Patch set hygiene
 
@@ -257,16 +257,19 @@ Review source diagnostics for language, heading order, alternative text, link pu
 
 ## Native desktop maintenance
 
-The native application is split into `apps/desktop/frontend/` and `apps/desktop/src-tauri/`. Build and verify the static frontend without npm dependencies:
+The native application is split into `apps/desktop/frontend/` and `apps/desktop/src-tauri/`. Install the locked build dependencies, prove the committed CodeMirror 6 bundle is reproducible, then build and verify the fully offline frontend:
 
 ```bash
+npm --prefix apps/desktop ci --no-audit --no-fund
+npm --prefix apps/desktop run check:editor
 python scripts/build_desktop_frontend.py
 python scripts/verify_desktop_frontend.py apps/desktop/dist
 node --test apps/desktop/tests/*.test.mjs
 python -m pytest -q tests/test_desktop_app.py
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 ```
 
-On Windows, stage only a runtime that passes its complete SHA-256 manifest and includes pinned Chromium. `scripts/build_desktop_app.py` performs frontend verification and runtime staging before invoking Tauri. Do not commit `apps/desktop/dist/`, Rust `target/`, or staged sidecar files. Regenerate checked-in application icons from the canonical SVG with `python scripts/generate_desktop_icons.py`.
+Rust is pinned by `apps/desktop/src-tauri/rust-toolchain.toml`; the committed `Cargo.lock` is part of the release input and native builders fail unless Cargo accepts it with `--locked`. Regenerate and review that lockfile only as an explicit dependency update. On Windows, stage only a runtime that passes its complete SHA-256 manifest and includes pinned Chromium. `scripts/build_desktop_app.py` performs frontend verification and runtime staging before invoking Tauri. Do not commit `apps/desktop/dist/`, Rust `target/`, or staged sidecar files. Regenerate checked-in application icons from the canonical SVG with `python scripts/generate_desktop_icons.py`.
 
 Authoring changes must keep the document lifecycle tests green. In particular, verify atomic save, revision conflicts, unsaved-buffer preview/validation, symlink rejection for imported assets, bounded recovery/session storage, literal find/replace, and the static no-localhost/no-external-browser contracts. The top-level front-matter form intentionally edits only scalar fields; preserve unknown and nested YAML rather than trying to flatten it in the frontend.
 
@@ -280,7 +283,7 @@ python scripts/verify_native_desktop.py --help
 python -m pytest -q tests/test_native_desktop.py tests/test_release_provenance.py
 ```
 
-The standalone sidecar runtime must be built on the same operating system as the native package. Linux release CI intentionally uses Ubuntu 22.04 as the compatibility baseline. Windows Setup embeds the WebView2 offline installer, while the portable ZIP expects a system WebView2 runtime.
+The standalone sidecar runtime must be built on the same operating system as the native package. The commands above are required checks, not evidence that a particular Windows/macOS/Linux job has run. Linux release CI intentionally uses Ubuntu 22.04 as the compatibility baseline. Windows Setup embeds the WebView2 offline installer, while the portable ZIP expects a system WebView2 runtime. Signing and notarization evidence must come from the credentialed target-platform release run.
 
 Support-bundle changes additionally require:
 
@@ -292,7 +295,7 @@ Do not add document paths, document contents, home paths, environment variables,
 
 ## Updater metadata checks
 
-Until updater signing keys are provisioned, update support is readiness-only. Validate the static manifest tool independently:
+When updater signing keys are unavailable, update support is readiness-only. Validate the static manifest tool independently:
 
 ```bash
 python -m pytest -q tests/test_update_manifest.py

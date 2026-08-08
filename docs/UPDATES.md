@@ -1,6 +1,6 @@
 # Signed Desktop Updates
 
-Mardas Studio 1.30.0 implements the application-side and release-side Tauri v2 updater flow, but update capability is **secret-driven**. Development builds and ordinary source builds remain offline and report updates as unavailable unless a maintainer-controlled public key is embedded at build time.
+Mardas Studio 1.31.0 implements the application-side and release-side Tauri v2 updater flow, but update capability is **secret-driven**. Development builds and ordinary source builds remain offline and report updates as unavailable unless a maintainer-controlled public key is embedded at build time.
 
 ## Trust boundary
 
@@ -126,7 +126,7 @@ On Windows, the installer step exits the application as required by the Tauri up
 
 ## GitHub Draft Release
 
-A successful tag workflow stages a **Draft Release**, never an automatically published release. The workflow:
+A credentialed, successful tag workflow stages a **Draft Release**, never an automatically published release. The workflow:
 
 1. builds the verified core and platform artifacts;
 2. builds signed updater payloads;
@@ -151,10 +151,10 @@ python scripts/release_preflight.py --mode public
 
 A production release still needs:
 
-- Windows Authenticode/code-signing readiness;
-- macOS Developer ID signing;
-- macOS notarization;
+- verified, timestamped Windows Authenticode evidence;
+- verified macOS Developer ID and Gatekeeper evidence for both architectures;
+- valid stapled notarization tickets for both macOS application bundles and DMGs;
 - green native Windows/macOS/Linux build and smoke jobs;
 - final release-manifest/checksum/attestation review.
 
-Until those requirements are actually verified, keep the GitHub Release in Draft state.
+The `public` target-platform jobs create artifact-bound evidence and finalization rejects missing, mismatched, unsigned, or unnotarized targets. Keep the GitHub Release in Draft state until that evidence and the remaining acceptance checks have been reviewed. Repository tests and preflight output describe the contract; only the credentialed native run proves a particular artifact.

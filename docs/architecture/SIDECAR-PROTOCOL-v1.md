@@ -1,11 +1,11 @@
 # Mardas sidecar protocol v1
 
-The sidecar implements JSON-RPC 2.0, reads one UTF-8 request per line from `stdin`, and writes one JSON message per line to `stdout`. Clients must continue reading notifications until they receive a response with the matching request `id`.
+The sidecar implements JSON-RPC 2.0, reads one UTF-8 request per line from `stdin`, and writes one JSON message per line to `stdout`. Clients must continue reading notifications until they receive a response with the matching request `id`. A complete encoded request line is limited to 64 MiB. Decoded document text is independently limited to 8 MiB of UTF-8; the larger envelope allows worst-case JSON escaping without weakening the document boundary.
 
 ## Lifecycle
 
 ```json
-{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.29.0","pid":1234}}
+{"jsonrpc":"2.0","method":"system.ready","params":{"protocol":"mardas-sidecar","protocol_version":1,"engine_version":"1.31.0","pid":1234}}
 ```
 
 Recommended startup sequence:
@@ -14,12 +14,12 @@ Recommended startup sequence:
 2. Wait for `system.ready`.
 3. Call `system.health`.
 4. Call `system.capabilities` and verify supported methods.
-5. Submit one render/preview/validation operation at a time.
+5. Submit one heavy application operation at a time; health, capabilities, cancellation, and shutdown remain available as control methods.
 6. Call `system.shutdown` before terminating the process.
 
 ## Document authoring lifecycle
 
-The native authoring workspace uses revision-aware document operations. `document.read` returns UTF-8 content and a revision token. `document.save` writes atomically and rejects a stale `expected_revision` with `MARDAS-DOCUMENT-CONFLICT` unless the user explicitly requests a forced overwrite.
+The native authoring workspace uses revision-aware document operations. `document.read` and `document.save` are restricted to `.md` and `.markdown`. Engine API 1.5.0 adds `document.read_text` and `document.save_text` for supported `.bib`, `.json`, `.toml`, `.txt`, `.yaml`, and `.yml` UTF-8 files. Every successful read reports normalized `kind`, `revision`, and `read_only` metadata. Saves write atomically, return refreshed metadata, and reject a stale `expected_revision` with `MARDAS-DOCUMENT-CONFLICT` unless the user explicitly requests a forced overwrite.
 
 ```json
 {"jsonrpc":"2.0","id":"read-1","method":"document.read","params":{"path":"C:/work/doc.md"}}
@@ -27,6 +27,22 @@ The native authoring workspace uses revision-aware document operations. `documen
 
 ```json
 {"jsonrpc":"2.0","id":"save-1","method":"document.save","params":{"path":"C:/work/doc.md","content":"# Edited\n","expected_revision":"<revision>","force":false}}
+```
+
+Example Markdown read result:
+
+```json
+{"jsonrpc":"2.0","id":"read-1","result":{"path":"C:/work/doc.md","kind":"markdown","content":"# Draft\n","size_bytes":8,"revision":"<revision>","read_only":false}}
+```
+
+Supported non-Markdown text uses the parallel methods:
+
+```json
+{"jsonrpc":"2.0","id":"text-read-1","method":"document.read_text","params":{"path":"C:/work/references.bib"}}
+```
+
+```json
+{"jsonrpc":"2.0","id":"text-save-1","method":"document.save_text","params":{"path":"C:/work/references.bib","content":"@book{...}\n","expected_revision":"<revision>","force":false}}
 ```
 
 Dirty buffers are validated or previewed without first changing the source file:
@@ -48,6 +64,16 @@ The native project workspace opens only a directory containing a valid `mardas.t
 
 ```json
 {"jsonrpc":"2.0","id":"search-1","method":"project.search","params":{"project_path":"C:/work/book","query":"method","regex":false,"case_sensitive":false,"max_results":200}}
+```
+
+Project files retain the workspace's stricter 4 MiB per-file limit. They are read with a root-relative path and saved with the SHA-256 token returned by the read. Both operations return normalized `path`, `absolute_path`, `kind`, `content`, `sha256`, `size`, `mtime_ns`, `revision`, and `read_only` metadata. A stale `expected_sha256` is rejected instead of overwriting an external edit.
+
+```json
+{"jsonrpc":"2.0","id":"project-read-1","method":"project.read","params":{"project_path":"C:/work/book","relative_path":"bibliography/references.bib"}}
+```
+
+```json
+{"jsonrpc":"2.0","id":"project-save-1","method":"project.save","params":{"project_path":"C:/work/book","relative_path":"bibliography/references.bib","content":"@book{...}\n","expected_sha256":"<sha256>"}}
 ```
 
 Configured local bibliography sources are exposed through one read-only index shared by the desktop search panel and citation insertion:
@@ -113,7 +139,9 @@ Cancellation is cooperative. The engine checks the cancellation flag between ren
 ## Supported application methods
 
 - `document.read`
+- `document.read_text`
 - `document.save`
+- `document.save_text`
 - `document.list_assets`
 - `document.import_asset`
 - `project.open`

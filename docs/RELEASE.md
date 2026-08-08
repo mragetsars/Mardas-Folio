@@ -129,7 +129,7 @@ python scripts/verify_standalone_runtime.py \
   --render
 ```
 
-A release standalone runtime must include Chromium and pass `verify_standalone_runtime`. `--allow-missing-chromium` is restricted to protocol/build diagnostics and does not satisfy the release contract. `finalize_release_artifacts.py` classifies this ZIP separately from legacy offline wheel bundles and verifies its internal manifest before checksums and attestations are finalized.
+A release standalone runtime must include Chromium and pass `verify_standalone_runtime`. Runtime manifest schema v2 records regular files and safe relative symbolic links; the verifier rejects escaping, dangling, cyclic, undeclared, or mismatched links and continues to accept schema-v1 regular-file manifests. `--allow-missing-chromium` is restricted to protocol/build diagnostics and does not satisfy the release contract. `finalize_release_artifacts.py` classifies this ZIP separately from legacy offline wheel bundles and verifies its internal manifest before checksums and attestations are finalized.
 
 The tag workflow creates one offline Python wheel bundle per runner platform with `scripts/build_offline_bundle.py`. Each archive contains an offline wheelhouse, deterministic bundle metadata, an installer, and its own checksum list. It does **not** contain Chromium or an embedded Python runtime. Test the bundle after extraction with:
 
@@ -201,7 +201,7 @@ python scripts/verify_desktop_installer.py `
   --version X.Y.Z
 ```
 
-The tag workflow downloads the already-tested standalone runtime, stages it as a Tauri resource, builds the dependency-free frontend, compiles the Tauri shell, and uploads the NSIS setup executable. Finalization requires at least one `desktop-installer`, verifies its versioned filename, bounded size, and Windows PE header, then includes it in checksums and attestations. A release must never substitute an unverified runtime directory or a locally installed browser.
+The tag workflow downloads the target-runner-tested standalone runtime, stages it as a Tauri resource, verifies the locked and locally bundled CodeMirror 6 frontend, compiles the Tauri shell, and uploads the NSIS setup executable. Finalization requires at least one `desktop-installer`, verifies its versioned filename, bounded size, and Windows PE header, then includes it in checksums and attestations. In `public` mode the Windows runner additionally proves the exact Authenticode signer, timestamp, and portable executable digest before the artifact may enter finalization. Source-level checks alone do not establish Authenticode signing. A release must never substitute an unverified runtime directory or a locally installed browser.
 
 ## Cross-platform native desktop release
 
@@ -219,7 +219,7 @@ python scripts/finalize_release_artifacts.py   --artifact-dir build/release   --
 
 ## Signed updater and draft-release boundary
 
-Version 1.30.0 wires the updater end to end but keeps it secret-driven. Development builds do not contact an update service unless a maintainer-controlled public key is embedded at build time.
+Version 1.31.0 retains the end-to-end updater workflow but keeps it secret-driven. Development builds do not contact an update service unless a maintainer-controlled public key is embedded at build time.
 
 Before a tag workflow can build signed updater artifacts, configure the external release secret/variable boundary described in `docs/UPDATES.md`. The draft preflight is:
 
@@ -235,15 +235,15 @@ Final release verification requires the update manifest:
 python scripts/finalize_release_artifacts.py   --artifact-dir build/release   --version X.Y.Z   --source-revision "$GITHUB_SHA"   --require-sbom   --minimum-native-desktop-count 5   --require-desktop-platform windows   --require-desktop-platform macos   --require-desktop-platform linux   --require-update-manifest
 ```
 
-For a version tag, the workflow then creates or refreshes a **Draft GitHub Release**. It never automatically publishes the release and refuses to replace an already-published tag.
+For a version tag, the workflow can create or refresh a **Draft GitHub Release** only after the credential-dependent preflight and required native jobs succeed. It never automatically publishes the release and refuses to replace an already-published tag. Local portable tests do not substitute for target-platform installer smoke, Windows signature inspection, or macOS Developer ID/notarization evidence.
 
-Before a human publishes the draft, run or review the equivalent public preflight:
+Start a manually dispatched `public` release run and review its preflight:
 
 ```bash
 python scripts/release_preflight.py --mode public
 ```
 
-Updater signatures do not substitute for Windows publisher signing or macOS Developer ID signing/notarization. See `docs/UPDATES.md` and `docs/DISTRIBUTION.md`.
+Preflight is followed by fail-closed target verification. Finalization requires exactly one Windows, two macOS, and one Linux signing-evidence file; Windows and both macOS targets must carry verified artifact-bound operating-system trust evidence. Updater signatures do not substitute for Windows publisher signing or macOS Developer ID signing/notarization. See `docs/RELEASE_SIGNING.md` and `docs/DISTRIBUTION.md`.
 
 ## Release signing operations
 

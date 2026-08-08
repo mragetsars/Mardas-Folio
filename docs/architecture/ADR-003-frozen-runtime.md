@@ -11,9 +11,11 @@ The first end-user runtime is a PyInstaller `onedir` bundle containing:
 - Playwright driver resources;
 - the exact Chromium/headless-shell archive used by the installed Playwright version;
 - package CSS, GUI assets, and vendored MathJax;
-- a SHA-256 `runtime-manifest.json`.
+- a schema-v2 SHA-256 `runtime-manifest.json` that distinguishes regular files from explicitly declared relative symbolic links.
 
-The build is platform-native: Windows artifacts are built on Windows runners. The initial release target is Windows x64; macOS and Linux desktop packaging remain later product phases.
+Schema v2 preserves safe runtime links required by platform packages. Every path component is inspected without following links first; absolute or root-escaping targets, dangling links, cycles, excessive chains, traversal through links, and manifest/filesystem mismatches are rejected by build, staging, ZIP, provenance, and verification tooling. Legacy schema-v1 manifests remain accepted only for regular-file inventories.
+
+The build is platform-native: Windows, macOS, and Linux artifacts must be built and tested on their corresponding release runners rather than treated as cross-compiled output.
 
 ## Why `onedir`
 

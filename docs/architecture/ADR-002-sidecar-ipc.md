@@ -9,13 +9,14 @@ The desktop process communicates with the rendering engine through newline-delim
 
 - Protocol name: `mardas-sidecar`
 - Protocol version: `1`
-- Engine API version: `1.0.0`
-- Maximum request line: 8 MiB
-- Maximum active rendering job: one
+- Current engine API version: `1.5.0`
+- Maximum request line/envelope: 64 MiB
+- Maximum UTF-8 document text: 8 MiB
+- Maximum active heavy application job: one
 - Logs: `stderr` only
 - Structured messages: `stdout` only
 
-The schemas in `schemas/sidecar/v1/` define the stable envelope. `system.capabilities` advertises available methods and render options. Long operations publish `job.progress` notifications and can be interrupted through `job.cancel`.
+The schemas in `schemas/sidecar/v1/` define the stable envelope. `system.capabilities` advertises available methods and render options. Document, project, bibliography, book, support, preview, validation, and rendering methods share the single heavy-job executor; health, capabilities, cancellation, and shutdown remain responsive control methods. Long operations publish `job.progress` notifications and can be interrupted through `job.cancel`.
 
 ## Rationale
 
@@ -23,4 +24,4 @@ Standard streams avoid localhost ports, browser-origin concerns, port collisions
 
 ## Compatibility rule
 
-Adding optional result fields or methods is backward compatible. Removing or changing required fields requires a new protocol version. Desktop clients must call `system.health` and compare the protocol and engine API versions before submitting work.
+Adding optional result fields or methods is backward compatible. Engine API 1.5.0 adds `document.read_text` and `document.save_text` for supported non-Markdown UTF-8 files while retaining `document.read` and `document.save` for Markdown. Removing or changing required fields requires a new protocol version. Desktop clients must call `system.health` and compare the protocol and engine API versions before submitting work.

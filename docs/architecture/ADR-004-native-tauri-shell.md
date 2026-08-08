@@ -10,7 +10,7 @@ The publishing engine is Python/Playwright and the versioned sidecar already exp
 
 ## Decision
 
-Mardas Studio uses a Tauri 2 shell. The packaged application embeds the complete verified PyInstaller `onedir` runtime as a resource and launches `mardas-sidecar` directly with piped stdin/stdout. The frontend is a dependency-free static ES-module application during the first desktop phase. It is built to a deterministic file inventory before Tauri compilation.
+Mardas Studio uses a Tauri 2 shell. The packaged application embeds the complete verified PyInstaller `onedir` runtime as a resource and launches `mardas-sidecar` directly with piped stdin/stdout. The frontend is a static ES-module application with a locally bundled CodeMirror 6 editor. Locked npm dependencies are used only to reproduce and check the committed editor bundle; the installed application loads no editor code from a CDN or network. The complete frontend is built to a deterministic file inventory before Tauri compilation.
 
 The shell provides:
 
@@ -26,6 +26,6 @@ The Windows artifact is an NSIS setup executable. The installer stages only a st
 
 ## Consequences
 
-The Python renderer remains the source of truth and does not need to be rewritten. Rust and Tauri become release-toolchain dependencies, not end-user prerequisites. The first native workflow intentionally covers Start Center and Quick Export; advanced project/editor capabilities remain in browser Studio until migrated behind the same application-service contract.
+The Python renderer remains the source of truth and does not need to be rewritten. Rust, Node.js, and Tauri are release-toolchain dependencies, not end-user prerequisites. Start Center, Quick Export, multi-document authoring, project/book workflows, and CodeMirror editing all use the same versioned application-service contract.
 
 A Tauri/Rust build cannot be fully validated on a machine without the Rust toolchain. Windows CI is therefore the authoritative compile, runtime-embedding, Unicode-render, and NSIS verification environment.

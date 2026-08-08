@@ -4,6 +4,46 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 1.31.0 - 2026-08-08
+
+### Added
+- Replaced the former desktop textarea with a deterministic, locally bundled CodeMirror 6 editor, including Markdown language support, commands, completion, diagnostics, native line numbers, offline third-party notices, and no CDN/runtime download.
+- Extended the desktop engine API to 1.5.0 with `document.read_text` and `document.save_text` for bounded UTF-8 `.bib`, `.json`, `.toml`, `.txt`, `.yaml`, and `.yml` authoring files.
+- Added runtime manifest schema v2 with explicit regular-file/symbolic-link entries and safe preservation of platform runtime links through build, staging, ZIP, verification, and release provenance.
+
+### Changed
+- Increased the bounded sidecar JSON-RPC request envelope to 64 MiB while retaining an independent 8 MiB UTF-8 limit for each editable document.
+- Standardized document and project read/save responses around `kind`, `revision`, and `read_only` metadata; project responses also retain their SHA-256 conflict token and normalized paths.
+- Made recovery scheduling and snapshots document-specific, serialized saves per document, and guarded preview, validation, asset, bibliography, project, and open-file results against stale asynchronous completion.
+- Made non-Markdown project files use a focused plain-text authoring mode while keeping Markdown-only preview, formatting, front matter, citation, asset, and PDF actions unavailable where they do not apply.
+
+### Fixed
+- Routed project-backed saves through conflict-aware `project.save`, preserved edits made while an earlier save was in flight, and prevented a successful stale response from incorrectly marking newer content as saved.
+- Prevented duplicate open requests and path aliases from creating multiple document models, and kept recovery/conflict state attached to the correct document across tab and project switches.
+- Made literal find/replace Unicode-safe, corrected fenced-block parsing to match the opening fence character and length, and aligned Quick Export style, palette, and preset values with the engine contract.
+- Rejected duplicate desktop JSON-RPC request IDs without replacing the original waiter; invalidated crashed/EOF sidecars with process-identity guards, disconnected pending requests promptly, restarted lazily, and reduced the desktop request timeout from one hour to ten minutes.
+- Hardened keyboard tab navigation, command-palette active-descendant state, read-only editor behavior, and stale diagnostics/preview updates in the native workspace.
+- Prevented duplicate Book actions from orphaning an active sidecar job, blocked Save As collisions with another open tab, retained diagnostics for the current path, and isolated full-book preview styles from the application shell.
+- Rejected invalid UTF-8 surrogates in render options and returned stable document-read errors for missing directories, non-regular files, and operating-system read failures.
+- Excluded the local desktop dependency tree from source distributions while retaining the locked editor source, deterministic bundle, package manifest, and third-party notices.
+- Rejected invalid UTF-8 project-save content with a stable application error, required real Chromium inventory evidence in standalone runtimes, aligned nested runtime manifests and the 20,000-entry boundary, and moved release symlink checks ahead of path resolution.
+
+### Security
+- Validated every runtime path component before link dereference and rejected absolute or escaping symlink targets, dangling links, cycles, excessive chains, traversal through links, and manifest/filesystem type mismatches. Legacy schema-v1 manifests remain restricted to regular files.
+- Hardened sidecar parsing and serialization for oversized requests, non-finite numbers, excessive integer digits, invalid response values, and supported-method/parameter boundaries.
+- Validated all 53 renderer overrides against centralized type, range, enum, path, tuple, finite-number, nullability, and bounded-text contracts before normalization.
+- Made dependency auditing inspect the exact non-editable installed closure without dependency resolution, fail on unexpected editable or direct-URL installs, and publish its report only after a successful strict audit.
+- Pinned the Python build backend to security-fixed `setuptools` 83.0.0 and `wheel` 0.47.0 so isolated and pre-provisioned distribution builds use the same reviewed toolchain.
+
+### Release
+- Added explicit draft/public release modes, strict external credential validation, ephemeral Windows PFX and macOS keychain imports, explicit accepted-only DMG submission/stapling, native Authenticode/Developer ID/Gatekeeper/notarization verification, and artifact-bound evidence for one Windows, two macOS, and one Linux target.
+- Committed the resolved Rust dependency graph, pinned native builds to Rust 1.97.1, required every Tauri runner to use `Cargo.lock` with `--locked`, and added locked Rust tests to the Windows/macOS/Linux CI matrix.
+- Kept publication draft-only and credential-dependent. Source-level and portable tests do not claim that Windows Authenticode signing, macOS Developer ID signing/notarization, target-platform installer smoke, or public release publication completed; that evidence must come from the actual native release run.
+
+### Tests
+- Added backend and frontend contracts for supported text documents, project metadata and conflict saves, per-document recovery, save serialization, stale async guards, path identity, CodeMirror bundle integrity, Unicode find/replace, fence parsing, Quick Export values, sidecar lifecycle hardening, symlink-safe runtime manifests, renderer-option validation, and platform-signing evidence.
+- Kept native packaging, signing, notarization, and clean-machine acceptance as target-runner/credential checks rather than representing them as completed by portable repository tests.
+
 ## 1.30.0 - 2026-08-08
 
 ### Added
