@@ -14,7 +14,7 @@ prune dist
 prune patches
 recursive-exclude * __pycache__ *.py[cod]
 recursive-exclude * .pytest_cache .ruff_cache
-recursive-include apps *.html *.css *.mjs *.json *.toml *.rs *.png *.ico *.svg *.md
+recursive-include apps *.html *.css *.mjs *.json *.toml *.rs *.png *.ico *.icns *.svg *.md
 prune apps/desktop/dist
 prune apps/desktop/src-tauri/target
 prune apps/desktop/src-tauri/resources/sidecar

@@ -1,0 +1,20 @@
+{
+  "bundle": {
+    "targets": [
+      "nsis"
+    ],
+    "windows": {
+      "allowDowngrades": false,
+      "bundleVCRuntime": true,
+      "webviewInstallMode": {
+        "type": "offlineInstaller",
+        "silent": true
+      },
+      "nsis": {
+        "displayLanguageSelector": false,
+        "compression": "lzma",
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

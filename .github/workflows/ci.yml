@@ -409,22 +409,120 @@ jobs:
           python -m pip install -e ".[desktop]"
           cargo install tauri-cli --version 2.11.4 --locked
 
-      - name: Build native desktop installer
+      - name: Build native Windows packages
         shell: pwsh
-        run: python scripts/build_desktop_app.py --runtime "$env:RUNTIME_DIR" --clean
+        run: python scripts/build_native_desktop.py --runtime "$env:RUNTIME_DIR" --clean
 
-      - name: Verify native desktop installer
+      - name: Verify native Windows packages
         shell: pwsh
         run: |
           $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
-          $installer = Get-ChildItem build/desktop -File -Filter 'Mardas-Studio-*-setup.exe' | Select-Object -First 1
-          if (-not $installer) { throw 'Desktop installer was not created.' }
-          python scripts/verify_desktop_installer.py $installer.FullName --version $version
+          $artifacts = Get-ChildItem build/desktop-native -File | Where-Object { $_.Name -match '^Mardas-Studio-.*\.(exe|zip)$' }
+          if (-not $artifacts) { throw 'Native Windows desktop artifacts were not created.' }
+          foreach ($artifact in $artifacts) {
+            python scripts/verify_native_desktop.py $artifact.FullName --version $version
+          }
 
-      - name: Upload native desktop installer
+      - name: Upload native Windows packages
         uses: actions/upload-artifact@v7
         with:
-          name: desktop-installer-Windows-${{ runner.arch }}
-          path: build/desktop/Mardas-Studio-*-setup.exe
+          name: desktop-native-Windows-${{ runner.arch }}
+          path: |
+            build/desktop-native/Mardas-Studio-*
+            build/desktop-native/desktop-native-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+
+  unix-desktop-packages:
+    name: Native desktop / ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    needs: [core-tests, desktop-contracts]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            label: Linux-X64
+          - os: macos-15
+            label: macOS-ARM64
+          - os: macos-15-intel
+            label: macOS-X64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tauri Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install desktop build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[desktop]"
+          cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Install Chromium runtime
+        if: runner.os != 'Linux'
+        run: python -m playwright install chromium --only-shell
+
+      - name: Install Chromium runtime and Linux browser dependencies
+        if: runner.os == 'Linux'
+        run: python -m playwright install --with-deps chromium --only-shell
+
+      - name: Build standalone runtime
+        run: python scripts/build_standalone_runtime.py --clean
+
+      - name: Resolve and verify standalone runtime
+        shell: bash
+        run: |
+          runtime="$(find build/standalone-runtime -maxdepth 1 -type d -name 'Mardas-MD2PDF-*-runtime-*' -print -quit)"
+          test -n "$runtime"
+          python scripts/verify_standalone_runtime.py "$runtime" --render
+          printf 'RUNTIME_DIR=%s\n' "$runtime" >> "$GITHUB_ENV"
+
+      - name: Build native desktop packages
+        shell: bash
+        run: python scripts/build_native_desktop.py --runtime "$RUNTIME_DIR" --clean
+
+      - name: Verify native desktop packages
+        shell: bash
+        run: |
+          version="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          found=0
+          while IFS= read -r -d '' artifact; do
+            python scripts/verify_native_desktop.py "$artifact" --version "$version"
+            found=$((found + 1))
+          done < <(find build/desktop-native -maxdepth 1 -type f \
+            \( -name 'Mardas-Studio-*.dmg' -o -name 'Mardas-Studio-*.AppImage' -o -name 'Mardas-Studio-*.deb' \) -print0)
+          test "$found" -gt 0
+
+      - name: Upload native desktop packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-native-${{ matrix.label }}
+          path: |
+            build/desktop-native/Mardas-Studio-*
+            build/desktop-native/desktop-native-manifest.json
           if-no-files-found: error
           retention-days: 14

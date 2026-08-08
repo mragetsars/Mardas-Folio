@@ -20,14 +20,22 @@ def generate(source: Path = DEFAULT_SOURCE, output: Path = DEFAULT_OUTPUT) -> Pa
     output = output.expanduser().resolve(strict=False)
     output.mkdir(parents=True, exist_ok=True)
     images: dict[int, Image.Image] = {}
-    for size in (32, 128, 256):
+    for size in (32, 128, 256, 512, 1024):
         raw = cairosvg.svg2png(url=str(source), output_width=size, output_height=size)
         image = Image.open(io.BytesIO(raw)).convert("RGBA")
         images[size] = image
     images[32].save(output / "32x32.png", optimize=True)
     images[128].save(output / "128x128.png", optimize=True)
     images[256].save(output / "128x128@2x.png", optimize=True)
-    images[256].save(output / "icon.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    images[512].save(output / "icon.png", optimize=True)
+    images[256].save(
+        output / "icon.ico",
+        sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
+    )
+    images[1024].save(
+        output / "icon.icns",
+        sizes=[(16, 16), (32, 32), (64, 64), (128, 128), (256, 256), (512, 512), (1024, 1024)],
+    )
     return output
 
 

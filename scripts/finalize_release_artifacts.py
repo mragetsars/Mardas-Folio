@@ -21,6 +21,7 @@ from release_provenance import (
     write_checksums,
     write_json,
 )
+from verify_native_desktop import verify_native_artifact
 
 MANIFEST_NAME = "RELEASE-MANIFEST.json"
 CHECKSUMS_NAME = "CHECKSUMS.sha256"
@@ -38,6 +39,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--minimum-bundle-count", type=int, default=0)
     parser.add_argument("--minimum-standalone-runtime-count", type=int, default=0)
     parser.add_argument("--minimum-desktop-installer-count", type=int, default=0)
+    parser.add_argument("--minimum-native-desktop-count", type=int, default=0)
+    parser.add_argument(
+        "--require-desktop-platform",
+        action="append",
+        default=[],
+        choices=("windows", "macos", "linux"),
+        help="Require at least one native desktop artifact for this platform (repeatable)",
+    )
     parser.add_argument("--verify-only", action="store_true")
     return parser
 
@@ -50,6 +59,8 @@ def verify_release(
     minimum_bundle_count: int,
     minimum_runtime_count: int,
     minimum_desktop_count: int,
+    minimum_native_desktop_count: int,
+    required_desktop_platforms: tuple[str, ...],
 ) -> None:
     manifest_path = directory / MANIFEST_NAME
     checksum_path = directory / CHECKSUMS_NAME
@@ -62,6 +73,8 @@ def verify_release(
         minimum_bundle_count=minimum_bundle_count,
         minimum_runtime_count=minimum_runtime_count,
         minimum_desktop_count=minimum_desktop_count,
+        minimum_native_desktop_count=minimum_native_desktop_count,
+        required_desktop_platforms=required_desktop_platforms,
     )
     verify_checksums(directory, checksum_path)
     checksum_names = set(parse_checksums(checksum_path))
@@ -103,6 +116,9 @@ def verify_release(
             verify_desktop_installer_artifact(
                 directory / item["name"], expected_version=version
             )
+            verify_native_artifact(directory / item["name"], expected_version=version)
+        elif item["kind"] in {"desktop-portable", "desktop-dmg", "desktop-appimage", "desktop-deb"}:
+            verify_native_artifact(directory / item["name"], expected_version=version)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -117,6 +133,8 @@ def main(argv: list[str] | None = None) -> int:
             raise ReleaseProvenanceError("Minimum standalone runtime count cannot be negative")
         if args.minimum_desktop_installer_count < 0:
             raise ReleaseProvenanceError("Minimum desktop installer count cannot be negative")
+        if args.minimum_native_desktop_count < 0:
+            raise ReleaseProvenanceError("Minimum native desktop count cannot be negative")
         manifest_path = directory / MANIFEST_NAME
         checksum_path = directory / CHECKSUMS_NAME
         if not args.verify_only:
@@ -141,6 +159,8 @@ def main(argv: list[str] | None = None) -> int:
             minimum_bundle_count=args.minimum_bundle_count,
             minimum_runtime_count=args.minimum_standalone_runtime_count,
             minimum_desktop_count=args.minimum_desktop_installer_count,
+            minimum_native_desktop_count=args.minimum_native_desktop_count,
+            required_desktop_platforms=tuple(args.require_desktop_platform),
         )
     except (ReleaseProvenanceError, OSError, KeyError, TypeError, ValueError) as exc:
         print(f"Release artifact verification failed: {exc}", file=sys.stderr)

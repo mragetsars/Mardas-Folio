@@ -148,9 +148,9 @@ jobs:
           retention-days: 30
 
   desktop-installer:
-    name: Native Windows desktop installer
+    name: Native Windows desktop packages
     runs-on: windows-latest
-    timeout-minutes: 80
+    timeout-minutes: 90
     needs: [build-core, standalone-runtime]
     steps:
       - name: Checkout
@@ -175,7 +175,7 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri -> target
 
-      - name: Download standalone runtime
+      - name: Download verified standalone runtime
         uses: actions/download-artifact@v8
         with:
           name: standalone-runtime
@@ -198,19 +198,136 @@ jobs:
           python -m pip install -e ".[desktop]"
           cargo install tauri-cli --version 2.11.4 --locked
 
-      - name: Build and verify native installer
+      - name: Build Windows setup and portable package
+        shell: pwsh
+        run: python scripts/build_native_desktop.py --runtime "$env:RUNTIME_DIR" --clean
+
+      - name: Verify Windows native artifacts
         shell: pwsh
         run: |
-          python scripts/build_desktop_app.py --runtime "$env:RUNTIME_DIR" --clean
-          $installer = Get-ChildItem build/desktop -File -Filter 'Mardas-Studio-*-setup.exe' | Select-Object -First 1
-          if (-not $installer) { throw 'Desktop installer was not created.' }
-          python scripts/verify_desktop_installer.py $installer.FullName --version "${{ needs.build-core.outputs.version }}"
+          $version = "${{ needs.build-core.outputs.version }}"
+          $files = Get-ChildItem build/desktop-native -File | Where-Object {
+            $_.Name -like 'Mardas-Studio-*-setup.exe' -or $_.Name -like 'Mardas-Studio-*-portable.zip'
+          }
+          if ($files.Count -lt 2) { throw 'Expected Windows setup and portable artifacts.' }
+          foreach ($file in $files) {
+            python scripts/verify_native_desktop.py $file.FullName --version $version
+          }
 
-      - name: Upload native desktop installer
+      - name: Upload Windows native packages
         uses: actions/upload-artifact@v7
         with:
-          name: desktop-installer
-          path: build/desktop/Mardas-Studio-*-setup.exe
+          name: desktop-native-windows
+          path: |
+            build/desktop-native/Mardas-Studio-*-setup.exe
+            build/desktop-native/Mardas-Studio-*-portable.zip
+            build/desktop-native/desktop-native-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+
+  unix-desktop-packages:
+    name: Native desktop / ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 100
+    needs: build-core
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            label: Linux-X64
+            linux: true
+          - runner: macos-15
+            label: macOS-ARM64
+            linux: false
+          - runner: macos-15-intel
+            label: macOS-X64
+            linux: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux desktop prerequisites
+        if: matrix.linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install desktop build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[desktop]"
+          cargo install tauri-cli --version 2.11.4 --locked
+
+      - name: Install Chromium headless shell on Linux
+        if: matrix.linux
+        run: python -m playwright install --with-deps chromium --only-shell
+
+      - name: Install Chromium headless shell on macOS
+        if: ${{ !matrix.linux }}
+        run: python -m playwright install chromium --only-shell
+
+      - name: Build and verify standalone runtime
+        shell: bash
+        run: |
+          python scripts/build_standalone_runtime.py --clean
+          runtime="$(find build/standalone-runtime -maxdepth 1 -type d -name 'Mardas-MD2PDF-*-runtime-*' -print -quit)"
+          test -n "$runtime"
+          python scripts/verify_standalone_runtime.py "$runtime" --render
+          echo "RUNTIME_DIR=$runtime" >> "$GITHUB_ENV"
+
+      - name: Build native packages
+        shell: bash
+        run: python scripts/build_native_desktop.py --runtime "$RUNTIME_DIR" --clean
+
+      - name: Verify native packages
+        shell: bash
+        run: |
+          version="${{ needs.build-core.outputs.version }}"
+          count=0
+          for artifact in build/desktop-native/Mardas-Studio-*; do
+            test -f "$artifact" || continue
+            case "$artifact" in
+              *.dmg|*.AppImage|*.deb)
+                python scripts/verify_native_desktop.py "$artifact" --version "$version"
+                count=$((count + 1))
+                ;;
+            esac
+          done
+          test "$count" -ge 1
+
+      - name: Upload native packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-native-${{ matrix.label }}
+          path: |
+            build/desktop-native/Mardas-Studio-*.dmg
+            build/desktop-native/Mardas-Studio-*.AppImage
+            build/desktop-native/Mardas-Studio-*.deb
+            build/desktop-native/desktop-native-manifest.json
           if-no-files-found: error
           retention-days: 30
 
@@ -218,7 +335,7 @@ jobs:
     name: Finalize and attest release artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [build-core, offline-bundles, standalone-runtime, desktop-installer]
+    needs: [build-core, offline-bundles, standalone-runtime, desktop-installer, unix-desktop-packages]
     if: github.repository == 'mragetsars/Mardas-MD2PDF'
     permissions:
       contents: read
@@ -258,18 +375,19 @@ jobs:
           name: standalone-runtime
           path: build/standalone
 
-      - name: Download native desktop installer
+      - name: Download native desktop packages
         uses: actions/download-artifact@v8
         with:
-          name: desktop-installer
-          path: build/desktop
+          pattern: desktop-native-*
+          path: build/desktop-native
+          merge-multiple: true
 
       - name: Finalize release manifest and checksums
         shell: bash
         run: |
           cp build/offline/*.zip build/release/
           cp build/standalone/*.zip build/release/
-          cp build/desktop/*-setup.exe build/release/
+          find build/desktop-native -maxdepth 1 -type f -name 'Mardas-Studio-*' -exec cp {} build/release/ \;
           python scripts/finalize_release_artifacts.py \
             --artifact-dir build/release \
             --version "${{ needs.build-core.outputs.version }}" \
@@ -277,7 +395,11 @@ jobs:
             --require-sbom \
             --minimum-bundle-count 3 \
             --minimum-standalone-runtime-count 1 \
-            --minimum-desktop-installer-count 1
+            --minimum-desktop-installer-count 1 \
+            --minimum-native-desktop-count 5 \
+            --require-desktop-platform windows \
+            --require-desktop-platform macos \
+            --require-desktop-platform linux
           python - <<'PY'
           from pathlib import Path
           source = Path("build/release/CHECKSUMS.sha256")

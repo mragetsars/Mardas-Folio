@@ -365,6 +365,15 @@ def validate_spdx_document(payload: Mapping[str, Any], *, expected_version: str)
         raise ReleaseProvenanceError("SBOM is missing the document DESCRIBES relationship")
 
 
+DESKTOP_ARTIFACT_KINDS = frozenset({
+    "desktop-installer",
+    "desktop-portable",
+    "desktop-dmg",
+    "desktop-appimage",
+    "desktop-deb",
+})
+
+
 def artifact_kind(name: str) -> str:
     if name.endswith(".whl"):
         return "python-wheel"
@@ -380,11 +389,31 @@ def artifact_kind(name: str) -> str:
         return "standalone-runtime"
     if name.startswith("Mardas-Studio-") and name.endswith("-setup.exe"):
         return "desktop-installer"
+    if name.startswith("Mardas-Studio-") and name.endswith("-portable.zip"):
+        return "desktop-portable"
+    if name.startswith("Mardas-Studio-") and name.endswith(".dmg"):
+        return "desktop-dmg"
+    if name.startswith("Mardas-Studio-") and name.endswith(".AppImage"):
+        return "desktop-appimage"
+    if name.startswith("Mardas-Studio-") and name.endswith(".deb"):
+        return "desktop-deb"
     if name.endswith(".sigstore.json"):
         return "sigstore-attestation"
     if name.endswith(".json"):
         return "json-metadata"
     return "release-file"
+
+
+def desktop_artifact_platform(name: str, kind: str) -> str | None:
+    if kind not in DESKTOP_ARTIFACT_KINDS:
+        return None
+    if "-windows-" in name:
+        return "windows"
+    if "-macos-" in name:
+        return "macos"
+    if "-linux-" in name:
+        return "linux"
+    return None
 
 
 def collect_artifacts(directory: Path, *, excluded_names: Iterable[str] = ()) -> list[ArtifactRecord]:
@@ -461,6 +490,12 @@ def build_release_manifest(
     bundle_count = sum(item.kind == "offline-install-bundle" for item in records)
     runtime_count = sum(item.kind == "standalone-runtime" for item in records)
     desktop_installer_count = sum(item.kind == "desktop-installer" for item in records)
+    native_desktop_count = sum(item.kind in DESKTOP_ARTIFACT_KINDS for item in records)
+    desktop_platforms = sorted({
+        platform_name
+        for item in records
+        if (platform_name := desktop_artifact_platform(item.name, item.kind)) is not None
+    })
     sbom_files = [item.name for item in records if item.kind == "spdx-sbom"]
     return {
         "schema_version": RELEASE_MANIFEST_SCHEMA,
@@ -476,6 +511,8 @@ def build_release_manifest(
             "offline_bundle_count": bundle_count,
             "standalone_runtime_count": runtime_count,
             "desktop_installer_count": desktop_installer_count,
+            "native_desktop_artifact_count": native_desktop_count,
+            "desktop_platforms": desktop_platforms,
             "sbom_files": sbom_files,
         },
         "verification": {
@@ -498,6 +535,8 @@ def validate_release_manifest(
     minimum_bundle_count: int,
     minimum_runtime_count: int = 0,
     minimum_desktop_count: int = 0,
+    minimum_native_desktop_count: int = 0,
+    required_desktop_platforms: Sequence[str] = (),
 ) -> None:
     if payload.get("schema_version") != RELEASE_MANIFEST_SCHEMA:
         raise ReleaseProvenanceError("Unsupported release manifest schema")
@@ -511,6 +550,8 @@ def validate_release_manifest(
     bundle_count = 0
     runtime_count = 0
     desktop_count = 0
+    native_desktop_count = 0
+    desktop_platforms: set[str] = set()
     for item in artifacts:
         if not isinstance(item, dict):
             raise ReleaseProvenanceError("Release manifest artifact is not an object")
@@ -534,6 +575,10 @@ def validate_release_manifest(
         bundle_count += kind == "offline-install-bundle"
         runtime_count += kind == "standalone-runtime"
         desktop_count += kind == "desktop-installer"
+        native_desktop_count += kind in DESKTOP_ARTIFACT_KINDS
+        platform_name = desktop_artifact_platform(name, kind)
+        if platform_name is not None:
+            desktop_platforms.add(platform_name)
     actual_names = {
         item.name
         for item in directory.iterdir()
@@ -561,6 +606,23 @@ def validate_release_manifest(
     if desktop_count < minimum_desktop_count:
         raise ReleaseProvenanceError(
             f"Release contains {desktop_count} desktop installer(s); expected at least {minimum_desktop_count}"
+        )
+    if native_desktop_count < minimum_native_desktop_count:
+        raise ReleaseProvenanceError(
+            f"Release contains {native_desktop_count} native desktop artifact(s); "
+            f"expected at least {minimum_native_desktop_count}"
+        )
+    required = {str(value).strip().lower() for value in required_desktop_platforms if str(value).strip()}
+    invalid_required = required - {"windows", "macos", "linux"}
+    if invalid_required:
+        raise ReleaseProvenanceError(
+            "Unsupported required desktop platform(s): " + ", ".join(sorted(invalid_required))
+        )
+    missing_platforms = sorted(required - desktop_platforms)
+    if missing_platforms:
+        raise ReleaseProvenanceError(
+            "Release is missing required native desktop platform(s): "
+            + ", ".join(missing_platforms)
         )
 
 

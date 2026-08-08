@@ -67,7 +67,15 @@ def test_tauri_configuration_is_native_and_versioned() -> None:
     assert config["bundle"]["targets"] == ["nsis"]
     assert config["bundle"]["resources"] == {"resources/sidecar/": "sidecar/"}
     assert {"md", "markdown"}.issubset(set(config["bundle"]["fileAssociations"][0]["ext"]))
-    assert config["bundle"]["windows"]["webviewInstallMode"]["type"] == "downloadBootstrapper"
+    windows_config = json.loads((TAURI / "tauri.windows.conf.json").read_text(encoding="utf-8"))
+    macos_config = json.loads((TAURI / "tauri.macos.conf.json").read_text(encoding="utf-8"))
+    linux_config = json.loads((TAURI / "tauri.linux.conf.json").read_text(encoding="utf-8"))
+    assert windows_config["bundle"]["windows"]["webviewInstallMode"]["type"] == "offlineInstaller"
+    assert windows_config["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
+    assert macos_config["bundle"]["targets"] == ["dmg"]
+    assert macos_config["bundle"]["macOS"]["signingIdentity"] == "-"
+    assert linux_config["bundle"]["targets"] == ["appimage", "deb"]
+    assert {"icons/icon.icns", "icons/icon.ico", "icons/icon.png"} <= set(config["bundle"]["icon"])
     assert 'name = "mardas-studio"' in cargo
     assert f'version = "{__version__}"' in cargo
 
@@ -86,6 +94,7 @@ def test_native_shell_uses_stdio_sidecar_and_single_instance_first() -> None:
         "sidecar_request",
         "sidecar_cancel",
         "take_launch_files",
+        "pick_support_bundle_output",
     ):
         assert command in main
     assert "Stdio::piped()" in sidecar
@@ -134,6 +143,7 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "help-modal",
         "command-modal",
         "command-query",
+        "save-support-bundle",
     ):
         assert f'id="{element_id}"' in index
     assert 'type="module" src="./js/main.mjs"' in index
@@ -311,6 +321,8 @@ def test_desktop_ux_is_offline_and_exposes_guided_entry_points() -> None:
     assert "createDocumentFromTemplate" in main
     assert "openCommandPalette" in main
     assert "openOnboarding" in main
+    assert "saveSupportBundle" in main
+    assert '"system.support_bundle"' in main
     assert 'event.key === "F1"' in main
     assert 'key === "p" && event.shiftKey' in main
     assert 'data-reduced-motion="reduce"' in styles

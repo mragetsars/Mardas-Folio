@@ -287,6 +287,62 @@ def test_desktop_installer_is_classified_and_verified(tmp_path: Path) -> None:
     with pytest.raises(ReleaseProvenanceError, match="PE header"):
         verify_desktop_installer_artifact(installer, expected_version=version)
 
+
+def test_release_manifest_requires_all_native_desktop_platforms(tmp_path: Path) -> None:
+    version = "1.29.0"
+    names = (
+        f"Mardas-Studio-{version}-windows-x86_64-setup.exe",
+        f"Mardas-Studio-{version}-windows-x86_64-portable.zip",
+        f"Mardas-Studio-{version}-macos-arm64.dmg",
+        f"Mardas-Studio-{version}-linux-x86_64.AppImage",
+        f"Mardas-Studio-{version}-linux-x86_64.deb",
+    )
+    records = []
+    for index, name in enumerate(names, 1):
+        path = tmp_path / name
+        path.write_bytes(bytes([index]) * 128)
+        records.append(
+            ArtifactRecord(
+                name=name,
+                kind=artifact_kind(name),
+                size=path.stat().st_size,
+                sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+            )
+        )
+    manifest = build_release_manifest(
+        records=records,
+        version=version,
+        source_revision="abc",
+        epoch=1_735_689_600,
+    )
+    assert manifest["summary"]["native_desktop_artifact_count"] == 5
+    assert manifest["summary"]["desktop_platforms"] == ["linux", "macos", "windows"]
+    validate_release_manifest(
+        manifest,
+        directory=tmp_path,
+        expected_version=version,
+        require_sbom=False,
+        minimum_bundle_count=0,
+        minimum_native_desktop_count=5,
+        required_desktop_platforms=("windows", "macos", "linux"),
+    )
+
+    incomplete = dict(manifest)
+    incomplete["artifacts"] = [
+        item for item in manifest["artifacts"] if item["kind"] != "desktop-dmg"
+    ]
+    with pytest.raises(ReleaseProvenanceError, match="macos"):
+        validate_release_manifest(
+            incomplete,
+            directory=tmp_path,
+            expected_version=version,
+            require_sbom=False,
+            minimum_bundle_count=0,
+            required_desktop_platforms=("windows", "macos", "linux"),
+        )
+
+
+
 def test_release_scripts_are_executable() -> None:
     for name in (
         "release_provenance.py",
@@ -301,6 +357,9 @@ def test_release_scripts_are_executable() -> None:
         "stage_desktop_runtime.py",
         "build_desktop_app.py",
         "verify_desktop_installer.py",
+        "build_native_desktop.py",
+        "verify_native_desktop.py",
+        "generate_update_manifest.py",
     ):
         path = SCRIPTS / name
         assert path.is_file()
@@ -338,10 +397,16 @@ def test_cross_platform_and_provenance_workflows_use_current_contracts() -> None
     assert "verify_standalone_runtime.py" in ci
     assert "playwright install chromium --only-shell" in ci
     assert "standalone-runtime" in release
-    assert "desktop-installer" in release
+    assert "desktop-native-windows" in release
+    assert "desktop-native-" in release
     assert "minimum-desktop-installer-count 1" in release
-    assert "build_desktop_app.py" in ci
-    assert "verify_desktop_installer.py" in ci
+    assert "minimum-native-desktop-count 5" in release
+    for platform_name in ("windows", "macos", "linux"):
+        assert f"--require-desktop-platform {platform_name}" in release
+    assert "build_native_desktop.py" in ci
+    assert "verify_native_desktop.py" in ci
+    assert "ubuntu-22.04" in ci
+    assert "macos-15-intel" in ci
     assert "cargo install tauri-cli --version 2.11.4 --locked" in ci
     assert "github/codeql-action/init@v4" in codeql
     assert "github/codeql-action/analyze@v4" in codeql

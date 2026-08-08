@@ -70,6 +70,9 @@ def test_maintenance_scripts_are_executable() -> None:
         "scripts/generate_desktop_icons.py",
         "scripts/build_desktop_app.py",
         "scripts/verify_desktop_installer.py",
+        "scripts/build_native_desktop.py",
+        "scripts/verify_native_desktop.py",
+        "scripts/generate_update_manifest.py",
     ]:
         path = ROOT / relative_path
         assert path.is_file()
@@ -163,7 +166,7 @@ def test_source_distribution_manifest_includes_release_support_files() -> None:
         "recursive-include packaging *.py *.spec",
         "recursive-include schemas *.json",
         "recursive-include tests *.py",
-        "recursive-include apps *.html *.css *.mjs *.json *.toml *.rs *.png *.ico *.svg *.md",
+        "recursive-include apps *.html *.css *.mjs *.json *.toml *.rs *.png *.ico *.icns *.svg *.md",
         "prune apps/desktop/dist",
         "prune apps/desktop/src-tauri/target",
         "prune apps/desktop/src-tauri/resources/sidecar",
