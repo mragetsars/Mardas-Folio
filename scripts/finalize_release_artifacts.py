@@ -22,6 +22,7 @@ from release_provenance import (
     write_json,
 )
 from verify_native_desktop import verify_native_artifact
+from generate_update_manifest import verify_update_manifest
 
 MANIFEST_NAME = "RELEASE-MANIFEST.json"
 CHECKSUMS_NAME = "CHECKSUMS.sha256"
@@ -40,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--minimum-standalone-runtime-count", type=int, default=0)
     parser.add_argument("--minimum-desktop-installer-count", type=int, default=0)
     parser.add_argument("--minimum-native-desktop-count", type=int, default=0)
+    parser.add_argument("--require-update-manifest", action="store_true")
     parser.add_argument(
         "--require-desktop-platform",
         action="append",
@@ -61,6 +63,7 @@ def verify_release(
     minimum_desktop_count: int,
     minimum_native_desktop_count: int,
     required_desktop_platforms: tuple[str, ...],
+    require_update_manifest: bool,
 ) -> None:
     manifest_path = directory / MANIFEST_NAME
     checksum_path = directory / CHECKSUMS_NAME
@@ -117,8 +120,25 @@ def verify_release(
                 directory / item["name"], expected_version=version
             )
             verify_native_artifact(directory / item["name"], expected_version=version)
-        elif item["kind"] in {"desktop-portable", "desktop-dmg", "desktop-appimage", "desktop-deb"}:
+        elif item["kind"] in {
+            "desktop-portable",
+            "desktop-dmg",
+            "desktop-appimage",
+            "desktop-deb",
+            "desktop-macos-updater",
+            "desktop-update-signature",
+        }:
             verify_native_artifact(directory / item["name"], expected_version=version)
+        elif item["kind"] == "update-manifest":
+            verify_update_manifest(directory / item["name"], expected_version=version)
+
+    update_manifests = [
+        item["name"] for item in payload["artifacts"] if item["kind"] == "update-manifest"
+    ]
+    if require_update_manifest and update_manifests != ["latest.json"]:
+        raise ReleaseProvenanceError(
+            "Release must contain exactly one signed updater manifest named latest.json"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -161,6 +181,7 @@ def main(argv: list[str] | None = None) -> int:
             minimum_desktop_count=args.minimum_desktop_installer_count,
             minimum_native_desktop_count=args.minimum_native_desktop_count,
             required_desktop_platforms=tuple(args.require_desktop_platform),
+            require_update_manifest=args.require_update_manifest,
         )
     except (ReleaseProvenanceError, OSError, KeyError, TypeError, ValueError) as exc:
         print(f"Release artifact verification failed: {exc}", file=sys.stderr)

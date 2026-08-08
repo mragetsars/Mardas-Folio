@@ -9,7 +9,9 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +31,9 @@ DESKTOP_ROOT = ROOT / "apps" / "desktop"
 TAURI_ROOT = DESKTOP_ROOT / "src-tauri"
 RESOURCE_RUNTIME = TAURI_ROOT / "resources" / "sidecar"
 DEFAULT_OUTPUT = ROOT / "build" / "desktop-native"
+DEFAULT_UPDATE_ENDPOINT = "https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json"
+MAX_UPDATER_PUBKEY_BYTES = 32 * 1024
+
 
 
 def architecture_tag() -> str:
@@ -57,6 +62,51 @@ def default_bundles(platform_name: str) -> tuple[str, ...]:
     if platform_name == "linux":
         return ("appimage", "deb")
     raise ValueError(f"Unsupported platform: {platform_name}")
+
+
+
+def _validate_update_endpoint(value: str) -> str:
+    candidate = value.strip()
+    parsed = urlparse(candidate)
+    if (
+        parsed.scheme != "https"
+        or not parsed.netloc
+        or parsed.username
+        or parsed.password
+        or parsed.fragment
+    ):
+        raise SystemExit("Updater endpoint must be an HTTPS URL without credentials or fragments.")
+    return candidate
+
+
+def _read_updater_pubkey(path: Path | None, environment: dict[str, str]) -> str:
+    if path is not None:
+        resolved = path.expanduser().resolve(strict=True)
+        if resolved.is_symlink() or not resolved.is_file():
+            raise SystemExit(f"Updater public key file is missing or unsafe: {resolved}")
+        if resolved.stat().st_size <= 0 or resolved.stat().st_size > MAX_UPDATER_PUBKEY_BYTES:
+            raise SystemExit("Updater public key file is empty or exceeds the size limit.")
+        value = resolved.read_text(encoding="utf-8").strip()
+    else:
+        value = environment.get("MARDAS_UPDATER_PUBKEY", "").strip()
+    if not value or "\x00" in value or len(value.encode("utf-8")) > MAX_UPDATER_PUBKEY_BYTES:
+        raise SystemExit(
+            "Updater public key is required for signed release builds. "
+            "Pass --updater-pubkey-file or set MARDAS_UPDATER_PUBKEY."
+        )
+    return value
+
+
+def _updater_build_config(output: Path) -> Path:
+    fd, raw = tempfile.mkstemp(prefix=".mardas-updater-", suffix=".json", dir=output)
+    os.close(fd)
+    path = Path(raw)
+    path.write_text(
+        json.dumps({"bundle": {"createUpdaterArtifacts": True}}, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return path
 
 
 def require_tauri_cli() -> None:
@@ -194,6 +244,67 @@ def _build_windows_portable(output: Path, *, architecture: str) -> Path:
     return final
 
 
+
+def _copy_signature(candidate: Path, final_payload: Path, output: Path) -> Path:
+    signature = Path(str(candidate) + ".sig")
+    if not signature.is_file() or signature.is_symlink():
+        raise SystemExit(f"Tauri did not create updater signature: {signature}")
+    final = output / f"{final_payload.name}.sig"
+    temporary = final.with_name(final.name + ".tmp")
+    shutil.copyfile(signature, temporary)
+    os.replace(temporary, final)
+    verify_native_artifact(final, expected_version=__version__)
+    return final
+
+
+def _latest_macos_updater() -> Path:
+    directory = TAURI_ROOT / "target" / "release" / "bundle" / "macos"
+    candidates = sorted(
+        directory.glob("*.app.tar.gz"),
+        key=lambda path: path.stat().st_mtime_ns,
+        reverse=True,
+    )
+    if not candidates:
+        raise SystemExit(f"Tauri did not create a macOS updater bundle in {directory}")
+    return candidates[0]
+
+
+def _copy_updater_artifacts(
+    *,
+    platform_name: str,
+    architecture: str,
+    bundles: tuple[str, ...],
+    normal_artifacts: list[Path],
+    output: Path,
+) -> list[Path]:
+    created: list[Path] = []
+    if platform_name == "windows":
+        if "nsis" not in bundles:
+            raise SystemExit("Signed Windows updater artifacts require the NSIS bundle.")
+        candidate = _latest_candidate("nsis")
+        payload = next(path for path in normal_artifacts if path.name.endswith("-setup.exe"))
+        created.append(_copy_signature(candidate, payload, output))
+    elif platform_name == "linux":
+        if "appimage" not in bundles:
+            raise SystemExit("Signed Linux updater artifacts require the AppImage bundle.")
+        candidate = _latest_candidate("appimage")
+        payload = next(path for path in normal_artifacts if path.name.endswith(".AppImage"))
+        created.append(_copy_signature(candidate, payload, output))
+    elif platform_name == "macos":
+        candidate = _latest_macos_updater()
+        stem = f"Mardas-Studio-{__version__}-macos-{architecture}-updater.tar.gz"
+        payload = output / stem
+        temporary = payload.with_name(payload.name + ".tmp")
+        shutil.copyfile(candidate, temporary)
+        os.replace(temporary, payload)
+        verify_native_artifact(payload, expected_version=__version__)
+        created.append(payload)
+        created.append(_copy_signature(candidate, payload, output))
+    else:
+        raise SystemExit(f"Unsupported updater platform: {platform_name}")
+    return created
+
+
 def build(args: argparse.Namespace) -> list[Path]:
     platform_name = platform_tag()
     architecture = architecture_tag()
@@ -217,8 +328,29 @@ def build(args: argparse.Namespace) -> list[Path]:
 
     environment = os.environ.copy()
     environment["MARDAS_DESKTOP_VERSION"] = __version__
+    updater_config: Path | None = None
+    if args.create_updater_artifacts:
+        private_key = environment.get("TAURI_SIGNING_PRIVATE_KEY", "").strip()
+        if not private_key:
+            raise SystemExit(
+                "TAURI_SIGNING_PRIVATE_KEY is required when --create-updater-artifacts is used."
+            )
+        environment["MARDAS_UPDATER_PUBKEY"] = _read_updater_pubkey(
+            args.updater_pubkey_file, environment
+        )
+        environment["MARDAS_UPDATE_ENDPOINT"] = _validate_update_endpoint(
+            args.updater_endpoint or DEFAULT_UPDATE_ENDPOINT
+        )
+        updater_config = _updater_build_config(output)
+
     command = ["cargo", "tauri", "build", "--bundles", ",".join(bundles)]
-    subprocess.run(command, cwd=TAURI_ROOT, env=environment, check=True)
+    if updater_config is not None:
+        command.extend(["--config", str(updater_config)])
+    try:
+        subprocess.run(command, cwd=TAURI_ROOT, env=environment, check=True)
+    finally:
+        if updater_config is not None:
+            updater_config.unlink(missing_ok=True)
 
     artifacts = [
         _copy_verified(
@@ -232,6 +364,16 @@ def build(args: argparse.Namespace) -> list[Path]:
     ]
     if platform_name == "windows" and not args.no_portable:
         artifacts.append(_build_windows_portable(output, architecture=architecture))
+    if args.create_updater_artifacts:
+        artifacts.extend(
+            _copy_updater_artifacts(
+                platform_name=platform_name,
+                architecture=architecture,
+                bundles=bundles,
+                normal_artifacts=artifacts,
+                output=output,
+            )
+        )
 
     payloads = [verify_native_artifact(path, expected_version=__version__) for path in artifacts]
     manifest = {
@@ -240,6 +382,7 @@ def build(args: argparse.Namespace) -> list[Path]:
         "version": __version__,
         "platform": platform_name,
         "architecture": architecture,
+        "signed_updater_artifacts": bool(args.create_updater_artifacts),
         "artifacts": payloads,
     }
     (output / "desktop-native-manifest.json").write_text(
@@ -263,6 +406,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override the default bundle(s) for the current platform",
     )
     parser.add_argument("--no-portable", action="store_true")
+    parser.add_argument(
+        "--create-updater-artifacts",
+        action="store_true",
+        help="Create Tauri v2 signed updater artifacts; requires TAURI_SIGNING_PRIVATE_KEY",
+    )
+    parser.add_argument("--updater-pubkey-file", type=Path)
+    parser.add_argument(
+        "--updater-endpoint",
+        default=None,
+        help="HTTPS latest.json endpoint embedded into signed release builds",
+    )
     parser.add_argument("--clean", action="store_true", default=True)
     parser.add_argument("--no-clean", dest="clean", action="store_false")
     return parser

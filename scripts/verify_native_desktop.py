@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import sys
+import tarfile
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -30,6 +31,18 @@ _PATTERNS = (
     )),
     ("desktop-deb", "linux", re.compile(
         r"^Mardas-Studio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.deb$"
+    )),
+    ("desktop-macos-updater", "macos", re.compile(
+        r"^Mardas-Studio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)-updater\.tar\.gz$"
+    )),
+    ("desktop-update-signature", "windows", re.compile(
+        r"^Mardas-Studio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe\.sig$"
+    )),
+    ("desktop-update-signature", "linux", re.compile(
+        r"^Mardas-Studio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.AppImage\.sig$"
+    )),
+    ("desktop-update-signature", "macos", re.compile(
+        r"^Mardas-Studio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)-updater\.tar\.gz\.sig$"
     )),
 )
 
@@ -129,6 +142,28 @@ def verify_native_artifact(path: Path, *, expected_version: str) -> dict[str, An
         path.name, expected_version=expected_version
     )
     size = path.stat().st_size
+    if kind == "desktop-update-signature":
+        if size <= 0 or size > 64 * 1024:
+            raise ValueError("Updater signature is empty or exceeds the size limit")
+        try:
+            signature = path.read_text(encoding="utf-8").strip()
+        except UnicodeDecodeError as exc:
+            raise ValueError("Updater signature is not UTF-8 text") from exc
+        if not signature or "\x00" in signature:
+            raise ValueError("Updater signature is invalid")
+        return {
+            "schema_version": 1,
+            "product": "Mardas Studio",
+            "kind": kind,
+            "version": expected_version,
+            "platform": platform_name,
+            "architecture": architecture,
+            "name": path.name,
+            "size": size,
+            "sha256": sha256_file(path),
+            "signature_present": True,
+        }
+
     if size < MIN_NATIVE_BYTES or size > MAX_NATIVE_BYTES:
         raise ValueError(f"Native desktop artifact size is outside the allowed range: {size}")
 
@@ -156,6 +191,26 @@ def verify_native_artifact(path: Path, *, expected_version: str) -> dict[str, An
         with path.open("rb") as handle:
             if handle.read(8) != b"!<arch>\n":
                 raise ValueError("Linux Debian package does not contain an ar header")
+    elif kind == "desktop-macos-updater":
+        try:
+            with tarfile.open(path, "r:gz") as archive:
+                members = archive.getmembers()
+                if not members or len(members) > MAX_PORTABLE_FILES:
+                    raise ValueError("macOS updater archive inventory is empty or too large")
+                total = 0
+                has_app_root = False
+                for member in members:
+                    pure = _safe_member(member.name)
+                    total += max(0, member.size)
+                    if total > MAX_PORTABLE_UNCOMPRESSED_BYTES:
+                        raise ValueError("macOS updater archive expands beyond the allowed size")
+                    if any(part.endswith(".app") for part in pure.parts):
+                        has_app_root = True
+                if not has_app_root:
+                    raise ValueError("macOS updater archive does not contain an application bundle")
+        except tarfile.TarError as exc:
+            raise ValueError("macOS updater archive is not a valid tar.gz file") from exc
+        extra["updater_bundle"] = True
 
     return {
         "schema_version": 1,
@@ -181,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         payload = verify_native_artifact(args.artifact, expected_version=args.version)
-    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError, zipfile.BadZipFile, tarfile.TarError) as exc:
         print(f"Native desktop artifact verification failed: {exc}", file=sys.stderr)
         return 2
     if args.json:

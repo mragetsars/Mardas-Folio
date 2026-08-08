@@ -373,8 +373,19 @@ DESKTOP_ARTIFACT_KINDS = frozenset({
     "desktop-deb",
 })
 
+DESKTOP_UPDATE_ARTIFACT_KINDS = frozenset({
+    "desktop-macos-updater",
+    "desktop-update-signature",
+})
+
 
 def artifact_kind(name: str) -> str:
+    if name.startswith("Mardas-Studio-") and name.endswith("-updater.tar.gz"):
+        return "desktop-macos-updater"
+    if name.startswith("Mardas-Studio-") and name.endswith(".sig"):
+        return "desktop-update-signature"
+    if name == "latest.json":
+        return "update-manifest"
     if name.endswith(".whl"):
         return "python-wheel"
     if name.endswith(".tar.gz"):
@@ -405,7 +416,7 @@ def artifact_kind(name: str) -> str:
 
 
 def desktop_artifact_platform(name: str, kind: str) -> str | None:
-    if kind not in DESKTOP_ARTIFACT_KINDS:
+    if kind not in DESKTOP_ARTIFACT_KINDS | DESKTOP_UPDATE_ARTIFACT_KINDS:
         return None
     if "-windows-" in name:
         return "windows"
@@ -491,6 +502,8 @@ def build_release_manifest(
     runtime_count = sum(item.kind == "standalone-runtime" for item in records)
     desktop_installer_count = sum(item.kind == "desktop-installer" for item in records)
     native_desktop_count = sum(item.kind in DESKTOP_ARTIFACT_KINDS for item in records)
+    update_artifact_count = sum(item.kind in DESKTOP_UPDATE_ARTIFACT_KINDS for item in records)
+    update_manifest_count = sum(item.kind == "update-manifest" for item in records)
     desktop_platforms = sorted({
         platform_name
         for item in records
@@ -512,6 +525,8 @@ def build_release_manifest(
             "standalone_runtime_count": runtime_count,
             "desktop_installer_count": desktop_installer_count,
             "native_desktop_artifact_count": native_desktop_count,
+            "desktop_update_artifact_count": update_artifact_count,
+            "update_manifest_count": update_manifest_count,
             "desktop_platforms": desktop_platforms,
             "sbom_files": sbom_files,
         },
