@@ -1985,3 +1985,117 @@ html[dir="rtl"] .book-chapter-row.active {
   outline: 2px solid color-mix(in srgb, var(--ui-accent) 34%, transparent);
   outline-offset: 1px;
 }
+
+/* First-run experience shares the native surface system in both themes. */
+.onboarding-card {
+  border: 1px solid var(--ui-border);
+  background: var(--ui-panel);
+  color: var(--ui-text);
+}
+
+.onboarding-progress i {
+  background: var(--ui-border);
+}
+
+.onboarding-progress i.active {
+  background: var(--ui-accent);
+}
+
+.onboarding-step h2 {
+  color: var(--ui-text);
+}
+
+.onboarding-step > p,
+.choice-card small,
+.shortcut-hints small {
+  color: var(--ui-muted);
+}
+
+.choice-card,
+.shortcut-hints span {
+  border-color: var(--ui-border);
+  background: var(--ui-panel-soft);
+  color: var(--ui-text);
+}
+
+.choice-card:hover {
+  border-color: color-mix(in srgb, var(--ui-accent) 40%, var(--ui-border));
+  background: var(--ui-accent-soft);
+}
+
+.choice-card > b {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent);
+}
+
+.feature-checks li::before {
+  background: color-mix(in srgb, var(--ui-accent-soft) 74%, var(--ui-panel));
+  color: var(--ui-accent);
+}
+
+.onboarding-intent-summary {
+  max-width: 580px;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 4px auto 18px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--ui-accent) 28%, var(--ui-border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--ui-accent-soft) 55%, var(--ui-panel));
+  text-align: start;
+}
+
+.onboarding-intent-summary > b {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--ui-accent);
+  color: #fff;
+  font-size: 11px;
+}
+
+.onboarding-intent-summary > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.onboarding-intent-summary small {
+  color: var(--ui-accent);
+  font-size: 8.5px;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.onboarding-intent-summary strong {
+  color: var(--ui-text);
+  font-size: 12px;
+}
+
+.onboarding-intent-summary em {
+  color: var(--ui-muted);
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.5;
+}
+
+html[data-theme="light"] .topbar,
+html[data-theme="light"] .app-footer {
+  background: color-mix(in srgb, #ffffff 94%, var(--ui-accent-soft));
+}
+
+html[data-theme="light"] .panel,
+html[data-theme="light"] .template-section,
+html[data-theme="light"] .form-panel,
+html[data-theme="light"] .status-panel {
+  box-shadow: 0 10px 30px rgba(30, 74, 70, 0.07);
+}
+
+html[data-theme="light"] .hero {
+  box-shadow: 0 22px 56px rgba(9, 79, 75, 0.18);
+}

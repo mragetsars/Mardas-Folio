@@ -1,5 +1,6 @@
 import { basename, buildDocumentParams, defaultOutputPath, validateExportSelection } from "./core/export-request.mjs";
 import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
+import { onboardingIntentPresentation, onboardingPrimaryActionKey, normalizeOnboardingIntent } from "./core/onboarding.mjs";
 import { PRESETS, presetById } from "./core/presets.mjs";
 import { addRecent, readRecents, writeRecents } from "./core/recents.mjs";
 import { invoke, listen } from "./core/tauri.mjs";
@@ -550,6 +551,17 @@ async function installAvailableUpdate() {
   }
 }
 
+function renderOnboardingIntent() {
+  const presentation = onboardingIntentPresentation(state.onboardingIntent);
+  const container = $("#onboarding-intent-summary");
+  if (!container) return;
+  container.classList.toggle("hidden", !presentation);
+  if (!presentation) return;
+  $("#onboarding-intent-icon").textContent = presentation.icon;
+  $("#onboarding-intent-title").textContent = t(presentation.titleKey);
+  $("#onboarding-intent-detail").textContent = t(presentation.detailKey);
+}
+
 function setOnboardingStep(step) {
   state.onboardingStep = Math.max(0, Math.min(2, Number(step) || 0));
   $$("[data-onboarding-step]").forEach((section) => {
@@ -559,7 +571,8 @@ function setOnboardingStep(step) {
     dot.classList.toggle("active", Number(dot.dataset.onboardingDot) <= state.onboardingStep);
   });
   $("#onboarding-back").classList.toggle("hidden", state.onboardingStep === 0);
-  $("#onboarding-next").textContent = state.onboardingStep === 2 ? t("close") : t("next");
+  $("#onboarding-next").textContent = t(onboardingPrimaryActionKey(state.onboardingStep, state.onboardingIntent));
+  renderOnboardingIntent();
 }
 
 function openOnboarding({ force = false } = {}) {
@@ -2937,7 +2950,7 @@ function bindEvents() {
   $("#onboarding-next").addEventListener("click", onboardingNext);
   $("#onboarding-back").addEventListener("click", onboardingBack);
   $$("[data-onboarding-action]").forEach((button) => button.addEventListener("click", () => {
-    state.onboardingIntent = button.dataset.onboardingAction;
+    state.onboardingIntent = normalizeOnboardingIntent(button.dataset.onboardingAction);
     setOnboardingStep(1);
   }));
   $("#command-query").addEventListener("input", () => {

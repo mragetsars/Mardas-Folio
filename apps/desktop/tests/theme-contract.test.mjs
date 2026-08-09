@@ -76,3 +76,11 @@ test("book and export workflows expose durable result and active-chapter afforda
   assert.match(workspaceStyles, /\.book-chapter-row\.active \{/);
   assert.match(workspaceStyles, /\.export-result \{/);
 });
+
+test("onboarding and light theme use the same native surface tokens", () => {
+  const index = readFileSync(new URL("../frontend/index.html", import.meta.url), "utf8");
+  assert.match(index, /id="onboarding-intent-summary"/);
+  assert.match(workspaceStyles, /\.onboarding-intent-summary \{/);
+  assert.match(workspaceStyles, /html\[data-theme="light"\] \.panel,/);
+  assert.match(workspaceStyles, /\.choice-card,[\s\S]*?\.shortcut-hints span \{/);
+});
