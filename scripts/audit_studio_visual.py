@@ -63,14 +63,25 @@ def _chromium_executable() -> str | None:
     return None
 
 
+
+def _open_local_studio_url(
+    request: str | urllib.request.Request,
+    *,
+    timeout: float,
+) -> Any:
+    """Open a loopback Studio URL without honoring environment proxy settings."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    return opener.open(request, timeout=timeout)  # noqa: S310 - local Studio URL only.
+
+
 def _fetch_studio_html(url: str, timeout: float) -> str:
-    with urllib.request.urlopen(url, timeout=timeout) as response:  # noqa: S310 - local Studio URL only.
+    with _open_local_studio_url(url, timeout=timeout) as response:
         html_text = response.read().decode("utf-8")
     base_href = url.rstrip("/") + "/"
     html_text = html_text.replace("<head>", f'<head>\n<base href="{base_href}">', 1)
     asset_url = base_href + "assets/mardas-md2pdf-logo.png"
     try:
-        with urllib.request.urlopen(asset_url, timeout=timeout) as response:  # noqa: S310 - local Studio URL only.
+        with _open_local_studio_url(asset_url, timeout=timeout) as response:
             logo_data = base64.b64encode(response.read()).decode("ascii")
         html_text = html_text.replace("/assets/mardas-md2pdf-logo.png", f"data:image/png;base64,{logo_data}")
     except Exception:
@@ -108,7 +119,7 @@ def _proxy_local_studio_api(
         method=method.upper(),
     )
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - local Studio URL only.
+        with _open_local_studio_url(request, timeout=timeout) as response:
             return (
                 response.status,
                 response.read(),

@@ -1232,6 +1232,53 @@ def _workspace_pdf_options(workspace: ProjectWorkspace, source_path: Path) -> Pd
     )
 
 
+_MISSING_REFERENCE_PREFIX = "Reference target is not defined: "
+
+
+def _cross_chapter_preview_reference_labels(
+    workspace: ProjectWorkspace, source_path: Path
+) -> frozenset[str]:
+    if workspace.manifest is None or workspace.bundle is None:
+        return frozenset()
+
+    source_resolved = source_path.resolve(strict=False)
+    current_chapter_index = next(
+        (
+            chapter.index
+            for chapter in workspace.manifest.chapters
+            if chapter.path.resolve(strict=False) == source_resolved
+        ),
+        None,
+    )
+    if current_chapter_index is None:
+        return frozenset()
+
+    labels: set[str] = set()
+    for item in workspace.bundle.result.reference_objects:
+        label = item.get("label")
+        chapter_index = item.get("chapter_index")
+        if (
+            isinstance(label, str)
+            and label
+            and chapter_index != current_chapter_index
+        ):
+            labels.add(label)
+    return frozenset(labels)
+
+
+def _is_valid_cross_chapter_preview_reference(
+    diagnostic: Diagnostic, known_labels: frozenset[str]
+) -> bool:
+    if (
+        diagnostic.code != "MARDAS-E602"
+        or not diagnostic.message.startswith(_MISSING_REFERENCE_PREFIX)
+    ):
+        return False
+
+    label = diagnostic.message.removeprefix(_MISSING_REFERENCE_PREFIX).strip()
+    return label in known_labels
+
+
 def render_workspace_file_html(
     workspace: ProjectWorkspace, relative_path: str, content: str
 ) -> tuple[str, ProjectWorkspace]:
@@ -1277,7 +1324,16 @@ def render_workspace_file_html(
         document_root=refreshed.root,
         allow_remote_images=bool(values.get("allow_remote_assets", False)),
     )
-    diagnostics.extend(result.diagnostics)
+    known_cross_chapter_references = _cross_chapter_preview_reference_labels(
+        refreshed, source_path
+    )
+    diagnostics.extend(
+        item
+        for item in result.diagnostics
+        if not _is_valid_cross_chapter_preview_reference(
+            item, known_cross_chapter_references
+        )
+    )
     if has_errors(diagnostics):
         raise WorkspaceError(
             "Project file preview has validation errors.",

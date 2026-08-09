@@ -86,6 +86,9 @@ def test_studio_visual_audit_uses_live_server_preview_context() -> None:
     assert '<base href="{base_href}">' in source
     assert 'page.route("**/api/**", proxy_studio_api)' in source
     assert "_proxy_local_studio_api" in source
+    assert "_open_local_studio_url" in source
+    assert "ProxyHandler({})" in source
+    assert "urllib.request.urlopen(" not in source
     assert '"--project"' in source
     assert '"project_section_visible"' in source
     assert "_studio_process_env" in source

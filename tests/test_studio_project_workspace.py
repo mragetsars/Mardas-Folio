@@ -272,6 +272,50 @@ def test_project_renderer_preview_uses_unsaved_markdown_and_project_assets(tmp_p
     assert str(root) not in html
 
 
+def test_project_renderer_preview_allows_valid_cross_chapter_reference(tmp_path):
+    root = _project(tmp_path)
+    (root / "chapters/01-intro.md").write_text(
+        "# Introduction\n\nSee @lst:loop.\n",
+        encoding="utf-8",
+    )
+    (root / "chapters/02-method.md").write_text(
+        '# Method\n\n```python title="Loop" {#lst:loop}\nprint("ok")\n```\n',
+        encoding="utf-8",
+    )
+    workspace = load_workspace(root)
+    assert workspace_payload(workspace)["ok"] is True
+
+    server, thread = _server(workspace)
+    try:
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=10)
+        body = json.dumps(
+            {
+                "path": "chapters/01-intro.md",
+                "content": "# Introduction\n\nSee @lst:loop.\n",
+            }
+        )
+        headers = _headers(server, json_content=True)
+        headers["X-Mardas-Studio-Preview-Id"] = "project-preview-cross-chapter"
+        headers["X-Mardas-Studio-Client-Id"] = "project-client"
+
+        connection.request(
+            "POST",
+            "/api/project/render-file-html",
+            body=body,
+            headers=headers,
+        )
+        response = connection.getresponse()
+        html = response.read().decode("utf-8")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=10)
+
+    assert response.status == 200
+    assert "@lst:loop" in html
+    assert str(root) not in html
+
+
 def test_project_validation_api_returns_relative_diagnostic_locations(tmp_path):
     root = _project(tmp_path)
     (root / "chapters/02-method.md").write_text("# Method\n\nSee @fig:missing.\n", encoding="utf-8")
