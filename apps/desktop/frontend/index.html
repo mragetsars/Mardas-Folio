@@ -104,7 +104,12 @@
           <p class="section-label" data-i18n="exportStatus">وضعیت خروجی</p><h2 id="status-title" data-i18n="readyTitle">آماده شروع</h2><p id="status-message" data-i18n="readyMessage">فایل را انتخاب کن و قبل از خروجی، بررسی سند را اجرا کن.</p>
           <div class="progress hidden" id="progress-wrap"><div><i id="progress-bar"></i></div><span id="progress-label">0%</span></div>
           <div class="diagnostics hidden" id="diagnostics"></div>
-          <div class="success-actions hidden" id="success-actions"><button class="button primary compact" id="open-pdf" type="button" data-i18n="openPdf">باز کردن PDF</button><button class="button secondary compact" id="reveal-pdf" type="button" data-i18n="showInFolder">نمایش در پوشه</button></div>
+          <div class="export-result hidden" id="export-result">
+            <span class="export-result-label" data-i18n="resultFile">فایل خروجی</span>
+            <strong id="export-result-name"></strong>
+            <small id="export-result-path"></small>
+            <div class="success-actions" id="success-actions"><button class="button primary compact" id="open-pdf" type="button" data-i18n="openPdf">باز کردن PDF</button><button class="button secondary compact" id="reveal-pdf" type="button" data-i18n="showInFolder">نمایش در پوشه</button></div>
+          </div>
           <div class="summary" id="preset-summary"></div>
         </aside>
       </div>
@@ -186,16 +191,21 @@
             </div>
             <div class="book-tools hidden" id="book-tools">
               <div class="book-summary">
-                <strong id="book-project-title"></strong>
-                <small id="book-output-path"></small>
+                <div class="book-summary-copy"><strong id="book-project-title"></strong><small id="book-output-path"></small></div>
+                <div class="book-metrics" aria-label="Book status">
+                  <span><small data-i18n="chaptersMetric">فصل‌ها</small><strong id="book-summary-chapters">0</strong></span>
+                  <span><small data-i18n="currentChapterMetric">فصل فعال</small><strong id="book-current-chapter">—</strong></span>
+                </div>
               </div>
               <div class="book-actions">
-                <button class="button primary compact" id="book-add-chapter" type="button" data-i18n="addChapter">افزودن فصل</button>
-                <button class="button secondary compact" id="book-validate" type="button" data-i18n="validateBook">بررسی کتاب</button>
-                <button class="button secondary compact" id="book-preview" type="button" data-i18n="previewBook">پیش‌نمایش کامل</button>
-                <button class="button secondary compact" id="book-export" type="button" data-i18n="exportBook">ساخت PDF کتاب</button>
+                <div class="book-actions-primary"><button class="button primary compact" id="book-add-chapter" type="button" data-i18n="addChapter">افزودن فصل</button><button class="button primary compact" id="book-export" type="button" data-i18n="exportBook">ساخت PDF کتاب</button></div>
+                <div class="book-actions-secondary"><button class="button secondary compact" id="book-validate" type="button" data-i18n="validateBook">بررسی کتاب</button><button class="button secondary compact" id="book-preview" type="button" data-i18n="previewBook">پیش‌نمایش کامل</button></div>
               </div>
               <div class="book-operation-status hidden" id="book-operation-status" role="status"><span id="book-operation-message"></span><button class="text-button hidden" id="book-cancel-operation" type="button" data-i18n="cancel">انصراف</button></div>
+              <div class="book-output-result hidden" id="book-output-result">
+                <span data-i18n="lastBookOutput">آخرین خروجی</span><strong id="book-output-result-name"></strong><small id="book-output-result-path"></small>
+                <div><button class="text-button" id="book-open-output" type="button" data-i18n="openPdf">باز کردن PDF</button><button class="text-button" id="book-reveal-output" type="button" data-i18n="showInFolder">نمایش در پوشه</button></div>
+              </div>
               <div class="tool-list book-chapter-list" id="book-chapter-list"></div>
             </div>
           </section>

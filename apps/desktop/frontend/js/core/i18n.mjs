@@ -95,3 +95,5 @@ const messages={fa,en};export function supportedLocale(value){return String(valu
 export function readLocalePreference(storage,fallback="en"){const fallbackLocale=supportedLocale(fallback);try{const value=localeStorage(storage)?.getItem(LOCALE_STORAGE_KEY);return value?supportedLocale(value):fallbackLocale}catch{return fallbackLocale}}
 export function writeLocalePreference(value,storage){const normalized=supportedLocale(value);try{localeStorage(storage)?.setItem(LOCALE_STORAGE_KEY,normalized)}catch{/* Locale persistence is optional and must never block the desktop shell. */}return normalized}
 export function createTranslator(locale="fa"){let current=supportedLocale(locale);return{get locale(){return current},set locale(value){current=supportedLocale(value)},t(key){return messages[current][key]??messages.en[key]??key}}}
+Object.assign(fa,{resultFile:"فایل خروجی",chaptersMetric:"فصل‌ها",currentChapterMetric:"فصل فعال",lastBookOutput:"آخرین خروجی"});
+Object.assign(en,{resultFile:"Output file",chaptersMetric:"Chapters",currentChapterMetric:"Current",lastBookOutput:"Last output"});

@@ -64,3 +64,15 @@ test("final workspace polish keeps sticky export status and stronger chrome affo
   assert.match(workspaceStyles, /\.sidebar-tabs button\.active \.sidebar-tab-icon,/);
   assert.match(workspaceStyles, /\.command-card \.command-search input \{/);
 });
+
+test("book and export workflows expose durable result and active-chapter affordances", () => {
+  const index = readFileSync(new URL("../frontend/index.html", import.meta.url), "utf8");
+  const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
+  assert.match(index, /id="export-result"/);
+  assert.match(index, /id="book-output-result"/);
+  assert.match(index, /id="book-current-chapter"/);
+  assert.match(main, /state\.bookOutputPath = result\?\.output_path \|\| outputPath/);
+  assert.match(main, /aria-current", "page"/);
+  assert.match(workspaceStyles, /\.book-chapter-row\.active \{/);
+  assert.match(workspaceStyles, /\.export-result \{/);
+});

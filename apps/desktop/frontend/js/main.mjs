@@ -95,6 +95,7 @@ const state = {
   outputPath: "",
   activeRequestId: null,
   outputResult: null,
+  bookOutputPath: null,
   recents: readRecents(),
   documents: [],
   activeDocumentId: null,
@@ -861,7 +862,22 @@ function saveRecent(path) {
   renderRecents();
 }
 
+function hideExportResult() {
+  state.outputResult = null;
+  $("#export-result")?.classList.add("hidden");
+}
+
+function showExportResult(path) {
+  const resultPath = String(path || "").trim();
+  const container = $("#export-result");
+  if (!container || !resultPath) return;
+  $("#export-result-name").textContent = basename(resultPath);
+  $("#export-result-path").textContent = resultPath;
+  container.classList.remove("hidden");
+}
+
 function openExportSource(path) {
+  hideExportResult();
   state.sourcePath = path;
   state.outputPath = defaultOutputPath(path);
   $("#source-path").value = path;
@@ -924,7 +940,7 @@ async function exportDocument(event) {
   event?.preventDefault();
   if (!exportSelectionValid()) return;
   working(true);
-  $("#success-actions").classList.add("hidden");
+  hideExportResult();
   const id = requestId("render");
   state.activeRequestId = id;
   try {
@@ -933,8 +949,9 @@ async function exportDocument(event) {
     state.outputResult = result;
     $("#progress-bar").style.width = "100%";
     $("#progress-label").textContent = "100%";
-    setExportStatus("success", "successTitle", `${t("successMessage")} ${result.output_path || state.outputPath}`);
-    $("#success-actions").classList.remove("hidden");
+    const resultPath = result.output_path || state.outputPath;
+    setExportStatus("success", "successTitle", t("successMessage"));
+    showExportResult(resultPath);
     saveRecent(state.sourcePath);
   } catch (error) {
     const message = errorText(error);
@@ -1531,6 +1548,7 @@ function applyProjectPayload(payload) {
   if (!project?.path) return null;
   if (pathKey(project.path) !== pathKey(state.project?.path)) {
     invalidateBookTaskForProjectChange();
+    state.bookOutputPath = null;
   }
   state.project = project;
   state.projectGeneration += 1;
@@ -1726,6 +1744,7 @@ function invalidateBookTaskForProjectChange() {
 function clearProjectState() {
   invalidateBookTaskForProjectChange();
   state.project = null;
+  state.bookOutputPath = null;
   state.projectGeneration += 1;
   state.projectDiagnostics = [];
   state.bibliographyEntries = [];
@@ -1878,29 +1897,41 @@ async function removeChapterFromBook(chapter) {
 
 function bookChapterRow(chapter, index, chapters) {
   const row = document.createElement("div");
-  row.className = "book-chapter-row";
+  const activeRelativePath = activeDocument()?.projectRelativePath || null;
+  const active = activeRelativePath === chapter.path;
+  row.className = `book-chapter-row${active ? " active" : ""}`;
   row.draggable = true;
   row.dataset.path = chapter.path;
   row.innerHTML = `
-    <button class="book-chapter-handle" type="button" aria-label="Drag">⋮⋮</button>
+    <span class="book-chapter-handle" aria-hidden="true">⋮⋮</span>
     <button class="book-chapter-main" type="button"><strong></strong><small></small></button>
     <span class="book-chapter-actions">
-      <button type="button" data-action="up" title="${t("moveChapterUp")}">↑</button>
-      <button type="button" data-action="down" title="${t("moveChapterDown")}">↓</button>
-      <button type="button" data-action="duplicate" title="${t("duplicateChapter")}">⧉</button>
-      <button class="danger" type="button" data-action="remove" title="${t("removeFromBook")}">×</button>
+      <button type="button" data-action="up">↑</button>
+      <button type="button" data-action="down">↓</button>
+      <button type="button" data-action="duplicate">⧉</button>
+      <button class="danger" type="button" data-action="remove">×</button>
     </span>`;
-  row.querySelector("strong").textContent = `${index + 1}. ${chapter.title || chapter.path}`;
+  const chapterLabel = `${index + 1}. ${chapter.title || chapter.path}`;
+  row.querySelector("strong").textContent = chapterLabel;
   row.querySelector("small").textContent = chapter.path;
-  row.querySelector(".book-chapter-main").addEventListener("click", () =>
-    openProjectRelativeFile(chapter.path)
-  );
+  const main = row.querySelector(".book-chapter-main");
+  main.setAttribute("aria-label", `${t("openBookChapter")}: ${chapterLabel}`);
+  if (active) main.setAttribute("aria-current", "page");
+  main.addEventListener("click", () => openProjectRelativeFile(chapter.path));
+  const actions = {
+    up: [t("moveChapterUp"), () => moveBookChapter(chapter.path, -1)],
+    down: [t("moveChapterDown"), () => moveBookChapter(chapter.path, 1)],
+    duplicate: [t("duplicateChapter"), () => openChapterModal("duplicate", chapter)],
+    remove: [t("removeFromBook"), () => removeChapterFromBook(chapter)],
+  };
+  for (const [action, [label, handler]] of Object.entries(actions)) {
+    const button = row.querySelector(`[data-action="${action}"]`);
+    button.title = label;
+    button.setAttribute("aria-label", `${label}: ${chapterLabel}`);
+    button.addEventListener("click", handler);
+  }
   row.querySelector('[data-action="up"]').disabled = index === 0;
   row.querySelector('[data-action="down"]').disabled = index === chapters.length - 1;
-  row.querySelector('[data-action="up"]').addEventListener("click", () => moveBookChapter(chapter.path, -1));
-  row.querySelector('[data-action="down"]').addEventListener("click", () => moveBookChapter(chapter.path, 1));
-  row.querySelector('[data-action="duplicate"]').addEventListener("click", () => openChapterModal("duplicate", chapter));
-  row.querySelector('[data-action="remove"]').addEventListener("click", () => removeChapterFromBook(chapter));
   row.addEventListener("dragstart", (event) => {
     row.classList.add("dragging");
     event.dataTransfer.effectAllowed = "move";
@@ -1928,6 +1959,25 @@ function bookChapterRow(chapter, index, chapters) {
   return row;
 }
 
+function renderBookOutputResult() {
+  const container = $("#book-output-result");
+  const path = state.bookOutputPath;
+  if (!container) return;
+  container.classList.toggle("hidden", !path);
+  if (!path) return;
+  $("#book-output-result-name").textContent = basename(path);
+  $("#book-output-result-path").textContent = path;
+}
+
+async function openBookOutput(reveal = false) {
+  if (!state.bookOutputPath) return;
+  try {
+    await invoke(reveal ? "reveal_path" : "open_path", { path: state.bookOutputPath });
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
 function renderBookWorkspace() {
   const book = bookProject();
   const empty = $("#book-empty");
@@ -1946,7 +1996,12 @@ function renderBookWorkspace() {
   $("#book-project-title").textContent = book.title || state.project.name || t("bookProject");
   $("#book-output-path").textContent = book.output || "dist/book.pdf";
   const chapters = Array.isArray(book.chapters) ? book.chapters : [];
+  const activeRelativePath = activeDocument()?.projectRelativePath || null;
+  const activeIndex = chapters.findIndex((chapter) => chapter.path === activeRelativePath);
+  $("#book-summary-chapters").textContent = String(chapters.length);
+  $("#book-current-chapter").textContent = activeIndex >= 0 ? `${activeIndex + 1}/${chapters.length}` : "—";
   list.replaceChildren(...chapters.map((chapter, index) => bookChapterRow(chapter, index, chapters)));
+  renderBookOutputResult();
   syncBookOperationControls();
 }
 
@@ -1998,6 +2053,8 @@ async function exportActiveBook() {
     successMessage: t("bookExported"),
     onSuccess: (result) => {
       state.outputResult = result;
+      state.bookOutputPath = result?.output_path || outputPath;
+      renderBookOutputResult();
     },
   });
 }
@@ -2803,6 +2860,8 @@ function bindEvents() {
   $("#book-preview").addEventListener("click", previewActiveBook);
   $("#book-export").addEventListener("click", exportActiveBook);
   $("#book-cancel-operation").addEventListener("click", cancelActiveBookOperation);
+  $("#book-open-output").addEventListener("click", () => openBookOutput(false));
+  $("#book-reveal-output").addEventListener("click", () => openBookOutput(true));
   $("#book-project-form").addEventListener("submit", submitNewBookProject);
   $("#cancel-book-project").addEventListener("click", closeNewBookModal);
   $("#choose-book-parent").addEventListener("click", chooseBookParent);

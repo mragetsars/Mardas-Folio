@@ -1825,3 +1825,163 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
     height: 38px;
   }
 }
+
+/* Book Project and output-result workflow polish. */
+.export-result {
+  display: grid;
+  gap: 5px;
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--ui-accent) 28%, var(--ui-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ui-accent-soft) 56%, var(--ui-panel));
+  text-align: start;
+}
+
+.export-result-label,
+.book-output-result > span {
+  color: var(--ui-accent);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.export-result strong,
+.book-output-result strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-result small,
+.book-output-result small {
+  min-width: 0;
+  overflow: hidden;
+  direction: ltr;
+  color: var(--ui-muted);
+  font: 9.5px/1.5 ui-monospace, "Cascadia Mono", monospace;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-result .success-actions {
+  justify-content: stretch;
+  margin-top: 8px;
+}
+
+.export-result .success-actions .button {
+  flex: 1 1 0;
+}
+
+.book-summary {
+  gap: 11px;
+  padding: 12px;
+}
+
+.book-summary-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.book-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.book-metrics > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 8px 9px;
+  border: 1px solid var(--ui-border);
+  border-radius: 9px;
+  background: var(--ui-panel);
+}
+
+.book-metrics small {
+  color: var(--ui-muted);
+  font-size: 8.5px;
+}
+
+.book-metrics strong {
+  color: var(--ui-text);
+  font-size: 12px;
+}
+
+.book-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.book-actions-primary,
+.book-actions-secondary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.book-actions .button {
+  min-width: 0;
+  padding-inline: 8px;
+}
+
+.book-output-result {
+  display: grid;
+  gap: 4px;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--ui-accent) 24%, var(--ui-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ui-accent-soft) 45%, var(--ui-panel));
+}
+
+.book-output-result > div {
+  display: flex;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.book-output-result .text-button {
+  min-height: 26px;
+  padding-inline: 5px;
+}
+
+.book-chapter-row {
+  position: relative;
+  border-color: transparent;
+  transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.book-chapter-row.active {
+  border-color: color-mix(in srgb, var(--ui-accent) 34%, var(--ui-border));
+  background: color-mix(in srgb, var(--ui-accent-soft) 62%, var(--ui-panel));
+  box-shadow: inset 3px 0 0 var(--ui-accent);
+}
+
+html[dir="rtl"] .book-chapter-row.active {
+  box-shadow: inset -3px 0 0 var(--ui-accent);
+}
+
+.book-chapter-handle {
+  display: grid;
+  place-items: center;
+  color: var(--ui-muted);
+  cursor: grab;
+  user-select: none;
+}
+
+.book-chapter-main[aria-current="page"] strong {
+  color: var(--ui-accent);
+}
+
+.book-chapter-actions button:focus-visible,
+.book-chapter-main:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ui-accent) 34%, transparent);
+  outline-offset: 1px;
+}
