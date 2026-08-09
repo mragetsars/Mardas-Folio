@@ -2099,3 +2099,63 @@ html[data-theme="light"] .status-panel {
 html[data-theme="light"] .hero {
   box-shadow: 0 22px 56px rgba(9, 79, 75, 0.18);
 }
+
+/* Keep narrow Book Project sidebars readable without hiding keyboard actions. */
+.book-actions-primary {
+  grid-template-columns: 1fr;
+}
+
+.book-chapter-row {
+  grid-template-columns: 18px minmax(0, 1fr);
+  min-height: 52px;
+  padding: 6px 7px;
+}
+
+.book-chapter-main {
+  min-width: 0;
+  padding: 3px 4px;
+}
+
+.book-chapter-main strong,
+.book-chapter-main small {
+  max-width: 100%;
+}
+
+.book-chapter-actions {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  inset-inline-end: 6px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--ui-border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ui-panel) 96%, transparent);
+  box-shadow: 0 8px 20px rgba(10, 38, 38, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(3px);
+  transition: opacity 100ms ease, transform 100ms ease;
+}
+
+html[dir="rtl"] .book-chapter-actions {
+  transform: translateY(-50%) translateX(-3px);
+}
+
+.book-chapter-row:hover .book-chapter-actions,
+.book-chapter-row:focus-within .book-chapter-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+}
+
+.book-chapter-actions button {
+  flex: 0 0 26px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-chapter-actions {
+    transition: none;
+  }
+}

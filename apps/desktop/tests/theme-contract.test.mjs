@@ -84,3 +84,10 @@ test("onboarding and light theme use the same native surface tokens", () => {
   assert.match(workspaceStyles, /html\[data-theme="light"\] \.panel,/);
   assert.match(workspaceStyles, /\.choice-card,[\s\S]*?\.shortcut-hints span \{/);
 });
+
+test("narrow book chapter rows preserve titles and reveal actions on intent", () => {
+  assert.match(workspaceStyles, /\.book-chapter-row \{[\s\S]*?grid-template-columns: 18px minmax\(0, 1fr\);/);
+  assert.match(workspaceStyles, /\.book-chapter-actions \{[\s\S]*?position: absolute;/);
+  assert.match(workspaceStyles, /\.book-chapter-row:focus-within \.book-chapter-actions/);
+  assert.match(workspaceStyles, /\.book-actions-primary \{[\s\S]*?grid-template-columns: 1fr;/);
+});
