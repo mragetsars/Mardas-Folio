@@ -1,17 +1,86 @@
 import { autocompletion, snippetCompletion } from "@codemirror/autocomplete";
 import { indentWithTab } from "@codemirror/commands";
+import { css } from "@codemirror/lang-css";
+import { html } from "@codemirror/lang-html";
+import { javascript } from "@codemirror/lang-javascript";
 import { markdown } from "@codemirror/lang-markdown";
+import { LanguageDescription } from "@codemirror/language";
 import { setDiagnostics } from "@codemirror/lint";
 import {
   Compartment,
   EditorSelection,
   EditorState,
+  RangeSetBuilder,
   Transaction,
 } from "@codemirror/state";
-import { EditorView, keymap } from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 
+import { mardasEditorAppearance } from "./editor-theme.mjs";
+import { frontmatter } from "./markdown-frontmatter.mjs";
+
 const MAX_COMPLETIONS = 500;
+
+/**
+ * Languages available for fenced code blocks.
+ *
+ * These parsers already sit in the dependency tree beneath
+ * `@codemirror/lang-markdown`, so wiring them up costs no new dependency.
+ */
+const CODE_LANGUAGES = [
+  LanguageDescription.of({
+    name: "javascript",
+    alias: ["js", "jsx", "node", "mjs"],
+    load: async () => javascript({ jsx: true }),
+  }),
+  LanguageDescription.of({
+    name: "typescript",
+    alias: ["ts", "tsx"],
+    load: async () => javascript({ jsx: true, typescript: true }),
+  }),
+  LanguageDescription.of({ name: "json", load: async () => javascript() }),
+  LanguageDescription.of({ name: "html", alias: ["htm"], load: async () => html() }),
+  LanguageDescription.of({ name: "css", load: async () => css() }),
+];
+
+/**
+ * Give every line its own resolved text direction.
+ *
+ * A Persian document routinely mixes RTL prose with LTR code and identifiers.
+ * `dir="auto"` on each line reproduces the per-paragraph behaviour the previous
+ * textarea got from `unicode-bidi: plaintext`, and unlike a CSS-only rule it is
+ * visible to `EditorView.textDirectionAt`, which reads the line's computed
+ * direction.  Paired with `perLineTextDirection` below, caret motion and
+ * selection drawing follow the line the caret is actually on.
+ */
+const autoDirectionLine = Decoration.line({ attributes: { dir: "auto" } });
+
+const perLineAutoDirection = ViewPlugin.fromClass(
+  class {
+    constructor(view) {
+      this.decorations = this.build(view);
+    }
+
+    update(update) {
+      if (update.docChanged || update.viewportChanged) {
+        this.decorations = this.build(update.view);
+      }
+    }
+
+    build(view) {
+      const builder = new RangeSetBuilder();
+      for (const { from, to } of view.visibleRanges) {
+        for (let position = from; position <= to; ) {
+          const line = view.state.doc.lineAt(position);
+          builder.add(line.from, line.from, autoDirectionLine);
+          position = line.to + 1;
+        }
+      }
+      return builder.finish();
+    }
+  },
+  { decorations: (plugin) => plugin.decorations },
+);
 
 const MARKDOWN_SNIPPETS = Object.freeze([
   snippetCompletion("# ${Heading}", {
@@ -112,9 +181,18 @@ function severity(value) {
     : "info";
 }
 
+/** Read the interface theme the workspace is currently showing. */
+function documentTheme() {
+  try {
+    return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+
 export function createCodeMirrorEditorAdapter(
   textarea,
-  { getCompletions, onChange, onScroll, onSelectionChange } = {},
+  { getCompletions, onChange, onScroll, onSelectionChange, theme } = {},
 ) {
   if (!(textarea instanceof HTMLTextAreaElement)) {
     throw new TypeError("CodeMirror editor requires a textarea fallback element.");
@@ -130,7 +208,9 @@ export function createCodeMirrorEditorAdapter(
 
   let suppressCallbacks = false;
   let disabled = Boolean(textarea.disabled);
+  let appearanceMode = theme === "dark" || theme === "light" ? theme : documentTheme();
   const readOnly = new Compartment();
+  const appearance = new Compartment();
 
   const view = new EditorView({
     parent: mount,
@@ -138,7 +218,10 @@ export function createCodeMirrorEditorAdapter(
       doc: textarea.value,
       extensions: [
         basicSetup,
-        markdown(),
+        markdown({ codeLanguages: CODE_LANGUAGES, extensions: [frontmatter] }),
+        appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
+        EditorView.perLineTextDirection.of(true),
+        perLineAutoDirection,
         EditorState.allowMultipleSelections.of(true),
         keymap.of([indentWithTab]),
         autocompletion({
@@ -278,6 +361,25 @@ export function createCodeMirrorEditorAdapter(
     setLocale(locale) {
       view.contentDOM.lang = locale === "fa" ? "fa" : "en";
       view.contentDOM.dir = "auto";
+    },
+    get theme() {
+      return appearanceMode;
+    },
+    /**
+     * Follow the workspace theme.
+     *
+     * The palette itself lives in CSS custom properties, but CodeMirror still
+     * needs to know which side it is on so its own light/dark base rules and
+     * floating panels match.
+     */
+    setTheme(mode) {
+      const next = mode === "dark" || mode === "light" ? mode : documentTheme();
+      if (next === appearanceMode) return appearanceMode;
+      appearanceMode = next;
+      view.dispatch({
+        effects: appearance.reconfigure(mardasEditorAppearance(next === "dark")),
+      });
+      return appearanceMode;
     },
     setDiagnostics(items = []) {
       const mapped = [];

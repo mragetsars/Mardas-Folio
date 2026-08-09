@@ -20,10 +20,21 @@ function stripMarkdown(value) {
     .trim();
 }
 
+/**
+ * Locate leading YAML front matter.
+ *
+ * The closing fence can never be the line directly after the opening one, so
+ * `---\n---` stays a pair of thematic breaks.  That matches `FRONTMATTER_RE` in
+ * `src/mardas_md2pdf/markdown.py` and the editor's own front matter parser, so
+ * the metadata panel, the outline, and the published PDF agree on where a
+ * document's body begins.
+ */
+const FIRST_CLOSING_LINE = 2;
+
 export function frontMatterRange(text) {
   const lines = String(text ?? "").split(/\r?\n/);
   if (!FRONT_MATTER_BOUNDARY.test(lines[0] ?? "")) return null;
-  for (let index = 1; index < lines.length; index += 1) {
+  for (let index = FIRST_CLOSING_LINE; index < lines.length; index += 1) {
     if (FRONT_MATTER_BOUNDARY.test(lines[index])) return { lines, start: 0, end: index };
   }
   return null;
@@ -86,8 +97,12 @@ export function upsertFrontMatter(text, key, value) {
 export function extractOutline(text) {
   const outline = [];
   const lines = String(text ?? "").split(/\r?\n/);
+  // A `#` comment inside YAML front matter is metadata, not a document
+  // heading; without this the outline and preview navigation pick it up as H1.
+  const bodyStart = (frontMatterRange(text)?.end ?? -1) + 1;
   let fence = null;
   lines.forEach((line, index) => {
+    if (index < bodyStart) return;
     const marker = fenceMarker(line);
     if (!fence && marker) {
       // CommonMark does not allow a backtick in the info string of a backtick
