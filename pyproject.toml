@@ -17,9 +17,10 @@ dependencies = [
   "markdown-it-py>=3.0.0",
   "pygments>=2.17.0",
   "beautifulsoup4>=4.12.0",
+  "soupsieve>=2.8.4",
   "playwright>=1.45.0",
   "PyYAML>=6.0.0",
-  "pypdf>=4.0.0",
+  "pypdf>=6.15.0",
   "tomli>=2.0.1; python_version < '3.11'"
 ]
 
