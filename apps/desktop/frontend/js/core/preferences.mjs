@@ -7,12 +7,15 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   contentScale: "comfortable",
   reducedMotion: "system",
   autoPreview: true,
+  editorMode: "live",
   onboardingComplete: false,
 });
 
 const THEMES = new Set(["system", "light", "dark"]);
 const SCALES = new Set(["comfortable", "large", "extra-large"]);
 const MOTION = new Set(["system", "reduce", "full"]);
+// Live preview renders Markdown as it will read; source shows the raw text.
+const EDITOR_MODES = new Set(["live", "source"]);
 
 function booleanValue(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
@@ -24,6 +27,7 @@ export function normalizePreferences(value = {}) {
     contentScale: SCALES.has(value?.contentScale) ? value.contentScale : DEFAULT_PREFERENCES.contentScale,
     reducedMotion: MOTION.has(value?.reducedMotion) ? value.reducedMotion : DEFAULT_PREFERENCES.reducedMotion,
     autoPreview: booleanValue(value?.autoPreview, DEFAULT_PREFERENCES.autoPreview),
+    editorMode: EDITOR_MODES.has(value?.editorMode) ? value.editorMode : DEFAULT_PREFERENCES.editorMode,
     onboardingComplete: booleanValue(value?.onboardingComplete, DEFAULT_PREFERENCES.onboardingComplete),
   };
 }

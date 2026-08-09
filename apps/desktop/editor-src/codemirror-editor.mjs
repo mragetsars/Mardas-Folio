@@ -17,6 +17,7 @@ import { Decoration, EditorView, ViewPlugin, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 
 import { mardasEditorAppearance } from "./editor-theme.mjs";
+import { editorModeExtension, normalizeEditorMode } from "./live-preview.mjs";
 import { frontmatter } from "./markdown-frontmatter.mjs";
 
 const MAX_COMPLETIONS = 500;
@@ -192,7 +193,7 @@ function documentTheme() {
 
 export function createCodeMirrorEditorAdapter(
   textarea,
-  { getCompletions, onChange, onScroll, onSelectionChange, theme } = {},
+  { getCompletions, onChange, onScroll, onSelectionChange, theme, mode } = {},
 ) {
   if (!(textarea instanceof HTMLTextAreaElement)) {
     throw new TypeError("CodeMirror editor requires a textarea fallback element.");
@@ -209,8 +210,10 @@ export function createCodeMirrorEditorAdapter(
   let suppressCallbacks = false;
   let disabled = Boolean(textarea.disabled);
   let appearanceMode = theme === "dark" || theme === "light" ? theme : documentTheme();
+  let editorMode = normalizeEditorMode(mode);
   const readOnly = new Compartment();
   const appearance = new Compartment();
+  const preview = new Compartment();
 
   const view = new EditorView({
     parent: mount,
@@ -220,6 +223,7 @@ export function createCodeMirrorEditorAdapter(
         basicSetup,
         markdown({ codeLanguages: CODE_LANGUAGES, extensions: [frontmatter] }),
         appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
+        preview.of(editorModeExtension(editorMode)),
         EditorView.perLineTextDirection.of(true),
         perLineAutoDirection,
         EditorState.allowMultipleSelections.of(true),
@@ -362,6 +366,24 @@ export function createCodeMirrorEditorAdapter(
       view.contentDOM.lang = locale === "fa" ? "fa" : "en";
       view.contentDOM.dir = "auto";
     },
+    get mode() {
+      return editorMode;
+    },
+    /**
+     * Switch between live preview and raw source.
+     *
+     * Only presentation changes; the document is the same Markdown either way,
+     * so nothing downstream needs to know which mode is active.
+     */
+    setMode(value) {
+      const next = normalizeEditorMode(value);
+      if (next === editorMode) return editorMode;
+      editorMode = next;
+      view.dispatch({ effects: preview.reconfigure(editorModeExtension(next)) });
+      mount.dataset.mode = next;
+      view.dom.dataset.editorMode = next;
+      return editorMode;
+    },
     get theme() {
       return appearanceMode;
     },
@@ -406,5 +428,7 @@ export function createCodeMirrorEditorAdapter(
   };
 
   mount.dataset.readOnly = String(disabled);
+  mount.dataset.mode = editorMode;
+  view.dom.dataset.editorMode = editorMode;
   return adapter;
 }

@@ -2848,3 +2848,29 @@ button:focus-visible,
   font-size: 11.5px;
   line-height: 1.6;
 }
+
+/* ---- Live preview editing ------------------------------------------------
+ *
+ * In live mode the prose is set in the interface face rather than a monospace
+ * one, because the point of the mode is to read like the finished document.
+ * Code keeps its monospace: inline spans through the highlight style, fenced
+ * blocks through the .cm-code-line decoration the plugin applies. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-content {
+  font-family: var(--app-font);
+  font-size: 14.5px;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-line {
+  padding-block: 1px;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line {
+  font-family: var(--cm-mono, ui-monospace, "Cascadia Mono", monospace);
+  font-size: 13px;
+  background: var(--ui-panel-soft);
+}
+
+/* A quoted block reads as a quote, not as a line that happens to start with >. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-line:has(.cm-quote-mark) {
+  border-inline-start: 2px solid var(--ui-border-strong);
+}

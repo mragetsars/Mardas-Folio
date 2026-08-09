@@ -233,12 +233,39 @@ function showView(name) {
 }
 
 
+/**
+ * Reflect the editor mode on the editor and its toggle.
+ *
+ * Live preview hides the Markdown marks and renders the formatting; source
+ * shows the document verbatim. The button is pressed when source is showing,
+ * because that is the state the user has switched *into*.
+ */
+function applyEditorMode() {
+  const mode = state.preferences.editorMode === "source" ? "source" : "live";
+  editorAdapter?.setMode?.(mode);
+  const button = $("#workspace-toggle-source");
+  if (!button) return;
+  const showingSource = mode === "source";
+  button.setAttribute("aria-pressed", String(showingSource));
+  const label = t(showingSource ? "livePreviewMode" : "toggleSourceMode");
+  button.title = label;
+  button.setAttribute("aria-label", label);
+}
+
+function toggleEditorMode() {
+  updatePreference({
+    editorMode: state.preferences.editorMode === "source" ? "live" : "source",
+  });
+  editorAdapter?.focus?.();
+}
+
 function applyInterfacePreferences({ persist = false } = {}) {
   if (persist) state.preferences = writePreferences(state.preferences);
   state.preferences = applyPreferences(document.documentElement, state.preferences);
   // The editor keeps its own light/dark state so CodeMirror's floating panels
   // match the workspace.
   editorAdapter?.setTheme?.(document.documentElement.dataset.theme);
+  applyEditorMode();
   const autoPreview = $("#auto-preview");
   if (autoPreview) autoPreview.checked = Boolean(state.preferences.autoPreview);
 }
@@ -620,6 +647,7 @@ function commandDefinitions() {
     { id: "settings", icon: "⚙", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
     { id: "support-bundle", icon: "ZIP", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
     { id: "updates", icon: "↑", label: t("commandCheckUpdates"), keywords: "update upgrade release version", priority: 37, run: () => { openSettings(); setTimeout(() => checkUpdates(), 0); } },
+    { id: "toggle-source", icon: "</>", label: t("commandToggleSource"), keywords: "source markdown raw preview wysiwyg formatted سورس نمایش", priority: 40, run: () => toggleEditorMode() },
     { id: "help", icon: "?", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
     { id: "home", icon: "⌂", label: t("commandHome"), keywords: "start home center", priority: 20, run: () => showView("start") },
   ];
@@ -2824,6 +2852,7 @@ function bindEvents() {
   $("#help-button").addEventListener("click", openHelp);
   $("#settings-button").addEventListener("click", openSettings);
   $("#template-help").addEventListener("click", openHelp);
+  $("#workspace-toggle-source").addEventListener("click", toggleEditorMode);
   $("#workflow-quick").addEventListener("click", () => showView("export"));
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
   $("#workflow-project").addEventListener("click", chooseProjectDirectory);
@@ -3017,6 +3046,7 @@ async function boot() {
   const textarea = $("#markdown-editor");
   const editorOptions = {
     theme: document.documentElement.dataset.theme,
+    mode: state.preferences.editorMode,
     getCompletions: () => activeDocument()?.projectPath === state.project?.path
       ? state.bibliographyEntries
       : [],

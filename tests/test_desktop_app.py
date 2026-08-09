@@ -566,3 +566,31 @@ def test_switch_inputs_cannot_overflow_or_swallow_clicks() -> None:
     # tab order and break the keyboard path to the setting.
     assert "display:none" not in input_rule
     assert "visibility:hidden" not in input_rule
+
+
+def test_live_preview_mode_is_presentation_only() -> None:
+    """Live preview hides Markdown syntax without rewriting the document.
+
+    The buffer has to stay plain Markdown: recovery snapshots, conflict-safe
+    saving and the publishing engine all read it directly, so a WYSIWYG mode
+    that edited the text to match what is displayed would corrupt the file.
+    """
+    live = (DESKTOP / "editor-src" / "live-preview.mjs").read_text(encoding="utf-8")
+    editor = (DESKTOP / "editor-src" / "codemirror-editor.mjs").read_text(encoding="utf-8")
+    index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+
+    assert "Decoration.replace" in live
+    assert "EditorView.atomicRanges.of" in live
+    assert ".dispatch(" not in live, "the preview layer must never write to the document"
+
+    assert "preview.reconfigure" in editor
+    assert "setMode(value)" in editor
+
+    # Reachable from the toolbar and the command palette, and remembered.
+    assert 'id="workspace-toggle-source"' in index
+    assert '"#workspace-toggle-source"' in main
+    assert '"toggle-source"' in main
+    assert "editorMode" in (DESKTOP / "frontend" / "js" / "core" / "preferences.mjs").read_text(
+        encoding="utf-8"
+    )
