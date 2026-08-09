@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PyInstaller.building.datastruct import Tree
 from PyInstaller.utils.hooks import collect_all, collect_data_files, copy_metadata
 
 project_root = Path(os.environ["MARDAS_PROJECT_ROOT"]).resolve()
@@ -22,7 +21,7 @@ if chromium_source:
     browser_root = Path(chromium_source).resolve()
     if not browser_root.is_dir():
         raise SystemExit(f"MARDAS_CHROMIUM_SOURCE is not a directory: {browser_root}")
-    datas += Tree(str(browser_root), prefix="runtime/chromium")
+    datas.append((str(browser_root), "runtime/chromium"))
 
 license_path = project_root / "LICENSE"
 if license_path.is_file():

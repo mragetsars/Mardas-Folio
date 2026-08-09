@@ -581,6 +581,13 @@ def test_desktop_sidecar_packaging_metadata_is_declared() -> None:
     assert "recursive-include schemas *.json" in manifest
 
 
+def test_standalone_pyinstaller_chromium_uses_analysis_data_pair() -> None:
+    spec = _read("packaging/pyinstaller/mardas-sidecar.spec")
+
+    assert 'datas.append((str(browser_root), "runtime/chromium"))' in spec
+    assert "Tree(" not in spec
+
+
 def test_release_gate_verifies_installed_sidecar_contract() -> None:
     script = _read("scripts/release_gate.sh")
 
