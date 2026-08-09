@@ -1,5 +1,5 @@
 [package]
-name = "mardas-studio"
+name = "mardas-folio"
 version = "1.31.0"
 description = "Native desktop shell for the Mardas MD2PDF publishing engine"
 authors = ["mragetsars <mragetsars@gmail.com>"]
@@ -9,7 +9,7 @@ edition = "2021"
 rust-version = "1.97.1"
 
 [[bin]]
-name = "mardas-studio"
+name = "mardas-folio"
 path = "src/main.rs"
 
 [build-dependencies]

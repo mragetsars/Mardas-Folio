@@ -1,4 +1,4 @@
-# Mardas Studio desktop third-party notices
+# Mardas Folio desktop third-party notices
 
 The native desktop editor bundles CodeMirror 6 and its transitive Lezer modules for offline use.
 CodeMirror, Lezer, and their bundled modules are Copyright (C) 2018-2026 by Marijn

@@ -1,18 +1,18 @@
 # Native Desktop Distribution
 
-Mardas Studio release engineering builds the Python publishing engine and the native desktop shell as one verified product. End users should install a native package; they should not need Python, Node.js, Rust, Git, Playwright, or a separately installed Chromium renderer.
+Mardas Folio release engineering builds the Python publishing engine and the native desktop shell as one verified product. End users should install a native package; they should not need Python, Node.js, Rust, Git, Playwright, or a separately installed Chromium renderer.
 
 ## Release artifact contract
 
 A complete public desktop release must contain native artifacts for all supported desktop platforms:
 
 ```text
-Mardas-Studio-X.Y.Z-windows-x86_64-setup.exe
-Mardas-Studio-X.Y.Z-windows-x86_64-portable.zip
-Mardas-Studio-X.Y.Z-macos-arm64.dmg
-Mardas-Studio-X.Y.Z-macos-x86_64.dmg
-Mardas-Studio-X.Y.Z-linux-x86_64.AppImage
-Mardas-Studio-X.Y.Z-linux-x86_64.deb
+Mardas-Folio-X.Y.Z-windows-x86_64-setup.exe
+Mardas-Folio-X.Y.Z-windows-x86_64-portable.zip
+Mardas-Folio-X.Y.Z-macos-arm64.dmg
+Mardas-Folio-X.Y.Z-macos-x86_64.dmg
+Mardas-Folio-X.Y.Z-linux-x86_64.AppImage
+Mardas-Folio-X.Y.Z-linux-x86_64.deb
 ```
 
 Platform CI is authoritative. PyInstaller and Tauri are not treated as cross-compilers: the frozen sidecar runtime and native package must be built and smoke-tested on the target operating system. Source-level or portable tests alone are not evidence that those native jobs completed for a particular release.
@@ -82,7 +82,7 @@ python scripts/build_native_desktop.py   --runtime build/standalone-runtime/Mard
 Verify an individual normalized artifact:
 
 ```bash
-python scripts/verify_native_desktop.py   build/desktop-native/Mardas-Studio-X.Y.Z-<platform>-<arch>.<suffix>   --version X.Y.Z
+python scripts/verify_native_desktop.py   build/desktop-native/Mardas-Folio-X.Y.Z-<platform>-<arch>.<suffix>   --version X.Y.Z
 ```
 
 The builder verifies the deterministic offline frontend, including the checked-in CodeMirror 6 bundle, and the complete schema-v2 standalone-runtime file/symlink inventory before invoking Tauri.

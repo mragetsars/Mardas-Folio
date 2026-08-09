@@ -194,7 +194,7 @@ Generated PDFs declare a catalog language when the source or project declares on
 
 ## Native desktop shell boundary
 
-Mardas Studio does not expose the rendering engine through localhost. The Tauri process starts the bundled sidecar with piped standard input/output, forwards only versioned JSON-RPC methods, emits progress as application events, and terminates the child during application shutdown. Operational logs remain separate from protocol output.
+Mardas Folio does not expose the rendering engine through localhost. The Tauri process starts the bundled sidecar with piped standard input/output, forwards only versioned JSON-RPC methods, emits progress as application events, and terminates the child during application shutdown. Operational logs remain separate from protocol output.
 
 Native open/save dialogs are the primary source of document paths. Open/reveal actions canonicalize an existing path and launch fixed operating-system commands without interpolating a shell command. The installer build accepts only a standalone runtime whose manifest version, browser flag, file inventory, sizes, and SHA-256 digests all verify. The staged runtime and generated frontend are build inputs and are not accepted from arbitrary user-controlled directories during normal application use.
 

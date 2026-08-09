@@ -62,7 +62,7 @@ Release and operations references are [Changelog](./docs/CHANGELOG.md), [Release
 
 Version 1.31.0 strengthens the guided, conflict-safe authoring and Book Project workflows with a fully bundled CodeMirror 6 editor, safe editing for supported project text files, per-document recovery, guarded asynchronous UI updates, and hardened sidecar/runtime lifecycle handling. The credential-dependent tag workflow is configured to verify normalized Windows, macOS, and Linux desktop packages and stage a GitHub **Draft Release** rather than publish automatically. Source and portable tests do not prove that a particular artifact is Authenticode-signed, Developer ID-signed, or notarized; those native results and credentials must be reviewed before publication. The Start Center can create or open a local book project without requiring the user to edit `mardas.toml`. The Book panel lists configured chapters, opens them in the multi-document editor, adds or duplicates chapters, changes chapter order with buttons or drag-and-drop, safely removes a chapter from the book without deleting its Markdown file, validates the whole project, previews the assembled book, and exports one PDF through a native save dialog.
 
-Every chapter-order change is guarded by the current SHA-256 revision of `mardas.toml`; if another program changes the project configuration, Mardas Studio refuses to overwrite it and asks the user to refresh. New projects are created with bounded names, Unicode-safe paths, dedicated `chapters`, `assets`, `bibliography`, and `dist` directories, and a ready-to-edit first chapter. Full-book validation and export reuse the existing Python Book Mode so CLI, sidecar, and desktop output remain consistent.
+Every chapter-order change is guarded by the current SHA-256 revision of `mardas.toml`; if another program changes the project configuration, Mardas Folio refuses to overwrite it and asks the user to refresh. New projects are created with bounded names, Unicode-safe paths, dedicated `chapters`, `assets`, `bibliography`, and `dist` directories, and a ready-to-edit first chapter. Full-book validation and export reuse the existing Python Book Mode so CLI, sidecar, and desktop output remain consistent.
 
 The intelligent, bounded project workspace from version 1.26 remains available. The authoring sidebar can open a local `mardas.toml` project through a native directory picker, restore that project in the next session, browse supported text files, search the project with literal or deliberately restricted regular expressions, and open a result at its exact source line. Hidden, generated, symlinked, oversized, and out-of-root paths remain outside the editable project boundary.
 
@@ -72,7 +72,7 @@ The existing conflict-safe document workflow remains intact: multiple tabs, boun
 
 ## Guided UX and Accessibility
 
-Mardas Studio now includes a first-run onboarding flow, local document templates, searchable settings, contextual help, and a keyboard command palette. These features are fully bundled with the desktop frontend and do not depend on a CDN or network connection.
+Mardas Folio now includes a first-run onboarding flow, local document templates, searchable settings, contextual help, and a keyboard command palette. These features are fully bundled with the desktop frontend and do not depend on a CDN or network connection.
 
 Interface preferences are stored locally and include system/light/dark appearance, comfortable or enlarged content density, reduced-motion behavior, automatic preview, and Persian/English interface language. The Start Center exposes reusable templates for blank documents, reports, academic writing, and technical documents so a new user can begin without writing YAML front matter first.
 
@@ -81,12 +81,12 @@ Keyboard and accessibility contracts include a skip-to-content link, visible foc
 A credentialed native release matrix can produce:
 
 ```text
-Mardas-Studio-X.Y.Z-windows-x86_64-setup.exe
-Mardas-Studio-X.Y.Z-windows-x86_64-portable.zip
-Mardas-Studio-X.Y.Z-macos-arm64.dmg
-Mardas-Studio-X.Y.Z-macos-x86_64.dmg
-Mardas-Studio-X.Y.Z-linux-x86_64.AppImage
-Mardas-Studio-X.Y.Z-linux-x86_64.deb
+Mardas-Folio-X.Y.Z-windows-x86_64-setup.exe
+Mardas-Folio-X.Y.Z-windows-x86_64-portable.zip
+Mardas-Folio-X.Y.Z-macos-arm64.dmg
+Mardas-Folio-X.Y.Z-macos-x86_64.dmg
+Mardas-Folio-X.Y.Z-linux-x86_64.AppImage
+Mardas-Folio-X.Y.Z-linux-x86_64.deb
 ```
 
 Each package contains the previously verified target-platform standalone runtime, including Python, Mardas MD2PDF, Playwright resources, and pinned Chromium. End users do not install Python, pip, Node.js, Git, Chrome, Rust, or the source repository.
@@ -99,7 +99,7 @@ baseline remains Ubuntu 22.04.
 
 ## Standalone Runtime Foundation
 
-The Windows release workflow also builds the portable `onedir` rendering runtime independently so its protocol, integrity manifest, browser bundle, and Unicode rendering can be verified before it is embedded in Mardas Studio. Runtime manifest schema v2 inventories regular files and explicitly declared relative symbolic links. Build, staging, ZIP, and release verification preserve valid links while rejecting absolute or escaping targets, dangling links, cycles, paths traversing links, and manifest/filesystem mismatches; legacy v1 regular-file manifests remain verifiable.
+The Windows release workflow also builds the portable `onedir` rendering runtime independently so its protocol, integrity manifest, browser bundle, and Unicode rendering can be verified before it is embedded in Mardas Folio. Runtime manifest schema v2 inventories regular files and explicitly declared relative symbolic links. Build, staging, ZIP, and release verification preserve valid links while rejecting absolute or escaping targets, dangling links, cycles, paths traversing links, and manifest/filesystem mismatches; legacy v1 regular-file manifests remain verifiable.
 
 Build the portable runtime on the target operating system:
 

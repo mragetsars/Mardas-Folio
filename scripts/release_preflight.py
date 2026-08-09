@@ -239,7 +239,7 @@ def report(checks: list[Check], *, mode: str) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Check secret-driven Mardas Studio release readiness without printing secrets"
+        description="Check secret-driven Mardas Folio release readiness without printing secrets"
     )
     parser.add_argument("--mode", choices=("draft", "public"), default="draft")
     parser.add_argument("--json", type=Path)
@@ -258,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    print(f"Mardas Studio {args.mode} release preflight: PASS")
+    print(f"Mardas Folio {args.mode} release preflight: PASS")
     return 0
 
 

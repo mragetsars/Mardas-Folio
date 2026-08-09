@@ -424,7 +424,7 @@ jobs:
         shell: pwsh
         run: |
           $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
-          $artifacts = Get-ChildItem build/desktop-native -File | Where-Object { $_.Name -match '^Mardas-Studio-.*\.(exe|zip)$' }
+          $artifacts = Get-ChildItem build/desktop-native -File | Where-Object { $_.Name -match '^Mardas-Folio-.*\.(exe|zip)$' }
           if (-not $artifacts) { throw 'Native Windows desktop artifacts were not created.' }
           foreach ($artifact in $artifacts) {
             python scripts/verify_native_desktop.py $artifact.FullName --version $version
@@ -435,7 +435,7 @@ jobs:
         with:
           name: desktop-native-Windows-${{ runner.arch }}
           path: |
-            build/desktop-native/Mardas-Studio-*
+            build/desktop-native/Mardas-Folio-*
             build/desktop-native/desktop-native-manifest.json
           if-no-files-found: error
           retention-days: 14
@@ -524,7 +524,7 @@ jobs:
             python scripts/verify_native_desktop.py "$artifact" --version "$version"
             found=$((found + 1))
           done < <(find build/desktop-native -maxdepth 1 -type f \
-            \( -name 'Mardas-Studio-*.dmg' -o -name 'Mardas-Studio-*.AppImage' -o -name 'Mardas-Studio-*.deb' \) -print0)
+            \( -name 'Mardas-Folio-*.dmg' -o -name 'Mardas-Folio-*.AppImage' -o -name 'Mardas-Folio-*.deb' \) -print0)
           test "$found" -gt 0
 
       - name: Upload native desktop packages
@@ -532,7 +532,7 @@ jobs:
         with:
           name: desktop-native-${{ matrix.label }}
           path: |
-            build/desktop-native/Mardas-Studio-*
+            build/desktop-native/Mardas-Folio-*
             build/desktop-native/desktop-native-manifest.json
           if-no-files-found: error
           retention-days: 14

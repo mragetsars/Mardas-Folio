@@ -24,11 +24,11 @@ def _pad(prefix: bytes, *, size: int = MIN_NATIVE_BYTES + 4096) -> bytes:
 def test_native_artifact_classification() -> None:
     version = "1.29.0"
     cases = {
-        f"Mardas-Studio-{version}-windows-x86_64-setup.exe": ("desktop-installer", "windows"),
-        f"Mardas-Studio-{version}-windows-x86_64-portable.zip": ("desktop-portable", "windows"),
-        f"Mardas-Studio-{version}-macos-arm64.dmg": ("desktop-dmg", "macos"),
-        f"Mardas-Studio-{version}-linux-x86_64.AppImage": ("desktop-appimage", "linux"),
-        f"Mardas-Studio-{version}-linux-x86_64.deb": ("desktop-deb", "linux"),
+        f"Mardas-Folio-{version}-windows-x86_64-setup.exe": ("desktop-installer", "windows"),
+        f"Mardas-Folio-{version}-windows-x86_64-portable.zip": ("desktop-portable", "windows"),
+        f"Mardas-Folio-{version}-macos-arm64.dmg": ("desktop-dmg", "macos"),
+        f"Mardas-Folio-{version}-linux-x86_64.AppImage": ("desktop-appimage", "linux"),
+        f"Mardas-Folio-{version}-linux-x86_64.deb": ("desktop-deb", "linux"),
     }
     for name, expected in cases.items():
         kind, platform_name, _architecture = classify_native_artifact(
@@ -39,13 +39,13 @@ def test_native_artifact_classification() -> None:
 
 def test_native_binary_signatures_are_verified(tmp_path: Path) -> None:
     version = "1.29.0"
-    installer = tmp_path / f"Mardas-Studio-{version}-windows-x86_64-setup.exe"
+    installer = tmp_path / f"Mardas-Folio-{version}-windows-x86_64-setup.exe"
     installer.write_bytes(_pad(b"MZ"))
-    appimage = tmp_path / f"Mardas-Studio-{version}-linux-x86_64.AppImage"
+    appimage = tmp_path / f"Mardas-Folio-{version}-linux-x86_64.AppImage"
     appimage.write_bytes(_pad(b"\x7fELF"))
-    deb = tmp_path / f"Mardas-Studio-{version}-linux-x86_64.deb"
+    deb = tmp_path / f"Mardas-Folio-{version}-linux-x86_64.deb"
     deb.write_bytes(_pad(b"!<arch>\n"))
-    dmg = tmp_path / f"Mardas-Studio-{version}-macos-arm64.dmg"
+    dmg = tmp_path / f"Mardas-Folio-{version}-macos-arm64.dmg"
     body = bytearray(_pad(b"DMG"))
     body[-512:-508] = b"koly"
     dmg.write_bytes(body)
@@ -62,7 +62,7 @@ def test_native_binary_signatures_are_verified(tmp_path: Path) -> None:
 
 def test_native_artifact_verifier_rejects_symlink_input(tmp_path: Path) -> None:
     version = "1.29.0"
-    name = f"Mardas-Studio-{version}-linux-x86_64.AppImage"
+    name = f"Mardas-Folio-{version}-linux-x86_64.AppImage"
     target = tmp_path / "real" / name
     target.parent.mkdir()
     target.write_bytes(_pad(b"\x7fELF"))
@@ -79,10 +79,10 @@ def test_native_artifact_verifier_rejects_symlink_input(tmp_path: Path) -> None:
 def test_portable_archive_requires_exact_integrity_manifest(tmp_path: Path) -> None:
     version = "1.29.0"
     architecture = "x86_64"
-    root = f"Mardas-Studio-{version}-windows-{architecture}-portable"
+    root = f"Mardas-Folio-{version}-windows-{architecture}-portable"
     path = tmp_path / f"{root}.zip"
     files = {
-        "Mardas Studio.exe": b"MZ" + os.urandom(MIN_NATIVE_BYTES + 4096),
+        "Mardas Folio.exe": b"MZ" + os.urandom(MIN_NATIVE_BYTES + 4096),
         "README.txt": b"portable\n",
         "sidecar/runtime-manifest.json": b'{"version":"1.29.0"}\n',
         "sidecar/mardas-sidecar.exe": b"MZsidecar",
@@ -93,7 +93,7 @@ def test_portable_archive_requires_exact_integrity_manifest(tmp_path: Path) -> N
     ]
     manifest = {
         "schema_version": 1,
-        "product": "Mardas Studio portable",
+        "product": "Mardas Folio portable",
         "version": version,
         "platform": "windows",
         "architecture": architecture,

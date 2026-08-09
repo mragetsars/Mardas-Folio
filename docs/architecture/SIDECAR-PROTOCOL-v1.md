@@ -105,7 +105,7 @@ The chapter lifecycle is deliberately non-destructive. `book.remove_chapter` rem
 The desktop Help surface can request a local troubleshooting archive without exposing document content or user paths:
 
 ```json
-{"jsonrpc":"2.0","id":"support-1","method":"system.support_bundle","params":{"output_path":"C:/Users/user/Desktop/Mardas-Studio-Support.zip"}}
+{"jsonrpc":"2.0","id":"support-1","method":"system.support_bundle","params":{"output_path":"C:/Users/user/Desktop/Mardas-Folio-Support.zip"}}
 ```
 
 The archive contains bounded product/runtime metadata and explicitly excludes document content, document paths, environment variables, and the home-directory path. It is intended for support diagnostics rather than project backup.

@@ -184,12 +184,12 @@ The project follows semantic versioning for user-visible behavior. Patch release
 ## 1.24.0 - 2026-07-30
 
 ### Added
-- Added the first native Tauri 2 Mardas Studio shell with no external-browser launch or localhost server, native Markdown/PDF file dialogs, single-instance file forwarding, persisted window state, and `.md`/`.markdown` associations.
+- Added the first native Tauri 2 Mardas Folio shell with no external-browser launch or localhost server, native Markdown/PDF file dialogs, single-instance file forwarding, persisted window state, and `.md`/`.markdown` associations.
 - Added a user-centered Start Center, recent documents, Quick Export presets, basic publication settings, validation, structured progress, cooperative cancellation, and open/reveal-output actions in Persian and English.
 - Added deterministic frontend manifests, verified runtime staging, generated native icons, NSIS installer construction and verification, and a Windows desktop CI/release artifact.
 
 ### Changed
-- Extended release manifests, checksums, attestations, and minimum release requirements with the versioned `Mardas-Studio-*-setup.exe` artifact.
+- Extended release manifests, checksums, attestations, and minimum release requirements with the versioned `Mardas-Folio-*-setup.exe` artifact.
 - Kept the browser-based Studio available for advanced editing while establishing the native desktop application as the end-user distribution path.
 
 ### Security

@@ -62,22 +62,22 @@ def assemble(
     specs = [
         (
             "windows-x86_64",
-            f"Mardas-Studio-{version}-windows-x86_64-setup.exe",
+            f"Mardas-Folio-{version}-windows-x86_64-setup.exe",
         ),
         (
             "linux-x86_64",
-            f"Mardas-Studio-{version}-linux-x86_64.AppImage",
+            f"Mardas-Folio-{version}-linux-x86_64.AppImage",
         ),
         (
             "darwin-aarch64",
-            f"Mardas-Studio-{version}-macos-arm64-updater.tar.gz",
+            f"Mardas-Folio-{version}-macos-arm64-updater.tar.gz",
         ),
     ]
     if require_macos_x86_64:
         specs.append(
             (
                 "darwin-x86_64",
-                f"Mardas-Studio-{version}-macos-x86_64-updater.tar.gz",
+                f"Mardas-Folio-{version}-macos-x86_64-updater.tar.gz",
             )
         )
 
@@ -101,7 +101,7 @@ def assemble(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Assemble a signed Tauri latest.json from verified Mardas Studio release assets"
+        description="Assemble a signed Tauri latest.json from verified Mardas Folio release assets"
     )
     parser.add_argument("--artifact-dir", type=Path, required=True)
     parser.add_argument("--version", required=True)

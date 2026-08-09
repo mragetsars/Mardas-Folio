@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-30
-- Applies to: Mardas Studio 1.24 and later
+- Applies to: Mardas Folio 1.24 and later
 
 ## Context
 
@@ -10,7 +10,7 @@ The publishing engine is Python/Playwright and the versioned sidecar already exp
 
 ## Decision
 
-Mardas Studio uses a Tauri 2 shell. The packaged application embeds the complete verified PyInstaller `onedir` runtime as a resource and launches `mardas-sidecar` directly with piped stdin/stdout. The frontend is a static ES-module application with a locally bundled CodeMirror 6 editor. Locked npm dependencies are used only to reproduce and check the committed editor bundle; the installed application loads no editor code from a CDN or network. The complete frontend is built to a deterministic file inventory before Tauri compilation.
+Mardas Folio uses a Tauri 2 shell. The packaged application embeds the complete verified PyInstaller `onedir` runtime as a resource and launches `mardas-sidecar` directly with piped stdin/stdout. The frontend is a static ES-module application with a locally bundled CodeMirror 6 editor. Locked npm dependencies are used only to reproduce and check the committed editor bundle; the installed application loads no editor code from a CDN or network. The complete frontend is built to a deterministic file inventory before Tauri compilation.
 
 The shell provides:
 

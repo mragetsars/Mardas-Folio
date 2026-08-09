@@ -277,7 +277,7 @@ def test_standalone_runtime_manifest_and_checksums_are_verified(tmp_path: Path) 
 
 def test_desktop_installer_is_classified_and_verified(tmp_path: Path) -> None:
     version = "1.24.0"
-    installer = tmp_path / f"Mardas-Studio-{version}-windows-x86_64-setup.exe"
+    installer = tmp_path / f"Mardas-Folio-{version}-windows-x86_64-setup.exe"
     installer.write_bytes(b"MZ" + b"\0" * (1024 * 1024 + 32))
 
     assert artifact_kind(installer.name) == "desktop-installer"
@@ -291,11 +291,11 @@ def test_desktop_installer_is_classified_and_verified(tmp_path: Path) -> None:
 def test_release_manifest_requires_all_native_desktop_platforms(tmp_path: Path) -> None:
     version = "1.29.0"
     names = (
-        f"Mardas-Studio-{version}-windows-x86_64-setup.exe",
-        f"Mardas-Studio-{version}-windows-x86_64-portable.zip",
-        f"Mardas-Studio-{version}-macos-arm64.dmg",
-        f"Mardas-Studio-{version}-linux-x86_64.AppImage",
-        f"Mardas-Studio-{version}-linux-x86_64.deb",
+        f"Mardas-Folio-{version}-windows-x86_64-setup.exe",
+        f"Mardas-Folio-{version}-windows-x86_64-portable.zip",
+        f"Mardas-Folio-{version}-macos-arm64.dmg",
+        f"Mardas-Folio-{version}-linux-x86_64.AppImage",
+        f"Mardas-Folio-{version}-linux-x86_64.deb",
     )
     records = []
     for index, name in enumerate(names, 1):

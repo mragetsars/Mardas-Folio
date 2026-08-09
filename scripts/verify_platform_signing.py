@@ -27,7 +27,7 @@ APPLE_IDENTITY_RE = re.compile(
     r"^Developer ID Application: [^\x00-\x1f\x7f]{1,350} \((?P<team>[A-Z0-9]{10})\)$"
 )
 EVIDENCE_NAME_RE = re.compile(
-    r"^Mardas-Studio-(?P<version>[^-]+)-(?P<platform>windows|macos|linux)-"
+    r"^Mardas-Folio-(?P<version>[^-]+)-(?P<platform>windows|macos|linux)-"
     r"(?P<arch>[A-Za-z0-9_]+)-signing-evidence\.json$"
 )
 SUBMISSION_ID_RE = re.compile(
@@ -232,7 +232,7 @@ def _portable_executable_digest(path: Path) -> str:
             members = [
                 item
                 for item in archive.infolist()
-                if not item.is_dir() and item.filename.endswith("/Mardas Studio.exe")
+                if not item.is_dir() and item.filename.endswith("/Mardas Folio.exe")
             ]
             if len(members) != 1:
                 raise SigningVerificationError(
@@ -274,7 +274,7 @@ def _verify_windows(
         raise SigningVerificationError("Windows signing thumbprint contract does not match the runner")
     installer = _single_artifact(records, kind="desktop-installer")
     assert installer is not None
-    executable = tauri_root / "target" / "release" / "mardas-studio.exe"
+    executable = tauri_root / "target" / "release" / "mardas-folio.exe"
     if executable.is_symlink() or not executable.is_file():
         raise SigningVerificationError("Signed Windows desktop executable is missing or unsafe")
     signatures = [
@@ -440,7 +440,7 @@ def verify_runner_signing(
     manifest = _read_json(manifest_path)
     if (
         manifest.get("schema_version") != 1
-        or manifest.get("product") != "Mardas Studio native desktop artifacts"
+        or manifest.get("product") != "Mardas Folio native desktop artifacts"
         or manifest.get("platform") != platform_name
         or manifest.get("release_mode") != mode
     ):
@@ -470,12 +470,12 @@ def verify_runner_signing(
         status = "verified"
 
     evidence_name = (
-        f"Mardas-Studio-{version}-{platform_name}-{architecture}-signing-evidence.json"
+        f"Mardas-Folio-{version}-{platform_name}-{architecture}-signing-evidence.json"
     )
     evidence_path = artifact_dir / evidence_name
     evidence: dict[str, Any] = {
         "schema_version": 1,
-        "product": "Mardas Studio OS signing evidence",
+        "product": "Mardas Folio OS signing evidence",
         "version": version,
         "platform": platform_name,
         "architecture": architecture,
@@ -580,7 +580,7 @@ def _validate_verified_evidence(
             raise SigningVerificationError("Windows evidence artifact inventory is incomplete")
         installer = installer_records[0]
         installer_signature = signatures_by_name.get(str(installer.get("name", "")))
-        binary_signature = signatures_by_name.get("mardas-studio.exe")
+        binary_signature = signatures_by_name.get("mardas-folio.exe")
         if (
             installer_signature is None
             or installer_signature.get("sha256") != installer.get("sha256")
@@ -639,7 +639,7 @@ def verify_evidence_set(
     if mode not in {"draft", "public"}:
         raise SigningVerificationError(f"Unsupported evidence release mode: {mode}")
     artifact_dir = artifact_dir.expanduser().resolve(strict=True)
-    evidence_paths = sorted(artifact_dir.glob("Mardas-Studio-*-signing-evidence.json"))
+    evidence_paths = sorted(artifact_dir.glob("Mardas-Folio-*-signing-evidence.json"))
     if not evidence_paths:
         raise SigningVerificationError("Release has no platform signing evidence")
     observed_counts = {"windows": 0, "macos": 0, "linux": 0}
@@ -653,7 +653,7 @@ def verify_evidence_set(
         architecture = match.group("arch")
         if (
             payload.get("schema_version") != 1
-            or payload.get("product") != "Mardas Studio OS signing evidence"
+            or payload.get("product") != "Mardas Folio OS signing evidence"
             or payload.get("version") != version
             or payload.get("platform") != platform_name
             or payload.get("architecture") != architecture

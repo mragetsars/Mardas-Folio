@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop-default",
-  "description": "Capabilities required by the local Mardas Studio desktop window.",
+  "description": "Capabilities required by the local Mardas Folio desktop window.",
   "windows": ["main"],
   "permissions": [
     "core:default",

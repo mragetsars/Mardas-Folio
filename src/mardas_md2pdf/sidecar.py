@@ -406,7 +406,7 @@ class SidecarServer:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mrs-md2pdf-sidecar",
-        description="Versioned JSON-RPC sidecar for Mardas Studio desktop clients.",
+        description="Versioned JSON-RPC sidecar for Mardas Folio desktop clients.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(

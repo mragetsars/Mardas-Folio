@@ -88,7 +88,7 @@ def test_tauri_configuration_is_native_and_versioned() -> None:
     assert macos_config["bundle"]["macOS"]["minimumSystemVersion"] == "14.0"
     assert linux_config["bundle"]["targets"] == ["appimage", "deb"]
     assert {"icons/icon.icns", "icons/icon.ico", "icons/icon.png"} <= set(config["bundle"]["icon"])
-    assert 'name = "mardas-studio"' in cargo
+    assert 'name = "mardas-folio"' in cargo
     assert f'version = "{__version__}"' in cargo
 
 
@@ -385,7 +385,7 @@ def test_runtime_staging_is_verified_and_atomic(tmp_path: Path) -> None:
 
 
 def test_installer_verifier_accepts_versioned_pe_payload(tmp_path: Path) -> None:
-    path = tmp_path / f"Mardas-Studio-{__version__}-windows-x86_64-setup.exe"
+    path = tmp_path / f"Mardas-Folio-{__version__}-windows-x86_64-setup.exe"
     path.write_bytes(b"MZ" + b"\0" * (MIN_INSTALLER_BYTES + 32))
     payload = verify_installer(path, expected_version=__version__)
     assert payload["version"] == __version__
@@ -394,7 +394,7 @@ def test_installer_verifier_accepts_versioned_pe_payload(tmp_path: Path) -> None
 
 
 def test_installer_verifier_rejects_symlink_input(tmp_path: Path) -> None:
-    name = f"Mardas-Studio-{__version__}-windows-x86_64-setup.exe"
+    name = f"Mardas-Folio-{__version__}-windows-x86_64-setup.exe"
     target = tmp_path / "real" / name
     target.parent.mkdir()
     target.write_bytes(b"MZ" + b"\0" * (MIN_INSTALLER_BYTES + 32))
@@ -491,3 +491,78 @@ def test_desktop_ux_is_offline_and_exposes_guided_entry_points() -> None:
     assert "fetch(" not in main
     # Recovery/session restore takes precedence over first-run onboarding.
     assert main.count("openOnboarding();") == 1
+
+
+def _frontmatter_cases() -> list[dict[str, object]]:
+    fixture = json.loads(
+        (ROOT / "tests" / "fixtures" / "frontmatter_cases.json").read_text(encoding="utf-8")
+    )
+    return list(fixture["cases"])
+
+
+@pytest.mark.parametrize("case", _frontmatter_cases(), ids=lambda case: str(case["name"]))
+def test_engine_front_matter_matches_the_desktop_fixture(case: dict[str, object]) -> None:
+    """The engine defines where a document body starts.
+
+    The editor's CodeMirror block parser and the desktop outline helper are held
+    to this same table by ``apps/desktop/tests/markdown-frontmatter.test.mjs``,
+    so a heading cannot appear in the outline but be absent from the PDF.
+    """
+    from mardas_md2pdf.markdown import FRONTMATTER_RE
+
+    matched = FRONTMATTER_RE.match(str(case["text"])) is not None
+    assert matched is bool(case["frontmatter"])
+
+
+def test_editor_parses_front_matter_and_owns_its_syntax_palette() -> None:
+    """CodeMirror ships a light-only palette that fails the dark workspace.
+
+    ``defaultHighlightStyle`` renders link and code-fence tokens at 1.35:1 and
+    Markdown punctuation at 1.84:1 against the dark editing surface, and
+    underlines every heading and link. The editor therefore registers its own
+    highlighter and reads colours from ``--cm-*`` custom properties.
+    """
+    editor = (DESKTOP / "editor-src" / "codemirror-editor.mjs").read_text(encoding="utf-8")
+    theme = (DESKTOP / "editor-src" / "editor-theme.mjs").read_text(encoding="utf-8")
+    workspace_css = (DESKTOP / "frontend" / "workspace.css").read_text(encoding="utf-8")
+
+    assert "extensions: [frontmatter]" in editor
+    assert "codeLanguages: CODE_LANGUAGES" in editor
+    # Mixed Persian/English lines need their own resolved direction.
+    assert "EditorView.perLineTextDirection.of(true)" in editor
+    assert 'attributes: { dir: "auto" }' in editor
+    # The theme follows the workspace instead of being fixed at startup.
+    assert "setTheme(mode)" in editor
+    assert "appearance.reconfigure" in editor
+
+    assert "syntaxHighlighting(mardasHighlightStyle)" in theme
+    assert "textDecoration: \"underline\"" not in theme
+
+    assert "--cm-heading:" in workspace_css
+    assert workspace_css.count("--cm-heading:") == 2, "light and dark must both declare the palette"
+
+
+def test_switch_inputs_cannot_overflow_or_swallow_clicks() -> None:
+    """A visually hidden switch input must not inherit ``input{width:100%}``.
+
+    Absolutely positioned with no positioned ancestor, that rule resolved
+    against the viewport and produced a 1440px-wide invisible control: the
+    export view scrolled horizontally and a full-width strip of the page
+    intercepted clicks.
+    """
+    styles = (DESKTOP / "frontend" / "styles.css").read_text(encoding="utf-8")
+
+    assert ".toggle{" in styles
+    toggle_rule = styles.split(".toggle{", 1)[1].split("}", 1)[0]
+    assert "position:relative" in toggle_rule
+
+    assert ".toggle input{" in styles
+    input_rule = styles.split(".toggle input{", 1)[1].split("}", 1)[0]
+    assert "width:1px" in input_rule
+    assert "height:1px" in input_rule
+    assert "min-height:0" in input_rule
+    assert "pointer-events:none" in input_rule
+    # Still focusable: display:none or visibility:hidden would drop it from the
+    # tab order and break the keyboard path to the setting.
+    assert "display:none" not in input_rule
+    assert "visibility:hidden" not in input_rule

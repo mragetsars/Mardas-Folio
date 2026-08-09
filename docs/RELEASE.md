@@ -197,7 +197,7 @@ python scripts/build_desktop_app.py `
   --runtime build/standalone-runtime/Mardas-MD2PDF-X.Y.Z-runtime-windows-x86_64 `
   --clean
 python scripts/verify_desktop_installer.py `
-  build/desktop/Mardas-Studio-X.Y.Z-windows-x86_64-setup.exe `
+  build/desktop/Mardas-Folio-X.Y.Z-windows-x86_64-setup.exe `
   --version X.Y.Z
 ```
 

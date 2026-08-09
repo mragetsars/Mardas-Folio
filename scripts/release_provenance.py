@@ -399,9 +399,9 @@ DESKTOP_UPDATE_ARTIFACT_KINDS = frozenset({
 
 
 def artifact_kind(name: str) -> str:
-    if name.startswith("Mardas-Studio-") and name.endswith("-updater.tar.gz"):
+    if name.startswith("Mardas-Folio-") and name.endswith("-updater.tar.gz"):
         return "desktop-macos-updater"
-    if name.startswith("Mardas-Studio-") and name.endswith(".sig"):
+    if name.startswith("Mardas-Folio-") and name.endswith(".sig"):
         return "desktop-update-signature"
     if name == "latest.json":
         return "update-manifest"
@@ -417,15 +417,15 @@ def artifact_kind(name: str) -> str:
         return "offline-install-bundle"
     if name.startswith("Mardas-MD2PDF-") and "-runtime-" in name and name.endswith(".zip"):
         return "standalone-runtime"
-    if name.startswith("Mardas-Studio-") and name.endswith("-setup.exe"):
+    if name.startswith("Mardas-Folio-") and name.endswith("-setup.exe"):
         return "desktop-installer"
-    if name.startswith("Mardas-Studio-") and name.endswith("-portable.zip"):
+    if name.startswith("Mardas-Folio-") and name.endswith("-portable.zip"):
         return "desktop-portable"
-    if name.startswith("Mardas-Studio-") and name.endswith(".dmg"):
+    if name.startswith("Mardas-Folio-") and name.endswith(".dmg"):
         return "desktop-dmg"
-    if name.startswith("Mardas-Studio-") and name.endswith(".AppImage"):
+    if name.startswith("Mardas-Folio-") and name.endswith(".AppImage"):
         return "desktop-appimage"
-    if name.startswith("Mardas-Studio-") and name.endswith(".deb"):
+    if name.startswith("Mardas-Folio-") and name.endswith(".deb"):
         return "desktop-deb"
     if name.endswith(".sigstore.json"):
         return "sigstore-attestation"
@@ -663,7 +663,7 @@ def validate_release_manifest(
 def verify_desktop_installer_artifact(path: Path, *, expected_version: str) -> None:
     if path.is_symlink() or not path.is_file():
         raise ReleaseProvenanceError(f"Desktop installer is missing or unsafe: {path}")
-    expected_prefix = f"Mardas-Studio-{expected_version}-windows-"
+    expected_prefix = f"Mardas-Folio-{expected_version}-windows-"
     if not path.name.startswith(expected_prefix) or not path.name.endswith("-setup.exe"):
         raise ReleaseProvenanceError("Desktop installer filename does not match the release version")
     size = path.stat().st_size

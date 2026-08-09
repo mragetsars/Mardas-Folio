@@ -88,7 +88,7 @@ def build(args: argparse.Namespace) -> Path:
     )
     if not candidates:
         raise SystemExit("Tauri did not create an NSIS setup executable.")
-    final = output / f"Mardas-Studio-{__version__}-windows-{architecture_tag()}-setup.exe"
+    final = output / f"Mardas-Folio-{__version__}-windows-{architecture_tag()}-setup.exe"
     temporary = final.with_suffix(final.suffix + ".tmp")
     shutil.copyfile(candidates[0], temporary)
     os.replace(temporary, final)
@@ -100,7 +100,7 @@ def build(args: argparse.Namespace) -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Build the native Mardas Studio NSIS installer")
+    parser = argparse.ArgumentParser(description="Build the native Mardas Folio NSIS installer")
     parser.add_argument("--runtime", required=True, type=Path)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--clean", action="store_true", default=True)
@@ -111,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     installer = build(build_parser().parse_args(argv))
-    print(f"Mardas Studio installer: {installer}")
+    print(f"Mardas Folio installer: {installer}")
     return 0
 
 

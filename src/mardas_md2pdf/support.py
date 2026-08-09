@@ -62,7 +62,7 @@ def support_payload(*, engine_api_version: str) -> dict[str, Any]:
     return {
         "schema_version": SUPPORT_BUNDLE_SCHEMA,
         "created_at": datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z"),
-        "product": "Mardas Studio",
+        "product": "Mardas Folio",
         "version": __version__,
         "engine_api_version": engine_api_version,
         "protocol": PROTOCOL_NAME,
@@ -105,12 +105,12 @@ def create_support_bundle(
     output = _validate_output_path(Path(output_path))
     payload = support_payload(engine_api_version=engine_api_version)
     readme = (
-        "Mardas Studio Support Bundle\n"
+        "Mardas Folio Support Bundle\n"
         "============================\n\n"
-        "This archive is designed for troubleshooting Mardas Studio itself.\n"
+        "This archive is designed for troubleshooting Mardas Folio itself.\n"
         "It intentionally excludes document contents, document paths, environment "
         "variables, and the user's home directory.\n\n"
-        f"Mardas Studio version: {payload['version']}\n"
+        f"Mardas Folio version: {payload['version']}\n"
         f"Platform: {payload['runtime']['platform']}\n"
         f"Architecture: {payload['runtime']['architecture']}\n"
         f"Chromium available: {payload['runtime']['chromium_available']}\n"

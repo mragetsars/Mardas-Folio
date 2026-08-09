@@ -19,31 +19,31 @@ MAX_PORTABLE_UNCOMPRESSED_BYTES = 4 * 1024 * 1024 * 1024
 
 _PATTERNS = (
     ("desktop-installer", "windows", re.compile(
-        r"^Mardas-Studio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe$"
+        r"^Mardas-Folio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe$"
     )),
     ("desktop-portable", "windows", re.compile(
-        r"^Mardas-Studio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-portable\.zip$"
+        r"^Mardas-Folio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-portable\.zip$"
     )),
     ("desktop-dmg", "macos", re.compile(
-        r"^Mardas-Studio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)\.dmg$"
+        r"^Mardas-Folio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)\.dmg$"
     )),
     ("desktop-appimage", "linux", re.compile(
-        r"^Mardas-Studio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.AppImage$"
+        r"^Mardas-Folio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.AppImage$"
     )),
     ("desktop-deb", "linux", re.compile(
-        r"^Mardas-Studio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.deb$"
+        r"^Mardas-Folio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.deb$"
     )),
     ("desktop-macos-updater", "macos", re.compile(
-        r"^Mardas-Studio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)-updater\.tar\.gz$"
+        r"^Mardas-Folio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)-updater\.tar\.gz$"
     )),
     ("desktop-update-signature", "windows", re.compile(
-        r"^Mardas-Studio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe\.sig$"
+        r"^Mardas-Folio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe\.sig$"
     )),
     ("desktop-update-signature", "linux", re.compile(
-        r"^Mardas-Studio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.AppImage\.sig$"
+        r"^Mardas-Folio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.AppImage\.sig$"
     )),
     ("desktop-update-signature", "macos", re.compile(
-        r"^Mardas-Studio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)-updater\.tar\.gz\.sig$"
+        r"^Mardas-Folio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)-updater\.tar\.gz\.sig$"
     )),
 )
 
@@ -75,7 +75,7 @@ def classify_native_artifact(name: str, *, expected_version: str) -> tuple[str, 
 
 
 def _verify_portable(path: Path, *, expected_version: str, architecture: str) -> dict[str, Any]:
-    expected_root = f"Mardas-Studio-{expected_version}-windows-{architecture}-portable"
+    expected_root = f"Mardas-Folio-{expected_version}-windows-{architecture}-portable"
     with zipfile.ZipFile(path) as archive:
         infos = [item for item in archive.infolist() if not item.is_dir()]
         if not infos or len(infos) > MAX_PORTABLE_FILES:
@@ -92,7 +92,7 @@ def _verify_portable(path: Path, *, expected_version: str, architecture: str) ->
             if mode == 0o120000:
                 raise ValueError(f"Portable archive contains a symlink: {name}")
         required = {
-            f"{expected_root}/Mardas Studio.exe",
+            f"{expected_root}/Mardas Folio.exe",
             f"{expected_root}/PORTABLE-MANIFEST.json",
             f"{expected_root}/sidecar/runtime-manifest.json",
         }
@@ -156,7 +156,7 @@ def verify_native_artifact(path: Path, *, expected_version: str) -> dict[str, An
             raise ValueError("Updater signature is invalid")
         return {
             "schema_version": 1,
-            "product": "Mardas Studio",
+            "product": "Mardas Folio",
             "kind": kind,
             "version": expected_version,
             "platform": platform_name,
@@ -217,7 +217,7 @@ def verify_native_artifact(path: Path, *, expected_version: str) -> dict[str, An
 
     return {
         "schema_version": 1,
-        "product": "Mardas Studio",
+        "product": "Mardas Folio",
         "kind": kind,
         "version": expected_version,
         "platform": platform_name,
@@ -231,7 +231,7 @@ def verify_native_artifact(path: Path, *, expected_version: str) -> dict[str, An
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Verify a normalized Mardas Studio native desktop artifact"
+        description="Verify a normalized Mardas Folio native desktop artifact"
     )
     parser.add_argument("artifact", type=Path)
     parser.add_argument("--version", required=True)

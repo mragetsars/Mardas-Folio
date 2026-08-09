@@ -40,7 +40,7 @@ def _write_manifest(
         records.append(
             {
                 "schema_version": 1,
-                "product": "Mardas Studio",
+                "product": "Mardas Folio",
                 "kind": kind,
                 "version": "1.31.0",
                 "platform": platform_name,
@@ -52,7 +52,7 @@ def _write_manifest(
         )
     manifest = {
         "schema_version": 1,
-        "product": "Mardas Studio native desktop artifacts",
+        "product": "Mardas Folio native desktop artifacts",
         "version": "1.31.0",
         "platform": platform_name,
         "architecture": architecture,
@@ -87,7 +87,7 @@ def test_non_signing_target_records_explicit_evidence_without_calling_tools(
         platform_name="linux",
         architecture="x86_64",
         mode=mode,
-        artifacts=[("Mardas-Studio-1.31.0-linux-x86_64.AppImage", "desktop-appimage", b"app")],
+        artifacts=[("Mardas-Folio-1.31.0-linux-x86_64.AppImage", "desktop-appimage", b"app")],
         contract={
             "release_mode": mode,
             "required": False,
@@ -128,14 +128,14 @@ def test_windows_authenticode_timestamp_and_portable_payload_are_verified(
     artifact_dir = tmp_path / "artifacts"
     tauri_root = tmp_path / "tauri"
     artifact_dir.mkdir()
-    executable = tauri_root / "target" / "release" / "mardas-studio.exe"
+    executable = tauri_root / "target" / "release" / "mardas-folio.exe"
     executable.parent.mkdir(parents=True)
     executable.write_bytes(b"signed-binary")
-    portable_name = "Mardas-Studio-1.31.0-windows-x86_64-portable.zip"
+    portable_name = "Mardas-Folio-1.31.0-windows-x86_64-portable.zip"
     portable = artifact_dir / portable_name
     with zipfile.ZipFile(portable, "w") as archive:
         archive.writestr(
-            "Mardas-Studio-1.31.0-windows-x86_64-portable/Mardas Studio.exe",
+            "Mardas-Folio-1.31.0-windows-x86_64-portable/Mardas Folio.exe",
             executable.read_bytes(),
         )
     portable_data = portable.read_bytes()
@@ -148,7 +148,7 @@ def test_windows_authenticode_timestamp_and_portable_payload_are_verified(
         mode="public",
         artifacts=[
             (
-                "Mardas-Studio-1.31.0-windows-x86_64-setup.exe",
+                "Mardas-Folio-1.31.0-windows-x86_64-setup.exe",
                 "desktop-installer",
                 b"signed-installer",
             ),
@@ -223,7 +223,7 @@ def test_macos_requires_codesign_gatekeeper_and_stapled_notary_tickets(
     artifact_dir = tmp_path / "artifacts"
     tauri_root = tmp_path / "tauri"
     artifact_dir.mkdir()
-    app = tauri_root / "target" / "release" / "bundle" / "macos" / "Mardas Studio.app"
+    app = tauri_root / "target" / "release" / "bundle" / "macos" / "Mardas Folio.app"
     app.mkdir(parents=True)
     identity = "Developer ID Application: Example (ABCDEFGHIJ)"
     _write_manifest(
@@ -232,7 +232,7 @@ def test_macos_requires_codesign_gatekeeper_and_stapled_notary_tickets(
         platform_name="macos",
         architecture="arm64",
         mode="public",
-        artifacts=[("Mardas-Studio-1.31.0-macos-arm64.dmg", "desktop-dmg", b"signed-dmg")],
+        artifacts=[("Mardas-Folio-1.31.0-macos-arm64.dmg", "desktop-dmg", b"signed-dmg")],
         contract={
             "release_mode": "public",
             "required": True,
@@ -243,7 +243,7 @@ def test_macos_requires_codesign_gatekeeper_and_stapled_notary_tickets(
             "identity": identity,
             "notarization_method": "app-store-connect-api",
             "dmg_notarization": {
-                "artifact": "Mardas-Studio-1.31.0-macos-arm64.dmg",
+                "artifact": "Mardas-Folio-1.31.0-macos-arm64.dmg",
                 "method": "app-store-connect-api",
                 "status": "Accepted",
                 "submission_id": "01234567-89ab-cdef-0123-456789abcdef",
@@ -283,7 +283,7 @@ def test_macos_requires_codesign_gatekeeper_and_stapled_notary_tickets(
         "app_notary_ticket_stapled": True,
         "dmg_notary_ticket_stapled": True,
         "dmg_notary_submission": {
-            "artifact": "Mardas-Studio-1.31.0-macos-arm64.dmg",
+            "artifact": "Mardas-Folio-1.31.0-macos-arm64.dmg",
             "method": "app-store-connect-api",
             "status": "Accepted",
             "submission_id": "01234567-89ab-cdef-0123-456789abcdef",
@@ -304,7 +304,7 @@ def test_public_verification_failure_leaves_manifest_pending(
     artifact_dir = tmp_path / "artifacts"
     tauri_root = tmp_path / "tauri"
     artifact_dir.mkdir()
-    app = tauri_root / "target" / "release" / "bundle" / "macos" / "Mardas Studio.app"
+    app = tauri_root / "target" / "release" / "bundle" / "macos" / "Mardas Folio.app"
     app.mkdir(parents=True)
     identity = "Developer ID Application: Example (ABCDEFGHIJ)"
     _write_manifest(
@@ -313,7 +313,7 @@ def test_public_verification_failure_leaves_manifest_pending(
         platform_name="macos",
         architecture="arm64",
         mode="public",
-        artifacts=[("Mardas-Studio-1.31.0-macos-arm64.dmg", "desktop-dmg", b"dmg")],
+        artifacts=[("Mardas-Folio-1.31.0-macos-arm64.dmg", "desktop-dmg", b"dmg")],
         contract={
             "release_mode": "public",
             "required": True,
@@ -324,7 +324,7 @@ def test_public_verification_failure_leaves_manifest_pending(
             "identity": identity,
             "notarization_method": "app-store-connect-api",
             "dmg_notarization": {
-                "artifact": "Mardas-Studio-1.31.0-macos-arm64.dmg",
+                "artifact": "Mardas-Folio-1.31.0-macos-arm64.dmg",
                 "method": "app-store-connect-api",
                 "status": "Accepted",
                 "submission_id": "01234567-89ab-cdef-0123-456789abcdef",
@@ -363,12 +363,12 @@ def test_release_evidence_set_is_complete_and_bound_to_artifact_hashes(
         ("linux", "x86_64"),
     )
     for platform_name, architecture in targets:
-        artifact_name = f"Mardas-Studio-1.31.0-{platform_name}-{architecture}.bin"
+        artifact_name = f"Mardas-Folio-1.31.0-{platform_name}-{architecture}.bin"
         artifact = tmp_path / artifact_name
         artifact.write_bytes(f"{platform_name}-{architecture}".encode())
         evidence = {
             "schema_version": 1,
-            "product": "Mardas Studio OS signing evidence",
+            "product": "Mardas Folio OS signing evidence",
             "version": "1.31.0",
             "platform": platform_name,
             "architecture": architecture,
@@ -391,7 +391,7 @@ def test_release_evidence_set_is_complete_and_bound_to_artifact_hashes(
         }
         path = (
             tmp_path
-            / f"Mardas-Studio-1.31.0-{platform_name}-{architecture}-signing-evidence.json"
+            / f"Mardas-Folio-1.31.0-{platform_name}-{architecture}-signing-evidence.json"
         )
         path.write_text(json.dumps(evidence), encoding="utf-8")
 
@@ -403,7 +403,7 @@ def test_release_evidence_set_is_complete_and_bound_to_artifact_hashes(
     )
     assert len(paths) == 4
 
-    artifact = tmp_path / "Mardas-Studio-1.31.0-linux-x86_64.bin"
+    artifact = tmp_path / "Mardas-Folio-1.31.0-linux-x86_64.bin"
     artifact.write_bytes(b"tampered")
     with pytest.raises(module.SigningVerificationError, match="integrity"):
         module.verify_evidence_set(

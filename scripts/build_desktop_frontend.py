@@ -110,7 +110,7 @@ def build_frontend(
                 )
         manifest = {
             "schema_version": 1,
-            "product": "Mardas Studio desktop frontend",
+            "product": "Mardas Folio desktop frontend",
             "version": version,
             "files": manifest_files,
         }
@@ -141,7 +141,7 @@ def build_frontend(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Build the offline Mardas Studio frontend")
+    parser = argparse.ArgumentParser(description="Build the offline Mardas Folio frontend")
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--version")

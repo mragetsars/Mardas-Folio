@@ -152,7 +152,7 @@ The package exposes three process interfaces:
 
 ## Standalone runtime for desktop packaging
 
-Release engineering can build a portable sidecar runtime that includes Python, the Mardas engine, Playwright resources, and pinned Chromium. The target computer does not need Python, pip, Node.js, Git, or Chrome. Version 1.31.0 can embed this verified runtime in the native Mardas Studio packages produced by target-platform release jobs.
+Release engineering can build a portable sidecar runtime that includes Python, the Mardas engine, Playwright resources, and pinned Chromium. The target computer does not need Python, pip, Node.js, Git, or Chrome. Version 1.31.0 can embed this verified runtime in the native Mardas Folio packages produced by target-platform release jobs.
 
 ```bash
 python -m pip install -e '.[desktop]'
@@ -174,15 +174,15 @@ The sidecar opens no localhost port. It reads one JSON-RPC request per line from
 
 ## Installable desktop packages and support diagnostics
 
-Release engineering treats Mardas Studio as an installable desktop application rather than requiring end users to prepare a development environment. Credentialed target-platform jobs are configured to produce Windows Setup and portable packages, architecture-specific macOS DMGs, and Linux AppImage/Debian packages. The supported native targets are Windows 11 x86-64 (or Windows Server 2019+), macOS 14+ on Apple Silicon or Intel, and x86-64 Linux packages tested on Ubuntu 22.04. Other compatible glibc-based Linux distributions may run the AppImage but are outside the published acceptance matrix. A source checkout or portable test run does not prove that those native builds or installer smoke tests completed. The normal application bundles the Mardas sidecar and its pinned Chromium renderer; users do not need Python, Node.js, Rust, Git, or a separate Playwright installation.
+Release engineering treats Mardas Folio as an installable desktop application rather than requiring end users to prepare a development environment. Credentialed target-platform jobs are configured to produce Windows Setup and portable packages, architecture-specific macOS DMGs, and Linux AppImage/Debian packages. The supported native targets are Windows 11 x86-64 (or Windows Server 2019+), macOS 14+ on Apple Silicon or Intel, and x86-64 Linux packages tested on Ubuntu 22.04. Other compatible glibc-based Linux distributions may run the AppImage but are outside the published acceptance matrix. A source checkout or portable test run does not prove that those native builds or installer smoke tests completed. The normal application bundles the Mardas sidecar and its pinned Chromium renderer; users do not need Python, Node.js, Rust, Git, or a separate Playwright installation.
 
 From **Help → Save Support Bundle**, users can create a troubleshooting ZIP that records the Mardas/runtime versions and renderer availability. The bundle deliberately excludes document contents, document paths, environment variables, and the home-directory path.
 
 Credentialed release builds in version 1.31.0 can expose **Settings → Software Updates** when the maintainer public key is embedded. Update checks are user-initiated, run through the native Rust boundary, use an HTTPS metadata endpoint, and install only Tauri-signed payloads. Development/source builds without that key show updates as unavailable rather than contacting the network. A version tag can stage a GitHub Draft Release only after the required Windows, macOS, Linux, checksum, SBOM, updater-metadata, and attestation jobs succeed; it never publishes automatically. Windows code signing and macOS Developer ID signing/notarization are not guaranteed by repository tests and require evidence from the actual credentialed release run. The updater private key must never be stored in a document, project, support bundle, or repository.
 
-## Native Mardas Studio authoring preview
+## Native Mardas Folio authoring preview
 
-Mardas Studio opens in a native Tauri window instead of a browser tab. Its Start Center provides native file selection, recent documents, Quick Export, and a project-directory picker. Version 1.31.0 includes an intelligent project sidebar that restores the last project, lists supported files below the `mardas.toml` root, searches Unicode content with bounded literal or restricted-regex queries, and opens each result at its exact line.
+Mardas Folio opens in a native Tauri window instead of a browser tab. Its Start Center provides native file selection, recent documents, Quick Export, and a project-directory picker. Version 1.31.0 includes an intelligent project sidebar that restores the last project, lists supported files below the `mardas.toml` root, searches Unicode content with bounded literal or restricted-regex queries, and opens each result at its exact line.
 
 The bibliography panel indexes the project's configured local BibTeX and CSL JSON sources, supports title/author/year/key search, marks cited entries, reports malformed sources, and inserts a selected citation at the editor cursor. Preview headings now contain trusted source-line metadata produced by the Python Markdown engine, so duplicate headings navigate reliably between preview, outline, and editor.
 
@@ -193,7 +193,7 @@ The former textarea editor has been replaced by CodeMirror 6 behind the tested e
 
 ### Create and publish a Book Project
 
-Choose **New Book Project** in the Start Center, select a parent directory, and enter the book title. Mardas Studio creates a self-contained project with `mardas.toml`, a first Markdown chapter, shared asset and bibliography directories, and a `dist` output directory.
+Choose **New Book Project** in the Start Center, select a parent directory, and enter the book title. Mardas Folio creates a self-contained project with `mardas.toml`, a first Markdown chapter, shared asset and bibliography directories, and a `dist` output directory.
 
 The **Book** panel provides the normal publishing workflow:
 
@@ -205,11 +205,11 @@ The **Book** panel provides the normal publishing workflow:
 6. Preview the assembled book.
 7. Export one PDF with the native output picker.
 
-Chapter changes use the current project-configuration revision. If `mardas.toml` changes outside Mardas Studio, the operation stops instead of silently overwriting the newer file. Full-book preview and export are cancellable sidecar jobs and use the same Book Mode engine as the command line.
+Chapter changes use the current project-configuration revision. If `mardas.toml` changes outside Mardas Folio, the operation stops instead of silently overwriting the newer file. Full-book preview and export are cancellable sidecar jobs and use the same Book Mode engine as the command line.
 
 ## Guided desktop experience and accessibility
 
-On first launch, Mardas Studio presents a short onboarding flow instead of dropping a new user directly into technical controls. The flow explains document and Book Project choices, offline operation, recovery safety, and the main keyboard shortcuts. It can be skipped and restarted later from **Settings**.
+On first launch, Mardas Folio presents a short onboarding flow instead of dropping a new user directly into technical controls. The flow explains document and Book Project choices, offline operation, recovery safety, and the main keyboard shortcuts. It can be skipped and restarted later from **Settings**.
 
 The Start Center includes local templates for a blank document, report, academic document, and technical document. Choosing a template creates editable Markdown locally; no template is downloaded at runtime. **Settings** provides searchable controls for system/light/dark appearance, content scale, reduced motion, automatic preview, and interface language. **Help** explains the main document, book, export, recovery, and privacy workflows, while `Ctrl/Cmd+Shift+P` opens the command palette and `F1` opens Help.
 

@@ -31,12 +31,12 @@ def _write_manifest(
     method: str,
     architecture: str = "arm64",
 ) -> Path:
-    name = f"Mardas-Studio-1.31.0-macos-{architecture}.dmg"
+    name = f"Mardas-Folio-1.31.0-macos-{architecture}.dmg"
     dmg = artifact_dir / name
     dmg.write_bytes(b"signed-dmg-before-stapling")
     manifest = {
         "schema_version": 1,
-        "product": "Mardas Studio native desktop artifacts",
+        "product": "Mardas Folio native desktop artifacts",
         "version": "1.31.0",
         "platform": "macos",
         "architecture": architecture,
@@ -55,7 +55,7 @@ def _write_manifest(
         "artifacts": [
             {
                 "schema_version": 1,
-                "product": "Mardas Studio",
+                "product": "Mardas Folio",
                 "kind": "desktop-dmg",
                 "version": "1.31.0",
                 "platform": "macos",
@@ -201,7 +201,7 @@ def test_apple_id_route_is_structured_and_command_failure_does_not_leak_credenti
             "xcrun",
             "notarytool",
             "submit",
-            str(artifact_dir / "Mardas-Studio-1.31.0-macos-arm64.dmg"),
+            str(artifact_dir / "Mardas-Folio-1.31.0-macos-arm64.dmg"),
             "--wait",
             "--output-format",
             "json",
@@ -296,7 +296,7 @@ def test_scope_ambiguity_and_multiple_normalized_dmgs_fail_before_tools(
 
     environment.pop("APPLE_ID")
     environment.pop("APPLE_PASSWORD")
-    (artifact_dir / "Mardas-Studio-1.31.0-macos-x86_64.dmg").write_bytes(b"extra")
+    (artifact_dir / "Mardas-Folio-1.31.0-macos-x86_64.dmg").write_bytes(b"extra")
     with pytest.raises(module.MacOSNotarizationError, match="exactly one"):
         module.notarize_macos_dmg(
             artifact_dir,

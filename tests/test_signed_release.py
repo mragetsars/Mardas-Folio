@@ -33,7 +33,7 @@ def _write_payload(path: Path, prefix: bytes) -> None:
 def _write_mac_updater(path: Path) -> None:
     data = os.urandom(90 * 1024)
     with tarfile.open(path, "w:gz") as archive:
-        info = tarfile.TarInfo("Mardas Studio.app/Contents/MacOS/mardas-studio")
+        info = tarfile.TarInfo("Mardas Folio.app/Contents/MacOS/mardas-folio")
         info.mode = 0o755
         info.size = len(data)
         archive.addfile(info, io.BytesIO(data))
@@ -41,16 +41,16 @@ def _write_mac_updater(path: Path) -> None:
 
 def _signed_release_files(root: Path, version: str) -> None:
     _write_payload(
-        root / f"Mardas-Studio-{version}-windows-x86_64-setup.exe",
+        root / f"Mardas-Folio-{version}-windows-x86_64-setup.exe",
         b"MZ",
     )
     _write_payload(
-        root / f"Mardas-Studio-{version}-linux-x86_64.AppImage",
+        root / f"Mardas-Folio-{version}-linux-x86_64.AppImage",
         b"\x7fELF",
     )
     for arch in ("arm64", "x86_64"):
         _write_mac_updater(
-            root / f"Mardas-Studio-{version}-macos-{arch}-updater.tar.gz"
+            root / f"Mardas-Folio-{version}-macos-{arch}-updater.tar.gz"
         )
     for payload in list(root.iterdir()):
         (root / f"{payload.name}.sig").write_text(
@@ -89,10 +89,10 @@ def test_signed_update_assembly_uses_verified_native_payloads(tmp_path: Path) ->
         "windows-x86_64",
     ]
     assert payload["platforms"]["windows-x86_64"]["url"].endswith(
-        f"/v{version}/Mardas-Studio-{version}-windows-x86_64-setup.exe"
+        f"/v{version}/Mardas-Folio-{version}-windows-x86_64-setup.exe"
     )
     assert payload["platforms"]["darwin-aarch64"]["url"].endswith(
-        f"/v{version}/Mardas-Studio-{version}-macos-arm64-updater.tar.gz"
+        f"/v{version}/Mardas-Folio-{version}-macos-arm64-updater.tar.gz"
     )
     assert "signed:" in payload["platforms"]["linux-x86_64"]["signature"]
 
@@ -101,7 +101,7 @@ def test_signed_update_assembly_rejects_missing_signature_and_tag_mismatch(tmp_p
     module = _load("assemble_signed_updates.py")
     version = "1.30.0"
     _signed_release_files(tmp_path, version)
-    (tmp_path / f"Mardas-Studio-{version}-linux-x86_64.AppImage.sig").unlink()
+    (tmp_path / f"Mardas-Folio-{version}-linux-x86_64.AppImage.sig").unlink()
 
     with pytest.raises(ValueError, match="signature"):
         module.assemble(tmp_path, version=version)
@@ -219,7 +219,7 @@ def test_release_note_extraction_is_version_scoped() -> None:
 - Old feature.
 """
     notes = module.extract_release_notes(text, version="1.30.0")
-    assert notes.startswith("# Mardas Studio 1.30.0")
+    assert notes.startswith("# Mardas Folio 1.30.0")
     assert "Signed updates." in notes
     assert "Old feature." not in notes
     with pytest.raises(ValueError, match="does not contain"):
@@ -253,7 +253,7 @@ def test_release_workflow_stages_signed_updater_assets_in_draft_only() -> None:
         "scripts/notarize_macos_dmg.py",
         "scripts/verify_platform_signing.py",
         "--verify-evidence-set",
-        "Mardas-Studio-*-signing-evidence.json",
+        "Mardas-Folio-*-signing-evidence.json",
     ):
         assert marker in workflow
     assert "MARDAS_WINDOWS_SIGN_COMMAND" not in workflow

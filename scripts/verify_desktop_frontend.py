@@ -76,7 +76,7 @@ def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Verify the Mardas Studio frontend inventory")
+    parser = argparse.ArgumentParser(description="Verify the Mardas Folio frontend inventory")
     parser.add_argument("root", type=Path)
     parser.add_argument("--version")
     args = parser.parse_args(argv)

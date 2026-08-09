@@ -1,6 +1,6 @@
 # Signed Desktop Updates
 
-Mardas Studio 1.31.0 implements the application-side and release-side Tauri v2 updater flow, but update capability is **secret-driven**. Development builds and ordinary source builds remain offline and report updates as unavailable unless a maintainer-controlled public key is embedded at build time.
+Mardas Folio 1.31.0 implements the application-side and release-side Tauri v2 updater flow, but update capability is **secret-driven**. Development builds and ordinary source builds remain offline and report updates as unavailable unless a maintainer-controlled public key is embedded at build time.
 
 ## Trust boundary
 
@@ -66,18 +66,18 @@ Tauri creates signatures with `TAURI_SIGNING_PRIVATE_KEY`. Mardas normalizes and
 
 ```text
 Windows:
-Mardas-Studio-X.Y.Z-windows-x86_64-setup.exe
-Mardas-Studio-X.Y.Z-windows-x86_64-setup.exe.sig
+Mardas-Folio-X.Y.Z-windows-x86_64-setup.exe
+Mardas-Folio-X.Y.Z-windows-x86_64-setup.exe.sig
 
 Linux:
-Mardas-Studio-X.Y.Z-linux-x86_64.AppImage
-Mardas-Studio-X.Y.Z-linux-x86_64.AppImage.sig
+Mardas-Folio-X.Y.Z-linux-x86_64.AppImage
+Mardas-Folio-X.Y.Z-linux-x86_64.AppImage.sig
 
 macOS:
-Mardas-Studio-X.Y.Z-macos-arm64-updater.tar.gz
-Mardas-Studio-X.Y.Z-macos-arm64-updater.tar.gz.sig
-Mardas-Studio-X.Y.Z-macos-x86_64-updater.tar.gz
-Mardas-Studio-X.Y.Z-macos-x86_64-updater.tar.gz.sig
+Mardas-Folio-X.Y.Z-macos-arm64-updater.tar.gz
+Mardas-Folio-X.Y.Z-macos-arm64-updater.tar.gz.sig
+Mardas-Folio-X.Y.Z-macos-x86_64-updater.tar.gz
+Mardas-Folio-X.Y.Z-macos-x86_64-updater.tar.gz.sig
 ```
 
 The ordinary DMG/DEB/portable artifacts are still produced for direct installation. Updater payloads are separate release assets.

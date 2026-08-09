@@ -249,7 +249,7 @@ def _resolve_normalized_dmg(
         or not re.fullmatch(r"[A-Za-z0-9_]+", architecture)
     ):
         raise MacOSNotarizationError("Native manifest version or architecture is invalid")
-    expected_name = f"Mardas-Studio-{version}-macos-{architecture}.dmg"
+    expected_name = f"Mardas-Folio-{version}-macos-{architecture}.dmg"
     raw_records = manifest.get("artifacts")
     if not isinstance(raw_records, list):
         raise MacOSNotarizationError("Native manifest has no artifact inventory")
@@ -264,7 +264,7 @@ def _resolve_normalized_dmg(
     name = str(record.get("name", ""))
     if name != expected_name or PurePath(name).name != name:
         raise MacOSNotarizationError("Native manifest DMG name is not normalized")
-    candidates = list(artifact_dir.glob("Mardas-Studio-*-macos-*.dmg"))
+    candidates = list(artifact_dir.glob("Mardas-Folio-*-macos-*.dmg"))
     if len(candidates) != 1 or candidates[0].name != expected_name:
         raise MacOSNotarizationError("Artifact directory must contain exactly one normalized DMG")
     dmg = candidates[0]
@@ -306,7 +306,7 @@ def notarize_macos_dmg(
     manifest = _read_json(manifest_path)
     if (
         manifest.get("schema_version") != 1
-        or manifest.get("product") != "Mardas Studio native desktop artifacts"
+        or manifest.get("product") != "Mardas Folio native desktop artifacts"
         or manifest.get("platform") != "macos"
         or manifest.get("release_mode") != "public"
     ):

@@ -11,7 +11,7 @@ from pathlib import Path
 
 MIN_INSTALLER_BYTES = 1024 * 1024
 MAX_INSTALLER_BYTES = 2 * 1024 * 1024 * 1024
-_NAME_RE = re.compile(r"^Mardas-Studio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe$")
+_NAME_RE = re.compile(r"^Mardas-Folio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe$")
 
 
 def sha256(path: Path) -> str:
@@ -38,7 +38,7 @@ def verify_installer(path: Path, *, expected_version: str) -> dict[str, object]:
         raise ValueError("Desktop installer does not contain a Windows PE header")
     return {
         "schema_version": 1,
-        "product": "Mardas Studio Windows installer",
+        "product": "Mardas Folio Windows installer",
         "version": expected_version,
         "platform": "windows",
         "architecture": match.group("arch"),
@@ -49,7 +49,7 @@ def verify_installer(path: Path, *, expected_version: str) -> dict[str, object]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Verify a Mardas Studio NSIS installer")
+    parser = argparse.ArgumentParser(description="Verify a Mardas Folio NSIS installer")
     parser.add_argument("installer", type=Path)
     parser.add_argument("--version", required=True)
     parser.add_argument("--json", action="store_true")

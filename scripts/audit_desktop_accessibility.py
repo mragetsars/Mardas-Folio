@@ -162,7 +162,7 @@ def write_report(findings: list[Finding], output_dir: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit structural accessibility contracts in Mardas Studio.")
+    parser = argparse.ArgumentParser(description="Audit structural accessibility contracts in Mardas Folio.")
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args(argv)

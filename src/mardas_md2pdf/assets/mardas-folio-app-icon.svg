@@ -1,8 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Mardas Folio">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Mardas Folio">
   <title>Mardas Folio</title>
-  <!-- The letter F in four-fold rotational symmetry: one glyph, rotated about
-       the centre, closing into a symmetric pinwheel with a square void. -->
-  <g transform="translate(64 64) scale(0.86)" fill="#ea580c">
+  <rect width="512" height="512" rx="112" fill="#161616"/>
+  <g transform="translate(256 256) scale(2.72)" fill="#f97316">
     <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
     <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
     <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>

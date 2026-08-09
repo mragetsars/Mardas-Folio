@@ -380,7 +380,7 @@ def _latest_candidate(bundle: str) -> Path:
 
 
 def _normalized_name(bundle: str, *, platform_name: str, architecture: str) -> str:
-    stem = f"Mardas-Studio-{__version__}-{platform_name}-{architecture}"
+    stem = f"Mardas-Folio-{__version__}-{platform_name}-{architecture}"
     suffixes = {
         "nsis": "-setup.exe",
         "dmg": ".dmg",
@@ -427,9 +427,9 @@ def _portable_members(
         inventory.append({"path": relative, "size": len(data), "sha256": _sha256_bytes(data)})
         members.append((f"{root_name}/{relative}", data, mode))
 
-    add("Mardas Studio.exe", executable.read_bytes(), 0o755)
+    add("Mardas Folio.exe", executable.read_bytes(), 0o755)
     readme = (
-        "Mardas Studio portable build\r\n"
+        "Mardas Folio portable build\r\n"
         "\r\n"
         "This package includes the Mardas rendering sidecar and Chromium renderer.\r\n"
         "It uses the system Microsoft Edge WebView2 runtime for the native interface.\r\n"
@@ -448,7 +448,7 @@ def _portable_members(
 
     manifest = {
         "schema_version": 1,
-        "product": "Mardas Studio portable",
+        "product": "Mardas Folio portable",
         "version": __version__,
         "platform": "windows",
         "architecture": architecture_tag(),
@@ -462,8 +462,8 @@ def _portable_members(
 
 
 def _build_windows_portable(output: Path, *, architecture: str) -> Path:
-    executable = TAURI_ROOT / "target" / "release" / "mardas-studio.exe"
-    root_name = f"Mardas-Studio-{__version__}-windows-{architecture}-portable"
+    executable = TAURI_ROOT / "target" / "release" / "mardas-folio.exe"
+    root_name = f"Mardas-Folio-{__version__}-windows-{architecture}-portable"
     final = output / f"{root_name}.zip"
     members = _portable_members(executable, RESOURCE_RUNTIME, root_name=root_name)
     deterministic_zip(final, members, epoch=source_date_epoch())
@@ -519,7 +519,7 @@ def _copy_updater_artifacts(
         created.append(_copy_signature(candidate, payload, output))
     elif platform_name == "macos":
         candidate = _latest_macos_updater()
-        stem = f"Mardas-Studio-{__version__}-macos-{architecture}-updater.tar.gz"
+        stem = f"Mardas-Folio-{__version__}-macos-{architecture}-updater.tar.gz"
         payload = output / stem
         temporary = payload.with_name(payload.name + ".tmp")
         shutil.copyfile(candidate, temporary)
@@ -620,7 +620,7 @@ def build(args: argparse.Namespace) -> list[Path]:
     payloads = [verify_native_artifact(path, expected_version=__version__) for path in artifacts]
     manifest = {
         "schema_version": 1,
-        "product": "Mardas Studio native desktop artifacts",
+        "product": "Mardas Folio native desktop artifacts",
         "version": __version__,
         "platform": platform_name,
         "architecture": architecture,
@@ -639,7 +639,7 @@ def build(args: argparse.Namespace) -> list[Path]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Build normalized Mardas Studio native desktop packages on the current OS"
+        description="Build normalized Mardas Folio native desktop packages on the current OS"
     )
     parser.add_argument("--runtime", required=True, type=Path)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)

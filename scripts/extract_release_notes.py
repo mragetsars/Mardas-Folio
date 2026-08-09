@@ -22,7 +22,7 @@ def extract_release_notes(text: str, *, version: str) -> str:
         raise ValueError(f"Changelog section for version {version} is empty")
     if len(body.encode("utf-8")) > 128 * 1024:
         raise ValueError("Release notes exceed the size limit")
-    return f"# Mardas Studio {version}\n\n{body}\n"
+    return f"# Mardas Folio {version}\n\n{body}\n"
 
 
 def main(argv: list[str] | None = None) -> int:

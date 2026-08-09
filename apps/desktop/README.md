@@ -1,4 +1,4 @@
-# Mardas Studio Desktop
+# Mardas Folio Desktop
 
 This directory contains the native desktop product shipped with Mardas MD2PDF 1.31.
 
@@ -13,6 +13,22 @@ Published packages target Windows 11 x86-64 (or Windows Server 2019+),
 macOS 14+ on ARM64 and x86-64, and x86-64 Linux with Ubuntu 22.04 as the
 release-tested baseline. Native runtimes and packages are built on their target
 operating system; they are not cross-compiled release evidence.
+
+## Product name and bundle identifier
+
+The product is **Mardas Folio**: `productName`, `mainBinaryName`, every release
+artifact (`Mardas-Folio-X.Y.Z-*`), the window title and the whole interface.
+
+The bundle identifier deliberately still reads
+`io.github.mragetsars.mardas-studio`. It is the key the updater matches an
+installed application by, and the name of the per-user config and data
+directory. Changing it would make every existing install look like a different
+application: updates would stop arriving, and saved preferences, recent
+documents and recovery snapshots would be orphaned. Renaming it is a migration,
+not a rebrand, and needs its own change with a data-migration path.
+
+Note that `tauri.conf.json` rejects unknown keys, so this rationale cannot live
+in the file as a comment — `cargo check` fails on any extra field.
 
 ## Authoring workspace
 

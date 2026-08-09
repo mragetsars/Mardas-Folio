@@ -163,7 +163,7 @@ fn pick_document_asset() -> Option<String> {
 fn pick_support_bundle_output() -> Option<String> {
     rfd::FileDialog::new()
         .add_filter("ZIP archive", &["zip"])
-        .set_file_name("Mardas-Studio-Support.zip")
+        .set_file_name("Mardas-Folio-Support.zip")
         .save_file()
         .map(|path| path.to_string_lossy().into_owned())
 }
@@ -324,7 +324,7 @@ fn main() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("failed to build Mardas Studio");
+        .expect("failed to build Mardas Folio");
 
     app.run(|app, event| match event {
         #[cfg(target_os = "macos")]

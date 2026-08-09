@@ -320,9 +320,9 @@ jobs:
         run: |
           $version = "${{ needs.build-core.outputs.version }}"
           $files = Get-ChildItem build/desktop-native -File | Where-Object {
-            $_.Name -like 'Mardas-Studio-*-setup.exe' -or
-            $_.Name -like 'Mardas-Studio-*-setup.exe.sig' -or
-            $_.Name -like 'Mardas-Studio-*-portable.zip'
+            $_.Name -like 'Mardas-Folio-*-setup.exe' -or
+            $_.Name -like 'Mardas-Folio-*-setup.exe.sig' -or
+            $_.Name -like 'Mardas-Folio-*-portable.zip'
           }
           if ($files.Count -lt 3) { throw 'Expected Windows setup, updater signature, and portable artifacts.' }
           foreach ($file in $files) {
@@ -342,10 +342,10 @@ jobs:
         with:
           name: desktop-native-windows
           path: |
-            build/desktop-native/Mardas-Studio-*-setup.exe
-            build/desktop-native/Mardas-Studio-*-setup.exe.sig
-            build/desktop-native/Mardas-Studio-*-portable.zip
-            build/desktop-native/Mardas-Studio-*-signing-evidence.json
+            build/desktop-native/Mardas-Folio-*-setup.exe
+            build/desktop-native/Mardas-Folio-*-setup.exe.sig
+            build/desktop-native/Mardas-Folio-*-portable.zip
+            build/desktop-native/Mardas-Folio-*-signing-evidence.json
           if-no-files-found: error
           retention-days: 30
 
@@ -529,7 +529,7 @@ jobs:
         run: |
           version="${{ needs.build-core.outputs.version }}"
           count=0
-          for artifact in build/desktop-native/Mardas-Studio-*; do
+          for artifact in build/desktop-native/Mardas-Folio-*; do
             test -f "$artifact" || continue
             case "$artifact" in
               *.dmg|*.AppImage|*.deb|*.AppImage.sig|*-updater.tar.gz|*-updater.tar.gz.sig)
@@ -555,13 +555,13 @@ jobs:
         with:
           name: desktop-native-${{ matrix.label }}
           path: |
-            build/desktop-native/Mardas-Studio-*.dmg
-            build/desktop-native/Mardas-Studio-*.AppImage
-            build/desktop-native/Mardas-Studio-*.AppImage.sig
-            build/desktop-native/Mardas-Studio-*.deb
-            build/desktop-native/Mardas-Studio-*-updater.tar.gz
-            build/desktop-native/Mardas-Studio-*-updater.tar.gz.sig
-            build/desktop-native/Mardas-Studio-*-signing-evidence.json
+            build/desktop-native/Mardas-Folio-*.dmg
+            build/desktop-native/Mardas-Folio-*.AppImage
+            build/desktop-native/Mardas-Folio-*.AppImage.sig
+            build/desktop-native/Mardas-Folio-*.deb
+            build/desktop-native/Mardas-Folio-*-updater.tar.gz
+            build/desktop-native/Mardas-Folio-*-updater.tar.gz.sig
+            build/desktop-native/Mardas-Folio-*-signing-evidence.json
           if-no-files-found: error
           retention-days: 30
 
@@ -633,7 +633,7 @@ jobs:
         run: |
           cp build/offline/*.zip build/release/
           cp build/standalone/*.zip build/release/
-          find build/desktop-native -maxdepth 1 -type f -name 'Mardas-Studio-*' -exec cp {} build/release/ \;
+          find build/desktop-native -maxdepth 1 -type f -name 'Mardas-Folio-*' -exec cp {} build/release/ \;
           python scripts/verify_platform_signing.py \
             --artifact-dir build/release \
             --mode "$MARDAS_RELEASE_MODE" \
@@ -783,7 +783,7 @@ jobs:
         run: |
           version="${{ needs.build-core.outputs.version }}"
           tag="v$version"
-          title="Mardas Studio $version"
+          title="Mardas Folio $version"
           if gh release view "$tag" --json isDraft >/tmp/mardas-release.json 2>/dev/null; then
             is_draft="$(python -c 'import json; print(str(json.load(open("/tmp/mardas-release.json"))["isDraft"]).lower())')"
             if [ "$is_draft" != "true" ]; then
