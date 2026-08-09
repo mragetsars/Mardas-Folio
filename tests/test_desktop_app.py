@@ -73,6 +73,10 @@ def test_tauri_configuration_is_native_and_versioned() -> None:
     assert "devUrl" not in config["build"]
     assert config["bundle"]["targets"] == ["nsis"]
     assert config["bundle"]["resources"] == {"resources/sidecar/": "sidecar/"}
+    assert config["plugins"]["updater"] == {
+        "pubkey": "",
+        "endpoints": [],
+    }
     assert {"md", "markdown"}.issubset(set(config["bundle"]["fileAssociations"][0]["ext"]))
     windows_config = json.loads((TAURI / "tauri.windows.conf.json").read_text(encoding="utf-8"))
     macos_config = json.loads((TAURI / "tauri.macos.conf.json").read_text(encoding="utf-8"))
@@ -105,6 +109,23 @@ def test_native_shell_uses_stdio_sidecar_and_single_instance_first() -> None:
         "pick_support_bundle_output",
     ):
         assert command in main
+    for command in (
+        "pick_markdown_output",
+        "pick_text_output",
+        "pick_pdf_output",
+        "sidecar_request",
+        "sidecar_cancel",
+    ):
+        sync_signature = (
+            '#[tauri::command(rename_all = "snake_case")]\n'
+            f'fn {command}('
+        )
+        async_signature = (
+            '#[tauri::command(rename_all = "snake_case")]\n'
+            f'async fn {command}('
+        )
+        assert sync_signature in main or async_signature in main
+
     assert "Stdio::piped()" in sidecar
     assert "MARDAS_RUNTIME_ROOT" in sidecar
     assert "mardas-sidecar.exe" in sidecar
@@ -113,6 +134,8 @@ def test_native_shell_uses_stdio_sidecar_and_single_instance_first() -> None:
     assert "updater_check" in main
     assert "updater_install" in main
     assert 'option_env!("MARDAS_UPDATER_PUBKEY")' in updates
+    assert ".pubkey(pubkey)" in updates
+    assert ".endpoints(vec![endpoint])" in updates
     assert 'parsed.scheme() != "https"' in updates
     combined = (main + sidecar).casefold()
     assert "webbrowser" not in combined

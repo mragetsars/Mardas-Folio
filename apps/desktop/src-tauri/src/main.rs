@@ -101,7 +101,7 @@ fn pick_markdown_files() -> Vec<String> {
         .collect()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn pick_markdown_output(suggested_path: Option<String>) -> Option<String> {
     let mut dialog = rfd::FileDialog::new().add_filter("Markdown", &["md", "markdown"]);
     if let Some(suggested) = suggested_path.filter(|value| !value.trim().is_empty()) {
@@ -118,7 +118,7 @@ fn pick_markdown_output(suggested_path: Option<String>) -> Option<String> {
         .map(|path| path.to_string_lossy().into_owned())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn pick_text_output(suggested_path: Option<String>) -> Option<String> {
     let mut dialog = rfd::FileDialog::new().add_filter(
         "Editable text",
@@ -168,7 +168,7 @@ fn pick_support_bundle_output() -> Option<String> {
         .map(|path| path.to_string_lossy().into_owned())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn pick_pdf_output(suggested_path: Option<String>) -> Option<String> {
     let mut dialog = rfd::FileDialog::new().add_filter("PDF document", &["pdf"]);
     if let Some(suggested) = suggested_path.filter(|value| !value.trim().is_empty()) {
@@ -246,7 +246,7 @@ fn reveal_path(path: String) -> Result<(), String> {
     launch_path(&resolved, true)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 async fn sidecar_request(
     app: AppHandle,
     state: State<'_, ManagedSidecar>,
@@ -260,7 +260,7 @@ async fn sidecar_request(
         .map_err(|error| format!("Rendering task failed to join: {error}"))?
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 async fn sidecar_cancel(
     app: AppHandle,
     state: State<'_, ManagedSidecar>,

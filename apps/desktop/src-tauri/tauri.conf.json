@@ -69,5 +69,11 @@
         "rank": "Alternate"
       }
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": []
+    }
   }
 }
