@@ -1,4 +1,5 @@
 import { pathIdentity } from "./path-identity.mjs";
+import { optionalLocalStorage } from "./storage.mjs";
 
 export const SESSION_STORAGE_KEY = "mardas.desktop.authoring-session.v1";
 export const MAX_SESSION_PATHS = 10;
@@ -23,9 +24,10 @@ export function normalizeSession(value) {
   return { paths, activePath, projectPath };
 }
 
-export function readSession(storage = globalThis.localStorage) {
+export function readSession(storage = undefined) {
+  const localStorage = optionalLocalStorage(storage);
   try {
-    return normalizeSession(JSON.parse(storage.getItem(SESSION_STORAGE_KEY) || "{}"));
+    return normalizeSession(JSON.parse(localStorage?.getItem(SESSION_STORAGE_KEY) || "{}"));
   } catch {
     return { paths: [], activePath: null, projectPath: null };
   }
@@ -35,15 +37,16 @@ export function writeSession(
   documents,
   activeDocument,
   projectPath = null,
-  storage = globalThis.localStorage,
+  storage = undefined,
 ) {
   const session = normalizeSession({
     paths: (Array.isArray(documents) ? documents : []).map((document) => document.path).filter(Boolean),
     activePath: activeDocument?.path ?? null,
     projectPath,
   });
+  const localStorage = optionalLocalStorage(storage);
   try {
-    storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    localStorage?.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
   } catch {
     // Session persistence is optional; document recovery remains independent.
   }

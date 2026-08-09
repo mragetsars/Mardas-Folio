@@ -1,4 +1,5 @@
 import { pathIdentity } from "./path-identity.mjs";
+import { optionalLocalStorage } from "./storage.mjs";
 
 export const RECOVERY_STORAGE_KEY = "mardas.desktop.authoring-recovery.v1";
 export const MAX_RECOVERY_DOCUMENTS = 12;
@@ -37,25 +38,30 @@ export function recoveryKey(document) {
   return document.path ? `path:${pathIdentity(document.path)}` : `draft:${document.id}`;
 }
 
-export function readRecoveries(storage = globalThis.localStorage) {
+export function readRecoveries(storage = undefined) {
+  const localStorage = optionalLocalStorage(storage);
   try {
-    return safeEntries(JSON.parse(storage.getItem(RECOVERY_STORAGE_KEY) || "[]"));
+    return safeEntries(JSON.parse(localStorage?.getItem(RECOVERY_STORAGE_KEY) || "[]"));
   } catch {
     return [];
   }
 }
 
-export function writeRecoveries(entries, storage = globalThis.localStorage) {
+export function writeRecoveries(entries, storage = undefined) {
   const normalized = safeEntries(entries);
+  const localStorage = optionalLocalStorage(storage);
+  if (!localStorage) {
+    return { ok: false, entries: normalized, error: new Error("Local storage is unavailable") };
+  }
   try {
-    storage.setItem(RECOVERY_STORAGE_KEY, JSON.stringify(normalized));
+    localStorage.setItem(RECOVERY_STORAGE_KEY, JSON.stringify(normalized));
     return { ok: true, entries: normalized };
   } catch (error) {
     return { ok: false, entries: normalized, error };
   }
 }
 
-export function saveRecovery(document, storage = globalThis.localStorage, now = Date.now()) {
+export function saveRecovery(document, storage = undefined, now = Date.now()) {
   if (document.content.length > MAX_RECOVERY_CHARS) {
     return { ok: false, reason: "too_large", entries: readRecoveries(storage) };
   }
@@ -74,12 +80,12 @@ export function saveRecovery(document, storage = globalThis.localStorage, now = 
   return writeRecoveries(next, storage);
 }
 
-export function removeRecovery(documentOrKey, storage = globalThis.localStorage) {
+export function removeRecovery(documentOrKey, storage = undefined) {
   const key = typeof documentOrKey === "string" ? documentOrKey : recoveryKey(documentOrKey);
   return writeRecoveries(readRecoveries(storage).filter((item) => item.key !== key), storage);
 }
 
-export function recoveryForPath(path, storage = globalThis.localStorage) {
+export function recoveryForPath(path, storage = undefined) {
   if (typeof path !== "string" || !path.trim()) return null;
   const key = `path:${pathIdentity(path)}`;
   return readRecoveries(storage).find((item) => item.key === key) ?? null;

@@ -1,3 +1,5 @@
+import { optionalLocalStorage } from "./storage.mjs";
+
 export const WORKSPACE_LAYOUT_STORAGE_KEY = "mardas.desktop.workspace-layout.v1";
 
 export const DEFAULT_WORKSPACE_LAYOUT = Object.freeze({
@@ -39,20 +41,22 @@ export function normalizeWorkspaceLayout(value = {}) {
   };
 }
 
-export function readWorkspaceLayout(storage = globalThis.localStorage) {
+export function readWorkspaceLayout(storage = undefined) {
+  const localStorage = optionalLocalStorage(storage);
   try {
     return normalizeWorkspaceLayout(
-      JSON.parse(storage?.getItem(WORKSPACE_LAYOUT_STORAGE_KEY) || "{}"),
+      JSON.parse(localStorage?.getItem(WORKSPACE_LAYOUT_STORAGE_KEY) || "{}"),
     );
   } catch {
     return { ...DEFAULT_WORKSPACE_LAYOUT };
   }
 }
 
-export function writeWorkspaceLayout(value, storage = globalThis.localStorage) {
+export function writeWorkspaceLayout(value, storage = undefined) {
   const normalized = normalizeWorkspaceLayout(value);
+  const localStorage = optionalLocalStorage(storage);
   try {
-    storage?.setItem(WORKSPACE_LAYOUT_STORAGE_KEY, JSON.stringify(normalized));
+    localStorage?.setItem(WORKSPACE_LAYOUT_STORAGE_KEY, JSON.stringify(normalized));
   } catch {
     // Workspace geometry is convenience state; persistence must never block editing.
   }

@@ -1,3 +1,5 @@
+import { optionalLocalStorage } from "./storage.mjs";
+
 export const PREFERENCES_STORAGE_KEY = "mardas.desktop.preferences.v1";
 
 export const DEFAULT_PREFERENCES = Object.freeze({
@@ -26,18 +28,20 @@ export function normalizePreferences(value = {}) {
   };
 }
 
-export function readPreferences(storage = globalThis.localStorage) {
+export function readPreferences(storage = undefined) {
+  const localStorage = optionalLocalStorage(storage);
   try {
-    return normalizePreferences(JSON.parse(storage?.getItem(PREFERENCES_STORAGE_KEY) || "{}"));
+    return normalizePreferences(JSON.parse(localStorage?.getItem(PREFERENCES_STORAGE_KEY) || "{}"));
   } catch {
     return { ...DEFAULT_PREFERENCES };
   }
 }
 
-export function writePreferences(value, storage = globalThis.localStorage) {
+export function writePreferences(value, storage = undefined) {
   const normalized = normalizePreferences(value);
+  const localStorage = optionalLocalStorage(storage);
   try {
-    storage?.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(normalized));
+    localStorage?.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(normalized));
   } catch {
     // Preferences are convenience state; failures must not block document workflows.
   }
