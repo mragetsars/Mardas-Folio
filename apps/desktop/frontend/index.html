@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'">
-  <title>Mardas Studio</title>
+  <title>Mardas Folio</title>
   <link rel="icon" href="./assets/app-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./workspace.css">
@@ -28,7 +28,7 @@
   <header class="topbar">
     <button class="brand" id="home-button" type="button">
       <img src="./assets/app-icon.svg" alt="" width="38" height="38">
-      <span><strong>Mardas Studio</strong><small id="app-version">__MARDAS_VERSION__</small></span>
+      <span><strong>Mardas Folio</strong><small id="app-version">__MARDAS_VERSION__</small></span>
     </button>
     <div class="top-actions">
       <span class="engine" id="engine-state" data-state="checking" role="status" aria-live="polite"><i></i><span data-i18n="engineChecking">در حال بررسی موتور</span></span>
@@ -41,45 +41,42 @@
 
   <main id="app-main" tabindex="-1">
     <section class="view active" id="start-view">
-      <div class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow" data-i18n="eyebrow">انتشار حرفه‌ای Markdown</p>
-          <h1 data-i18n="welcomeTitle">سندت را باز کن؛ PDF آماده تحویل بگیر.</h1>
-          <p data-i18n="welcomeDescription">بدون نصب Python، بدون خط فرمان و بدون بازشدن مرورگر. Mardas Studio فایل Markdown را با پشتیبانی کامل فارسی، فرمول، نمودار و ناوبری PDF منتشر می‌کند.</p>
-          <div class="hero-actions">
-            <button class="button primary" id="start-quick-export" type="button" data-i18n="quickExport">خروجی سریع PDF</button>
-            <button class="button glass" id="start-open-file" type="button" data-i18n="openMarkdown">باز کردن Markdown</button>
-            <button class="button glass" id="start-open-project" type="button" data-i18n="openProject">باز کردن پروژه</button>
-            <button class="button glass" id="start-new-book" type="button" data-i18n="newBookProject">پروژه کتاب جدید</button>
+      <!-- An application launcher, not a landing page: the actions the user
+           came for, the documents they were last in, and nothing else. -->
+      <div class="launcher">
+        <section class="launcher-col" aria-labelledby="launcher-start-title">
+          <h2 class="launcher-heading" id="launcher-start-title" data-i18n="chooseWorkflow">از کجا شروع کنیم؟</h2>
+          <div class="action-list">
+            <button class="action-row" id="workflow-quick" type="button">
+              <span class="action-glyph" aria-hidden="true">&#8599;</span>
+              <span class="action-copy"><strong data-i18n="quickExport">خروجی سریع PDF</strong><small data-i18n="quickExportHelp">یک فایل، چند انتخاب ساده، خروجی نهایی.</small></span>
+            </button>
+            <button class="action-row" id="workflow-open" type="button">
+              <span class="action-glyph" aria-hidden="true">MD</span>
+              <span class="action-copy"><strong data-i18n="openMarkdown">باز کردن Markdown</strong><small data-i18n="openMarkdownHelp">فایل موجود را انتخاب و آماده انتشار کن.</small></span>
+            </button>
+            <button class="action-row" id="workflow-project" type="button">
+              <span class="action-glyph" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg></span>
+              <span class="action-copy"><strong data-i18n="openProject">باز کردن پروژه</strong><small data-i18n="chooseProjectHelp">پوشه‌ای را انتخاب کن که mardas.toml دارد.</small></span>
+            </button>
+            <button class="action-row" id="workflow-book" type="button">
+              <span class="action-glyph" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-book"></use></svg></span>
+              <span class="action-copy"><strong data-i18n="newBookProject">پروژه کتاب جدید</strong><small data-i18n="newBookProjectHelp">کتاب، پایان‌نامه یا گزارش چندفصلی بساز.</small></span>
+            </button>
           </div>
-        </div>
-        <div class="hero-art" aria-hidden="true">
-          <div class="paper back"></div>
-          <div class="paper front"><span class="dots"></span><b></b><i></i><i></i><em></em><i></i><strong>PDF</strong></div>
-        </div>
+        </section>
+
+        <section class="launcher-col" aria-labelledby="launcher-recent-title">
+          <h2 class="launcher-heading" id="launcher-recent-title"><span data-i18n="recentDocuments">سندهای اخیر</span><button class="text-button" id="clear-recents" type="button" data-i18n="clear">پاک‌کردن</button></h2>
+          <div id="recent-list" class="recent-list"></div>
+          <div id="recent-empty" class="empty"><strong data-i18n="noRecent">هنوز سندی باز نشده است.</strong><small data-i18n="noRecentHelp">فایل‌های اخیر برای دسترسی سریع اینجا نمایش داده می‌شوند.</small></div>
+        </section>
       </div>
 
       <section class="template-section" aria-labelledby="template-gallery-title">
-        <header class="panel-title template-heading"><div><p data-i18n="templates">قالب‌ها</p><h2 id="template-gallery-title" data-i18n="startFromTemplate">از یک قالب آماده شروع کن</h2></div><button class="text-button" id="template-help" type="button" data-i18n="learnTemplates">راهنمای قالب‌ها</button></header>
+        <h2 class="launcher-heading" id="template-gallery-title"><span data-i18n="startFromTemplate">از یک قالب آماده شروع کن</span><button class="text-button" id="template-help" type="button" data-i18n="learnTemplates">راهنمای قالب‌ها</button></h2>
         <div class="template-grid" id="template-grid"></div>
       </section>
-
-      <div class="start-grid">
-        <section class="panel">
-          <header class="panel-title"><div><p data-i18n="workflows">مسیرهای کاری</p><h2 data-i18n="chooseWorkflow">از کجا شروع کنیم؟</h2></div></header>
-          <div class="workflow-list">
-            <button class="workflow featured" id="workflow-quick" type="button"><span class="workflow-icon">↗</span><span><strong data-i18n="quickExport">خروجی سریع PDF</strong><small data-i18n="quickExportHelp">یک فایل، چند انتخاب ساده، خروجی نهایی.</small></span><b>←</b></button>
-            <button class="workflow" id="workflow-open" type="button"><span class="workflow-icon">MD</span><span><strong data-i18n="openMarkdown">باز کردن Markdown</strong><small data-i18n="openMarkdownHelp">فایل موجود را انتخاب و آماده انتشار کن.</small></span><b>←</b></button>
-            <button class="workflow" id="workflow-project" type="button"><span class="workflow-icon">P</span><span><strong data-i18n="openProject">باز کردن پروژه</strong><small data-i18n="chooseProjectHelp">پوشه‌ای را انتخاب کن که mardas.toml دارد.</small></span><b>←</b></button>
-            <button class="workflow" id="workflow-book" type="button"><span class="workflow-icon">B</span><span><strong data-i18n="newBookProject">پروژه کتاب جدید</strong><small data-i18n="newBookProjectHelp">کتاب، پایان‌نامه یا گزارش چندفصلی بساز.</small></span><b>←</b></button>
-          </div>
-        </section>
-        <section class="panel recent-panel">
-          <header class="panel-title"><div><p data-i18n="recent">اخیر</p><h2 data-i18n="recentDocuments">سندهای اخیر</h2></div><button class="text-button" id="clear-recents" type="button" data-i18n="clear">پاک‌کردن</button></header>
-          <div id="recent-list" class="recent-list"></div>
-          <div id="recent-empty" class="empty"><span>⌁</span><strong data-i18n="noRecent">هنوز سندی باز نشده است.</strong><small data-i18n="noRecentHelp">فایل‌های اخیر برای دسترسی سریع اینجا نمایش داده می‌شوند.</small></div>
-        </section>
-      </div>
     </section>
 
     <section class="view" id="export-view">
@@ -282,7 +279,7 @@
     <div class="onboarding-progress" aria-hidden="true"><i data-onboarding-dot="0"></i><i data-onboarding-dot="1"></i><i data-onboarding-dot="2"></i></div>
     <section class="onboarding-step" data-onboarding-step="0">
       <span class="welcome-mark">M</span>
-      <h2 id="onboarding-title" data-i18n="onboardingWelcome">به Mardas Studio خوش آمدی</h2>
+      <h2 id="onboarding-title" data-i18n="onboardingWelcome">به Mardas Folio خوش آمدی</h2>
       <p id="onboarding-description" data-i18n="onboardingWelcomeHelp">برای شروع لازم نیست چیزی درباره Python یا خط فرمان بدانی. سندت روی همین دستگاه می‌ماند.</p>
       <div class="onboarding-choice">
         <button class="choice-card" type="button" data-onboarding-action="document"><b>MD</b><span><strong data-i18n="newDocument">سند جدید</strong><small data-i18n="onboardingDocumentHelp">برای گزارش، مقاله یا یک سند مستقل.</small></span></button>
@@ -338,7 +335,7 @@
           <button class="button secondary compact" id="check-updates" type="button" data-i18n="checkForUpdates">بررسی بروزرسانی</button>
           <button class="button primary compact hidden" id="install-update" type="button" data-i18n="installUpdate">نصب بروزرسانی</button>
         </div>
-        <small data-i18n="updateSecurityHelp">فقط بسته‌های امضاشده با کلید رسمی Mardas Studio نصب می‌شوند.</small>
+        <small data-i18n="updateSecurityHelp">فقط بسته‌های امضاشده با کلید رسمی Mardas Folio نصب می‌شوند.</small>
       </section>
     </div>
     <div class="settings-empty hidden" id="settings-empty" data-i18n="noSettingsMatch">تنظیمی با این عبارت پیدا نشد.</div>

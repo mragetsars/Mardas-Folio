@@ -22,22 +22,65 @@ function contrast(foreground, background) {
   return (values[0] + 0.05) / (values[1] + 0.05);
 }
 
-test("dark authoring controls and preview headings have explicit theme overrides", () => {
-  assert.match(styles, /html\[data-theme="dark"\] \.formatting\{background:#182628;border-color:#40585a\}/);
-  assert.match(styles, /html\[data-theme="dark"\] \.formatting button\{color:#d9efec\}/);
-  assert.match(styles, /html\[data-theme="dark"\] \.preview-document h6,[\s\S]*?\.preview-source-link\{color:var\(--brand2\)\}/);
-  assert.match(styles, /html\[data-theme="dark"\] \.preview-source-link\.source-active\{background:rgba\(94,234,212,\.14\)\}/);
-});
+/**
+ * Read a custom property out of a declaration block.
+ *
+ * These assertions deliberately resolve the palette that is actually declared
+ * instead of pinning hex literals. Pinning values meant a palette change failed
+ * the suite for changing colour rather than for breaking a contract, which told
+ * nobody anything useful; what has to hold is that the tokens exist and that
+ * the resulting text clears WCAG AA.
+ */
+function tokens(css, selector) {
+  const start = css.indexOf(selector);
+  assert.notEqual(start, -1, `expected a ${selector} block`);
+  const block = css.slice(start, css.indexOf("}", start));
+  return Object.fromEntries(
+    [...block.matchAll(/(--[a-z-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)].map((m) => [m[1], m[2]]),
+  );
+}
 
-test("dark preview heading color exceeds WCAG AA contrast", () => {
-  assert.ok(contrast("#99f6e4", "#1d2b2d") >= 4.5);
+test("dark authoring controls and preview headings have explicit theme overrides", () => {
+  for (const selector of [
+    'html[data-theme="dark"] .formatting{',
+    'html[data-theme="dark"] .formatting button{',
+    'html[data-theme="dark"] .preview-source-link.source-active{',
+  ]) {
+    assert.ok(styles.includes(selector), `missing dark override for ${selector}`);
+  }
+  assert.match(styles, /html\[data-theme="dark"\] \.preview-document h6,/);
 });
 
 test("workspace surface tokens keep small UI text above AA contrast", () => {
-  assert.match(workspaceStyles, /--ui-muted: #5f7375;/);
-  assert.ok(contrast("#5f7375", "#f7f9f9") >= 4.5);
-  assert.ok(contrast("#8fa3a4", "#162124") >= 4.5);
-  assert.ok(contrast("#47d7c2", "#121a1c") >= 4.5);
+  const light = tokens(workspaceStyles, ":root {");
+  const dark = tokens(workspaceStyles, 'html[data-theme="dark"] {');
+
+  const pairs = [
+    ["light muted on soft panel", light["--ui-muted"], light["--ui-panel-soft"]],
+    ["light muted on panel", light["--ui-muted"], light["--ui-panel"]],
+    ["light accent on panel", light["--ui-accent"], light["--ui-panel"]],
+    ["light text on panel", light["--ui-text"], light["--ui-panel"]],
+    ["dark muted on soft panel", dark["--ui-muted"], dark["--ui-panel-soft"]],
+    ["dark muted on panel", dark["--ui-muted"], dark["--ui-panel"]],
+    ["dark accent on panel", dark["--ui-accent"], dark["--ui-panel"]],
+    ["dark text on panel", dark["--ui-text"], dark["--ui-panel"]],
+  ];
+
+  for (const [label, foreground, background] of pairs) {
+    assert.ok(foreground && background, `${label}: token missing`);
+    const ratio = contrast(foreground, background);
+    assert.ok(ratio >= 4.5, `${label}: ${foreground} on ${background} is ${ratio.toFixed(2)}:1`);
+  }
+});
+
+test("text drawn on the accent fill stays legible in both themes", () => {
+  // The light accent is dark and takes white; the dark accent is a light orange
+  // where white would fall to 2.2:1, so it takes ink instead.
+  for (const selector of [":root {", 'html[data-theme="dark"] {']) {
+    const palette = tokens(workspaceStyles, selector);
+    const ratio = contrast(palette["--ui-on-accent"], palette["--ui-accent"]);
+    assert.ok(ratio >= 4.5, `${selector} on-accent contrast is ${ratio.toFixed(2)}:1`);
+  }
 });
 
 test("publishing and recent-document cards keep explicit layout hooks", () => {

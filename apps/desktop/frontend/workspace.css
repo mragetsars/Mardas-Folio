@@ -9,44 +9,150 @@
  */
 
 :root {
-  --ui-bg: #f3f6f6;
+  color-scheme: light;
+
+  /* ---- Surfaces -------------------------------------------------------
+   * Strictly neutral greys: no hue at all, so the only colour in the
+   * interface is the accent and the semantic states. */
+  --ui-bg: #f2f2f2;
   --ui-panel: #ffffff;
-  --ui-panel-soft: #f7f9f9;
-  --ui-panel-muted: #edf2f1;
-  --ui-border: #d8e2e0;
-  --ui-border-strong: #bdcfcb;
-  --ui-text: #172b2e;
-  --ui-text-soft: #40585b;
-  --ui-muted: #5f7375;
-  --ui-accent: #0f766e;
-  --ui-accent-hover: #0b655e;
-  --ui-accent-soft: #e3f3ef;
-  --ui-danger: #b42318;
-  --ui-warning: #9a6700;
-  --ui-shadow: 0 16px 44px rgba(20, 55, 53, 0.10);
-  --ui-shadow-float: 0 24px 70px rgba(13, 38, 37, 0.18);
-  --ui-radius: 10px;
-  --sidebar-width: 296px;
-  --preview-width: 500px;
+  --ui-panel-soft: #fafafa;
+  --ui-panel-muted: #f0f0f0;
+  --ui-border: #e2e2e2;
+  --ui-border-strong: #c9c9c9;
+
+  /* ---- Text ---------------------------------------------------------- */
+  --ui-text: #141414;
+  --ui-text-soft: #3d3d3d;
+  --ui-muted: #6b6b6b;
+
+  /* ---- Accent ---------------------------------------------------------
+   * Orange for a writing and documentation tool. #c2410c is the deepest
+   * value that still reads as orange while carrying white text at 5.18:1;
+   * the brighter #ea580c is for fills and marks that hold no text. */
+  --ui-accent: #c2410c;
+  --ui-accent-hover: #9a3412;
+  --ui-accent-bright: #ea580c;
+  --ui-accent-soft: #fdf1e9;
+  --ui-on-accent: #ffffff;
+
+  /* ---- Semantic ------------------------------------------------------- */
+  --ui-danger: #b91c1c;
+  --ui-warning: #a16207;
+  --ui-success: #15803d;
+
+  /* ---- Elevation and geometry ----------------------------------------
+   * An application window is flat: borders separate regions, not shadows.
+   * Shadows are reserved for surfaces that genuinely float. */
+  --ui-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --ui-shadow-float: 0 8px 28px rgba(0, 0, 0, 0.14);
+  --ui-radius: 6px;
+  --ui-radius-sm: 4px;
+  --sidebar-width: 260px;
+  --preview-width: 460px;
+
+  /* ---- Editor syntax palette ------------------------------------------
+   * Read by the Markdown editor in place of CodeMirror's light-only
+   * defaultHighlightStyle. Markdown structure carries the brand orange;
+   * code literals use a separate, conventional hue set so a fenced block
+   * never competes with the prose around it. Every value is checked at
+   * 4.5:1 or better against its own surface. */
+  --cm-text: #141414;
+  --cm-strong: #000000;
+  --cm-emphasis: #141414;
+  --cm-mark: #757575;
+  --cm-meta: #757575;
+  --cm-comment: #6b6b6b;
+  --cm-heading: #c2410c;
+  --cm-list: #c2410c;
+  --cm-link: #0369a1;
+  --cm-url: #5f5f5f;
+  --cm-quote: #5f5f5f;
+  --cm-code: #b91c1c;
+  --cm-number: #6d28d9;
+  --cm-string: #15803d;
+  --cm-key: #854d0e;
+  --cm-function: #854d0e;
+  --cm-keyword: #6d28d9;
+  --cm-type: #0369a1;
+  --cm-variable: #141414;
+  --cm-invalid: #b91c1c;
+
+  --cm-cursor: #c2410c;
+  --cm-selection: rgba(194, 65, 12, 0.16);
+  --cm-selection-match: rgba(194, 65, 12, 0.12);
+  --cm-active-line: rgba(20, 20, 20, 0.035);
+  --cm-gutter-text: #767676;
+  --cm-gutter-active: #141414;
+  --cm-gutter-border: var(--ui-border);
+  --cm-search: rgba(161, 98, 7, 0.22);
+  --cm-search-border: rgba(161, 98, 7, 0.45);
+  --cm-search-active: rgba(161, 98, 7, 0.42);
+  --cm-panel: var(--ui-panel);
+  --cm-panel-border: var(--ui-border);
+  --cm-panel-shadow: var(--ui-shadow-float);
+  --cm-accent-soft: var(--ui-accent-soft);
+  --cm-warning: var(--ui-warning);
 }
 
 html[data-theme="dark"] {
-  --ui-bg: #0c1214;
-  --ui-panel: #121a1c;
-  --ui-panel-soft: #162124;
-  --ui-panel-muted: #1b292c;
-  --ui-border: #29393c;
-  --ui-border-strong: #3b5053;
-  --ui-text: #e7efee;
-  --ui-text-soft: #c3d1d0;
-  --ui-muted: #8fa3a4;
-  --ui-accent: #47d7c2;
-  --ui-accent-hover: #6ce6d4;
-  --ui-accent-soft: rgba(71, 215, 194, 0.12);
-  --ui-danger: #ff8f87;
-  --ui-warning: #f2c35c;
-  --ui-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-  --ui-shadow-float: 0 28px 80px rgba(0, 0, 0, 0.42);
+  color-scheme: dark;
+
+  --ui-bg: #0d0d0d;
+  --ui-panel: #161616;
+  --ui-panel-soft: #1c1c1c;
+  --ui-panel-muted: #242424;
+  --ui-border: #2e2e2e;
+  --ui-border-strong: #454545;
+
+  --ui-text: #ededed;
+  --ui-text-soft: #c9c9c9;
+  --ui-muted: #8f8f8f;
+
+  /* The dark accent is a light orange, so anything drawn on it takes ink. */
+  --ui-accent: #fb923c;
+  --ui-accent-hover: #fdba74;
+  --ui-accent-bright: #f97316;
+  --ui-accent-soft: rgba(251, 146, 60, 0.14);
+  --ui-on-accent: #1a1005;
+
+  --ui-danger: #fca5a5;
+  --ui-warning: #fcd34d;
+  --ui-success: #86efac;
+
+  --ui-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ui-shadow-float: 0 8px 28px rgba(0, 0, 0, 0.5);
+
+  --cm-text: #ededed;
+  --cm-strong: #ffffff;
+  --cm-emphasis: #ededed;
+  --cm-mark: #8f8f8f;
+  --cm-meta: #8f8f8f;
+  --cm-comment: #8f8f8f;
+  --cm-heading: #fb923c;
+  --cm-list: #fb923c;
+  --cm-link: #7dd3fc;
+  --cm-url: #9e9e9e;
+  --cm-quote: #a3a3a3;
+  --cm-code: #fca5a5;
+  --cm-number: #c4b5fd;
+  --cm-string: #86efac;
+  --cm-key: #fcd34d;
+  --cm-function: #fcd34d;
+  --cm-keyword: #c4b5fd;
+  --cm-type: #7dd3fc;
+  --cm-variable: #ededed;
+  --cm-invalid: #fca5a5;
+
+  --cm-cursor: #fb923c;
+  --cm-selection: rgba(251, 146, 60, 0.24);
+  --cm-selection-match: rgba(251, 146, 60, 0.18);
+  --cm-active-line: rgba(255, 255, 255, 0.045);
+  --cm-gutter-text: #8a8a8a;
+  --cm-gutter-active: #ededed;
+  --cm-search: rgba(252, 211, 77, 0.24);
+  --cm-search-border: rgba(252, 211, 77, 0.5);
+  --cm-search-active: rgba(252, 211, 77, 0.44);
 }
 
 html,
@@ -214,7 +320,7 @@ body {
 .author-toolbar .button.primary {
   border: 1px solid color-mix(in srgb, var(--ui-accent) 80%, transparent);
   background: var(--ui-accent);
-  color: #fff;
+  color: var(--ui-on-accent);
 }
 
 main {
@@ -255,8 +361,10 @@ body[data-view="workspace"] .view {
 
 .button.primary {
   background: var(--ui-accent);
-  color: #ffffff;
-  box-shadow: 0 5px 14px color-mix(in srgb, var(--ui-accent) 24%, transparent);
+  color: var(--ui-on-accent);
+  /* A coloured glow around the only accent button on the screen read as a
+   * halo against the warm neutral surfaces. */
+  box-shadow: none;
 }
 
 .button.primary:hover {
@@ -475,7 +583,7 @@ input[readonly] {
 #export-view .preset-card[aria-checked="true"] i {
   border-color: var(--ui-accent);
   background: var(--ui-accent);
-  color: #fff;
+  color: var(--ui-on-accent);
   opacity: 1;
 }
 
@@ -638,14 +746,15 @@ html[dir="rtl"] .settings-card .settings-sections {
 }
 
 /* Start center receives the same native-desktop visual language. */
+/* The start screen opens a tool, not a landing page.  The saturated gradient
+ * billboard is replaced by an ordinary panel so the first thing the eye lands
+ * on is the document actions rather than the brand. */
 .hero {
-  min-height: 310px;
-  border: 1px solid color-mix(in srgb, var(--ui-accent) 24%, transparent);
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 86% 16%, rgba(255, 255, 255, 0.11), transparent 25rem),
-    linear-gradient(135deg, #0b5d58 0%, #0e746b 58%, #173553 125%);
-  box-shadow: 0 22px 58px rgba(9, 69, 65, 0.20);
+  min-height: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: 14px;
+  background: var(--ui-panel);
+  box-shadow: none;
 }
 
 .panel,
@@ -653,7 +762,7 @@ html[dir="rtl"] .settings-card .settings-sections {
   border-color: var(--ui-border);
   border-radius: 16px;
   background: var(--ui-panel);
-  box-shadow: 0 8px 26px rgba(21, 61, 58, 0.06);
+  box-shadow: 0 8px 26px rgba(41, 41, 41, 0.06);
 }
 
 html[data-theme="dark"] .panel,
@@ -709,35 +818,48 @@ html[data-theme="dark"] .template-section {
 
 .hero,
 html[data-theme="dark"] .hero {
-  color: #fff;
+  color: var(--ui-text);
 }
 
 .hero h1,
 html[data-theme="dark"] .hero h1 {
-  color: #fff;
+  color: var(--ui-text);
+  font-size: clamp(23px, 2.4vw, 31px);
+  letter-spacing: -0.02em;
 }
 
 .hero-copy > p:not(.eyebrow),
 html[data-theme="dark"] .hero-copy > p:not(.eyebrow) {
-  color: rgba(255, 255, 255, 0.86);
+  color: var(--ui-muted);
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 .hero .eyebrow,
 html[data-theme="dark"] .hero .eyebrow {
-  color: #b8f5e8;
+  color: var(--ui-muted);
+  letter-spacing: 0.08em;
 }
 
+/* Secondary actions read as buttons on a panel, not glass on a gradient. */
 .hero .button.glass,
 html[data-theme="dark"] .hero .button.glass {
-  border-color: rgba(255, 255, 255, 0.26);
-  background: rgba(255, 255, 255, 0.09);
-  color: #fff;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-panel-soft);
+  color: var(--ui-text-soft);
+}
+
+.hero .button.glass:hover,
+html[data-theme="dark"] .hero .button.glass:hover {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-panel-muted);
+  color: var(--ui-text);
 }
 
 .hero .button.primary,
 html[data-theme="dark"] .hero .button.primary {
-  background: #fff;
-  color: #0b655e;
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
 }
 
 /* Authoring workspace */
@@ -1067,7 +1189,7 @@ html[dir="ltr"] .document-tab {
   padding-inline: 4px;
   border-radius: 999px;
   background: var(--ui-danger);
-  color: #fff;
+  color: #ffffff;
   font: 800 8px/1 system-ui, sans-serif;
 }
 
@@ -1282,7 +1404,7 @@ html[dir="ltr"] .sidebar-panel {
 .pane-header #save-state[data-state="dirty"] {
   border-color: color-mix(in srgb, var(--ui-warning) 30%, var(--ui-border));
   background: color-mix(in srgb, var(--ui-warning) 12%, var(--ui-panel));
-  color: var(--ui-warning);
+  color: color-mix(in srgb, var(--ui-warning) 88%, var(--ui-text));
 }
 
 .editor-status {
@@ -1374,7 +1496,7 @@ html[dir="ltr"] .sidebar-panel {
 
 .preview-document pre {
   border: 1px solid var(--ui-border);
-  background: #10191b;
+  background: #161616;
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
 }
 
@@ -1509,7 +1631,7 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
   background: color-mix(in srgb, var(--ui-panel) 94%, var(--ui-accent-soft));
   box-shadow:
     0 -2px 0 color-mix(in srgb, var(--ui-accent) 55%, transparent) inset,
-    0 6px 16px rgba(10, 38, 38, 0.08);
+    0 6px 16px rgba(24, 24, 24, 0.08);
 }
 
 .document-tab.active .tab-name {
@@ -1537,8 +1659,8 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
 }
 
 .hero {
-  min-height: 294px;
-  padding: 42px 48px;
+  min-height: 0;
+  padding: 30px 34px;
 }
 
 .hero-copy > p:not(.eyebrow) {
@@ -2054,7 +2176,7 @@ html[dir="rtl"] .book-chapter-row.active {
   place-items: center;
   border-radius: 11px;
   background: var(--ui-accent);
-  color: #fff;
+  color: #ffffff;
   font-size: 11px;
 }
 
@@ -2093,7 +2215,7 @@ html[data-theme="light"] .panel,
 html[data-theme="light"] .template-section,
 html[data-theme="light"] .form-panel,
 html[data-theme="light"] .status-panel {
-  box-shadow: 0 10px 30px rgba(30, 74, 70, 0.07);
+  box-shadow: 0 10px 30px rgba(52, 52, 52, 0.07);
 }
 
 html[data-theme="light"] .hero {
@@ -2132,7 +2254,7 @@ html[data-theme="light"] .hero {
   border: 1px solid var(--ui-border);
   border-radius: 9px;
   background: color-mix(in srgb, var(--ui-panel) 96%, transparent);
-  box-shadow: 0 8px 20px rgba(10, 38, 38, 0.12);
+  box-shadow: 0 8px 20px rgba(24, 24, 24, 0.12);
   opacity: 0;
   pointer-events: none;
   transform: translateY(-50%) translateX(3px);
@@ -2158,4 +2280,571 @@ html[dir="rtl"] .book-chapter-actions {
   .book-chapter-actions {
     transition: none;
   }
+}
+
+/* Start-screen illustration.
+ *
+ * The paper mock is drawn in light values, which made it the brightest object
+ * on the dark workspace. It follows the surface tokens instead. */
+html[data-theme="dark"] .paper {
+  background: var(--ui-panel-soft);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="dark"] .paper.back {
+  background: var(--ui-panel-muted);
+}
+
+html[data-theme="dark"] .paper.front {
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text);
+}
+
+html[data-theme="dark"] .paper b {
+  background: var(--ui-border-strong);
+}
+
+html[data-theme="dark"] .paper i {
+  background: var(--ui-panel-muted);
+}
+
+html[data-theme="dark"] .paper em {
+  border-inline-start-color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 12%, transparent);
+}
+
+html[data-theme="dark"] .paper .dots {
+  background: radial-gradient(circle, var(--ui-border-strong) 3px, transparent 4px) 0 0 / 17px 8px;
+}
+
+/* Surfaces that previously read undefined custom properties.
+ *
+ * `var(--panel-soft)` and `var(--text)` were never declared, so these panels
+ * fell back to fixed light values and kept them in dark mode: the support
+ * bundle heading sat at 1.12:1 and its body copy at 2.63:1. They now follow the
+ * theme tokens like every other surface. */
+.support-panel {
+  border-color: var(--ui-border);
+  background: var(--ui-panel-soft);
+}
+
+.support-panel h3 {
+  color: var(--ui-text);
+}
+
+.support-panel p {
+  color: var(--ui-text-soft);
+}
+
+.support-panel small {
+  color: var(--ui-muted);
+}
+
+.status-visual > span {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent);
+}
+
+.skip-link {
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+}
+
+/* Outline level badges were the last text under the 4.5:1 floor. */
+.tool-item .level {
+  color: var(--ui-muted);
+}
+
+/* Remaining text below the AA floor. */
+/* Decorative, inside an aria-hidden illustration, but cheap to bring over. */
+.paper strong {
+  background: #b91c1c;
+}
+
+/* ==========================================================================
+ * Application shell
+ *
+ * The interface previously carried web-page conventions: a full-bleed hero,
+ * 44px controls, 12-23px corner radii, drop shadows on static panels and an
+ * entrance animation on every view change. Desktop software reads differently:
+ * dense controls, hairline separators instead of shadows, small radii, and no
+ * motion that the user did not initiate. This layer sets that language once so
+ * individual components do not each have to.
+ * ====================================================================== */
+
+/* ---- Type and density --------------------------------------------------- */
+:root {
+  --app-font: "Inter", "Segoe UI Variable", "Segoe UI", "Vazirmatn",
+    "Noto Sans Arabic", system-ui, sans-serif;
+  --control-h: 30px;
+  --control-h-sm: 26px;
+}
+
+body {
+  font-family: var(--app-font);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Views are regions of one window, not pages being navigated. */
+.view.active {
+  animation: none;
+}
+
+.view {
+  max-width: none;
+}
+
+#start-view,
+#export-view {
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+main {
+  padding: 22px 24px 32px;
+}
+
+/* ---- Title bar ---------------------------------------------------------- */
+.shell {
+  grid-template-rows: 44px minmax(0, 1fr) 24px;
+}
+
+.topbar {
+  padding: 0 12px;
+  background: var(--ui-panel-soft);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.brand {
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--ui-radius-sm);
+}
+
+.brand:hover {
+  background: var(--ui-panel-muted);
+}
+
+.brand img {
+  width: 20px;
+  height: 20px;
+  border-radius: 0;
+  color: var(--ui-accent);
+}
+
+.brand strong {
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.brand small {
+  font-size: 10px;
+  color: var(--ui-muted);
+}
+
+.top-actions {
+  gap: 4px;
+}
+
+.engine {
+  min-height: var(--control-h-sm);
+  padding: 0 8px;
+  border-radius: var(--ui-radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.icon-button,
+.toolbar-icon-button {
+  width: var(--control-h);
+  height: var(--control-h);
+  min-height: var(--control-h);
+  border-radius: var(--ui-radius-sm);
+  font-weight: 600;
+}
+
+.app-footer {
+  padding: 0 12px;
+  background: var(--ui-panel-soft);
+  border-top: 1px solid var(--ui-border);
+  font-size: 10.5px;
+}
+
+/* ---- Controls ----------------------------------------------------------- */
+.button,
+.back,
+.text-button {
+  min-height: var(--control-h);
+  padding: 0 12px;
+  border-radius: var(--ui-radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background-color 90ms ease, border-color 90ms ease;
+}
+
+.button.compact {
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.button:hover,
+.back:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.button.secondary,
+.button.glass {
+  border: 1px solid var(--ui-border);
+  background: var(--ui-panel);
+  color: var(--ui-text-soft);
+}
+
+.button.secondary:hover,
+.button.glass:hover {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-panel-muted);
+  color: var(--ui-text);
+}
+
+.text-button {
+  min-height: var(--control-h-sm);
+  font-size: 11.5px;
+  font-weight: 550;
+}
+
+input,
+select,
+.frontmatter-form input,
+.frontmatter-form select {
+  min-height: var(--control-h);
+  padding: 0 9px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  font-size: 12.5px;
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 1px;
+}
+
+/* ---- Panels ------------------------------------------------------------- */
+.panel,
+.template-section,
+.modal-card,
+.preset,
+.workflow,
+.settings-section,
+.help-grid section,
+.support-panel {
+  border-radius: var(--ui-radius);
+  box-shadow: none;
+}
+
+.panel,
+.template-section {
+  border: 1px solid var(--ui-border);
+  background: var(--ui-panel);
+}
+
+.modal-card {
+  border: 1px solid var(--ui-border);
+  box-shadow: var(--ui-shadow-float);
+}
+
+/* Section headings are labels, not page titles. */
+.launcher-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 8px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.eyebrow,
+.section-label,
+.panel-title p {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  color: var(--ui-muted);
+}
+
+.panel-title h2 {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+/* ---- Launcher ----------------------------------------------------------- */
+.launcher {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.launcher-col {
+  min-width: 0;
+}
+
+.action-list {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-border);
+  overflow: hidden;
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 0;
+  background: var(--ui-panel);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.action-row:hover {
+  background: var(--ui-panel-muted);
+}
+
+.action-row:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -2px;
+}
+
+.action-glyph {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  direction: ltr;
+}
+
+.action-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.action-copy strong {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.action-copy small {
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* ---- Recents ------------------------------------------------------------ */
+.recent-list {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-border);
+  overflow: hidden;
+}
+
+.recent-list:empty {
+  display: none;
+}
+
+.recent-item {
+  border-radius: 0;
+  padding: 8px 11px;
+  background: var(--ui-panel);
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 9px;
+}
+
+.recent-item:hover {
+  background: var(--ui-panel-muted);
+}
+
+.recent-item > span:first-child {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--ui-radius-sm);
+  border-color: var(--ui-border);
+  background: var(--ui-panel-soft);
+  color: var(--ui-muted);
+  font-size: 9.5px;
+}
+
+.recent-copy strong {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.empty {
+  padding: 20px 12px;
+  border: 1px dashed var(--ui-border);
+  border-radius: var(--ui-radius);
+  color: var(--ui-muted);
+}
+
+.empty strong {
+  font-size: 12.5px;
+  color: var(--ui-text-soft);
+}
+
+.empty small {
+  font-size: 11px;
+}
+
+/* ---- Templates ---------------------------------------------------------- */
+.template-section {
+  margin-top: 22px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.template-card {
+  padding: 10px 11px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-panel);
+  box-shadow: none;
+}
+
+.template-card:hover {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-panel-muted);
+}
+
+@media (max-width: 900px) {
+  .launcher,
+  .template-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- Export view -------------------------------------------------------- */
+.workspace-heading {
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.workspace-heading h1 {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.workspace-heading .eyebrow {
+  margin-bottom: 2px;
+}
+
+.back {
+  width: var(--control-h);
+  min-height: var(--control-h);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel);
+  color: var(--ui-text-soft);
+  font-size: 14px;
+}
+
+.form-panel {
+  padding: 18px 20px;
+}
+
+.step > header {
+  gap: 10px;
+  margin-bottom: 11px;
+}
+
+.step > header > span {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.step h2 {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.step p {
+  font-size: 11.5px;
+}
+
+.step + .step {
+  margin-top: 18px;
+  padding-top: 17px;
+}
+
+.form-actions {
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.status-panel {
+  padding: 18px;
+}
+
+.status-visual {
+  width: 54px;
+  height: 54px;
+  margin-bottom: 12px;
+}
+
+.status-visual > i {
+  border-width: 5px;
+}
+
+.status-visual > span {
+  width: 34px;
+  height: 34px;
+  font-size: 15px;
+}
+
+.status-panel h2 {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.status-panel > p:not(.section-label) {
+  font-size: 11.5px;
+  line-height: 1.6;
 }

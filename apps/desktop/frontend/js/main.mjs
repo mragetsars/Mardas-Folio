@@ -234,11 +234,11 @@ function showView(name) {
 
 
 function applyInterfacePreferences({ persist = false } = {}) {
-  state.preferences = persist ? writePreferences(state.preferences) : applyPreferences(
-    document.documentElement,
-    state.preferences,
-  );
-  applyPreferences(document.documentElement, state.preferences);
+  if (persist) state.preferences = writePreferences(state.preferences);
+  state.preferences = applyPreferences(document.documentElement, state.preferences);
+  // The editor keeps its own light/dark state so CodeMirror's floating panels
+  // match the workspace.
+  editorAdapter?.setTheme?.(document.documentElement.dataset.theme);
   const autoPreview = $("#auto-preview");
   if (autoPreview) autoPreview.checked = Boolean(state.preferences.autoPreview);
 }
@@ -2824,13 +2824,9 @@ function bindEvents() {
   $("#help-button").addEventListener("click", openHelp);
   $("#settings-button").addEventListener("click", openSettings);
   $("#template-help").addEventListener("click", openHelp);
-  $("#start-quick-export").addEventListener("click", () => showView("export"));
   $("#workflow-quick").addEventListener("click", () => showView("export"));
-  $("#start-open-file").addEventListener("click", chooseAuthoringFiles);
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
-  $("#start-open-project").addEventListener("click", chooseProjectDirectory);
   $("#workflow-project").addEventListener("click", chooseProjectDirectory);
-  $("#start-new-book").addEventListener("click", openNewBookModal);
   $("#workflow-book").addEventListener("click", openNewBookModal);
   $("#export-back").addEventListener("click", () => showView("start"));
   $("#choose-source").addEventListener("click", chooseExportSource);
@@ -3020,6 +3016,7 @@ async function boot() {
   }
   const textarea = $("#markdown-editor");
   const editorOptions = {
+    theme: document.documentElement.dataset.theme,
     getCompletions: () => activeDocument()?.projectPath === state.project?.path
       ? state.bibliographyEntries
       : [],
