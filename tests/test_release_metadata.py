@@ -205,6 +205,24 @@ def test_source_distribution_manifest_includes_release_support_files() -> None:
         assert expected in manifest
 
 
+def test_tauri_before_build_command_resolves_from_desktop_root() -> None:
+    config = json.loads(_read("apps/desktop/src-tauri/tauri.conf.json"))
+
+    command = config["build"]["beforeBuildCommand"]
+
+    assert command == "python ../../scripts/build_desktop_frontend.py"
+
+    script_path = (
+        ROOT
+        / "apps"
+        / "desktop"
+        / "../../scripts/build_desktop_frontend.py"
+    ).resolve()
+
+    assert script_path == (ROOT / "scripts/build_desktop_frontend.py").resolve()
+    assert script_path.is_file()
+
+
 def test_native_desktop_builds_use_the_committed_cargo_lock() -> None:
     native = _read("scripts/build_native_desktop.py")
     legacy = _read("scripts/build_desktop_app.py")

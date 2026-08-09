@@ -5,7 +5,7 @@
   "identifier": "io.github.mragetsars.mardas-studio",
   "mainBinaryName": "mardas-studio",
   "build": {
-    "beforeBuildCommand": "python ../../../scripts/build_desktop_frontend.py",
+    "beforeBuildCommand": "python ../../scripts/build_desktop_frontend.py",
     "frontendDist": "../dist",
     "additionalWatchFolders": [
       "../frontend"
