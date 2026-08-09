@@ -1,5 +1,5 @@
 import { basename, buildDocumentParams, defaultOutputPath, validateExportSelection } from "./core/export-request.mjs";
-import { createTranslator, supportedLocale } from "./core/i18n.mjs";
+import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
 import { PRESETS, presetById } from "./core/presets.mjs";
 import { addRecent, readRecents, writeRecents } from "./core/recents.mjs";
 import { invoke, listen } from "./core/tauri.mjs";
@@ -48,6 +48,11 @@ import {
   writePreferences,
 } from "./core/preferences.mjs";
 import { templateContent, templateList } from "./core/templates.mjs";
+import {
+  clampWorkspaceWidth,
+  readWorkspaceLayout,
+  writeWorkspaceLayout,
+} from "./core/workspace-layout.mjs";
 import { filterCommands } from "./core/command-palette.mjs";
 import { createModalManager } from "./core/modal-manager.mjs";
 import { updaterStatus, checkForUpdates, installUpdate } from "./core/updater-api.mjs";
@@ -84,7 +89,7 @@ import {
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const state = {
-  locale: supportedLocale(localStorage.getItem("mardas.desktop.locale") || navigator.language),
+  locale: readLocalePreference(undefined, navigator.language),
   presetId: "general",
   sourcePath: "",
   outputPath: "",
@@ -121,6 +126,7 @@ const state = {
   chapterModalPath: null,
   previewSyncing: false,
   preferences: readPreferences(),
+  workspaceLayout: readWorkspaceLayout(),
   onboardingStep: 0,
   onboardingIntent: null,
   commandIndex: 0,
@@ -185,9 +191,8 @@ function isMarkdownPath(path) {
 }
 
 function setLocale(value) {
-  state.locale = supportedLocale(value);
+  state.locale = writeLocalePreference(value);
   translator.locale = state.locale;
-  localStorage.setItem("mardas.desktop.locale", state.locale);
   document.documentElement.lang = state.locale;
   document.documentElement.dir = state.locale === "fa" ? "rtl" : "ltr";
   $("#locale-button").textContent = state.locale === "fa" ? "EN" : "فا";
@@ -220,6 +225,8 @@ function setLocale(value) {
 function showView(name) {
   $$(".view").forEach((element) => element.classList.remove("active"));
   $(`#${name}-view`)?.classList.add("active");
+  document.body.dataset.view = name;
+  if (name === "workspace") applyWorkspaceLayout();
   $("#app-main")?.focus({ preventScroll: true });
 }
 
@@ -238,6 +245,83 @@ function updatePreference(next, { persist = true } = {}) {
   state.preferences = { ...state.preferences, ...next };
   if (persist) state.preferences = writePreferences(state.preferences);
   applyInterfacePreferences();
+}
+
+function applyWorkspaceLayout({ persist = false } = {}) {
+  const grid = $(".authoring-grid");
+  const workspace = $("#workspace-view");
+  if (!grid || !workspace) return;
+  if (persist) state.workspaceLayout = writeWorkspaceLayout(state.workspaceLayout);
+  for (const element of [workspace, grid]) {
+    element.dataset.sidebarOpen = String(state.workspaceLayout.sidebarOpen);
+    element.dataset.previewOpen = String(state.workspaceLayout.previewOpen);
+    element.style.setProperty("--sidebar-width", `${state.workspaceLayout.sidebarWidth}px`);
+    element.style.setProperty("--preview-width", `${state.workspaceLayout.previewWidth}px`);
+  }
+  const sidebarButton = $("#workspace-toggle-sidebar");
+  const previewButton = $("#workspace-toggle-preview");
+  const sidebarResizer = $("#sidebar-resizer");
+  const previewResizer = $("#preview-resizer");
+  if (sidebarButton) sidebarButton.setAttribute("aria-pressed", String(state.workspaceLayout.sidebarOpen));
+  if (previewButton) previewButton.setAttribute("aria-pressed", String(state.workspaceLayout.previewOpen));
+  if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.sidebarWidth));
+  if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.previewWidth));
+}
+
+function toggleWorkspacePane(name) {
+  const key = name === "sidebar" ? "sidebarOpen" : "previewOpen";
+  state.workspaceLayout = { ...state.workspaceLayout, [key]: !state.workspaceLayout[key] };
+  applyWorkspaceLayout({ persist: true });
+  if (name === "preview" && state.workspaceLayout.previewOpen) schedulePreview(80);
+}
+
+function setWorkspacePaneWidth(name, value, { persist = false } = {}) {
+  const key = name === "sidebar" ? "sidebarWidth" : "previewWidth";
+  state.workspaceLayout = {
+    ...state.workspaceLayout,
+    [key]: clampWorkspaceWidth(name, value),
+  };
+  applyWorkspaceLayout({ persist });
+}
+
+function beginPaneResize(event, name) {
+  if (event.button !== 0 || matchMedia("(max-width: 1120px)").matches) return;
+  event.preventDefault();
+  const handle = event.currentTarget;
+  const startX = event.clientX;
+  const startWidth = name === "sidebar"
+    ? state.workspaceLayout.sidebarWidth
+    : state.workspaceLayout.previewWidth;
+  handle.classList.add("is-dragging");
+  handle.setPointerCapture?.(event.pointerId);
+  const move = (moveEvent) => {
+    const delta = moveEvent.clientX - startX;
+    setWorkspacePaneWidth(name, name === "sidebar" ? startWidth + delta : startWidth - delta);
+  };
+  const end = () => {
+    handle.classList.remove("is-dragging");
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", end);
+    handle.removeEventListener("pointercancel", end);
+    state.workspaceLayout = writeWorkspaceLayout(state.workspaceLayout);
+  };
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", end);
+  handle.addEventListener("pointercancel", end);
+}
+
+function resizePaneWithKeyboard(event, name) {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  event.preventDefault();
+  const current = name === "sidebar"
+    ? state.workspaceLayout.sidebarWidth
+    : state.workspaceLayout.previewWidth;
+  let next = current;
+  if (event.key === "ArrowLeft") next += name === "sidebar" ? -16 : 16;
+  if (event.key === "ArrowRight") next += name === "sidebar" ? 16 : -16;
+  if (event.key === "Home") next = name === "sidebar" ? 248 : 340;
+  if (event.key === "End") next = name === "sidebar" ? 420 : 760;
+  setWorkspacePaneWidth(name, next, { persist: true });
 }
 
 function renderTemplateGallery() {
@@ -714,7 +798,7 @@ function renderPresets() {
     button.dataset.preset = preset.id;
     button.setAttribute("role", "radio");
     button.setAttribute("aria-checked", String(preset.id === state.presetId));
-    button.innerHTML = `<i></i><strong></strong><small></small>`;
+    button.innerHTML = `<strong></strong><small></small><i aria-hidden="true">✓</i>`;
     button.querySelector("strong").textContent = t(preset.titleKey);
     button.querySelector("small").textContent = t(preset.descriptionKey);
     button.addEventListener("click", () => selectPreset(preset.id));
@@ -746,6 +830,7 @@ function renderSummary() {
   ];
   container.replaceChildren(...rows.map(([label, value]) => {
     const row = document.createElement("div");
+    row.className = "summary-row";
     row.innerHTML = `<span></span><strong></strong>`;
     row.querySelector("span").textContent = label;
     row.querySelector("strong").textContent = value;
@@ -762,7 +847,7 @@ function renderRecents() {
     const button = document.createElement("button");
     button.className = "recent-item";
     button.type = "button";
-    button.innerHTML = `<span>MD</span><div><strong></strong><small></small></div><b>←</b>`;
+    button.innerHTML = `<span>MD</span><div class="recent-copy"><strong></strong><small></small></div><b class="recent-arrow" aria-hidden="true">←</b>`;
     button.querySelector("strong").textContent = basename(recent.path);
     button.querySelector("small").textContent = recent.path;
     button.addEventListener("click", () => openAuthoringPaths([recent.path]));
@@ -1023,6 +1108,11 @@ function renderProblems(model) {
   ];
   editorAdapter?.setDiagnostics?.(inlineDiagnosticsForDocument(diagnostics, model));
   $("#problem-count").textContent = String(diagnostics.length);
+  const problemBadge = $("#sidebar-problem-badge");
+  if (problemBadge) {
+    problemBadge.textContent = diagnostics.length > 99 ? "99+" : String(diagnostics.length);
+    problemBadge.classList.toggle("hidden", diagnostics.length === 0);
+  }
   const list = $("#problem-list");
   list.replaceChildren();
   if (!diagnostics.length) {
@@ -2475,8 +2565,17 @@ function insertAssetReference(asset, model = activeDocument()) {
 
 function activateSidebar(name) {
   state.activeSidebar = name;
-  $$("[data-sidebar]").forEach((button) => button.classList.toggle("active", button.dataset.sidebar === name));
-  $$("[data-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === name));
+  $$("[data-sidebar]").forEach((button) => {
+    const active = button.dataset.sidebar === name;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  $$("[data-panel]").forEach((panel) => {
+    const active = panel.dataset.panel === name;
+    panel.classList.toggle("active", active);
+    panel.setAttribute("aria-hidden", String(!active));
+  });
   if (name === "assets") refreshAssets();
   if (name === "project") renderProjectWorkspace();
   if (name === "citations") refreshBibliography();
@@ -2687,6 +2786,12 @@ function bindEvents() {
   $("#workspace-validate").addEventListener("click", validateActiveDocument);
   $("#workspace-export").addEventListener("click", exportActiveDocument);
   $("#workspace-import-asset").addEventListener("click", importAsset);
+  $("#workspace-toggle-sidebar").addEventListener("click", () => toggleWorkspacePane("sidebar"));
+  $("#workspace-toggle-preview").addEventListener("click", () => toggleWorkspacePane("preview"));
+  $("#sidebar-resizer").addEventListener("pointerdown", (event) => beginPaneResize(event, "sidebar"));
+  $("#preview-resizer").addEventListener("pointerdown", (event) => beginPaneResize(event, "preview"));
+  $("#sidebar-resizer").addEventListener("keydown", (event) => resizePaneWithKeyboard(event, "sidebar"));
+  $("#preview-resizer").addEventListener("keydown", (event) => resizePaneWithKeyboard(event, "preview"));
   $("#import-asset").addEventListener("click", importAsset);
   $("#refresh-assets").addEventListener("click", refreshAssets);
   $("#sidebar-open-project").addEventListener("click", chooseProjectDirectory);
@@ -2736,7 +2841,23 @@ function bindEvents() {
   $("#replace-all").addEventListener("click", replaceAllMatches);
   $("#close-find").addEventListener("click", closeFind);
   $$('[data-editor-command]').forEach((button) => button.addEventListener("click", () => editorCommand(button.dataset.editorCommand)));
-  $$('[data-sidebar]').forEach((button) => button.addEventListener("click", () => activateSidebar(button.dataset.sidebar)));
+  const sidebarButtons = $$('[data-sidebar]');
+  sidebarButtons.forEach((button) => {
+    button.addEventListener("click", () => activateSidebar(button.dataset.sidebar));
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const index = sidebarButtons.indexOf(button);
+      let targetIndex = index;
+      if (["ArrowUp", "ArrowLeft"].includes(event.key)) targetIndex = (index - 1 + sidebarButtons.length) % sidebarButtons.length;
+      if (["ArrowDown", "ArrowRight"].includes(event.key)) targetIndex = (index + 1) % sidebarButtons.length;
+      if (event.key === "Home") targetIndex = 0;
+      if (event.key === "End") targetIndex = sidebarButtons.length - 1;
+      const target = sidebarButtons[targetIndex];
+      activateSidebar(target.dataset.sidebar);
+      target.focus();
+    });
+  });
   $("#restore-recovery").addEventListener("click", () => resolveRecovery(true));
   $("#discard-recovery").addEventListener("click", () => resolveRecovery(false));
   $("#settings-form").addEventListener("submit", submitSettings);
@@ -2812,6 +2933,8 @@ function bindEvents() {
 async function boot() {
   modalManager = createModalManager(document);
   applyInterfacePreferences();
+  applyWorkspaceLayout();
+  document.body.dataset.view = $("#workspace-view")?.classList.contains("active") ? "workspace" : "start";
   for (const query of ["(prefers-color-scheme: dark)", "(prefers-reduced-motion: reduce)"]) {
     try {
       matchMedia(query).addEventListener("change", () => {

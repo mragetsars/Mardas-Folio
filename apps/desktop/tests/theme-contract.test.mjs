@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const styles = readFileSync(new URL("../frontend/styles.css", import.meta.url), "utf8");
+const workspaceStyles = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
 
 function channel(value) {
   const normalized = value / 255;
@@ -30,4 +31,36 @@ test("dark authoring controls and preview headings have explicit theme overrides
 
 test("dark preview heading color exceeds WCAG AA contrast", () => {
   assert.ok(contrast("#99f6e4", "#1d2b2d") >= 4.5);
+});
+
+test("workspace surface tokens keep small UI text above AA contrast", () => {
+  assert.match(workspaceStyles, /--ui-muted: #5f7375;/);
+  assert.ok(contrast("#5f7375", "#f7f9f9") >= 4.5);
+  assert.ok(contrast("#8fa3a4", "#162124") >= 4.5);
+  assert.ok(contrast("#47d7c2", "#121a1c") >= 4.5);
+});
+
+test("publishing and recent-document cards keep explicit layout hooks", () => {
+  const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
+  assert.match(main, /row\.className = "summary-row"/);
+  assert.match(main, /class="recent-copy"/);
+  assert.match(main, /class="recent-arrow"/);
+  assert.match(workspaceStyles, /#export-view \.preset-card \{/);
+  assert.match(workspaceStyles, /#preset-summary \.summary-row \{/);
+  assert.match(workspaceStyles, /#start-view \.recent-copy \{/);
+});
+
+test("settings scrolling and preview anchors are deliberately constrained", () => {
+  assert.match(workspaceStyles, /\.settings-card \{[\s\S]*?grid-template-rows: auto auto minmax\(0, 1fr\) auto auto;[\s\S]*?overflow: hidden;/);
+  assert.match(workspaceStyles, /\.settings-card \.settings-sections \{[\s\S]*?overflow: auto;/);
+  assert.match(workspaceStyles, /\.preview-document \.heading-anchor \{[\s\S]*?opacity: 0;/);
+  assert.match(workspaceStyles, /\.preview-document :is\(h1, h2, h3, h4, h5, h6\):hover \.heading-anchor/);
+});
+
+
+test("final workspace polish keeps sticky export status and stronger chrome affordances", () => {
+  assert.match(workspaceStyles, /#export-view \.status-panel \{[\s\S]*?position: sticky;/);
+  assert.match(workspaceStyles, /\.document-tab\.active \{[\s\S]*?box-shadow:/);
+  assert.match(workspaceStyles, /\.sidebar-tabs button\.active \.sidebar-tab-icon,/);
+  assert.match(workspaceStyles, /\.command-card \.command-search input \{/);
 });

@@ -65,6 +65,7 @@ def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[
         "js/main.mjs",
         "js/vendor/codemirror-editor.bundle.mjs",
         "styles.css",
+        "workspace.css",
     }
     if not required.issubset(names):
         raise ValueError(f"Desktop frontend is missing required files: {sorted(required-names)}")

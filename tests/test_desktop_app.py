@@ -185,9 +185,16 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "install-update",
         "update-state",
         "update-progress",
+        "workspace-toggle-sidebar",
+        "workspace-toggle-preview",
+        "sidebar-resizer",
+        "preview-resizer",
+        "sidebar-problem-badge",
     ):
         assert f'id="{element_id}"' in index
     assert 'type="module" src="./js/main.mjs"' in index
+    assert '<link rel="stylesheet" href="./workspace.css">' in index
+    assert (DESKTOP / "frontend" / "workspace.css").is_file()
     assert "sidecar_request" in main
     assert "sidecar_cancel" in main
     assert "desktop-open-files" in main
@@ -238,6 +245,8 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "project-api.mjs",
         "book-api.mjs",
         "preferences.mjs",
+        "workspace-layout.mjs",
+        "i18n.mjs",
         "templates.mjs",
         "command-palette.mjs",
         "modal-manager.mjs",
@@ -249,6 +258,61 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
     assert "devUrl" not in index
     assert "https://" not in index
     assert index.count("http://ipc.localhost") == 1
+
+
+def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() -> None:
+    index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    workspace_css = (DESKTOP / "frontend" / "workspace.css").read_text(encoding="utf-8")
+    soup = BeautifulSoup(index, "html.parser")
+
+    sidebar = soup.select_one("#author-sidebar")
+    assert sidebar is not None
+    assert sidebar.get("data-i18n-aria-label") == "documentTools"
+    engine = soup.select_one("#engine-state")
+    assert engine is not None and engine.get("role") == "status" and engine.get("aria-live") == "polite"
+    preview_loading = soup.select_one("#preview-loading")
+    assert preview_loading is not None and preview_loading.get("role") == "status"
+    tabs = sidebar.select(".sidebar-tabs [data-sidebar]")
+    assert len(tabs) == 7
+    assert all(tab.get("role") == "tab" for tab in tabs)
+    assert all(tab.get("aria-controls") for tab in tabs)
+    assert len(sidebar.select("[role='tabpanel']")) == 7
+
+    for element_id in ("workspace-toggle-sidebar", "workspace-toggle-preview"):
+        button = soup.select_one(f"#{element_id}")
+        assert button is not None
+        assert button.get("aria-pressed") == "true"
+        assert button.get("aria-controls")
+
+    for element_id in ("sidebar-resizer", "preview-resizer"):
+        separator = soup.select_one(f"#{element_id}")
+        assert separator is not None
+        assert separator.get("role") == "separator"
+        assert separator.get("aria-orientation") == "vertical"
+        assert separator.get("tabindex") == "0"
+        assert separator.get("aria-controls")
+        assert separator.get("aria-valuemin")
+        assert separator.get("aria-valuemax")
+        assert separator.get("aria-valuenow")
+
+    assert "readWorkspaceLayout" in main
+    assert "writeWorkspaceLayout" in main
+    assert "beginPaneResize" in main
+    assert "resizePaneWithKeyboard" in main
+    assert 'sidebarResizer.setAttribute("aria-valuenow"' in main
+    assert 'previewResizer.setAttribute("aria-valuenow"' in main
+    assert 'document.body.dataset.view = name' in main
+    assert soup.select_one("#mardas-ui-icons") is not None
+    assert len(sidebar.select(".sidebar-tab-icon .ui-icon")) == 7
+    assert 'body[data-view="workspace"] main' in workspace_css
+    assert 'grid-template-columns: var(--sidebar-track) var(--sidebar-divider) minmax(360px, 1fr) var(--preview-divider) var(--preview-track)' in workspace_css
+    assert '@media (max-width: 1060px)' in workspace_css
+    assert '.author-sidebar:focus-within .sidebar-panel.active' in workspace_css
+    assert '@media (max-width: 980px)' in workspace_css
+    assert '@media (max-width: 900px)' in workspace_css
+    assert 'padding-left: calc(var(--tab-sidebar-offset) + 10px)' in workspace_css
+    assert 'padding-right: calc(var(--tab-preview-offset) + 10px)' in workspace_css
 
 
 def test_professional_editor_is_locked_bundled_and_offline() -> None:
