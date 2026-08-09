@@ -99,3 +99,5 @@ Object.assign(fa,{resultFile:"فایل خروجی",chaptersMetric:"فصل‌ها
 Object.assign(en,{resultFile:"Output file",chaptersMetric:"Chapters",currentChapterMetric:"Current",lastBookOutput:"Last output"});
 Object.assign(fa,{afterOnboarding:"بعد از پایان راهنما",startDocument:"ساخت سند",startBookProject:"ساخت پروژه کتاب",onboardingDocumentFinishHelp:"یک سند خالی باز می‌شود تا فوراً نوشتن را شروع کنی.",onboardingBookFinishHelp:"فرم ساخت پروژه کتاب باز می‌شود تا عنوان و محل پروژه را انتخاب کنی."});
 Object.assign(en,{afterOnboarding:"After onboarding",startDocument:"Create document",startBookProject:"Create Book Project",onboardingDocumentFinishHelp:"A blank document will open so you can start writing immediately.",onboardingBookFinishHelp:"The Book Project form will open so you can choose its title and location."});
+Object.assign(fa,{bookStatus:"وضعیت کتاب",updateProgress:"پیشرفت بروزرسانی"});
+Object.assign(en,{bookStatus:"Book status",updateProgress:"Update progress"});
