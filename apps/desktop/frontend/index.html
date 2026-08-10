@@ -93,8 +93,27 @@
           <footer class="form-actions"><button class="button secondary" id="validate-button" type="button" data-i18n="checkDocument">بررسی سند</button><button class="button primary" id="export-button" type="submit" data-i18n="exportPdf">ساخت PDF</button><button class="button danger hidden" id="cancel-button" type="button" data-i18n="cancel">لغو</button></footer>
         </form>
         <aside class="panel export-preview-panel" aria-labelledby="export-preview-title">
-          <header class="export-preview-head"><strong id="export-preview-title" data-i18n="exportPreview">پیش‌نمایش خروجی</strong><span id="export-preview-state" class="export-preview-state"></span></header>
-          <div class="export-preview-page" id="export-preview" tabindex="0" data-i18n-aria-label="exportPreview" aria-label="پیش‌نمایش خروجی"></div>
+          <header class="export-preview-head">
+            <strong id="export-preview-title" data-i18n="exportPreview">پیش‌نمایش خروجی</strong>
+            <span id="export-preview-state" class="export-preview-state" role="status" aria-live="polite"></span>
+          </header>
+          <div class="export-preview-toolbar" role="toolbar" data-i18n-aria-label="previewControls" aria-label="کنترل‌های پیش‌نمایش">
+            <button type="button" class="preview-tool" id="preview-zoom-out" data-i18n-title="zoomOut" title="کوچک‌نمایی">−</button>
+            <span class="preview-zoom-level" id="preview-zoom-level">100%</span>
+            <button type="button" class="preview-tool" id="preview-zoom-in" data-i18n-title="zoomIn" title="بزرگ‌نمایی">+</button>
+            <span class="preview-tool-divider" aria-hidden="true"></span>
+            <button type="button" class="preview-tool" id="preview-fit-width" aria-pressed="true" data-i18n-title="fitWidth" title="اندازه عرض">↔</button>
+            <button type="button" class="preview-tool" id="preview-fit-page" aria-pressed="false" data-i18n-title="fitPage" title="یک صفحه کامل">⤢</button>
+            <span class="preview-tool-divider" aria-hidden="true"></span>
+            <button type="button" class="preview-tool" id="preview-guides" aria-pressed="false" data-i18n-title="showMargins" title="نمایش حاشیه‌ها">▭</button>
+            <span class="preview-pager">
+              <button type="button" class="preview-tool" id="preview-prev-page" data-i18n-title="previousPage" title="صفحه قبل">‹</button>
+              <span id="preview-page-count" class="preview-page-count">—</span>
+              <button type="button" class="preview-tool" id="preview-next-page" data-i18n-title="nextPage" title="صفحه بعد">›</button>
+            </span>
+          </div>
+          <div class="export-preview-page" id="export-preview" data-i18n-aria-label="exportPreview" aria-label="پیش‌نمایش خروجی"></div>
+          <p class="export-preview-note hidden" id="export-preview-note"></p>
         </aside>
         <aside class="panel status-panel" aria-live="polite">
           <div class="status-visual" id="status-visual" data-state="idle"><i></i><span>✓</span></div>

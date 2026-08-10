@@ -84,15 +84,19 @@ test("every field sits in exactly one group and has a label key", () => {
 
 test("the export preview is painted with the engine's own stylesheets", () => {
   // A preview that shows generic Markdown cannot answer the question the export
-  // screen exists to answer, so the engine returns the same style sheet,
-  // palette and body classes the PDF is built with.
-  const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
-  assert.match(main, /appearance\.style_css/);
-  assert.match(main, /appearance\.palette_css/);
-  assert.match(main, /appearance\.body_classes/);
-  // Those sheets style a whole printed page; a shadow root keeps them off the
-  // application around the preview.
-  assert.match(main, /attachShadow\(\{ mode: "open" \}\)/);
+  // screen exists to answer, so the deck mounts the same style sheet, palette,
+  // page layout and body classes the PDF is built with.
+  const deck = readFileSync(
+    new URL("../frontend/js/preview/page-deck.mjs", import.meta.url),
+    "utf8",
+  );
+  for (const key of ["style", "palette", "layout", "pygments", "fonts"]) {
+    assert.match(deck, new RegExp(`css\\?\\.${key}`), `the deck must mount css.${key}`);
+  }
+  assert.match(deck, /body_classes/);
+  // Those sheets style a whole printed page, so they are kept in a document of
+  // their own rather than loosed on the application around the preview.
+  assert.match(deck, /createElement\("iframe"\)/);
 });
 
 test("speculative preview work yields to a job the user asked for", () => {

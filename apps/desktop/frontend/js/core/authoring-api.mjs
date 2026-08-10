@@ -56,6 +56,22 @@ export function previewDocumentText({ path, content, options = {}, requestId: id
   }, id);
 }
 
+/**
+ * The published page rather than its body.
+ *
+ * `preview.document_text` returns the article; this returns the page it will be
+ * printed on — cover, contents, watermark, running footer, every stylesheet
+ * and the sheet geometry — which is what the export screen has to show.
+ */
+export function previewDocumentPage({ path, content, options = {}, requestId: id } = {}) {
+  return sidecar("preview.document_page", {
+    input_path: path || "untitled.md",
+    content,
+    discover_config: Boolean(path),
+    options,
+  }, id);
+}
+
 export function listDocumentAssets(path) {
   return sidecar("document.list_assets", { path });
 }

@@ -101,3 +101,15 @@ Object.assign(fa,{afterOnboarding:"بعد از پایان راهنما",startDoc
 Object.assign(en,{afterOnboarding:"After onboarding",startDocument:"Create document",startBookProject:"Create Book Project",onboardingDocumentFinishHelp:"A blank document will open so you can start writing immediately.",onboardingBookFinishHelp:"The Book Project form will open so you can choose its title and location."});
 Object.assign(fa,{bookStatus:"وضعیت کتاب",updateProgress:"پیشرفت بروزرسانی"});
 Object.assign(en,{bookStatus:"Book status",updateProgress:"Update progress"});
+Object.assign(fa,{
+  previewControls:"کنترل‌های پیش‌نمایش",zoomIn:"بزرگ‌نمایی",zoomOut:"کوچک‌نمایی",
+  fitWidth:"اندازه عرض صفحه",fitPage:"نمایش یک صفحه کامل",showMargins:"نمایش حاشیه‌ها",
+  previousPage:"صفحه قبل",nextPage:"صفحه بعد",
+  previewMathPending:"فرمول‌ها هنگام ساخت PDF تایپ‌ست می‌شوند",
+});
+Object.assign(en,{
+  previewControls:"Preview controls",zoomIn:"Zoom in",zoomOut:"Zoom out",
+  fitWidth:"Fit page width",fitPage:"Fit whole page",showMargins:"Show margins",
+  previousPage:"Previous page",nextPage:"Next page",
+  previewMathPending:"Equations are typeset when the PDF is created",
+});

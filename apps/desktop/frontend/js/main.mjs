@@ -59,6 +59,7 @@ import {
 } from "./core/workspace-layout.mjs";
 import { filterCommands } from "./core/command-palette.mjs";
 import { createModalManager } from "./core/modal-manager.mjs";
+import { createPageDeck } from "./preview/page-deck.mjs";
 import { updaterStatus, checkForUpdates, installUpdate } from "./core/updater-api.mjs";
 import {
   bibliographyIndex,
@@ -82,6 +83,7 @@ import {
 import {
   importDocumentAsset,
   listDocumentAssets,
+  previewDocumentPage,
   previewDocumentText,
   readDocument,
   readTextDocument,
@@ -1024,12 +1026,70 @@ function schedulePdfPreview(delay = 450) {
   }, delay);
 }
 
-async function renderExportPreview() {
+/** The paper deck, created the first time the export view needs it. */
+let pageDeck = null;
+
+function exportPreviewDeck() {
   const surface = $("#export-preview");
-  if (!surface) return;
+  if (!surface) return null;
+  if (!pageDeck) pageDeck = createPageDeck(surface, { onState: renderPreviewToolbar });
+  return pageDeck;
+}
+
+/**
+ * Reflect the deck's state in its toolbar.
+ *
+ * The page count is the one number the export screen could never show before:
+ * how long the document actually is once it is on paper.
+ */
+function renderPreviewToolbar(deckState) {
+  const level = $("#preview-zoom-level");
+  if (level) level.textContent = `${Math.round((deckState.zoom || 1) * 100)}%`;
+  const counter = $("#preview-page-count");
+  if (counter) {
+    counter.textContent = deckState.pageCount
+      ? `${deckState.currentPage} / ${deckState.pageCount}`
+      : "—";
+  }
+  $("#preview-fit-width")?.setAttribute("aria-pressed", String(deckState.zoomMode === "fit-width"));
+  $("#preview-fit-page")?.setAttribute("aria-pressed", String(deckState.zoomMode === "fit-page"));
+  $("#preview-guides")?.setAttribute("aria-pressed", String(Boolean(deckState.guides)));
+  for (const id of ["#preview-prev-page", "#preview-next-page"]) {
+    const button = $(id);
+    if (button) button.disabled = deckState.pageCount < 2;
+  }
+}
+
+function movePreviewPage(delta) {
+  const deck = exportPreviewDeck();
+  if (!deck?.pageCount) return;
+  const counter = $("#preview-page-count");
+  const current = Number(String(counter?.textContent || "1").split("/")[0].trim()) || 1;
+  deck.goToPage(current + delta);
+}
+
+/**
+ * A note under the preview for the one thing it cannot show.
+ *
+ * Equations are typeset by MathJax inside Chromium at export time. Rather than
+ * silently showing TeX source and letting the user believe that is the output,
+ * the preview says how many expressions are waiting.
+ */
+function renderPreviewNote(payload) {
+  const note = $("#export-preview-note");
+  if (!note) return;
+  const pending = payload?.math?.typeset_at_export ? Number(payload.math.expressions) || 0 : 0;
+  note.classList.toggle("hidden", pending < 1);
+  note.textContent = pending < 1 ? "" : `${t("previewMathPending")} (${pending})`;
+}
+
+async function renderExportPreview() {
+  const deck = exportPreviewDeck();
+  if (!deck) return;
   if (!state.sourcePath) {
     setExportPreviewState("");
-    renderExportPreviewMessage(t("previewChooseSource"));
+    renderPreviewNote(null);
+    deck.showMessage(t("previewChooseSource"));
     return;
   }
   const sequence = (exportPreviewSequence += 1);
@@ -1040,85 +1100,25 @@ async function renderExportPreview() {
     const file = await readDocument(state.sourcePath);
     const content = typeof file === "string" ? file : String(file?.content ?? "");
     if (sequence !== exportPreviewSequence) return;
-    const result = await previewDocumentText({
+    const result = await previewDocumentPage({
       path: state.sourcePath,
       content,
       options: exportOverrides(),
       requestId: id,
     });
     if (sequence !== exportPreviewSequence) return;
-    renderExportPreviewDocument(surface, result);
+    deck.render(result);
+    renderPreviewNote(result);
     setExportPreviewState("");
   } catch (error) {
     if (sequence !== exportPreviewSequence) return;
     setExportPreviewState("previewFailedShort");
     const payload = errorPayload(error);
-    renderExportPreviewMessage(payload?.message || t("previewFailed"));
+    renderPreviewNote(null);
+    deck.showMessage(payload?.message || t("previewFailed"));
   } finally {
     if (exportPreviewRequestId === id) exportPreviewRequestId = null;
   }
-}
-
-/**
- * Paint the preview with the engine's own stylesheets.
- *
- * The style sheet, palette and body classes come from the renderer, so what is
- * on screen is the published appearance rather than a Markdown approximation.
- * They are mounted in a shadow root because those stylesheets are written for a
- * whole printed page and would otherwise restyle the application around them.
- */
-function renderExportPreviewDocument(surface, result) {
-  const root = surface.shadowRoot || surface.attachShadow({ mode: "open" });
-  const appearance = result.appearance || {};
-
-  const page = document.createElement("div");
-  page.className = `mardas-preview-page ${appearance.body_classes || ""}`.trim();
-  page.dir = "auto";
-  const article = document.createElement("article");
-  article.className = "md2pdf-article";
-  article.append(safePreviewHtml(result.body_html));
-  page.append(article);
-
-  const sheet = document.createElement("style");
-  sheet.textContent = [
-    result.pygments_css || "",
-    appearance.style_css || "",
-    appearance.palette_css || "",
-    // The engine styles a paper page; inside the panel it becomes a scrollable
-    // sheet with the same proportions and margins the PDF will use.
-    `:host { display: block; }
-     .mardas-preview-page {
-       box-sizing: border-box;
-       min-height: 100%;
-       padding: 26px 30px 34px;
-       font-size: 11.5px;
-       line-height: 1.75;
-     }
-     .md2pdf-article { max-width: none; }
-     /* Anchors are an on-screen affordance of the authoring preview; a printed
-        page has no clickable heading marker. */
-     .heading-anchor, a.heading-anchor { display: none !important; }
-     img { max-width: 100%; height: auto; }
-     pre { overflow-x: auto; }
-     table { width: 100%; border-collapse: collapse; }`,
-  ].join("\n");
-
-  root.replaceChildren(sheet, page);
-  surface.dataset.appearance =
-    `${appearance.style || ""}/${appearance.palette || ""}/${appearance.mode || ""}`;
-}
-
-function renderExportPreviewMessage(text) {
-  const surface = $("#export-preview");
-  if (!surface) return;
-  const root = surface.shadowRoot || surface.attachShadow({ mode: "open" });
-  const note = document.createElement("p");
-  note.textContent = String(text || "");
-  const sheet = document.createElement("style");
-  sheet.textContent =
-    "p { margin: 0; padding: 30px 10px; text-align: center; font: 12px/1.6 system-ui, sans-serif; color: #6b6b6b; }";
-  root.replaceChildren(sheet, note);
-  delete surface.dataset.appearance;
 }
 
 /**
@@ -3218,6 +3218,13 @@ function bindEvents() {
     button.addEventListener("click", () => setViewMode(button.dataset.viewMode));
   }
   $("#reset-advanced").addEventListener("click", resetAdvancedOptions);
+  $("#preview-zoom-in").addEventListener("click", () => exportPreviewDeck()?.zoomBy(1));
+  $("#preview-zoom-out").addEventListener("click", () => exportPreviewDeck()?.zoomBy(-1));
+  $("#preview-fit-width").addEventListener("click", () => exportPreviewDeck()?.setZoomMode("fit-width"));
+  $("#preview-fit-page").addEventListener("click", () => exportPreviewDeck()?.setZoomMode("fit-page"));
+  $("#preview-guides").addEventListener("click", () => exportPreviewDeck()?.toggleGuides());
+  $("#preview-prev-page").addEventListener("click", () => movePreviewPage(-1));
+  $("#preview-next-page").addEventListener("click", () => movePreviewPage(1));
   $("#workflow-quick").addEventListener("click", () => showView("export"));
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
   $("#workflow-project").addEventListener("click", chooseProjectDirectory);
