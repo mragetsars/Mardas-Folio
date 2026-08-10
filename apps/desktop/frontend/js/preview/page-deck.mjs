@@ -287,6 +287,9 @@ export function createPageDeck(host, { onState } = {}) {
     pitch: 0,
     frameRequest: 0,
     pending: null,
+    // Kept so the deck can be restored if the frame's document is replaced.
+    lastPayload: null,
+    lastMessage: null,
   };
 
   const view = () => frame.contentWindow;
@@ -455,6 +458,8 @@ export function createPageDeck(host, { onState } = {}) {
     const document_ = doc();
     const window_ = view();
     if (!document_ || !window_) return;
+    state.lastPayload = payload;
+    state.lastMessage = null;
 
     state.geometry = normalizePageGeometry(payload?.page);
     const geometry = state.geometry;
@@ -556,6 +561,8 @@ export function createPageDeck(host, { onState } = {}) {
   function showMessageNow(text) {
     const document_ = doc();
     if (!document_) return;
+    state.lastMessage = String(text || "");
+    state.lastPayload = null;
     document_.getElementById("pv-engine").textContent = "";
     document_.getElementById("pv-deck").textContent = DECK_CSS;
     document_.documentElement.className = "pv-frame";
@@ -585,10 +592,33 @@ export function createPageDeck(host, { onState } = {}) {
     else if (pending?.kind === "message") showMessageNow(pending.value);
   }
 
+  /**
+   * Re-establish the frame if the engine replaces its document under us.
+   *
+   * Writing into the initial `about:blank` is the standard way to own a frame's
+   * document, but the three webviews this app ships on — WebView2, WKWebView
+   * and WebKitGTK — do not all sequence that initial load identically, and a
+   * late navigation would silently discard the deck. Rather than assume, the
+   * last payload is kept and redrawn whenever the frame reports a load it did
+   * not get from us.
+   */
+  function reattach() {
+    if (!state.ready) {
+      attach();
+      return;
+    }
+    const document_ = doc();
+    if (!document_ || document_.getElementById("pv-deck")) return;
+    state.ready = false;
+    attach();
+    if (state.lastPayload) draw(state.lastPayload);
+    else if (state.lastMessage !== null) showMessageNow(state.lastMessage);
+  }
+
   // A frame with no source is already an about:blank document by the time it is
   // in the tree; the load listener only covers engines that disagree.
   attach();
-  frame.addEventListener("load", attach);
+  frame.addEventListener("load", reattach);
 
   return {
     /** Draw a `preview.document_page` payload. */

@@ -63,7 +63,7 @@ def test_project_logo_assets_are_packaged_and_documented():
     app_icon = ROOT / "src/mardas_md2pdf/assets/mardas-md2pdf-app-icon.svg"
     gui_mark_mask = ROOT / "src/mardas_md2pdf/assets/mardas-md2pdf-mark-gui-mask.svg"
     guide_logo_png = ROOT / "docs/guides/images/logo.png"
-    readme_png = ROOT / "README.png"
+    readme_png = ROOT / "assets/readme/mardas-folio.png"
     documentation_docs = (ROOT / "docs/DOCUMENTATION.md").read_text(encoding="utf-8")
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
@@ -109,7 +109,7 @@ def test_project_logo_assets_are_packaged_and_documented():
     assert "Asset layout policy" in documentation_docs
     assert "`src/mardas_md2pdf/assets/`" in documentation_docs
     assert "`docs/guides/images/`" in documentation_docs
-    assert "`README.png`" in documentation_docs
+    assert "`assets/readme/mardas-folio.png`" in documentation_docs
 
 
 def test_guides_reuse_architecture_banner_for_safe_html_examples():

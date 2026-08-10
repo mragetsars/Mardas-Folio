@@ -4,7 +4,12 @@ All notable changes to Mardas Folio are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
-## Unreleased
+## 2.0.0 - 2026-08-10
+
+First release of the product under its own name. The desktop application is now
+the primary interface, the export screen previews the actual PDF, and the
+publishing engine's full option surface is reachable without editing a
+configuration file by hand.
 
 ### Added
 - Made the export preview show the PDF itself. The engine now composes the whole published page — cover, contents, body, bibliography, watermark, running footer, every stylesheet and the sheet geometry — and the export screen lays it out as real paper: correct page size, real margins, one sheet per page, a page count, zoom and margin guides. Page breaks follow the document's own break rules and land between lines, not through them, so "contents on its own page" and "every H1 starts a page" are visible before a file is written.

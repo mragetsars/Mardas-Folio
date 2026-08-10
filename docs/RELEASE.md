@@ -219,7 +219,7 @@ python scripts/finalize_release_artifacts.py   --artifact-dir build/release   --
 
 ## Signed updater and draft-release boundary
 
-Version 1.31.0 retains the end-to-end updater workflow but keeps it secret-driven. Development builds do not contact an update service unless a maintainer-controlled public key is embedded at build time.
+Version 2.0.0 retains the end-to-end updater workflow but keeps it secret-driven. Development builds do not contact an update service unless a maintainer-controlled public key is embedded at build time.
 
 Before a tag workflow can build signed updater artifacts, configure the external release secret/variable boundary described in `docs/UPDATES.md`. The draft preflight is:
 

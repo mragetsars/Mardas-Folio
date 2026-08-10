@@ -89,7 +89,7 @@ The builder verifies the deterministic offline frontend, including the checked-i
 
 ## Signed updater payloads
 
-Version 1.31.0 can ask Tauri to create signed updater artifacts in addition to the normal installers:
+Version 2.0.0 can ask Tauri to create signed updater artifacts in addition to the normal installers:
 
 ```bash
 python scripts/build_native_desktop.py   --runtime <verified-runtime>   --create-updater-artifacts   --clean

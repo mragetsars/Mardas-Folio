@@ -1,6 +1,6 @@
 include LICENSE
 include README.md
-include README.png
+include assets/readme/mardas-folio.png
 include pyproject.toml
 include pyrightconfig.json
 include apps/desktop/src-tauri/Cargo.lock

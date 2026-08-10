@@ -61,7 +61,7 @@ The guides must cover at least these user-facing areas:
 
 Runtime packaged assets belong in `src/mardas_md2pdf/assets/`. The packaged logo files are `mardas-md2pdf-logo.png`, `mardas-md2pdf-logo-white.png`, `mardas-md2pdf-mark.svg`, `mardas-md2pdf-mark-white.svg`, `mardas-md2pdf-app-icon.svg`, and `mardas-md2pdf-mark-gui-mask.svg`.
 
-Guide sample media belongs in `docs/guides/images/` and should remain lightweight. The guide currently uses `logo.png` and `architecture.png` as local documentation media. `README.png` is repository-level artwork for the landing page and should not be embedded into the guides as a renderer sample. Users should use `brand.logo` only for their own organization or lab logo, not to re-embed the built-in project logo by default.
+Guide sample media belongs in `docs/guides/images/` and should remain lightweight. The guide currently uses `logo.png` and `architecture.png` as local documentation media. `assets/readme/mardas-folio.png` is repository-level artwork for the landing page and should not be embedded into the guides as a renderer sample. Users should use `brand.logo` only for their own organization or lab logo, not to re-embed the built-in project logo by default.
 
 ## Changelog policy
 

@@ -225,3 +225,16 @@ test("an engine that cannot describe itself is not assumed to be broken", () => 
   const start = main.indexOf("function engineSupports");
   assert.match(main.slice(start, start + 200), /!state\.engineMethods \|\| state\.engineMethods\.has/);
 });
+
+test("the deck restores itself if the webview replaces the frame document", () => {
+  // Writing into the initial about:blank is the standard way to own a frame's
+  // document, but WebView2, WKWebView and WebKitGTK do not sequence that load
+  // identically, and a late navigation would silently discard the deck.
+  const deck = readFileSync(new URL("../frontend/js/preview/page-deck.mjs", import.meta.url), "utf8");
+  assert.match(deck, /function reattach\(\)/);
+  assert.match(deck, /frame\.addEventListener\("load", reattach\)/);
+  assert.match(deck, /state\.lastPayload/);
+  // The check is cheap and idempotent: a document that already has the deck
+  // stylesheet is one we wrote.
+  assert.match(deck, /getElementById\("pv-deck"\)/);
+});

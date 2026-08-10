@@ -1,6 +1,6 @@
 # Signed Desktop Updates
 
-Mardas Folio 1.31.0 implements the application-side and release-side Tauri v2 updater flow, but update capability is **secret-driven**. Development builds and ordinary source builds remain offline and report updates as unavailable unless a maintainer-controlled public key is embedded at build time.
+Mardas Folio 2.0.0 implements the application-side and release-side Tauri v2 updater flow, but update capability is **secret-driven**. Development builds and ordinary source builds remain offline and report updates as unavailable unless a maintainer-controlled public key is embedded at build time.
 
 ## Trust boundary
 
