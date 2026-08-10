@@ -34,7 +34,49 @@ const HIDDEN_MARKS = new Set([
 ]);
 
 const hidden = Decoration.replace({});
+
+/**
+ * Per-line automatic direction.
+ *
+ * A Persian document mixes RTL prose with LTR code and identifiers, and
+ * `EditorView.textDirectionAt` reads each line's computed direction. This has
+ * to be applied by whichever plugin owns the line decorations, because a line
+ * replaced by a block widget has no tile to measure and asking for its
+ * direction throws.
+ */
+const autoDirection = Decoration.line({ attributes: { dir: "auto" } });
 const codeLine = Decoration.line({ class: "cm-code-line" });
+const quoteLine = Decoration.line({ class: "cm-quote-line" });
+
+/**
+ * Block-level line classes.
+ *
+ * A rendered document needs vertical rhythm — space above a heading, a rule
+ * beside a quotation — and that is a property of the whole line, not of the
+ * inline text. Hiding `#` and `>` removes the only cue CSS could otherwise
+ * have keyed on, so the block type is carried here instead.
+ */
+const headingLines = new Map(
+  [1, 2, 3, 4, 5, 6].map((level) => [
+    `ATXHeading${level}`,
+    Decoration.line({ class: `cm-md-heading cm-md-h${level}` }),
+  ]),
+);
+
+/** Whether the caret sits anywhere inside a multi-line node. */
+function nodeIsActive(state, active, node) {
+  const first = state.doc.lineAt(node.from).number;
+  const last = state.doc.lineAt(node.to).number;
+  for (let line = first; line <= last; line += 1) if (active.has(line)) return true;
+  return false;
+}
+
+/** Run a callback for the start offset of every line a node spans. */
+function eachLine(state, node, callback) {
+  const first = state.doc.lineAt(node.from).number;
+  const last = state.doc.lineAt(node.to).number;
+  for (let line = first; line <= last; line += 1) callback(state.doc.line(line).from);
+}
 
 /** Extend an offset past the spaces that separate a block marker from its text. */
 function swallowSpace(state, at) {
@@ -68,12 +110,17 @@ function buildDecorations(view) {
       enter: (node) => {
         // Keep fenced code monospaced even when the surrounding prose is not.
         if (node.name === "FencedCode" || node.name === "CodeBlock") {
-          const first = state.doc.lineAt(node.from).number;
-          const last = state.doc.lineAt(node.to).number;
-          for (let line = first; line <= last; line += 1) {
-            lines.push(state.doc.line(line).from);
-          }
+          eachLine(state, node, (at) => lines.push({ at, deco: codeLine }));
           return;
+        }
+        if (node.name === "Blockquote") {
+          eachLine(state, node, (at) => lines.push({ at, deco: quoteLine }));
+          return;
+        }
+        const heading = headingLines.get(node.name);
+        if (heading) {
+          lines.push({ at: state.doc.lineAt(node.from).from, deco: heading });
+          // fall through: the HeaderMark inside still needs hiding
         }
 
         if (node.from === node.to) return;
@@ -99,8 +146,17 @@ function buildDecorations(view) {
   // A RangeSet has to be built in document order, and line decorations sort
   // before the inline replacements that start at the same offset.
   const builder = new RangeSetBuilder();
+  // Every visible line gets automatic direction unless a block widget replaced it.
+  for (const { from, to } of view.visibleRanges) {
+    for (let pos = from; pos <= to; ) {
+      const line = state.doc.lineAt(pos);
+      lines.push({ at: line.from, deco: autoDirection });
+      pos = line.to + 1;
+    }
+  }
+
   const events = [
-    ...lines.map((at) => ({ from: at, to: at, deco: codeLine, line: true })),
+    ...lines.map(({ at, deco }) => ({ from: at, to: at, deco, line: true })),
     ...marks.map(([from, to]) => ({ from, to, deco: hidden, line: false })),
   ].sort((a, b) => a.from - b.from || Number(b.line) - Number(a.line));
 
@@ -139,13 +195,50 @@ const livePreviewPlugin = ViewPlugin.fromClass(
   },
 );
 
+/** Source mode needs the same per-line direction, without any of the rendering. */
+const autoDirectionPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) {
+      this.decorations = this.build(view);
+    }
+
+    update(update) {
+      if (update.docChanged || update.viewportChanged) this.decorations = this.build(update.view);
+    }
+
+    build(view) {
+      const builder = new RangeSetBuilder();
+      for (const { from, to } of view.visibleRanges) {
+        for (let pos = from; pos <= to; ) {
+          const line = view.state.doc.lineAt(pos);
+          builder.add(line.from, line.from, autoDirection);
+          pos = line.to + 1;
+        }
+      }
+      return builder.finish();
+    }
+  },
+  { decorations: (plugin) => plugin.decorations },
+);
+
 export const EDITOR_MODES = Object.freeze(["live", "source"]);
 
 export function normalizeEditorMode(value) {
   return EDITOR_MODES.includes(value) ? value : "live";
 }
 
-/** The extension set for a mode; `source` renders the document verbatim. */
+/**
+ * The extension set for a mode; `source` renders the document verbatim.
+ *
+ * `perLineTextDirection` is enabled only in source mode. It makes CodeMirror
+ * measure each line's computed direction, which a line replaced by a block
+ * widget cannot answer — asking throws "No tile at position". Source mode has
+ * no widgets and is where caret motion through mixed Persian/English text has
+ * to be exact, so that is where the facet earns its cost. Live mode still sets
+ * `dir="auto"` per line, so the text lays out correctly either way.
+ */
 export function editorModeExtension(mode) {
-  return normalizeEditorMode(mode) === "live" ? [livePreviewPlugin] : [];
+  return normalizeEditorMode(mode) === "live"
+    ? [livePreviewPlugin]
+    : [autoDirectionPlugin, EditorView.perLineTextDirection.of(true)];
 }

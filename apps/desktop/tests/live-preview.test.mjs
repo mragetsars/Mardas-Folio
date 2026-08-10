@@ -20,9 +20,20 @@ test("live preview is the default and unknown modes fall back to it", () => {
   }
 });
 
-test("source mode adds no decorations at all", () => {
-  assert.deepEqual(editorModeExtension("source"), []);
-  assert.equal(editorModeExtension("live").length, 1);
+test("source mode renders the document verbatim but keeps bidi measurement", () => {
+  // Source mode adds no rendering, only the per-line direction support that
+  // live mode cannot use: `perLineTextDirection` measures each line, and a line
+  // hidden behind a decoration has no tile to measure.
+  const live = editorModeExtension("live");
+  const source = editorModeExtension("source");
+  assert.equal(live.length, 1, "live mode is the preview plugin alone");
+  assert.equal(source.length, 2, "source mode is direction support only");
+  assert.notDeepEqual(live, source);
+});
+
+test("per-line direction is scoped to source mode", () => {
+  assert.match(source, /perLineTextDirection/);
+  assert.match(source, /normalizeEditorMode\(mode\) === "live"/);
 });
 
 test("live preview never edits the document", () => {

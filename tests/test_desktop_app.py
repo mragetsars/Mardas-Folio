@@ -526,11 +526,18 @@ def test_editor_parses_front_matter_and_owns_its_syntax_palette() -> None:
     theme = (DESKTOP / "editor-src" / "editor-theme.mjs").read_text(encoding="utf-8")
     workspace_css = (DESKTOP / "frontend" / "workspace.css").read_text(encoding="utf-8")
 
+    live = (DESKTOP / "editor-src" / "live-preview.mjs").read_text(encoding="utf-8")
+
     assert "extensions: [frontmatter]" in editor
     assert "codeLanguages: CODE_LANGUAGES" in editor
-    # Mixed Persian/English lines need their own resolved direction.
-    assert "EditorView.perLineTextDirection.of(true)" in editor
-    assert 'attributes: { dir: "auto" }' in editor
+    # The app publishes GitHub-flavoured Markdown, so the editor has to parse
+    # the same dialect; `markdown()` alone is CommonMark and drops tables,
+    # task lists and strikethrough from the syntax tree entirely.
+    assert "base: markdownLanguage" in editor
+    # Mixed Persian/English lines need their own resolved direction. The facet
+    # lives with the mode extensions because it cannot measure hidden lines.
+    assert "EditorView.perLineTextDirection.of(true)" in live
+    assert 'attributes: { dir: "auto" }' in live
     # The theme follows the workspace instead of being fixed at startup.
     assert "setTheme(mode)" in editor
     assert "appearance.reconfigure" in editor

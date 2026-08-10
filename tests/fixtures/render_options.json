@@ -1,0 +1,266 @@
+{
+  "comment": "Every render option the engine accepts (mardas_md2pdf.config.RENDER_OPTION_SPECS). The desktop settings panel is held to this list by apps/desktop/tests/render-options.test.mjs, so an option added to the engine cannot quietly become CLI-only.",
+  "options": {
+    "allow_remote_assets": {
+      "choices": [],
+      "nullable": false
+    },
+    "author": {
+      "choices": [],
+      "nullable": true
+    },
+    "bibliography_include_uncited": {
+      "choices": [],
+      "nullable": true
+    },
+    "bibliography_sources": {
+      "choices": [],
+      "nullable": true
+    },
+    "bibliography_title": {
+      "choices": [],
+      "nullable": true
+    },
+    "brand_footer": {
+      "choices": [],
+      "nullable": true
+    },
+    "brand_logo": {
+      "choices": [],
+      "nullable": true
+    },
+    "brand_name": {
+      "choices": [],
+      "nullable": true
+    },
+    "branding": {
+      "choices": [
+        "full",
+        "off",
+        "subtle"
+      ],
+      "nullable": true
+    },
+    "chromium_path": {
+      "choices": [],
+      "nullable": true
+    },
+    "chromium_sandbox": {
+      "choices": [
+        "auto",
+        "off",
+        "on"
+      ],
+      "nullable": false
+    },
+    "citation_style": {
+      "choices": [
+        "author-date",
+        "numeric"
+      ],
+      "nullable": true
+    },
+    "citations_enabled": {
+      "choices": [],
+      "nullable": true
+    },
+    "cover": {
+      "choices": [],
+      "nullable": false
+    },
+    "cover_logo": {
+      "choices": [],
+      "nullable": true
+    },
+    "cover_logo_enabled": {
+      "choices": [],
+      "nullable": false
+    },
+    "debug_html": {
+      "choices": [],
+      "nullable": true
+    },
+    "description": {
+      "choices": [],
+      "nullable": true
+    },
+    "document_direction": {
+      "choices": [
+        "auto",
+        "ltr",
+        "rtl"
+      ],
+      "nullable": true
+    },
+    "document_language": {
+      "choices": [],
+      "nullable": true
+    },
+    "font_dir": {
+      "choices": [],
+      "nullable": true
+    },
+    "font_error_policy": {
+      "choices": [
+        "error",
+        "ignore",
+        "warn"
+      ],
+      "nullable": true
+    },
+    "h1_page_break": {
+      "choices": [],
+      "nullable": false
+    },
+    "list_of_equations": {
+      "choices": [],
+      "nullable": true
+    },
+    "list_of_figures": {
+      "choices": [],
+      "nullable": true
+    },
+    "list_of_listings": {
+      "choices": [],
+      "nullable": true
+    },
+    "list_of_tables": {
+      "choices": [],
+      "nullable": true
+    },
+    "margin_bottom": {
+      "choices": [],
+      "nullable": false
+    },
+    "margin_top": {
+      "choices": [],
+      "nullable": false
+    },
+    "margin_x": {
+      "choices": [],
+      "nullable": false
+    },
+    "math_error_policy": {
+      "choices": [
+        "error",
+        "ignore",
+        "warn"
+      ],
+      "nullable": true
+    },
+    "mode": {
+      "choices": [
+        "dark",
+        "light"
+      ],
+      "nullable": true
+    },
+    "navigation_error_policy": {
+      "choices": [
+        "error",
+        "ignore",
+        "warn"
+      ],
+      "nullable": true
+    },
+    "no_header_footer": {
+      "choices": [],
+      "nullable": false
+    },
+    "no_mathjax": {
+      "choices": [],
+      "nullable": false
+    },
+    "numbering_scope": {
+      "choices": [
+        "chapter",
+        "global"
+      ],
+      "nullable": true
+    },
+    "page_size": {
+      "choices": [],
+      "nullable": false
+    },
+    "palette": {
+      "choices": [
+        "amber",
+        "blue",
+        "emerald",
+        "neutral",
+        "rose",
+        "slate",
+        "violet"
+      ],
+      "nullable": true
+    },
+    "quality_profile": {
+      "choices": [
+        "standard",
+        "strict-publication"
+      ],
+      "nullable": false
+    },
+    "quality_report": {
+      "choices": [],
+      "nullable": true
+    },
+    "references_enabled": {
+      "choices": [],
+      "nullable": true
+    },
+    "required_fonts": {
+      "choices": [],
+      "nullable": true
+    },
+    "style": {
+      "choices": [
+        "academic",
+        "github",
+        "modern",
+        "textbook"
+      ],
+      "nullable": true
+    },
+    "timeout_ms": {
+      "choices": [],
+      "nullable": false
+    },
+    "title": {
+      "choices": [],
+      "nullable": true
+    },
+    "toc": {
+      "choices": [],
+      "nullable": false
+    },
+    "toc_depth": {
+      "choices": [],
+      "nullable": false
+    },
+    "toc_page_break": {
+      "choices": [],
+      "nullable": false
+    },
+    "unsafe_html": {
+      "choices": [],
+      "nullable": false
+    },
+    "watermark_image": {
+      "choices": [],
+      "nullable": true
+    },
+    "watermark_opacity": {
+      "choices": [],
+      "nullable": false
+    },
+    "watermark_text": {
+      "choices": [],
+      "nullable": true
+    },
+    "watermark_width": {
+      "choices": [],
+      "nullable": false
+    }
+  }
+}

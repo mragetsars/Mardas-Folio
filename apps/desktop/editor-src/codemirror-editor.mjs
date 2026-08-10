@@ -3,17 +3,16 @@ import { indentWithTab } from "@codemirror/commands";
 import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
 import { javascript } from "@codemirror/lang-javascript";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { LanguageDescription } from "@codemirror/language";
 import { setDiagnostics } from "@codemirror/lint";
 import {
   Compartment,
   EditorSelection,
   EditorState,
-  RangeSetBuilder,
   Transaction,
 } from "@codemirror/state";
-import { Decoration, EditorView, ViewPlugin, keymap } from "@codemirror/view";
+import { EditorView, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 
 import { mardasEditorAppearance } from "./editor-theme.mjs";
@@ -43,45 +42,6 @@ const CODE_LANGUAGES = [
   LanguageDescription.of({ name: "html", alias: ["htm"], load: async () => html() }),
   LanguageDescription.of({ name: "css", load: async () => css() }),
 ];
-
-/**
- * Give every line its own resolved text direction.
- *
- * A Persian document routinely mixes RTL prose with LTR code and identifiers.
- * `dir="auto"` on each line reproduces the per-paragraph behaviour the previous
- * textarea got from `unicode-bidi: plaintext`, and unlike a CSS-only rule it is
- * visible to `EditorView.textDirectionAt`, which reads the line's computed
- * direction.  Paired with `perLineTextDirection` below, caret motion and
- * selection drawing follow the line the caret is actually on.
- */
-const autoDirectionLine = Decoration.line({ attributes: { dir: "auto" } });
-
-const perLineAutoDirection = ViewPlugin.fromClass(
-  class {
-    constructor(view) {
-      this.decorations = this.build(view);
-    }
-
-    update(update) {
-      if (update.docChanged || update.viewportChanged) {
-        this.decorations = this.build(update.view);
-      }
-    }
-
-    build(view) {
-      const builder = new RangeSetBuilder();
-      for (const { from, to } of view.visibleRanges) {
-        for (let position = from; position <= to; ) {
-          const line = view.state.doc.lineAt(position);
-          builder.add(line.from, line.from, autoDirectionLine);
-          position = line.to + 1;
-        }
-      }
-      return builder.finish();
-    }
-  },
-  { decorations: (plugin) => plugin.decorations },
-);
 
 const MARKDOWN_SNIPPETS = Object.freeze([
   snippetCompletion("# ${Heading}", {
@@ -221,11 +181,17 @@ export function createCodeMirrorEditorAdapter(
       doc: textarea.value,
       extensions: [
         basicSetup,
-        markdown({ codeLanguages: CODE_LANGUAGES, extensions: [frontmatter] }),
+        // `markdown()` defaults to CommonMark, so tables, task lists and
+        // strikethrough were never in the syntax tree even though the
+        // publishing engine renders all three. GFM is the dialect this app
+        // actually publishes.
+        markdown({
+          base: markdownLanguage,
+          codeLanguages: CODE_LANGUAGES,
+          extensions: [frontmatter],
+        }),
         appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
         preview.of(editorModeExtension(editorMode)),
-        EditorView.perLineTextDirection.of(true),
-        perLineAutoDirection,
         EditorState.allowMultipleSelections.of(true),
         keymap.of([indentWithTab]),
         autocompletion({

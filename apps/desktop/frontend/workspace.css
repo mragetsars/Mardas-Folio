@@ -2849,28 +2849,141 @@ button:focus-visible,
   line-height: 1.6;
 }
 
-/* ---- Live preview editing ------------------------------------------------
+/* ---- Live preview: a document, not a code buffer -------------------------
  *
- * In live mode the prose is set in the interface face rather than a monospace
- * one, because the point of the mode is to read like the finished document.
- * Code keeps its monospace: inline spans through the highlight style, fenced
- * blocks through the .cm-code-line decoration the plugin applies. */
+ * In live mode the editor should read like the page being written. That means
+ * no line-number gutter, a centred measure instead of full-bleed text, and the
+ * vertical rhythm of a document: space around headings, a rule beside a
+ * quotation, code sitting in its own panel. Source mode keeps the gutter and
+ * the monospace grid, because there the character positions are the point. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-gutters {
+  display: none;
+}
+
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-content {
   font-family: var(--app-font);
-  font-size: 14.5px;
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--ui-text);
+  /* A comfortable measure, centred, with room for the caret at the edges. */
+  padding: 40px max(40px, calc((100% - 780px) / 2)) 45vh;
+  max-width: none;
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-line {
-  padding-block: 1px;
+  padding-inline: 0;
 }
 
-.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line {
-  font-family: var(--cm-mono, ui-monospace, "Cascadia Mono", monospace);
-  font-size: 13px;
+/* Headings carry their own space; the size comes from the highlight style. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-heading {
+  margin-block: 1.4em 0.4em;
+  line-height: 1.3;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-h1 {
+  margin-block: 0.6em 0.5em;
+  padding-bottom: 0.24em;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-h2 {
+  margin-block: 1.5em 0.4em;
+}
+
+/* A quotation reads as a quotation. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-line {
+  border-inline-start: 3px solid var(--ui-accent);
   background: var(--ui-panel-soft);
+  padding-inline-start: 14px;
 }
 
-/* A quoted block reads as a quote, not as a line that happens to start with >. */
-.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-line:has(.cm-quote-mark) {
-  border-inline-start: 2px solid var(--ui-border-strong);
+/* Fenced code sits in a panel and keeps its monospace grid. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line {
+  font-family: ui-monospace, "Cascadia Mono", "JetBrains Mono", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--ui-panel-soft);
+  border-inline: 1px solid var(--ui-border);
+  padding-inline: 14px;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line:first-of-type {
+  border-top: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius) var(--ui-radius) 0 0;
+  padding-top: 6px;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line:last-of-type {
+  border-bottom: 1px solid var(--ui-border);
+  border-radius: 0 0 var(--ui-radius) var(--ui-radius);
+  padding-bottom: 6px;
+}
+
+/* The caret line is the one showing raw Markdown; mark it quietly. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-activeLine {
+  background: color-mix(in srgb, var(--ui-accent) 6%, transparent);
+  border-radius: var(--ui-radius-sm);
+}
+
+/* Source mode: a code buffer again. */
+.codemirror-mount .cm-editor[data-editor-mode="source"] .cm-content {
+  padding: 18px 22px 40vh;
+}
+
+/* ---- Live preview block widgets ------------------------------------------
+ * Blocks that are drawn rather than described: a real table, a real rule, a
+ * clickable checkbox, a language chip on a code fence. */
+.codemirror-mount .cm-md-table {
+  margin-block: 0.9em;
+  overflow-x: auto;
+}
+
+.codemirror-mount .cm-md-table table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13.5px;
+}
+
+.codemirror-mount .cm-md-table th,
+.codemirror-mount .cm-md-table td {
+  border: 1px solid var(--ui-border);
+  padding: 6px 10px;
+  text-align: start;
+}
+
+.codemirror-mount .cm-md-table th {
+  background: var(--ui-panel-soft);
+  font-weight: 650;
+}
+
+.codemirror-mount .cm-md-rule {
+  padding-block: 0.7em;
+}
+
+.codemirror-mount .cm-md-rule hr {
+  border: 0;
+  border-top: 1px solid var(--ui-border-strong);
+  margin: 0;
+}
+
+.codemirror-mount .cm-md-code-label {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--ui-border);
+  border-bottom: 0;
+  border-radius: var(--ui-radius-sm) var(--ui-radius-sm) 0 0;
+  background: var(--ui-panel-muted);
+  color: var(--ui-muted);
+  font: 650 10px/1.7 ui-monospace, "Cascadia Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.codemirror-mount .cm-md-task {
+  width: 13px;
+  height: 13px;
+  margin-inline-end: 6px;
+  accent-color: var(--ui-accent);
+  vertical-align: baseline;
+  cursor: pointer;
 }

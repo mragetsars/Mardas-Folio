@@ -2,6 +2,7 @@ import { basename, buildDocumentParams, defaultOutputPath, validateExportSelecti
 import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
 import { onboardingIntentPresentation, onboardingPrimaryActionKey, normalizeOnboardingIntent } from "./core/onboarding.mjs";
 import { PRESETS, presetById } from "./core/presets.mjs";
+import { OPTION_GROUPS, collectRenderOptions } from "./core/render-options.mjs";
 import { addRecent, readRecents, writeRecents } from "./core/recents.mjs";
 import { invoke, listen } from "./core/tauri.mjs";
 import {
@@ -820,12 +821,125 @@ function working(enabled, mode = "render") {
   }
 }
 
+/**
+ * Values the user has typed into the advanced panel, keyed by option.
+ *
+ * Absent means "inherit"; the panel never sends a key the user did not touch,
+ * so opening it cannot overwrite what mardas.toml already configured.
+ */
+const advancedValues = new Map();
+
+function advancedControlId(key) {
+  return `adv-${key.replaceAll("_", "-")}`;
+}
+
+function buildAdvancedControl(field) {
+  const id = advancedControlId(field.key);
+  const label = document.createElement("label");
+  label.className = `advanced-field advanced-${field.kind}`;
+  label.setAttribute("for", id);
+
+  const caption = document.createElement("span");
+  caption.className = "advanced-label";
+  caption.dataset.i18n = `opt.${field.key}`;
+  caption.textContent = t(`opt.${field.key}`);
+
+  let control;
+  if (field.kind === "select") {
+    control = document.createElement("select");
+    const inherit = document.createElement("option");
+    inherit.value = "";
+    inherit.textContent = "—";
+    control.append(inherit);
+    for (const choice of field.choices) {
+      const option = document.createElement("option");
+      option.value = choice;
+      option.textContent = choice;
+      control.append(option);
+    }
+  } else if (field.kind === "toggle") {
+    control = document.createElement("select");
+    for (const [value, text] of [["", "—"], ["true", t("enabled")], ["false", t("disabled")]]) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      control.append(option);
+    }
+  } else {
+    control = document.createElement("input");
+    control.type = field.kind === "number" ? "number" : "text";
+    if (field.min !== undefined) control.min = String(field.min);
+    if (field.max !== undefined) control.max = String(field.max);
+    if (field.step !== undefined) control.step = String(field.step);
+    if (field.placeholder) control.placeholder = field.placeholder;
+  }
+  control.id = id;
+  control.dataset.optionKey = field.key;
+  control.addEventListener("change", () => {
+    const raw = control.value;
+    if (raw === "") advancedValues.delete(field.key);
+    else if (field.kind === "toggle") advancedValues.set(field.key, raw === "true");
+    else advancedValues.set(field.key, raw);
+    renderSummary();
+    schedulePdfPreview();
+  });
+
+  label.append(caption, control);
+
+  if (field.kind === "path") {
+    const browse = document.createElement("button");
+    browse.type = "button";
+    browse.className = "button secondary compact";
+    browse.dataset.i18n = "browse";
+    browse.textContent = t("browse");
+    browse.addEventListener("click", async () => {
+      const picked = await invoke("pick_document_asset");
+      if (!picked) return;
+      control.value = picked;
+      advancedValues.set(field.key, picked);
+      renderSummary();
+      schedulePdfPreview();
+    });
+    label.classList.add("advanced-path");
+    label.append(browse);
+  }
+  return label;
+}
+
+function renderAdvancedOptions() {
+  const host = $("#advanced-groups");
+  if (!host) return;
+  host.replaceChildren();
+  for (const group of OPTION_GROUPS) {
+    const details = document.createElement("details");
+    details.className = "advanced-group";
+    const summary = document.createElement("summary");
+    summary.dataset.i18n = group.labelKey;
+    summary.textContent = t(group.labelKey);
+    const grid = document.createElement("div");
+    grid.className = "advanced-grid";
+    for (const field of group.fields) grid.append(buildAdvancedControl(field));
+    details.append(summary, grid);
+    host.append(details);
+  }
+}
+
+function resetAdvancedOptions() {
+  advancedValues.clear();
+  for (const control of $$("#advanced-groups [data-option-key]")) control.value = "";
+  renderSummary();
+  schedulePdfPreview();
+}
+
 function exportOverrides() {
   return {
     document_language: $("#document-language").value,
     page_size: $("#page-size").value,
     style: $("#appearance-style").value,
     toc: $("#include-toc").checked,
+    // The advanced panel wins over the quick controls above it, because it is
+    // the more specific thing the user reached for.
+    ...collectRenderOptions(Object.fromEntries(advancedValues)),
   };
 }
 
@@ -2798,6 +2912,25 @@ function editorCommand(command) {
   if (command === "code") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "`", "`", "code");
   if (command === "heading") result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "## ");
   if (command === "citation") result = replaceSelection(editor.value, editor.selectionStart, editor.selectionEnd, "[@citation-key]", 2);
+  if (command === "strike") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "~~", "~~", "struck text");
+  if (command === "bullet-list") result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "- ");
+  if (command === "ordered-list") result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "1. ");
+  if (command === "task-list") result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "- [ ] ");
+  if (command === "quote") result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "> ");
+  if (command === "image") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "![", "](assets/image.png)", "alt text");
+  if (command === "rule") result = replaceSelection(editor.value, editor.selectionStart, editor.selectionEnd, "\n---\n");
+  if (command === "code-block") {
+    result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "```\n", "\n```", "code");
+  }
+  if (command === "table") {
+    // A minimal GitHub table the user can extend, rather than a dialog to fill in.
+    result = replaceSelection(
+      editor.value,
+      editor.selectionStart,
+      editor.selectionEnd,
+      "\n| A | B |\n| --- | --- |\n|  |  |\n",
+    );
+  }
   if (result) applyEditorResult(result);
 }
 
@@ -2853,6 +2986,7 @@ function bindEvents() {
   $("#settings-button").addEventListener("click", openSettings);
   $("#template-help").addEventListener("click", openHelp);
   $("#workspace-toggle-source").addEventListener("click", toggleEditorMode);
+  $("#reset-advanced").addEventListener("click", resetAdvancedOptions);
   $("#workflow-quick").addEventListener("click", () => showView("export"));
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
   $("#workflow-project").addEventListener("click", chooseProjectDirectory);
@@ -3072,6 +3206,7 @@ async function boot() {
     textarea.closest(".editor-surface")?.setAttribute("data-editor", "textarea");
   }
   setLocale(state.locale);
+  renderAdvancedOptions();
   selectPreset("general");
   bindEvents();
   renderAssets([]);
