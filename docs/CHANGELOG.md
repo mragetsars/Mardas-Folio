@@ -4,6 +4,29 @@ All notable changes to Mardas MD2PDF are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## Unreleased
+
+### Added
+- Renamed the desktop product to **Mardas Folio** across the interface, window title, installer name, binary and release artifacts, with a new mark built from the letter F in four-fold rotational symmetry. The bundle identifier deliberately stays `io.github.mragetsars.mardas-studio`, because it is the key the updater and the per-user config directory are addressed by.
+- Added a live preview editing mode: Markdown syntax marks are hidden and the formatting is rendered in place, while the line holding the caret shows its raw source so it stays editable. Tables, thematic rules, task checkboxes and local images render as real elements.
+- Added a Write / Source / Split view control that replaces the separate "show source" and "show preview" toggles, and moved the formatting tools out of the window toolbar onto the document they act on.
+- Exposed all 53 publishing-engine options in an Advanced settings panel grouped by concern, alongside a live preview of the document as the chosen options will publish it. Previously the interface sent nine and the rest needed a hand-edited `mardas.toml`.
+- Added YAML front matter parsing to the editor, matching the engine's own rules, so document metadata is highlighted as metadata.
+
+### Changed
+- Rebuilt the interface around a strictly neutral grey scale with an orange accent, at desktop control density: no marketing hero, no drop shadows on static panels, ~30px controls and small radii.
+- Replaced CodeMirror's `defaultHighlightStyle` with a purpose-built syntax theme driven by `--cm-*` custom properties, so light and dark are one code path.
+
+### Fixed
+- Made the editor parse GitHub-flavoured Markdown. `markdown()` defaults to CommonMark, so tables, task lists and strikethrough were never in the syntax tree even though the engine renders all three.
+- Fixed dark-mode editor contrast: link and code-fence tokens sat at 1.35:1 and Markdown punctuation at 1.84:1 against the editing surface. Every interface text node now meets WCAG AA in both themes.
+- Stopped the visually hidden switch inputs inheriting `input { width: 100% }`. Absolutely positioned with no positioned ancestor, that resolved against the viewport and produced a 1440px-wide invisible control that pushed the export view into horizontal scroll and swallowed clicks across a full-width strip.
+- Stopped the document outline treating a `#` comment inside YAML front matter as a heading, which also misaligned preview-to-editor navigation.
+- Pointed the support panel and export status surfaces at theme tokens instead of undefined custom properties, which had left them light-on-light in dark mode.
+
+### Security
+- Local images render through Tauri's asset protocol with an empty static scope, widened at runtime to the open document's own directory only, non-recursively. Remote sources and parent-directory escapes are refused in the interface as well.
+
 ## 1.31.0 - 2026-08-08
 
 ### Added
