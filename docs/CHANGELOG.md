@@ -22,6 +22,7 @@ The project follows semantic versioning for user-visible behavior. Patch release
 - Removed the duplicated export controls. Page size, appearance, language and contents existed both in a "basic settings" strip and in the settings panel, so one value had two widgets that could disagree and precedence depended on merge order.
 - Stopped the export preview competing with the export itself. The engine runs one job at a time and answers a second with SERVER_BUSY, so pressing Create PDF while a preview was rendering failed until retried; speculative preview work now yields.
 - Moved the interface language into Settings, where it already existed, and removed the duplicate toggle from the title bar.
+- Placed the caret on the line that was clicked. Heading lines carried their vertical spacing as margin and then as padding; CodeMirror maps a click through its own height map, and both put the box out of step with it, so every line below a heading was offset. The spacing now comes from line-height, which that map is built from.
 - Made the export preview show the real published appearance by painting it with the engine's own style sheet, palette and body classes inside a shadow root, instead of generic Markdown.
 
 ### Fixed (earlier in this cycle)
