@@ -303,3 +303,35 @@ Object.assign(en, {
 });
 Object.assign(fa, { moveLine: "جابه‌جایی خط" });
 Object.assign(en, { moveLine: "Move line" });
+
+// Persian is the primary interface language; these keys had only ever been
+// added to the English table, so the Persian interface silently fell back to
+// English for the whole export preview and the view switcher.
+Object.assign(fa, {
+  exportPreview: "پیش‌نمایش خروجی",
+  previewChooseSource: "برای دیدن پیش‌نمایش، یک فایل مبدأ انتخاب کن.",
+  previewUpdating: "در حال بروزرسانی…",
+  previewFailedShort: "پیش‌نمایش در دسترس نیست",
+  documentSettings: "تنظیمات سند",
+  documentSettingsHelp:
+    "هر گزینه یک‌بار و در یک جا. خالی‌گذاشتن یعنی از preset، mardas.toml یا مقدار پیش‌فرض ارث ببرد.",
+  viewMode: "نما",
+  viewWrite: "نوشتن",
+  viewSource: "سورس",
+  viewSplit: "دوستونه",
+  viewWriteHelp: "نوشتن با نمایش قالب‌بندی",
+  viewSourceHelp: "خواندن و ویرایش Markdown خام",
+  viewSplitHelp: "سورس در کنار پیش‌نمایش موتور",
+  enginePreview: "پیش‌نمایش موتور",
+  enginePreviewHelp: "دقیقاً همان چیزی که در PDF خواهد بود",
+  strikethrough: "خط‌خورده",
+  bulletList: "فهرست نقطه‌ای",
+  orderedList: "فهرست شماره‌دار",
+  taskList: "فهرست کارها",
+  blockQuote: "نقل‌قول",
+  insertTable: "جدول",
+  codeBlock: "بلوک کد",
+  insertImage: "تصویر",
+  horizontalRule: "خط جداکننده",
+  preset: "الگو",
+});

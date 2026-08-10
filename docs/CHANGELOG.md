@@ -7,6 +7,14 @@ The project follows semantic versioning for user-visible behavior. Patch release
 ## Unreleased
 
 ### Added
+- Made the export preview show the PDF itself. The engine now composes the whole published page — cover, contents, body, bibliography, watermark, running footer, every stylesheet and the sheet geometry — and the export screen lays it out as real paper: correct page size, real margins, one sheet per page, a page count, zoom and margin guides. Page breaks follow the document's own break rules and land between lines, not through them, so "contents on its own page" and "every H1 starts a page" are visible before a file is written.
+- Rebuilt the export settings as a browsable library: a category rail with per-category change counts, a search that covers option names and plain language, a one-sentence explanation of what every one of the 53 options decides, palette swatches in the colours the renderer prints, and inline validation of lengths and numbers before a render is started.
+- Gave every boolean option a third state. A checkbox can only say on or off, so an unchecked box and an option the user never touched looked identical, and sending "off" for an option `mardas.toml` had turned on was a silent override.
+- Gave the editor one command vocabulary. The toolbar, the keyboard, the command palette and the context menu now run the same commands, which toggle rather than only insert: pressing bold on bold text removes it, and applying a list to a list turns it back into paragraphs.
+- Added the full editing keymap — headings 1–6 and back to paragraph, strikethrough, inline code, code block, the three list kinds, quote, table, rule, task toggle and paste-as-plain-text — bound inside the editor so they share its undo history.
+- Added a heading menu that shows each level at its own weight, and a desktop-density right-click menu with copy, copy as HTML, copy as plain text, paste as plain text, insert image, validate, export and reveal.
+- Added typewriter scrolling and a distraction-free focus mode, both opt-in, in Settings and the command palette.
+- Rendered callouts, YAML front matter and fenced-code languages as what the engine publishes: `> [!WARNING]` becomes a coloured admonition card, front matter collapses to a metadata summary until the caret enters it, and a fence shows its language as a chip instead of its backticks.
 - Renamed the desktop product to **Mardas Folio** across the interface, window title, installer name, binary and release artifacts, with a new mark built from the letter F in four-fold rotational symmetry. The bundle identifier deliberately stays `io.github.mragetsars.mardas-studio`, because it is the key the updater and the per-user config directory are addressed by.
 - Added a live preview editing mode: Markdown syntax marks are hidden and the formatting is rendered in place, while the line holding the caret shows its raw source so it stays editable. Tables, thematic rules, task checkboxes and local images render as real elements.
 - Added a Write / Source / Split view control that replaces the separate "show source" and "show preview" toggles, and moved the formatting tools out of the window toolbar onto the document they act on.
@@ -18,6 +26,10 @@ The project follows semantic versioning for user-visible behavior. Patch release
 - Replaced CodeMirror's `defaultHighlightStyle` with a purpose-built syntax theme driven by `--cm-*` custom properties, so light and dark are one code path.
 
 ### Fixed
+- Repaired find-and-replace navigation in the professional editor. `currentEditor()` returns an adapter object, not an element, and passing it to `getComputedStyle` threw on every jump to a match.
+- Restored arrowheads on Mermaid diagrams in the authoring preview. Preview ids are prefixed to avoid colliding with the application's own, but `marker-end="url(#…)"` was left pointing at the unprefixed id.
+- Translated the export preview, the view switcher and the formatting tools into Persian. Those strings had only ever been added to the English table, so the primary interface language fell back to English for all of them.
+- Stopped the preview losing the engine's palette, dark mode, fonts and page-break rules. The stylesheets declare their type scale on `:root` and key appearance and breaks off `body.md2pdf-…`, and neither selector can match inside a shadow root.
 - Made the editor wrap long lines. A prose editor that scrolls sideways forces the reader to pan for every line; only fenced code keeps its own horizontal overflow.
 - Removed the duplicated export controls. Page size, appearance, language and contents existed both in a "basic settings" strip and in the settings panel, so one value had two widgets that could disagree and precedence depended on merge order.
 - Stopped the export preview competing with the export itself. The engine runs one job at a time and answers a second with SERVER_BUSY, so pressing Create PDF while a preview was rendering failed until retried; speculative preview work now yields.

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   LOCALE_STORAGE_KEY,
+  createTranslator,
   readLocalePreference,
   writeLocalePreference,
 } from "../frontend/js/core/i18n.mjs";
@@ -37,4 +38,22 @@ test("native accessibility labels are routed through the interface locale", () =
   assert.match(source, /id="document-tabs"[^>]*data-i18n-aria-label="openDocuments"/);
   assert.match(source, /class="book-metrics"[^>]*data-i18n-aria-label="bookStatus"/);
   assert.match(source, /id="update-progress"[^>]*data-i18n-aria-label="updateProgress"/);
+});
+
+test("every interface string exists in both languages", () => {
+  // Persian is the primary interface language, and a key added only to the
+  // English table falls back silently — the whole export preview and view
+  // switcher shipped in English inside a Persian window that way.
+  const source = readFileSync(new URL("../frontend/js/core/i18n.mjs", import.meta.url), "utf8");
+  const keys = [...new Set(
+    [...source.matchAll(/["']?([A-Za-z][A-Za-z0-9_.]*)["']?\s*:\s*["']/g)].map((m) => m[1]),
+  )];
+  const fa = createTranslator("fa");
+  const en = createTranslator("en");
+  const untranslated = keys.filter((key) => {
+    const english = en.t(key);
+    if (english === key || !/[A-Za-z]/.test(english)) return false;
+    return fa.t(key) === english;
+  });
+  assert.deepEqual(untranslated, [], "these strings have no Persian translation");
 });
