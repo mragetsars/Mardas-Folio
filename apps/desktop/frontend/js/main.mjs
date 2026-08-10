@@ -320,6 +320,7 @@ function applyInterfacePreferences({ persist = false } = {}) {
   // The editor keeps its own light/dark state so CodeMirror's floating panels
   // match the workspace.
   editorAdapter?.setTheme?.(document.documentElement.dataset.theme);
+  editorAdapter?.setTypewriter?.(state.preferences.typewriter);
   applyViewMode();
   const autoPreview = $("#auto-preview");
   if (autoPreview) autoPreview.checked = Boolean(state.preferences.autoPreview);
@@ -444,6 +445,8 @@ function fillSettingsForm() {
   $("#setting-content-scale").value = state.preferences.contentScale;
   $("#setting-motion").value = state.preferences.reducedMotion;
   $("#setting-auto-preview").checked = state.preferences.autoPreview;
+  $("#setting-typewriter").checked = state.preferences.typewriter;
+  $("#setting-focus-mode").checked = state.preferences.focusMode;
   $("#setting-locale").value = state.locale;
   $("#settings-search").value = "";
   filterSettings("");
@@ -479,6 +482,8 @@ function submitSettings(event) {
     contentScale: $("#setting-content-scale").value,
     reducedMotion: $("#setting-motion").value,
     autoPreview: $("#setting-auto-preview").checked,
+    typewriter: $("#setting-typewriter").checked,
+    focusMode: $("#setting-focus-mode").checked,
   });
   applyInterfacePreferences();
   setLocale($("#setting-locale").value);
@@ -703,6 +708,8 @@ function commandDefinitions() {
     { id: "view-write", icon: "\u270e", label: t("viewWrite"), keywords: "write live formatted wysiwyg نوشتن", priority: 42, run: () => setViewMode("write") },
     { id: "view-source", icon: "</>", label: t("viewSource"), keywords: "source raw markdown سورس", priority: 41, run: () => setViewMode("source") },
     { id: "view-split", icon: "\u25eb", label: t("viewSplit"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, run: () => setViewMode("split") },
+    { id: "typewriter", icon: "≡", label: t("typewriterMode"), keywords: "typewriter scroll centre writing ماشین تحریر", priority: 39, run: () => updatePreference({ typewriter: !state.preferences.typewriter }) },
+    { id: "focus-mode", icon: "□", label: t("focusMode"), keywords: "focus distraction free zen تمرکز", priority: 39, run: () => updatePreference({ focusMode: !state.preferences.focusMode }) },
     { id: "help", icon: "?", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
     { id: "home", icon: "⌂", label: t("commandHome"), keywords: "start home center", priority: 20, run: () => showView("start") },
   ];
@@ -3436,9 +3443,21 @@ function insertAtCursor(value) {
   applyEditorResult(replaceSelection(editor.value, editor.selectionStart, editor.selectionEnd, value));
 }
 
+/**
+ * Run a formatting command, wherever it was asked for.
+ *
+ * The professional editor owns the whole command vocabulary — toggling,
+ * multi-line block edits, heading levels — and shares one undo history with
+ * the keyboard. Only the plain-textarea fallback needs the string surgery
+ * below, and it covers the subset that fallback can express.
+ */
 function editorCommand(command) {
   const model = activeDocument();
   if (!model || model.readOnly || !isMarkdownModel(model)) return;
+  if (editorAdapter?.runCommand?.(command)) {
+    onEditorInput();
+    return;
+  }
   const editor = currentEditor();
   let result;
   if (command === "bold") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "**", "**", "bold text");
@@ -3467,6 +3486,156 @@ function editorCommand(command) {
     );
   }
   if (result) applyEditorResult(result);
+}
+
+// ---------------------------------------------------------------------------
+// Editor menus
+// ---------------------------------------------------------------------------
+
+/**
+ * The heading chooser.
+ *
+ * A single "H2" button could only ever apply one level, so every other heading
+ * had to be typed by hand. The menu shows each level at its own weight, because
+ * the decision being made is about size, not about a number.
+ */
+function toggleHeadingMenu(force) {
+  const menu = $("#heading-menu");
+  const button = $("#heading-menu-button");
+  if (!menu || !button) return;
+  const open = force === undefined ? menu.classList.contains("hidden") : force;
+  menu.classList.toggle("hidden", !open);
+  button.setAttribute("aria-expanded", String(open));
+  if (!open) return;
+  const box = button.getBoundingClientRect();
+  menu.style.top = `${box.bottom + 4}px`;
+  menu.style.insetInlineStart = `${document.documentElement.dir === "rtl"
+    ? window.innerWidth - box.right
+    : box.left}px`;
+  menu.querySelector("button")?.focus();
+}
+
+/** Plain text of the current selection, or the whole document. */
+function selectionOrDocument() {
+  const editor = currentEditor();
+  const selected = editor.value.slice(editor.selectionStart, editor.selectionEnd);
+  return selected || editor.value;
+}
+
+async function copyToClipboard(text, { html = null } = {}) {
+  try {
+    if (html && navigator.clipboard?.write && typeof ClipboardItem === "function") {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([text], { type: "text/plain" }),
+        }),
+      ]);
+      return true;
+    }
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    toast(t("clipboardUnavailable"), "error");
+    return false;
+  }
+}
+
+/** Copy the rendered document as HTML, for pasting into a word processor. */
+async function copyAsHtml() {
+  const model = activeDocument();
+  const html = model?.preview?.body_html;
+  if (!html) {
+    toast(t("previewEmpty"));
+    return;
+  }
+  const plain = document.createElement("div");
+  plain.append(safePreviewHtml(html));
+  if (await copyToClipboard(plain.textContent || "", { html })) toast(t("copied"), "success");
+}
+
+async function pasteAsPlainText() {
+  const model = activeDocument();
+  if (!model || model.readOnly) return;
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) insertAtCursor(text);
+  } catch {
+    toast(t("clipboardUnavailable"), "error");
+  }
+}
+
+/**
+ * The editor's own context menu.
+ *
+ * Right-clicking a document is expected to offer document actions — copy as
+ * HTML, insert an image, export — rather than the webview's menu, which offers
+ * "Reload" and "View source". Secondary and file-level actions live here so the
+ * toolbar can stay short.
+ */
+function openEditorContextMenu(event) {
+  closeEditorContextMenu();
+  const model = activeDocument();
+  const editable = Boolean(model) && !model.readOnly && isMarkdownModel(model);
+  const hasSelection = currentEditor().selectionStart !== currentEditor().selectionEnd;
+
+  const items = [
+    { key: "copy", label: t("copy"), enabled: hasSelection, run: () => copyToClipboard(selectionOrDocument()) },
+    { key: "copyHtml", label: t("copyAsHtml"), enabled: Boolean(model?.preview), run: copyAsHtml },
+    { key: "copyPlain", label: t("copyAsPlainText"), enabled: true, run: () => copyToClipboard(selectionOrDocument()) },
+    { key: "paste", label: t("pasteAsPlainText"), enabled: editable, run: pasteAsPlainText },
+    { separator: true },
+    { key: "image", label: t("insertImage"), enabled: editable, run: importAsset },
+    { key: "citation", label: t("insertCitation"), enabled: editable, run: () => editorCommand("citation") },
+    { key: "table", label: t("insertTable"), enabled: editable, run: () => editorCommand("table") },
+    { separator: true },
+    { key: "validate", label: t("checkDocument"), enabled: Boolean(model), run: validateActiveDocument },
+    { key: "export", label: t("exportPdf"), enabled: Boolean(model), run: exportActiveDocument },
+    { key: "reveal", label: t("showInFolder"), enabled: Boolean(model?.path), run: () => invoke("reveal_path", { path: model.path }).catch(() => {}) },
+  ];
+
+  const menu = $("#editor-context-menu");
+  if (!menu) return;
+  menu.replaceChildren();
+
+  for (const item of items) {
+    if (item.separator) {
+      const rule = document.createElement("span");
+      rule.className = "context-menu-separator";
+      rule.setAttribute("role", "separator");
+      menu.append(rule);
+      continue;
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "context-menu-item";
+    button.setAttribute("role", "menuitem");
+    button.textContent = item.label;
+    button.disabled = !item.enabled;
+    button.addEventListener("click", () => {
+      closeEditorContextMenu();
+      item.run();
+    });
+    menu.append(button);
+  }
+  menu.classList.remove("hidden");
+  menu.setAttribute("aria-hidden", "false");
+
+  // A menu that runs off the window is a menu with items nobody can reach.
+  const box = menu.getBoundingClientRect();
+  const left = Math.min(event.clientX, window.innerWidth - box.width - 8);
+  const top = Math.min(event.clientY, window.innerHeight - box.height - 8);
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+  menu.querySelector("button:not([disabled])")?.focus();
+}
+
+function closeEditorContextMenu() {
+  const menu = $("#editor-context-menu");
+  if (!menu || menu.classList.contains("hidden")) return;
+  menu.classList.add("hidden");
+  menu.setAttribute("aria-hidden", "true");
+  menu.replaceChildren();
 }
 
 function applyFrontMatter(event) {
@@ -3636,7 +3805,36 @@ function bindEvents() {
   $("#replace-one").addEventListener("click", replaceCurrentMatch);
   $("#replace-all").addEventListener("click", replaceAllMatches);
   $("#close-find").addEventListener("click", closeFind);
-  $$('[data-editor-command]').forEach((button) => button.addEventListener("click", () => editorCommand(button.dataset.editorCommand)));
+  $$('[data-editor-command]').forEach((button) => button.addEventListener("click", () => {
+    if (button.closest(".popover-menu")) toggleHeadingMenu(false);
+    editorCommand(button.dataset.editorCommand);
+  }));
+  $("#heading-menu-button").addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleHeadingMenu();
+  });
+  $("#format-find").addEventListener("click", () => openFind({ replace: false }));
+  $("#heading-menu").addEventListener("keydown", (event) => {
+    const items = [...$("#heading-menu").querySelectorAll("button")];
+    const index = items.indexOf(document.activeElement);
+    if (event.key === "Escape") {
+      event.preventDefault();
+      toggleHeadingMenu(false);
+      $("#heading-menu-button").focus();
+      return;
+    }
+    if (!["ArrowUp", "ArrowDown"].includes(event.key) || index < 0) return;
+    event.preventDefault();
+    const next = event.key === "ArrowDown"
+      ? (index + 1) % items.length
+      : (index - 1 + items.length) % items.length;
+    items[next].focus();
+  });
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest("#heading-menu, #heading-menu-button")) toggleHeadingMenu(false);
+    if (!target?.closest("#editor-context-menu")) closeEditorContextMenu();
+  });
   const sidebarButtons = $$('[data-sidebar]');
   sidebarButtons.forEach((button) => {
     button.addEventListener("click", () => activateSidebar(button.dataset.sidebar));
@@ -3684,6 +3882,10 @@ function bindEvents() {
   $("#command-query").addEventListener("keydown", commandKeydown);
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeEditorContextMenu();
+      toggleHeadingMenu(false);
+    }
     if (event.key === "F1") {
       event.preventDefault();
       if (!modalManager.hasOpenModal()) openHelp();
@@ -3709,13 +3911,25 @@ function bindEvents() {
     } else if (key === "s") {
       event.preventDefault();
       saveActiveDocument({ saveAs: event.shiftKey });
+    } else if (key === "v" && event.shiftKey) {
+      // Markdown is plain text; a paste that carries formatting from a browser
+      // or a word processor arrives as markup nobody asked for.
+      event.preventDefault();
+      pasteAsPlainText();
     } else if (key === "o") {
       event.preventDefault();
       chooseAuthoringFiles();
     } else if (key === "n") {
       event.preventDefault();
       createUntitledDocument();
-    } else if (["b", "i", "k"].includes(key) && $("#workspace-view").classList.contains("active")) {
+    } else if (
+      ["b", "i", "k"].includes(key)
+      && $("#workspace-view").classList.contains("active")
+      // Inside the editor these are the editor's own bindings. Handling them
+      // here as well ran the command twice against a selection CodeMirror had
+      // already changed.
+      && !(event.target instanceof Element && event.target.closest(".editor-surface"))
+    ) {
       event.preventDefault();
       editorCommand(key === "b" ? "bold" : key === "i" ? "italic" : "link");
     }
@@ -3746,6 +3960,8 @@ async function boot() {
   const editorOptions = {
     theme: document.documentElement.dataset.theme,
     mode: editorModeForView(state.preferences.viewMode),
+    typewriter: state.preferences.typewriter,
+    onContextMenu: openEditorContextMenu,
     resolveAsset: resolveEditorAsset,
     getCompletions: () => activeDocument()?.projectPath === state.project?.path
       ? state.bibliographyEntries

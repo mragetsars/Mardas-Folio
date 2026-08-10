@@ -8,6 +8,15 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   reducedMotion: "system",
   autoPreview: true,
   viewMode: "write",
+  /**
+   * Keeps the caret's line at a fixed height while writing.
+   *
+   * Off by default: scroll position is something writers build a physical
+   * habit around, and taking it over uninvited is disorienting.
+   */
+  typewriter: false,
+  /** Hides everything but the document. */
+  focusMode: false,
   onboardingComplete: false,
 });
 
@@ -35,6 +44,8 @@ export function normalizePreferences(value = {}) {
     reducedMotion: MOTION.has(value?.reducedMotion) ? value.reducedMotion : DEFAULT_PREFERENCES.reducedMotion,
     autoPreview: booleanValue(value?.autoPreview, DEFAULT_PREFERENCES.autoPreview),
     viewMode: VIEW_MODES.has(value?.viewMode) ? value.viewMode : DEFAULT_PREFERENCES.viewMode,
+    typewriter: booleanValue(value?.typewriter, DEFAULT_PREFERENCES.typewriter),
+    focusMode: booleanValue(value?.focusMode, DEFAULT_PREFERENCES.focusMode),
     onboardingComplete: booleanValue(value?.onboardingComplete, DEFAULT_PREFERENCES.onboardingComplete),
   };
 }
@@ -84,6 +95,8 @@ export function applyPreferences(documentElement, value, matchMedia = globalThis
   documentElement.dataset.themePreference = normalized.theme;
   documentElement.dataset.contentScale = normalized.contentScale;
   documentElement.dataset.reducedMotion = resolvedReducedMotion(normalized.reducedMotion, matchMedia) ? "reduce" : "full";
+  documentElement.dataset.focusMode = String(normalized.focusMode);
+  documentElement.dataset.typewriter = String(normalized.typewriter);
   return normalized;
 }
 

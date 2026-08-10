@@ -3674,3 +3674,166 @@ button:focus-visible,
 .codemirror-mount .cm-editor .cm-content {
   overflow-wrap: anywhere;
 }
+
+/* ==========================================================================
+   Editor menus, writing modes and the desktop context menu
+   ========================================================================== */
+
+/* The formatting bar reads as five decisions, not twenty buttons. */
+.format-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.format-group-end {
+  margin-inline-start: auto;
+}
+
+.format-menu-button {
+  width: auto !important;
+  padding-inline: 6px;
+  gap: 2px;
+  display: inline-flex !important;
+  align-items: center;
+}
+
+.format-caret {
+  font-size: 8px;
+  opacity: 0.65;
+}
+
+/* A heading menu that shows each level at its own weight: the decision is
+   about size, so it is made against size. */
+.popover-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 190px;
+  max-width: min(300px, calc(100vw - 16px));
+  padding: 4px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-panel);
+  box-shadow: var(--ui-shadow-float);
+}
+
+.popover-divider {
+  display: block;
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--ui-border);
+}
+
+.heading-choice {
+  display: block;
+  width: 100%;
+  min-height: 26px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-text);
+  font: 600 12px/1.5 inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.heading-choice:hover,
+.heading-choice:focus-visible {
+  background: var(--ui-panel-muted);
+  color: var(--ui-accent);
+}
+
+.heading-choice-1 { font-size: 20px; font-weight: 750; }
+.heading-choice-2 { font-size: 17px; font-weight: 700; }
+.heading-choice-3 { font-size: 15px; font-weight: 680; }
+.heading-choice-4 { font-size: 13.5px; font-weight: 660; }
+.heading-choice-5 { font-size: 12.5px; font-weight: 640; }
+.heading-choice-6 { font-size: 11.5px; font-weight: 620; }
+
+/* Density of a native desktop menu, not of a touch surface. */
+.context-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 8px));
+  padding: 4px;
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  background: var(--ui-panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 26px;
+  padding: 2px 12px 2px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ui-text);
+  font: 400 13px/22px inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.context-menu-item:hover:not(:disabled),
+.context-menu-item:focus-visible:not(:disabled) {
+  background: var(--ui-panel-muted);
+  outline: none;
+}
+
+.context-menu-item:disabled {
+  color: var(--ui-muted);
+  opacity: 0.55;
+  cursor: default;
+}
+
+.context-menu-separator {
+  display: block;
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--ui-border);
+}
+
+.settings-help {
+  margin: -6px 0 2px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* Focus mode: everything that is not the document steps back. The controls
+   stay reachable — Escape and the command palette both leave — but nothing
+   competes with the text while it is being written. */
+html[data-focus-mode="true"] .author-sidebar,
+html[data-focus-mode="true"] .pane-resizer,
+html[data-focus-mode="true"] .document-tabs,
+html[data-focus-mode="true"] .app-footer {
+  display: none !important;
+}
+
+html[data-focus-mode="true"] .authoring-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+html[data-focus-mode="true"] .format-bar,
+html[data-focus-mode="true"] .author-toolbar {
+  opacity: 0.25;
+  transition: opacity 140ms ease;
+}
+
+html[data-focus-mode="true"] .format-bar:hover,
+html[data-focus-mode="true"] .format-bar:focus-within,
+html[data-focus-mode="true"] .author-toolbar:hover,
+html[data-focus-mode="true"] .author-toolbar:focus-within {
+  opacity: 1;
+}
+
+html[data-focus-mode="true"] .editor-pane {
+  border-inline-end: 0;
+}

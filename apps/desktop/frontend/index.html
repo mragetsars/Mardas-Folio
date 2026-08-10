@@ -270,26 +270,59 @@
             </div>
             <span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span>
           </header>
-        <div class="format-bar" data-i18n-aria-label="formattingTools" aria-label="ابزارهای قالب‌بندی">
-              <button type="button" data-editor-command="bold" data-i18n-title="bold" title="پررنگ"><b>B</b></button>
-              <button type="button" data-editor-command="italic" data-i18n-title="italic" title="مورب"><i>I</i></button>
-              <button type="button" data-editor-command="heading" data-i18n-title="heading" title="عنوان">H2</button>
-              <span class="formatting-divider" aria-hidden="true"></span>
-              <button type="button" data-editor-command="link" data-i18n-title="link" title="پیوند">↗</button>
-              <button type="button" data-editor-command="code" data-i18n-title="code" title="کد">&lt;/&gt;</button>
-              <button type="button" id="workspace-import-asset" data-i18n-title="importAsset" title="افزودن فایل">▧</button>
-              <button type="button" data-editor-command="citation" data-i18n-title="insertCitation" title="درج ارجاع">@</button>
-              <span class="formatting-divider" aria-hidden="true"></span>
-              <button type="button" data-editor-command="strike" data-i18n-title="strikethrough" title="خط‌خورده"><s>S</s></button>
-              <button type="button" data-editor-command="bullet-list" data-i18n-title="bulletList" title="فهرست نقطه‌ای">&#8226;&#8801;</button>
-              <button type="button" data-editor-command="ordered-list" data-i18n-title="orderedList" title="فهرست شماره‌دار">1&#8801;</button>
-              <button type="button" data-editor-command="task-list" data-i18n-title="taskList" title="فهرست کارها">&#9745;</button>
-              <button type="button" data-editor-command="quote" data-i18n-title="blockQuote" title="نقل‌قول">&#8220;</button>
-              <button type="button" data-editor-command="table" data-i18n-title="insertTable" title="جدول">&#9638;</button>
-              <button type="button" data-editor-command="code-block" data-i18n-title="codeBlock" title="بلوک کد">&#123;&#125;</button>
-              <button type="button" data-editor-command="image" data-i18n-title="insertImage" title="تصویر">&#9635;</button>
-              <button type="button" data-editor-command="rule" data-i18n-title="horizontalRule" title="خط جداکننده">&#8213;</button>
+        <!-- Grouped by what the tools do, not by how many fit on a row: a
+             twenty-button strip is read as twenty buttons; five groups of four
+             are read as five decisions. -->
+        <div class="format-bar" role="toolbar" data-i18n-aria-label="formattingTools" aria-label="ابزارهای قالب‌بندی">
+              <div class="format-group">
+                <button type="button" id="heading-menu-button" class="format-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="heading-menu" data-i18n-title="heading" title="عنوان">H<span class="format-caret" aria-hidden="true">▾</span></button>
               </div>
+              <span class="formatting-divider" aria-hidden="true"></span>
+              <div class="format-group">
+                <button type="button" data-editor-command="bold" data-i18n-title="bold" title="پررنگ"><b>B</b></button>
+                <button type="button" data-editor-command="italic" data-i18n-title="italic" title="مورب"><i>I</i></button>
+                <button type="button" data-editor-command="strike" data-i18n-title="strikethrough" title="خط‌خورده"><s>S</s></button>
+                <button type="button" data-editor-command="code" data-i18n-title="code" title="کد">&lt;/&gt;</button>
+              </div>
+              <span class="formatting-divider" aria-hidden="true"></span>
+              <div class="format-group">
+                <button type="button" data-editor-command="link" data-i18n-title="link" title="پیوند">↗</button>
+                <button type="button" id="workspace-import-asset" data-i18n-title="importAsset" title="افزودن فایل">▧</button>
+                <button type="button" data-editor-command="citation" data-i18n-title="insertCitation" title="درج ارجاع">@</button>
+              </div>
+              <span class="formatting-divider" aria-hidden="true"></span>
+              <div class="format-group">
+                <button type="button" data-editor-command="bullet-list" data-i18n-title="bulletList" title="فهرست نقطه‌ای">&#8226;&#8801;</button>
+                <button type="button" data-editor-command="ordered-list" data-i18n-title="orderedList" title="فهرست شماره‌دار">1&#8801;</button>
+                <button type="button" data-editor-command="task-list" data-i18n-title="taskList" title="فهرست کارها">&#9745;</button>
+              </div>
+              <span class="formatting-divider" aria-hidden="true"></span>
+              <div class="format-group">
+                <button type="button" data-editor-command="quote" data-i18n-title="blockQuote" title="نقل‌قول">&#8220;</button>
+                <button type="button" data-editor-command="callout" data-i18n-title="insertCallout" title="کادر یادداشت">&#9873;</button>
+                <button type="button" data-editor-command="table" data-i18n-title="insertTable" title="جدول">&#9638;</button>
+                <button type="button" data-editor-command="code-block" data-i18n-title="codeBlock" title="بلوک کد">&#123;&#125;</button>
+                <button type="button" data-editor-command="rule" data-i18n-title="horizontalRule" title="خط جداکننده">&#8213;</button>
+              </div>
+              <span class="formatting-divider" aria-hidden="true"></span>
+              <div class="format-group">
+                <button type="button" data-editor-command="undo" data-i18n-title="undo" title="واگرد">&#8630;</button>
+                <button type="button" data-editor-command="redo" data-i18n-title="redo" title="ازنو">&#8631;</button>
+              </div>
+              <div class="format-group format-group-end">
+                <button type="button" id="format-find" data-i18n-title="find" title="جست‌وجو">&#9906;</button>
+              </div>
+              </div>
+        <div class="popover-menu hidden" id="heading-menu" role="menu" aria-labelledby="heading-menu-button">
+          <button type="button" role="menuitem" data-editor-command="heading-1" class="heading-choice heading-choice-1">H1</button>
+          <button type="button" role="menuitem" data-editor-command="heading-2" class="heading-choice heading-choice-2">H2</button>
+          <button type="button" role="menuitem" data-editor-command="heading-3" class="heading-choice heading-choice-3">H3</button>
+          <button type="button" role="menuitem" data-editor-command="heading-4" class="heading-choice heading-choice-4">H4</button>
+          <button type="button" role="menuitem" data-editor-command="heading-5" class="heading-choice heading-choice-5">H5</button>
+          <button type="button" role="menuitem" data-editor-command="heading-6" class="heading-choice heading-choice-6">H6</button>
+          <span class="popover-divider" role="separator"></span>
+          <button type="button" role="menuitem" data-editor-command="paragraph" class="heading-choice" data-i18n="paragraphText">متن معمولی</button>
+        </div>
 
           <div class="find-bar hidden" id="find-bar">
             <input id="find-query" type="search" data-i18n-placeholder="find" data-i18n-aria-label="find" aria-label="جست‌وجو" placeholder="جست‌وجو">
@@ -356,6 +389,13 @@
         <h3 data-i18n="appearance">ظاهر</h3>
         <label><span data-i18n="interfaceTheme">پوسته برنامه</span><select id="setting-theme"><option value="system" data-i18n="followSystem">مطابق سیستم</option><option value="light" data-i18n="lightTheme">روشن</option><option value="dark" data-i18n="darkTheme">تیره</option></select></label>
         <label><span data-i18n="contentSize">اندازه متن نویسندگی</span><select id="setting-content-scale"><option value="comfortable" data-i18n="comfortable">معمولی</option><option value="large" data-i18n="large">بزرگ</option><option value="extra-large" data-i18n="extraLarge">خیلی بزرگ</option></select></label>
+      </section>
+      <section class="settings-section" data-settings-terms="writing typewriter focus distraction نوشتن تایپ فوکوس تمرکز">
+        <h3 data-i18n="writingSettings">نوشتن</h3>
+        <label class="toggle compact-toggle"><input id="setting-typewriter" type="checkbox"><i></i><span data-i18n="typewriterMode">حالت ماشین تحریر</span></label>
+        <p class="settings-help" data-i18n="typewriterHelp">خط در حال نوشتن همیشه در ارتفاع ثابتی از صفحه می‌ماند.</p>
+        <label class="toggle compact-toggle"><input id="setting-focus-mode" type="checkbox"><i></i><span data-i18n="focusMode">حالت تمرکز</span></label>
+        <p class="settings-help" data-i18n="focusModeHelp">نوار کناری، برگه‌ها و ابزارها پنهان می‌شوند تا فقط سند بماند.</p>
       </section>
       <section class="settings-section" data-settings-terms="accessibility motion animation preview دسترسی حرکت پیش نمایش">
         <h3 data-i18n="accessibility">دسترسی‌پذیری</h3>
@@ -440,6 +480,7 @@
   </form>
 </div>
 <div class="modal hidden" id="recovery-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="recovery-title"><div class="modal-card"><h2 id="recovery-title" data-i18n="recoveryFound">نسخه بازیابی‌شده پیدا شد</h2><p id="recovery-message"></p><div class="modal-actions"><button class="button secondary" id="discard-recovery" type="button" data-i18n="discardRecovery">نادیده‌گرفتن</button><button class="button primary" id="restore-recovery" type="button" data-i18n="restoreRecovery">بازیابی</button></div></div></div>
+<div class="context-menu hidden" id="editor-context-menu" role="menu" aria-hidden="true" data-i18n-aria-label="documentActions" aria-label="عملیات سند"></div>
 <div class="toasts" id="toast-region" aria-live="polite" aria-atomic="false"></div>
 <script type="module" src="./js/main.mjs"></script>
 </body>

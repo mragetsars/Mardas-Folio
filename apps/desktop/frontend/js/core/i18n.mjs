@@ -277,3 +277,27 @@ Object.assign(en, {
   clearValue:"Clear",affectsPreview:"Visible in the preview",
   settingsSummary:"Settings summary",noChanges:"Everything matches the preset.",
 });
+
+// Editor menus, writing modes and clipboard actions.
+Object.assign(fa, {
+  paragraphText:"متن معمولی",insertCallout:"کادر یادداشت",undo:"واگرد",redo:"ازنو",
+  documentActions:"عملیات سند",copy:"کپی",copyAsHtml:"کپی به‌صورت HTML",
+  copyAsPlainText:"کپی به‌صورت متن ساده",pasteAsPlainText:"چسباندن متن ساده",
+  copied:"در حافظه کپی شد.",clipboardUnavailable:"دسترسی به حافظه موقت ممکن نشد.",
+  writingSettings:"نوشتن",typewriterMode:"حالت ماشین تحریر",
+  typewriterHelp:"خط در حال نوشتن همیشه در ارتفاع ثابتی از صفحه می‌ماند.",
+  focusMode:"حالت تمرکز",
+  focusModeHelp:"نوار کناری، برگه‌ها و ابزارها پنهان می‌شوند تا فقط سند بماند.",
+  exitFocusMode:"خروج از حالت تمرکز",
+});
+Object.assign(en, {
+  paragraphText:"Normal text",insertCallout:"Callout",undo:"Undo",redo:"Redo",
+  documentActions:"Document actions",copy:"Copy",copyAsHtml:"Copy as HTML",
+  copyAsPlainText:"Copy as plain text",pasteAsPlainText:"Paste as plain text",
+  copied:"Copied to the clipboard.",clipboardUnavailable:"The clipboard was not available.",
+  writingSettings:"Writing",typewriterMode:"Typewriter mode",
+  typewriterHelp:"Keeps the line you are writing at a fixed height on screen.",
+  focusMode:"Focus mode",
+  focusModeHelp:"Hides the sidebar, tabs and tools so only the document remains.",
+  exitFocusMode:"Leave focus mode",
+});

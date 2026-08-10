@@ -1,5 +1,5 @@
 import { autocompletion, snippetCompletion } from "@codemirror/autocomplete";
-import { indentWithTab } from "@codemirror/commands";
+import { indentWithTab, redo, undo } from "@codemirror/commands";
 import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
 import { javascript } from "@codemirror/lang-javascript";
@@ -10,6 +10,7 @@ import {
   Compartment,
   EditorSelection,
   EditorState,
+  Prec,
   Transaction,
 } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
@@ -17,7 +18,9 @@ import { basicSetup } from "codemirror";
 
 import { mardasEditorAppearance } from "./editor-theme.mjs";
 import { editorModeExtension, normalizeEditorMode } from "./live-preview.mjs";
+import { markdownCommandKeymap, runMarkdownCommand } from "./markdown-commands.mjs";
 import { frontmatter } from "./markdown-frontmatter.mjs";
+import { typewriterExtension } from "./typewriter.mjs";
 
 const MAX_COMPLETIONS = 500;
 
@@ -153,7 +156,17 @@ function documentTheme() {
 
 export function createCodeMirrorEditorAdapter(
   textarea,
-  { getCompletions, onChange, onScroll, onSelectionChange, resolveAsset, theme, mode } = {},
+  {
+    getCompletions,
+    onChange,
+    onContextMenu,
+    onScroll,
+    onSelectionChange,
+    resolveAsset,
+    theme,
+    mode,
+    typewriter = false,
+  } = {},
 ) {
   if (!(textarea instanceof HTMLTextAreaElement)) {
     throw new TypeError("CodeMirror editor requires a textarea fallback element.");
@@ -171,9 +184,11 @@ export function createCodeMirrorEditorAdapter(
   let disabled = Boolean(textarea.disabled);
   let appearanceMode = theme === "dark" || theme === "light" ? theme : documentTheme();
   let editorMode = normalizeEditorMode(mode);
+  let typewriterEnabled = Boolean(typewriter);
   const readOnly = new Compartment();
   const appearance = new Compartment();
   const preview = new Compartment();
+  const writingRhythm = new Compartment();
 
   const view = new EditorView({
     parent: mount,
@@ -196,7 +211,13 @@ export function createCodeMirrorEditorAdapter(
         EditorView.lineWrapping,
         appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
         preview.of(editorModeExtension(editorMode, { resolveAsset })),
+        writingRhythm.of(typewriterExtension(typewriterEnabled)),
         EditorState.allowMultipleSelections.of(true),
+        // Formatting keys are bound above everything else. Bound on the window
+        // instead, they could not see that CodeMirror had already acted on the
+        // same key — which is how Ctrl+I came to expand the selection to its
+        // parent syntax node *and* wrap the result in underscores.
+        Prec.highest(keymap.of(markdownCommandKeymap())),
         keymap.of([indentWithTab]),
         autocompletion({
           activateOnTyping: true,
@@ -224,6 +245,20 @@ export function createCodeMirrorEditorAdapter(
 
   const scroll = () => onScroll?.(view.scrollDOM.scrollTop);
   view.scrollDOM.addEventListener("scroll", scroll, { passive: true });
+
+  /**
+   * Hand the right-click to the application.
+   *
+   * A document editor is expected to offer document actions here — copy as
+   * HTML, insert an image, export — not the webview's own menu, which offers
+   * "Reload" and "View source".
+   */
+  const contextMenu = (event) => {
+    if (!onContextMenu) return;
+    event.preventDefault();
+    onContextMenu(event);
+  };
+  view.dom.addEventListener("contextmenu", contextMenu);
 
   const adapter = {
     kind: "codemirror",
@@ -373,6 +408,34 @@ export function createCodeMirrorEditorAdapter(
       });
       return appearanceMode;
     },
+    /**
+     * Run a named Markdown command.
+     *
+     * The toolbar, the keyboard, the command palette and the context menu all
+     * come through here, so a formatting action means the same thing however
+     * it was asked for.
+     */
+    runCommand(name) {
+      if (disabled) return false;
+      if (name === "undo") return undo(view);
+      if (name === "redo") return redo(view);
+      return runMarkdownCommand(view, name);
+    },
+    get typewriter() {
+      return typewriterEnabled;
+    },
+    setTypewriter(value) {
+      const next = Boolean(value);
+      if (next === typewriterEnabled) return typewriterEnabled;
+      typewriterEnabled = next;
+      view.dispatch({ effects: writingRhythm.reconfigure(typewriterExtension(next)) });
+      return typewriterEnabled;
+    },
+    /** The word under the caret, used to seed find and link editing. */
+    selectionText() {
+      const { from, to } = view.state.selection.main;
+      return view.state.sliceDoc(from, to);
+    },
     setDiagnostics(items = []) {
       const mapped = [];
       for (const item of Array.isArray(items) ? items : []) {
@@ -389,6 +452,7 @@ export function createCodeMirrorEditorAdapter(
     },
     destroy() {
       view.scrollDOM.removeEventListener("scroll", scroll);
+      view.dom.removeEventListener("contextmenu", contextMenu);
       view.destroy();
       mount.remove();
       textarea.hidden = false;
