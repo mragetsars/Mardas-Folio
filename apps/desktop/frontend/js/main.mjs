@@ -2,7 +2,16 @@ import { basename, buildDocumentParams, defaultOutputPath, validateExportSelecti
 import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
 import { onboardingIntentPresentation, onboardingPrimaryActionKey, normalizeOnboardingIntent } from "./core/onboarding.mjs";
 import { PRESETS, presetById } from "./core/presets.mjs";
-import { OPTION_FIELDS, OPTION_GROUPS, collectRenderOptions } from "./core/render-options.mjs";
+import {
+  OPTION_FIELDS,
+  OPTION_GROUPS,
+  collectRenderOptions,
+  fieldIsActive,
+  modifiedCountsByGroup,
+  modifiedKeys,
+  searchOptions,
+  validateOptionValue,
+} from "./core/render-options.mjs";
 import { addRecent, readRecents, writeRecents } from "./core/recents.mjs";
 import { invoke, listen } from "./core/tauri.mjs";
 import {
@@ -223,6 +232,9 @@ function setLocale(value) {
   renderPresets();
   renderRecents();
   renderWorkspace();
+  // The settings browser is built from translated strings, so it is rebuilt
+  // rather than patched when the interface language changes.
+  renderAdvancedOptions();
   renderSummary();
   renderTemplateGallery();
   if (modalManager?.isOpen($("#command-modal"))) renderCommandPalette();
@@ -864,114 +876,409 @@ function working(enabled, mode = "render") {
 }
 
 /**
- * Values the user has typed into the advanced panel, keyed by option.
+ * Values the user has typed into the settings panel, keyed by option.
  *
  * Absent means "inherit"; the panel never sends a key the user did not touch,
  * so opening it cannot overwrite what mardas.toml already configured.
  */
 const advancedValues = new Map();
 
+/** Which category the settings browser is showing. */
+let activeOptionGroup = OPTION_GROUPS[0].id;
+let optionSearchQuery = "";
+let showExpertOptions = false;
+
+/**
+ * The accent each palette prints with.
+ *
+ * Mirrored from `appearance.PALETTES` so choosing a palette is a colour
+ * decision made against colour, not against seven English words.
+ * `tests/test_desktop_app.py` holds these against the engine's own table.
+ */
+const PALETTE_ACCENTS = Object.freeze({
+  blue: "#2563eb",
+  emerald: "#047857",
+  violet: "#7c3aed",
+  amber: "#b45309",
+  rose: "#e11d48",
+  slate: "#475569",
+  neutral: "#404040",
+});
+
 function advancedControlId(key) {
   return `adv-${key.replaceAll("_", "-")}`;
 }
 
-function buildAdvancedControl(field) {
-  const id = advancedControlId(field.key);
-  const label = document.createElement("label");
-  label.className = `advanced-field advanced-${field.kind}`;
-  label.setAttribute("for", id);
+/** A translated label for an engine enum value, falling back to the identifier. */
+function choiceLabel(value) {
+  const label = t(value);
+  return label === value ? value : label;
+}
 
-  const caption = document.createElement("span");
-  caption.className = "advanced-label";
-  caption.dataset.i18n = `opt.${field.key}`;
-  caption.textContent = t(`opt.${field.key}`);
+function setOptionValue(key, value) {
+  if (value === undefined) advancedValues.delete(key);
+  else advancedValues.set(key, value);
+  renderOptionRail();
+  renderOptionPane();
+  renderSummary();
+  schedulePdfPreview();
+}
 
-  let control;
-  if (field.kind === "select") {
-    control = document.createElement("select");
-    const inherit = document.createElement("option");
-    inherit.value = "";
-    inherit.textContent = "—";
-    control.append(inherit);
-    for (const choice of field.choices) {
-      const option = document.createElement("option");
-      option.value = choice;
-      // Enum values are engine identifiers; show a translated label when the
-      // interface has one, and fall back to the identifier when it does not.
-      const label = t(choice);
-      option.textContent = label === choice ? choice : label;
-      control.append(option);
-    }
-  } else if (field.kind === "toggle") {
-    control = document.createElement("select");
-    for (const [value, text] of [["", "—"], ["true", t("enabled")], ["false", t("disabled")]]) {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = text;
-      control.append(option);
-    }
-  } else {
-    control = document.createElement("input");
-    control.type = field.kind === "number" ? "number" : "text";
-    if (field.min !== undefined) control.min = String(field.min);
-    if (field.max !== undefined) control.max = String(field.max);
-    if (field.step !== undefined) control.step = String(field.step);
-    if (field.placeholder) control.placeholder = field.placeholder;
+/**
+ * The three states every boolean option really has.
+ *
+ * A checkbox can only say on or off, so an unchecked box and an option the user
+ * never touched looked identical — and sending "off" for an option the project
+ * configuration had turned on is a silent override. The third state is the
+ * default one, and it is shown as such.
+ */
+function buildToggleControl(field) {
+  const group = document.createElement("div");
+  group.className = "tri-toggle";
+  group.setAttribute("role", "radiogroup");
+  group.setAttribute("aria-labelledby", `${advancedControlId(field.key)}-label`);
+  const current = advancedValues.has(field.key) ? Boolean(advancedValues.get(field.key)) : null;
+  const states = [
+    [null, t("inherit"), "—"],
+    [false, t("off"), t("off")],
+    [true, t("on"), t("on")],
+  ];
+  for (const [value, label, text] of states) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tri-toggle-option";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", String(current === value));
+    button.setAttribute("aria-label", label);
+    button.textContent = text;
+    button.addEventListener("click", () => setOptionValue(field.key, value ?? undefined));
+    group.append(button);
   }
-  control.id = id;
-  control.dataset.optionKey = field.key;
+  return group;
+}
+
+function buildSelectControl(field) {
+  const control = document.createElement("select");
+  control.id = advancedControlId(field.key);
+  const inherit = document.createElement("option");
+  inherit.value = "";
+  inherit.textContent = `— ${t("inherit")}`;
+  control.append(inherit);
+  for (const choice of field.choices) {
+    const option = document.createElement("option");
+    option.value = choice;
+    option.textContent = choiceLabel(choice);
+    control.append(option);
+  }
+  control.value = advancedValues.has(field.key) ? String(advancedValues.get(field.key)) : "";
   control.addEventListener("change", () => {
-    const raw = control.value;
-    if (raw === "") advancedValues.delete(field.key);
-    else if (field.kind === "toggle") advancedValues.set(field.key, raw === "true");
-    else advancedValues.set(field.key, raw);
-    renderSummary();
-    schedulePdfPreview();
+    setOptionValue(field.key, control.value === "" ? undefined : control.value);
   });
+  return control;
+}
 
-  label.append(caption, control);
+/** A palette is a colour decision, so it is made against colour. */
+function buildSwatchControl(field) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "swatch-row";
+  wrapper.setAttribute("role", "radiogroup");
+  wrapper.setAttribute("aria-labelledby", `${advancedControlId(field.key)}-label`);
+  const current = advancedValues.get(field.key) ?? "";
+  for (const choice of field.choices) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "swatch";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", String(current === choice));
+    button.setAttribute("aria-label", choiceLabel(choice));
+    button.title = choiceLabel(choice);
+    button.style.setProperty("--swatch", PALETTE_ACCENTS[choice] || "#808080");
+    button.addEventListener("click", () => {
+      setOptionValue(field.key, current === choice ? undefined : choice);
+    });
+    wrapper.append(button);
+  }
+  return wrapper;
+}
 
+function buildSliderControl(field) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "slider-row";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.id = advancedControlId(field.key);
+  slider.min = String(field.min ?? 0);
+  slider.max = String(field.max ?? 1);
+  slider.step = String(field.step ?? 0.05);
+  const readout = document.createElement("output");
+  const stored = advancedValues.get(field.key);
+  slider.value = String(stored ?? field.max ?? 1);
+  readout.textContent = stored === undefined ? "—" : String(stored);
+  slider.addEventListener("input", () => {
+    readout.textContent = slider.value;
+  });
+  slider.addEventListener("change", () => setOptionValue(field.key, Number(slider.value)));
+  wrapper.append(slider, readout);
+  return wrapper;
+}
+
+function buildTextControl(field) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "text-row";
+  const control = document.createElement("input");
+  control.id = advancedControlId(field.key);
+  control.type = field.kind === "number" ? "number" : "text";
+  if (field.min !== undefined) control.min = String(field.min);
+  if (field.max !== undefined) control.max = String(field.max);
+  if (field.step !== undefined) control.step = String(field.step);
+  if (field.placeholder) control.placeholder = field.placeholder;
+  if (field.kind === "path") control.dir = "ltr";
+  control.value = advancedValues.has(field.key) ? String(advancedValues.get(field.key)) : "";
+  const problem = document.createElement("small");
+  problem.className = "option-problem";
+
+  const commit = () => {
+    const raw = control.value.trim();
+    const complaint = raw ? validateOptionValue(field.key, raw) : null;
+    problem.textContent = complaint ? t(complaint) : "";
+    control.setAttribute("aria-invalid", String(Boolean(complaint)));
+    wrapper.classList.toggle("has-problem", Boolean(complaint));
+    // An invalid value is kept in the control so it can be corrected, but it is
+    // never sent to the engine, which would only fail the render later.
+    if (complaint) {
+      advancedValues.delete(field.key);
+      renderSummary();
+      return;
+    }
+    setOptionValue(field.key, raw === "" ? undefined : raw);
+  };
+  control.addEventListener("change", commit);
+
+  wrapper.append(control);
+  if (field.unit) {
+    const unit = document.createElement("span");
+    unit.className = "option-unit";
+    unit.textContent = field.unit;
+    wrapper.append(unit);
+  }
   if (field.kind === "path") {
     const browse = document.createElement("button");
     browse.type = "button";
     browse.className = "button secondary compact";
-    browse.dataset.i18n = "browse";
     browse.textContent = t("browse");
     browse.addEventListener("click", async () => {
-      const picked = await invoke("pick_document_asset");
+      const picked = await invoke(
+        field.widget === "directory" ? "pick_project_directory" : "pick_document_asset",
+      );
       if (!picked) return;
       control.value = picked;
-      advancedValues.set(field.key, picked);
+      setOptionValue(field.key, picked);
+    });
+    wrapper.append(browse);
+  }
+  wrapper.append(problem);
+  return wrapper;
+}
+
+function buildOptionControl(field) {
+  if (field.kind === "toggle") return buildToggleControl(field);
+  if (field.widget === "swatches") return buildSwatchControl(field);
+  if (field.widget === "slider") return buildSliderControl(field);
+  if (field.kind === "select") return buildSelectControl(field);
+  return buildTextControl(field);
+}
+
+/**
+ * One option: what it is, what it decides, and what it is set to.
+ *
+ * The help line is not decoration. Fifty-three identically-shaped controls
+ * named after engine identifiers is a specification; a sentence saying what
+ * each one changes is what makes it a setting someone can decide.
+ */
+function buildOptionRow(field, group) {
+  const row = document.createElement("div");
+  row.className = "option-row";
+  row.dataset.optionKey = field.key;
+  const isSet = advancedValues.has(field.key);
+  row.dataset.modified = String(isSet);
+
+  const head = document.createElement("div");
+  head.className = "option-head";
+  const label = document.createElement("label");
+  label.className = "option-label";
+  label.id = `${advancedControlId(field.key)}-label`;
+  label.textContent = t(`opt.${field.key}`);
+  if (field.kind !== "toggle" && field.widget !== "swatches") {
+    label.setAttribute("for", advancedControlId(field.key));
+  }
+  head.append(label);
+
+  if (field.risky) {
+    const badge = document.createElement("span");
+    badge.className = "option-badge risky";
+    badge.textContent = t("riskyBadge");
+    head.append(badge);
+  }
+  if (isSet) {
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "option-reset";
+    reset.title = t("resetOption");
+    reset.setAttribute("aria-label", `${t("resetOption")}: ${t(`opt.${field.key}`)}`);
+    reset.textContent = "×";
+    reset.addEventListener("click", () => setOptionValue(field.key, undefined));
+    head.append(reset);
+  }
+
+  const help = document.createElement("p");
+  help.className = "option-help";
+  help.textContent = field.helpKey ? t(field.helpKey) : "";
+
+  const active = fieldIsActive(field, Object.fromEntries(advancedValues), presetById(state.presetId).options);
+  if (!active) {
+    row.dataset.inactive = "true";
+    const reason = document.createElement("p");
+    reason.className = "option-inactive";
+    reason.textContent = t("inactiveOption").replace("%s", t(`opt.${field.dependsOn}`));
+    row.append(head, help, buildOptionControl(field), reason);
+    if (group) row.dataset.group = group.id;
+    return row;
+  }
+
+  row.append(head, help, buildOptionControl(field));
+  if (group) row.dataset.group = group.id;
+  return row;
+}
+
+/** Fields of a group the user should currently see. */
+function visibleFields(group) {
+  return group.fields.filter((field) => showExpertOptions || !field.expert);
+}
+
+function renderOptionRail() {
+  const rail = $("#option-rail");
+  if (!rail) return;
+  const counts = modifiedCountsByGroup(
+    Object.fromEntries(advancedValues),
+    presetById(state.presetId).options,
+  );
+  rail.replaceChildren();
+  for (const group of OPTION_GROUPS) {
+    if (group.expert && !showExpertOptions) continue;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "option-rail-item";
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(group.id === activeOptionGroup && !optionSearchQuery));
+    button.tabIndex = group.id === activeOptionGroup ? 0 : -1;
+    button.dataset.group = group.id;
+
+    const icon = document.createElement("span");
+    icon.className = "option-rail-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = group.icon || "•";
+    const name = document.createElement("span");
+    name.className = "option-rail-name";
+    name.textContent = t(group.labelKey);
+    button.append(icon, name);
+
+    if (counts[group.id]) {
+      const badge = document.createElement("span");
+      badge.className = "option-rail-badge";
+      badge.textContent = String(counts[group.id]);
+      badge.title = `${counts[group.id]} ${t("changedCount")}`;
+      button.append(badge);
+    }
+    button.addEventListener("click", () => {
+      activeOptionGroup = group.id;
+      const search = $("#option-search");
+      if (search) search.value = "";
+      optionSearchQuery = "";
+      renderOptionRail();
+      renderOptionPane();
+    });
+    rail.append(button);
+  }
+}
+
+function renderOptionPane() {
+  const pane = $("#option-pane");
+  if (!pane) return;
+  pane.replaceChildren();
+
+  if (optionSearchQuery) {
+    const matches = (searchOptions(optionSearchQuery, t) || [])
+      .filter(({ field, group }) => showExpertOptions || (!field.expert && !group.expert));
+    if (!matches.length) {
+      const empty = document.createElement("p");
+      empty.className = "option-empty";
+      empty.textContent = t("noOptionsMatch");
+      pane.append(empty);
+      return;
+    }
+    let lastGroup = null;
+    for (const { group, field } of matches) {
+      if (group !== lastGroup) {
+        const caption = document.createElement("p");
+        caption.className = "option-search-group";
+        caption.textContent = t(group.labelKey);
+        pane.append(caption);
+        lastGroup = group;
+      }
+      pane.append(buildOptionRow(field, group));
+    }
+    return;
+  }
+
+  const group = OPTION_GROUPS.find((item) => item.id === activeOptionGroup) || OPTION_GROUPS[0];
+  const header = document.createElement("header");
+  header.className = "option-pane-head";
+  const heading = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = t(group.labelKey);
+  const description = document.createElement("small");
+  description.textContent = group.descriptionKey ? t(group.descriptionKey) : "";
+  heading.append(title, description);
+  header.append(heading);
+
+  const groupModified = modifiedCountsByGroup(
+    Object.fromEntries(advancedValues),
+    presetById(state.presetId).options,
+  )[group.id];
+  if (groupModified) {
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "text-button";
+    reset.textContent = t("resetGroup");
+    reset.addEventListener("click", () => {
+      for (const field of group.fields) advancedValues.delete(field.key);
+      renderOptionRail();
+      renderOptionPane();
       renderSummary();
       schedulePdfPreview();
     });
-    label.classList.add("advanced-path");
-    label.append(browse);
+    header.append(reset);
   }
-  return label;
+  pane.append(header);
+
+  const fields = visibleFields(group);
+  for (const field of fields) pane.append(buildOptionRow(field, group));
+  if (!fields.length) {
+    const empty = document.createElement("p");
+    empty.className = "option-empty";
+    empty.textContent = t("noOptionsMatch");
+    pane.append(empty);
+  }
 }
 
 function renderAdvancedOptions() {
-  const host = $("#advanced-groups");
-  if (!host) return;
-  host.replaceChildren();
-  for (const group of OPTION_GROUPS) {
-    const details = document.createElement("details");
-    details.className = "advanced-group";
-    const summary = document.createElement("summary");
-    summary.dataset.i18n = group.labelKey;
-    summary.textContent = t(group.labelKey);
-    const grid = document.createElement("div");
-    grid.className = "advanced-grid";
-    for (const field of group.fields) grid.append(buildAdvancedControl(field));
-    details.append(summary, grid);
-    host.append(details);
-  }
+  renderOptionRail();
+  renderOptionPane();
 }
 
 function resetAdvancedOptions() {
   advancedValues.clear();
-  for (const control of $$("#advanced-groups [data-option-key]")) control.value = "";
+  renderAdvancedOptions();
   renderSummary();
   schedulePdfPreview();
 }
@@ -979,10 +1286,10 @@ function resetAdvancedOptions() {
 /**
  * Preview of the document as the chosen options will publish it.
  *
- * The engine renders the same Markdown the exporter will, with the same option
- * payload, so changing the palette or turning the contents off shows here
- * before a PDF is written. It is debounced because every keystroke in a text
- * option would otherwise start a render.
+ * The engine composes the same page the exporter will print, with the same
+ * option payload, so changing the palette or turning the contents off shows
+ * here before a PDF is written. It is debounced because every keystroke in a
+ * text option would otherwise start a render.
  */
 let exportPreviewTimer = null;
 let exportPreviewSequence = 0;
@@ -1166,42 +1473,40 @@ function selectPreset(id) {
   for (const [key, value] of Object.entries(preset.options)) {
     if (key in OPTION_FIELDS) advancedValues.set(key, value);
   }
-  syncAdvancedControls();
+  renderAdvancedOptions();
   renderPresets();
   renderSummary();
   schedulePdfPreview();
 }
 
-/** Push the current values into the settings controls. */
-function syncAdvancedControls() {
-  for (const control of $$("#advanced-groups [data-option-key]")) {
-    const key = control.dataset.optionKey;
-    if (!advancedValues.has(key)) {
-      control.value = "";
-      continue;
-    }
-    const value = advancedValues.get(key);
-    control.value = typeof value === "boolean" ? String(value) : String(value);
-  }
-}
-
+/**
+ * What this export will actually do, in four lines.
+ *
+ * The summary answers the question a settings panel cannot: after all those
+ * decisions, what am I about to produce. The last row counts what has been
+ * changed away from the preset, because that is the part worth double-checking.
+ */
 function renderSummary() {
   const container = $("#preset-summary");
   if (!container) return;
   const preset = presetById(state.presetId);
   const options = { ...preset.options, ...exportOverrides() };
+  const changed = modifiedKeys(Object.fromEntries(advancedValues), preset.options).length;
   const rows = [
     [t("preset"), t(preset.titleKey)],
-    [t("quality"), options.quality_profile === "strict-publication" ? t("strict") : t("standard")],
-    [t("page"), options.page_size],
+    [t("page"), options.page_size || "A4"],
     [t("toc"), options.toc ? t("enabled") : t("disabled")],
+    [t("quality"), options.quality_profile === "strict-publication" ? t("strict") : t("standard")],
+    [t("settingsSummary"), changed ? `${changed} ${t("changedCount")}` : t("noChanges")],
   ];
   container.replaceChildren(...rows.map(([label, value]) => {
     const row = document.createElement("div");
     row.className = "summary-row";
-    row.innerHTML = `<span></span><strong></strong>`;
-    row.querySelector("span").textContent = label;
-    row.querySelector("strong").textContent = value;
+    const caption = document.createElement("span");
+    caption.textContent = label;
+    const detail = document.createElement("strong");
+    detail.textContent = String(value);
+    row.append(caption, detail);
     return row;
   }));
 }
@@ -3218,6 +3523,32 @@ function bindEvents() {
     button.addEventListener("click", () => setViewMode(button.dataset.viewMode));
   }
   $("#reset-advanced").addEventListener("click", resetAdvancedOptions);
+  $("#option-search").addEventListener("input", (event) => {
+    optionSearchQuery = event.target.value;
+    renderOptionRail();
+    renderOptionPane();
+  });
+  $("#show-expert").addEventListener("change", (event) => {
+    showExpertOptions = event.target.checked;
+    // A hidden expert group must not stay selected, or the pane would be empty.
+    const group = OPTION_GROUPS.find((item) => item.id === activeOptionGroup);
+    if (group?.expert && !showExpertOptions) activeOptionGroup = OPTION_GROUPS[0].id;
+    renderAdvancedOptions();
+  });
+  $("#option-rail").addEventListener("keydown", (event) => {
+    if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    const items = [...$("#option-rail").querySelectorAll(".option-rail-item")];
+    const index = items.indexOf(document.activeElement);
+    if (index < 0) return;
+    event.preventDefault();
+    let next = index;
+    if (event.key === "ArrowUp") next = (index - 1 + items.length) % items.length;
+    if (event.key === "ArrowDown") next = (index + 1) % items.length;
+    if (event.key === "Home") next = 0;
+    if (event.key === "End") next = items.length - 1;
+    items[next].click();
+    items[next].focus();
+  });
   $("#preview-zoom-in").addEventListener("click", () => exportPreviewDeck()?.zoomBy(1));
   $("#preview-zoom-out").addEventListener("click", () => exportPreviewDeck()?.zoomBy(-1));
   $("#preview-fit-width").addEventListener("click", () => exportPreviewDeck()?.setZoomMode("fit-width"));

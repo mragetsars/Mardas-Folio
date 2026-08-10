@@ -6,7 +6,12 @@ import {
   OPTION_FIELDS,
   OPTION_GROUPS,
   collectRenderOptions,
+  fieldIsActive,
+  modifiedCountsByGroup,
+  modifiedKeys,
   optionKeys,
+  searchOptions,
+  validateOptionValue,
 } from "../frontend/js/core/render-options.mjs";
 
 const engine = JSON.parse(
@@ -105,4 +110,85 @@ test("speculative preview work yields to a job the user asked for", () => {
   assert.match(main, /async function releaseEngineForJob/);
   assert.match(main, /sidecar_cancel/);
   assert.match(main, /if \(state\.activeRequestId\) return;/);
+});
+
+test("every option says what it decides, in one sentence", () => {
+  // Fifty-three controls named after engine identifiers is a specification.
+  // The help line is what turns it into something a person can decide.
+  const missing = Object.values(OPTION_FIELDS)
+    .filter((field) => !field.helpKey)
+    .map((field) => field.key);
+  assert.deepEqual(missing, [], "these options have no help text");
+});
+
+test("bad lengths and numbers are caught before the render is started", () => {
+  assert.equal(validateOptionValue("margin_top", "18mm"), null);
+  assert.equal(validateOptionValue("margin_top", "0.5in"), null);
+  assert.equal(validateOptionValue("margin_top", ""), null);
+  assert.equal(validateOptionValue("margin_top", "18"), "invalidLength");
+  assert.equal(validateOptionValue("margin_top", "wide"), "invalidLength");
+  // Only the watermark takes a percentage; a page margin in percent is not a
+  // length the engine accepts.
+  assert.equal(validateOptionValue("watermark_width", "60%"), null);
+  assert.equal(validateOptionValue("margin_x", "60%"), "invalidLength");
+  assert.equal(validateOptionValue("toc_depth", "3"), null);
+  assert.equal(validateOptionValue("toc_depth", "9"), "outOfRange");
+  assert.equal(validateOptionValue("toc_depth", "x"), "invalidNumber");
+  assert.equal(validateOptionValue("not_an_option", "x"), null);
+});
+
+test("an option that depends on another is reported as inert, not wrong", () => {
+  const depth = OPTION_FIELDS.toc_depth;
+  assert.equal(fieldIsActive(depth, { toc: true }), true);
+  assert.equal(fieldIsActive(depth, { toc: false }), false);
+  // Falling back to the preset matters: the preset is what is in force when
+  // the user has not touched the option themselves.
+  assert.equal(fieldIsActive(depth, {}, { toc: true }), true);
+  assert.equal(fieldIsActive(depth, {}, { toc: false }), false);
+  assert.equal(fieldIsActive(OPTION_FIELDS.style, {}), true);
+});
+
+test("changes away from the preset are counted per category", () => {
+  const preset = { style: "modern", toc: true, page_size: "A4" };
+  assert.deepEqual(modifiedKeys({ style: "modern", toc: true }, preset), []);
+  assert.deepEqual(modifiedKeys({ style: "academic" }, preset), ["style"]);
+  // An option the preset says nothing about is a change by definition.
+  assert.deepEqual(modifiedKeys({ watermark_text: "DRAFT" }, preset), ["watermark_text"]);
+  const counts = modifiedCountsByGroup(
+    { style: "academic", watermark_text: "DRAFT", watermark_opacity: 0.2 },
+    preset,
+  );
+  assert.equal(counts.appearance, 1);
+  assert.equal(counts.watermark, 2);
+});
+
+test("options are findable by engine name and by plain language", () => {
+  const translate = (key) => (key === "opt.margin_x" ? "Side margins" : key);
+  const byKey = searchOptions("margin_x", translate).map(({ field }) => field.key);
+  assert.ok(byKey.includes("margin_x"));
+  const byWords = searchOptions("side margins", translate).map(({ field }) => field.key);
+  assert.deepEqual(byWords, ["margin_x"]);
+  assert.equal(searchOptions("", translate), null);
+  assert.deepEqual(searchOptions("zzzz", translate), []);
+});
+
+test("the group rail can name every group and every group has a description", () => {
+  for (const group of OPTION_GROUPS) {
+    assert.ok(group.id && group.labelKey && group.descriptionKey, `${group.id} is underspecified`);
+    assert.ok(group.fields.length, `${group.id} has no fields`);
+  }
+  // Expert groups must only hold expert fields, or turning expert mode off
+  // would hide an everyday option.
+  for (const group of OPTION_GROUPS.filter((item) => item.expert)) {
+    for (const field of group.fields) {
+      assert.ok(field.expert, `${field.key} is hidden inside an expert group`);
+    }
+  }
+});
+
+test("a dependency always names a real option", () => {
+  for (const field of Object.values(OPTION_FIELDS)) {
+    if (!field.dependsOn) continue;
+    assert.ok(field.dependsOn in OPTION_FIELDS, `${field.key} depends on an unknown option`);
+  }
 });

@@ -3129,102 +3129,398 @@ button:focus-visible,
   line-height: 1.6;
 }
 
+/* Two columns: the decisions on one side, the result on the other. The
+ * preview and the status of the job that produces it belong together, so they
+ * share a sticky side column instead of the preview being wedged between the
+ * form and the status panel. */
 #export-view .export-layout {
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  align-items: start;
 }
 
-/* ---- Advanced export settings -------------------------------------------
- * Ten collapsed groups rather than one long form: the whole engine surface is
- * present, but only the group being adjusted is open. */
-.advanced-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 6px;
-}
-
-.advanced-groups {
+.export-side {
+  position: sticky;
+  top: 0;
   display: grid;
-  gap: 6px;
-}
-
-.advanced-group {
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
-  background: var(--ui-panel);
-}
-
-.advanced-group > summary {
-  padding: 8px 11px;
-  color: var(--ui-text-soft);
-  font-size: 12px;
-  font-weight: 650;
-  cursor: pointer;
-  list-style: none;
-  border-radius: var(--ui-radius);
-}
-
-.advanced-group > summary::-webkit-details-marker {
-  display: none;
-}
-
-.advanced-group > summary::before {
-  content: "›";
-  display: inline-block;
-  width: 12px;
-  color: var(--ui-muted);
-  transition: transform 120ms ease;
-}
-
-.advanced-group[open] > summary {
-  border-bottom: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius) var(--ui-radius) 0 0;
-  background: var(--ui-panel-soft);
-  color: var(--ui-text);
-}
-
-.advanced-group[open] > summary::before {
-  transform: rotate(90deg);
-}
-
-.advanced-group > summary:hover {
-  background: var(--ui-panel-muted);
-}
-
-.advanced-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px 12px;
-  padding: 11px;
-}
-
-.advanced-field {
-  display: grid;
-  gap: 3px;
+  gap: 12px;
   min-width: 0;
 }
 
-.advanced-label {
+@media (max-width: 1100px) {
+  #export-view .export-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .export-side {
+    position: relative;
+  }
+
+  .export-preview-panel {
+    height: min(60vh, 640px);
+  }
+}
+
+/* ---- Export settings browser --------------------------------------------
+ * Fifty-three options cannot be a list. They are a small library: a rail of
+ * categories on one side, one category at a time on the other, and a search
+ * for the person who already knows the name of what they want. Every option
+ * carries a sentence saying what it decides, because an option nobody can
+ * interpret is an option nobody touches. */
+.settings-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.option-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-search input {
+  width: 100%;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.expert-toggle {
+  flex: none;
+  font-size: 11.5px;
   color: var(--ui-muted);
-  font-size: 10.5px;
+}
+
+.settings-browser {
+  display: grid;
+  grid-template-columns: 172px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-panel-soft);
+  padding: 8px;
+}
+
+.option-rail {
+  display: grid;
+  gap: 1px;
+  align-content: start;
+}
+
+.option-rail-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-text-soft);
+  font: 600 12px/1.2 inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.option-rail-item:hover {
+  background: var(--ui-panel-muted);
+  color: var(--ui-text);
+}
+
+.option-rail-item[aria-selected="true"] {
+  background: var(--ui-panel);
+  color: var(--ui-accent);
+  box-shadow: inset 0 0 0 1px var(--ui-border);
+}
+
+.option-rail-icon {
+  display: grid;
+  place-items: center;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.option-rail-item[aria-selected="true"] .option-rail-icon { color: var(--ui-accent); }
+
+.option-rail-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* How many options in this category the user has moved away from the preset. */
+.option-rail-badge {
+  min-width: 16px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+  font: 700 9.5px/1.5 ui-monospace, monospace;
+  text-align: center;
+}
+
+.option-pane {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  max-height: 460px;
+  overflow: auto;
+  padding: 2px 4px 2px 0;
+}
+
+.option-pane-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.option-pane-head strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.option-pane-head small {
+  display: block;
+  margin-top: 1px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.option-search-group {
+  margin: 8px 0 3px;
+  color: var(--ui-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.option-row {
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px;
+  border-radius: var(--ui-radius-sm);
+  border-inline-start: 2px solid transparent;
+  background: var(--ui-panel);
+}
+
+.option-row + .option-row { margin-top: 2px; }
+
+/* A changed option is worth finding again later. */
+.option-row[data-modified="true"] {
+  border-inline-start-color: var(--ui-accent);
+  background: var(--ui-panel);
+}
+
+.option-row[data-inactive="true"] { opacity: 0.62; }
+
+.option-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.option-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--ui-text);
+  font-size: 12px;
   font-weight: 600;
 }
 
-/* A path takes a browse button beside its input. */
-.advanced-field.advanced-path {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "label label" "input button";
-  align-items: center;
-  gap: 3px 6px;
+.option-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  font: 700 9px/1.6 inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.advanced-field.advanced-path .advanced-label { grid-area: label; }
-.advanced-field.advanced-path input { grid-area: input; }
-.advanced-field.advanced-path .button { grid-area: button; }
+.option-badge.risky {
+  background: color-mix(in srgb, var(--ui-warning) 18%, transparent);
+  color: var(--ui-warning);
+}
+
+.option-reset {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ui-panel-muted);
+  color: var(--ui-muted);
+  font: 700 12px/1 inherit;
+  cursor: pointer;
+}
+
+.option-reset:hover {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent);
+}
+
+.option-help {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.option-inactive {
+  margin: 2px 0 0;
+  color: var(--ui-warning);
+  font-size: 10.5px;
+}
+
+.option-problem:empty { display: none; }
+
+.option-problem {
+  grid-column: 1 / -1;
+  color: var(--ui-danger);
+  font-size: 10.5px;
+}
+
+.option-empty {
+  padding: 26px 10px;
+  color: var(--ui-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Every boolean really has three states: on, off, and "whatever the preset,
+   the project file or the engine already decided". A checkbox can only say two
+   of them, and guessing the third is how a panel silently overrides a project. */
+.option-row .tri-toggle {
+  display: inline-flex;
+  justify-self: start;
+  margin-top: 3px;
+  padding: 2px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel-muted);
+}
+
+.tri-toggle-option {
+  min-width: 42px;
+  min-height: 22px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ui-muted);
+  font: 600 11px/1 inherit;
+  cursor: pointer;
+}
+
+.tri-toggle-option:hover { color: var(--ui-text); }
+
+.tri-toggle-option[aria-checked="true"] {
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.tri-toggle-option[aria-checked="true"]:not(:first-child) { color: var(--ui-accent); }
+
+.swatch-row {
+  display: flex;
+  justify-self: start;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.swatch {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--ui-border);
+  border-radius: 50%;
+  background: var(--swatch);
+  cursor: pointer;
+  padding: 0;
+}
+
+.swatch[aria-checked="true"] {
+  box-shadow: 0 0 0 2px var(--ui-panel), 0 0 0 4px var(--swatch);
+}
+
+.slider-row {
+  display: grid;
+  max-width: 260px;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.slider-row input[type="range"] {
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--ui-accent);
+}
+
+.slider-row output {
+  color: var(--ui-muted);
+  font: 600 11px/1 ui-monospace, monospace;
+  text-align: end;
+}
+
+.text-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.text-row input {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+/* A margin or a timeout is a short value; a full-width box invites a sentence. */
+.text-row:has(input[type="number"]) { grid-template-columns: 120px auto auto; }
+.option-row[data-option-key$="margin_top"] .text-row,
+.option-row[data-option-key$="margin_bottom"] .text-row,
+.option-row[data-option-key$="margin_x"] .text-row,
+.option-row[data-option-key="watermark_width"] .text-row {
+  grid-template-columns: 120px auto minmax(0, 1fr);
+}
+
+.text-row.has-problem input {
+  border-color: var(--ui-danger);
+}
+
+.option-unit {
+  color: var(--ui-muted);
+  font: 600 10.5px/1 ui-monospace, monospace;
+}
 
 @media (max-width: 1180px) {
-  .advanced-grid {
+  .settings-browser {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .option-rail {
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .option-rail-name { display: none; }
 }
 
 /* A fenced block reads as one panel: the opener carries the rounded top and

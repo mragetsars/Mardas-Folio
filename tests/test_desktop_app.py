@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -636,6 +637,43 @@ def test_every_engine_render_option_has_a_control() -> None:
     ).read_text(encoding="utf-8")
     missing = [key for key in RENDER_OPTION_SPECS if f'key: "{key}"' not in schema]
     assert missing == [], f"these engine options have no interface control: {missing}"
+
+
+def test_palette_swatches_show_the_colour_the_engine_prints() -> None:
+    """A palette is a colour decision, so it is offered as colour.
+
+    The settings panel draws a swatch per palette instead of listing seven
+    English words. Those swatches are only honest if they are the accents the
+    renderer actually uses, so the copy in the interface is held against the
+    engine's own table.
+    """
+    from mardas_md2pdf.appearance import PALETTES
+
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    block = main.split("const PALETTE_ACCENTS = Object.freeze({", 1)[1].split("});", 1)[0]
+    shown = dict(
+        re.findall(r'(\w+):\s*"(#[0-9a-fA-F]{6})"', block)
+    )
+    expected = {name: palette["accent"] for name, palette in PALETTES.items()}
+    assert shown == expected, "the palette swatches have drifted from the engine's accents"
+
+
+def test_settings_panel_explains_every_option_it_offers() -> None:
+    """An option nobody can interpret is an option nobody sets.
+
+    Every engine option carries a one-sentence help key, and every one of those
+    keys has to resolve in both interface languages — an option whose
+    explanation renders as ``help.margin_x`` is worse than no explanation.
+    """
+    schema = (
+        DESKTOP / "frontend" / "js" / "core" / "render-options.mjs"
+    ).read_text(encoding="utf-8")
+    help_keys = set(re.findall(r'helpKey:\s*"([^"]+)"', schema))
+    assert len(help_keys) >= 50, "options lost their help text"
+
+    strings = (DESKTOP / "frontend" / "js" / "core" / "i18n.mjs").read_text(encoding="utf-8")
+    for key in sorted(help_keys):
+        assert strings.count(f'"{key}":') >= 2, f"{key} is not translated in both languages"
 
 
 def test_editor_images_load_through_a_bounded_asset_scope() -> None:
