@@ -212,6 +212,63 @@ class TaskWidget extends WidgetType {
   }
 }
 
+/**
+ * Front matter, collapsed to what it says.
+ *
+ * A document's first screenful should be the document. Four to fifteen lines of
+ * YAML above the first heading is metadata the writer set once and then reads
+ * past every time they open the file. Collapsed it stays visible as a summary —
+ * title, language, whether a cover is on — and clicking it, or moving the caret
+ * into it, brings the YAML straight back for editing.
+ */
+class FrontMatterWidget extends WidgetType {
+  constructor(markup) {
+    super();
+    this.markup = markup;
+  }
+
+  eq(other) {
+    return other.markup === this.markup;
+  }
+
+  /** The handful of keys worth showing without opening the block. */
+  summary() {
+    const entries = [];
+    for (const line of this.markup.split("\n")) {
+      const match = /^([A-Za-z_$][\w.$-]*)\s*:\s*(.+?)\s*$/.exec(line);
+      if (!match) continue;
+      const [, key, rawValue] = match;
+      if (!["title", "subtitle", "author", "lang", "date", "toc"].includes(key)) continue;
+      const value = rawValue.replace(/^["']|["']$/g, "").trim();
+      if (value) entries.push(value);
+      if (entries.length >= 3) break;
+    }
+    return entries;
+  }
+
+  toDOM() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "cm-md-frontmatter";
+    const label = document.createElement("span");
+    label.className = "cm-md-frontmatter-label";
+    label.textContent = "metadata";
+    wrapper.append(label);
+    for (const entry of this.summary()) {
+      const chip = document.createElement("span");
+      chip.className = "cm-md-frontmatter-value";
+      chip.textContent = entry;
+      chip.dir = "auto";
+      wrapper.append(chip);
+    }
+    return wrapper;
+  }
+
+  ignoreEvent() {
+    // Let the click through so the caret lands inside and the YAML returns.
+    return false;
+  }
+}
+
 /** Line numbers covered by a cursor or selection. */
 function activeLines(state) {
   const lines = new Set();
@@ -253,6 +310,17 @@ function buildBlockDecorations(state, resolveAsset) {
 
   tree.iterate({
     enter: (node) => {
+      if (node.name === "Frontmatter" && !spansActiveLine(state, active, node)) {
+        items.push([
+          node.from,
+          node.to,
+          Decoration.replace({
+            widget: new FrontMatterWidget(state.doc.sliceString(node.from, node.to)),
+            block: true,
+          }),
+        ]);
+        return false;
+      }
       if (node.name === "Table" && !spansActiveLine(state, active, node)) {
         items.push([
           node.from,

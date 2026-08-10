@@ -639,6 +639,28 @@ def test_every_engine_render_option_has_a_control() -> None:
     assert missing == [], f"these engine options have no interface control: {missing}"
 
 
+def test_editor_recognises_every_callout_the_engine_publishes() -> None:
+    """A callout must look like a callout while it is being written.
+
+    The engine turns ``> [!WARNING]`` into a coloured admonition. If the editor
+    only knows some of the kinds, the rest are written as plain quotations and
+    the difference appears for the first time in the PDF.
+    """
+    engine_source = (ROOT / "src" / "mardas_md2pdf" / "markdown.py").read_text(encoding="utf-8")
+    engine_kinds = set(re.findall(r'"callout_([a-z]+)"', engine_source))
+    assert engine_kinds, "the engine's callout label table moved"
+    live = (DESKTOP / "editor-src" / "live-preview.mjs").read_text(encoding="utf-8")
+    block = live.split("const CALLOUT_KINDS = new Set([", 1)[1].split("]);", 1)[0]
+    editor_kinds = set(re.findall(r'"([a-z-]+)"', block))
+    assert engine_kinds <= editor_kinds, (
+        f"the editor does not recognise these callouts: {sorted(engine_kinds - editor_kinds)}"
+    )
+
+    styles = (DESKTOP / "frontend" / "workspace.css").read_text(encoding="utf-8")
+    unstyled = [kind for kind in engine_kinds if f".cm-md-callout-{kind}" not in styles]
+    assert unstyled == [], f"these callouts have no colour: {sorted(unstyled)}"
+
+
 def test_palette_swatches_show_the_colour_the_engine_prints() -> None:
     """A palette is a colour decision, so it is offered as colour.
 

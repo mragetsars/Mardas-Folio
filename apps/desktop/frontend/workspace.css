@@ -3837,3 +3837,101 @@ html[data-focus-mode="true"] .author-toolbar:focus-within {
 html[data-focus-mode="true"] .editor-pane {
   border-inline-end: 0;
 }
+
+/* ---- Live blocks: callouts, metadata and code language ------------------
+ * The engine turns these into cards, a cover and a highlighted panel. Showing
+ * them as raw markup while they are written means the writer only finds out
+ * what they made after exporting. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout {
+  border-inline-start: 3px solid var(--callout-tint, var(--ui-accent));
+  background: color-mix(in srgb, var(--callout-tint, var(--ui-accent)) 7%, transparent);
+  padding-inline-start: 12px;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout-head {
+  padding-top: 6px;
+  border-radius: var(--ui-radius) var(--ui-radius) 0 0;
+  font-weight: 700;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout-head::before {
+  content: var(--callout-label, "NOTE");
+  display: inline-block;
+  margin-inline-end: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--callout-tint, var(--ui-accent));
+  color: var(--ui-on-accent);
+  font: 700 9.5px/1.8 ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  vertical-align: 1px;
+}
+
+.cm-md-callout-note { --callout-tint: #0369a1; --callout-label: "NOTE"; }
+.cm-md-callout-info { --callout-tint: #0369a1; --callout-label: "INFO"; }
+.cm-md-callout-tip { --callout-tint: #15803d; --callout-label: "TIP"; }
+.cm-md-callout-success { --callout-tint: #15803d; --callout-label: "SUCCESS"; }
+.cm-md-callout-important { --callout-tint: #6d28d9; --callout-label: "IMPORTANT"; }
+.cm-md-callout-example { --callout-tint: #6d28d9; --callout-label: "EXAMPLE"; }
+.cm-md-callout-abstract { --callout-tint: #6d28d9; --callout-label: "ABSTRACT"; }
+.cm-md-callout-question { --callout-tint: #854d0e; --callout-label: "QUESTION"; }
+.cm-md-callout-warning { --callout-tint: #a16207; --callout-label: "WARNING"; }
+.cm-md-callout-caution { --callout-tint: #a16207; --callout-label: "CAUTION"; }
+.cm-md-callout-danger { --callout-tint: #b91c1c; --callout-label: "DANGER"; }
+.cm-md-callout-failure { --callout-tint: #b91c1c; --callout-label: "FAILURE"; }
+.cm-md-callout-bug { --callout-tint: #b91c1c; --callout-label: "BUG"; }
+.cm-md-callout-quote { --callout-tint: #5f5f5f; --callout-label: "QUOTE"; }
+
+/* Front matter, collapsed to a summary until the caret asks for it. */
+.codemirror-mount .cm-md-frontmatter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 14px;
+  padding: 7px 11px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-panel-soft);
+  cursor: text;
+}
+
+.codemirror-mount .cm-md-frontmatter-label {
+  color: var(--ui-muted);
+  font: 700 9.5px/1.7 ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.codemirror-mount .cm-md-frontmatter-value {
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ui-text-soft);
+  font-size: 11.5px;
+}
+
+.codemirror-mount .cm-md-frontmatter-value + .cm-md-frontmatter-value::before {
+  content: "·";
+  margin-inline-end: 8px;
+  color: var(--ui-muted);
+}
+
+/* The language of a fenced block, as a chip on the panel it already draws. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-code-info {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ui-panel-muted);
+  color: var(--ui-muted);
+  font: 700 9.5px/1.9 ui-monospace, monospace;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* With the backticks hidden, an opener carrying only a chip needs its own
+   minimum height so the panel does not start on a collapsed line. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-open {
+  min-height: 18px;
+}

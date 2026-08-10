@@ -36,6 +36,8 @@ const HIDDEN_MARKS = new Set([
 ]);
 
 const hidden = Decoration.replace({});
+/* The language of a fenced block is worth reading; its backticks are not. */
+const codeInfoMark = Decoration.mark({ class: "cm-md-code-info" });
 
 /**
  * Per-line automatic direction.
@@ -66,6 +68,36 @@ const headingLines = new Map(
     Decoration.line({ class: `cm-md-heading cm-md-h${level}` }),
   ]),
 );
+
+/**
+ * Callout kinds the publishing engine renders as cards.
+ *
+ * Mirrored from `_localized_labels` in `src/mardas_md2pdf/markdown.py`. A
+ * callout the engine will turn into a coloured admonition should not look like
+ * an ordinary quotation while it is being written.
+ */
+const CALLOUT_KINDS = new Set([
+  "note", "tip", "important", "warning", "caution", "info", "success",
+  "question", "failure", "danger", "bug", "example", "quote", "abstract",
+]);
+
+/** `> [!NOTE] optional title` — the marker the engine looks for. */
+const CALLOUT_MARKER = /^(\s*>\s*)(\[!([A-Za-z][A-Za-z0-9_-]*)\][+-]?)\s?/;
+
+const calloutLines = new Map();
+
+function calloutLine(kind, first) {
+  const key = `${kind}:${first}`;
+  if (!calloutLines.has(key)) {
+    calloutLines.set(
+      key,
+      Decoration.line({
+        class: `cm-md-callout cm-md-callout-${kind}${first ? " cm-md-callout-head" : ""}`,
+      }),
+    );
+  }
+  return calloutLines.get(key);
+}
 
 /** Whether the caret sits anywhere inside a multi-line node. */
 function nodeIsActive(state, active, node) {
@@ -123,7 +155,25 @@ function buildDecorations(view) {
           return;
         }
         if (node.name === "Blockquote") {
-          eachLine(state, node, (at) => lines.push({ at, deco: quoteLine }));
+          // A quotation whose first line names a callout kind is not a
+          // quotation: the engine publishes it as a coloured admonition, and
+          // the editor should say so while it is being written.
+          const first = state.doc.lineAt(node.from);
+          const marker = CALLOUT_MARKER.exec(first.text);
+          const kind = marker && CALLOUT_KINDS.has(marker[3].toLowerCase())
+            ? marker[3].toLowerCase()
+            : null;
+          if (!kind) {
+            eachLine(state, node, (at) => lines.push({ at, deco: quoteLine }));
+            return;
+          }
+          eachLine(state, node, (at) => {
+            lines.push({ at, deco: calloutLine(kind, at === first.from) });
+          });
+          if (!active.has(first.number)) {
+            const from = first.from + marker[1].length;
+            marks.push([from, from + marker[2].length + (marker[0].endsWith(" ") ? 1 : 0)]);
+          }
           return;
         }
         const heading = headingLines.get(node.name);
@@ -142,6 +192,17 @@ function buildDecorations(view) {
             ? swallowSpace(state, node.to)
             : node.to;
           marks.push([node.from, to]);
+          return;
+        }
+        // A fence is scaffolding; the language it names is a label. Hiding the
+        // backticks and styling the language turns ```` ```python ```` into a
+        // chip on the panel the block already draws.
+        if (node.name === "CodeMark" && node.node.parent?.name === "FencedCode") {
+          marks.push([node.from, node.to]);
+          return;
+        }
+        if (node.name === "CodeInfo") {
+          marks.push([node.from, node.to, codeInfoMark]);
           return;
         }
         // A task item is introduced by its checkbox; the list bullet in front
@@ -184,18 +245,22 @@ function buildDecorations(view) {
       .map(({ at, deco }) => ({ from: at, to: at, deco, line: true })),
     ...marks
       .filter(([from]) => !insideBlock(from))
-      .map(([from, to]) => ({ from, to, deco: hidden, line: false })),
+      .map(([from, to, deco]) => ({ from, to, deco: deco || hidden, line: false })),
   ].sort((a, b) => a.from - b.from || Number(b.line) - Number(a.line));
 
   let lastFrom = -1;
   let lastTo = -1;
+  let lastDeco = null;
   for (const event of events) {
     // Nested nodes can repeat a range; a RangeSetBuilder rejects duplicates.
-    if (!event.line && event.from === lastFrom && event.to === lastTo) continue;
+    if (!event.line && event.from === lastFrom && event.to === lastTo && event.deco === lastDeco) {
+      continue;
+    }
     builder.add(event.from, event.to, event.deco);
     if (!event.line) {
       lastFrom = event.from;
       lastTo = event.to;
+      lastDeco = event.deco;
     }
   }
   return builder.finish();

@@ -115,3 +115,32 @@ test("line decorations never add box spacing that desynchronises the caret", () 
   assert.ok(headingRules.some((rule) => /line-height/.test(rule)),
     "heading spacing should come from line-height");
 });
+
+test("a callout is drawn as the card the engine will publish", () => {
+  // `> [!WARNING]` becomes a coloured admonition in the PDF. Showing it as an
+  // ordinary quotation while it is written means the writer only discovers what
+  // they made after exporting.
+  assert.match(source, /CALLOUT_MARKER/);
+  assert.match(source, /cm-md-callout-\$\{kind\}/);
+  for (const kind of ["note", "tip", "important", "warning", "caution"]) {
+    assert.ok(source.includes(`"${kind}"`), `${kind} is not a recognised callout`);
+  }
+  // Only the marker is hidden, and only while the caret is elsewhere.
+  assert.match(source, /if \(!active\.has\(first\.number\)\)/);
+});
+
+test("a fenced block shows its language and hides its backticks", () => {
+  assert.match(source, /cm-md-code-info/);
+  assert.match(source, /node\.name === "CodeMark" && node\.node\.parent\?\.name === "FencedCode"/);
+});
+
+test("front matter collapses to a summary until the caret asks for it", () => {
+  const widgets = readFileSync(
+    new URL("../editor-src/live-widgets.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(widgets, /class FrontMatterWidget/);
+  assert.match(widgets, /node\.name === "Frontmatter" && !spansActiveLine/);
+  // The document is never rewritten to match what is drawn.
+  assert.doesNotMatch(widgets, /FrontMatterWidget[\s\S]{0,600}dispatch\(/);
+});
