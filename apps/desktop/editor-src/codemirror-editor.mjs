@@ -190,6 +190,10 @@ export function createCodeMirrorEditorAdapter(
           codeLanguages: CODE_LANGUAGES,
           extensions: [frontmatter],
         }),
+        // Prose has to wrap. A horizontal scrollbar under a paragraph forces
+        // the reader to pan back and forth for every line, which is unusable
+        // for writing; only code fences keep their own horizontal overflow.
+        EditorView.lineWrapping,
         appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
         preview.of(editorModeExtension(editorMode, { resolveAsset })),
         EditorState.allowMultipleSelections.of(true),

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+
+import { OPTION_FIELDS } from "../frontend/js/core/render-options.mjs";
 import { createTranslator } from "../frontend/js/core/i18n.mjs";
 import {
   PRESETS,
@@ -31,10 +33,9 @@ test("every preset uses renderer-supported appearance enums", () => {
 });
 
 test("Quick Export style choices mirror the renderer style enum", () => {
-  const html = readFileSync(new URL("../frontend/index.html", import.meta.url), "utf8");
-  const select = /<select id="appearance-style">([\s\S]*?)<\/select>/.exec(html)?.[1] ?? "";
-  const values = [...select.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(values, [...SUPPORTED_EXPORT_STYLES]);
+  // The style control moved into the generated settings panel, so the contract
+  // is with its schema rather than with a hand-written <select> in the markup.
+  assert.deepEqual([...OPTION_FIELDS.style.choices], [...SUPPORTED_EXPORT_STYLES]);
 });
 
 test("Quick Export style choices have Persian and English labels", () => {

@@ -36,8 +36,7 @@
       <button class="icon-button" id="command-button" type="button" data-i18n-title="commandPalette" title="فرمان‌ها" aria-label="فرمان‌ها">⌘</button>
       <button class="icon-button" id="help-button" type="button" data-i18n-title="help" title="راهنما" aria-label="راهنما">?</button>
       <button class="icon-button" id="settings-button" type="button" data-i18n-title="settings" title="تنظیمات" aria-label="تنظیمات">⚙</button>
-      <button class="icon-button" id="locale-button" type="button" data-i18n-title="switchLanguage" title="تغییر زبان">EN</button>
-    </div>
+      </div>
   </header>
 
   <main id="app-main" tabindex="-1">
@@ -86,19 +85,11 @@
         <form class="panel form-panel" id="export-form" novalidate>
           <section class="step"><header><span>1</span><div><h2 data-i18n="sourceFile">فایل مبدأ</h2><p data-i18n="sourceFileHelp">فایل Markdown را از سیستم انتخاب کن.</p></div></header><div class="path-row"><input id="source-path" readonly data-i18n-aria-label="sourceFile" aria-label="فایل مبدأ" placeholder="report.md"><button class="button secondary compact" id="choose-source" type="button" data-i18n="browse">انتخاب</button></div></section>
           <section class="step"><header><span>2</span><div><h2 data-i18n="documentPreset">نوع خروجی</h2><p data-i18n="documentPresetHelp">یک preset انتخاب کن؛ جزئیات مناسب خودکار تنظیم می‌شوند.</p></div></header><div class="preset-grid" id="preset-grid" role="radiogroup"></div></section>
-          <section class="step"><header><span>3</span><div><h2 data-i18n="basicSettings">تنظیمات اصلی</h2><p data-i18n="basicSettingsHelp">فقط گزینه‌هایی که معمولاً لازم‌اند.</p></div></header>
-            <div class="settings-grid">
-              <label><span data-i18n="documentLanguage">زبان سند</span><select id="document-language"><option value="auto" data-i18n="automatic">خودکار</option><option value="fa">فارسی</option><option value="en">English</option></select></label>
-              <label><span data-i18n="pageSize">اندازه صفحه</span><select id="page-size"><option>A4</option><option>Letter</option><option>A5</option></select></label>
-              <label><span data-i18n="appearance">ظاهر</span><select id="appearance-style"><option value="modern" data-i18n="modern">مدرن</option><option value="github" data-i18n="github">گیت‌هاب</option><option value="textbook" data-i18n="textbook">کتابی</option><option value="academic" data-i18n="academic">دانشگاهی</option></select></label>
-              <label class="toggle"><input id="include-toc" type="checkbox" checked><i></i><span data-i18n="includeToc">فهرست مطالب</span></label>
-            </div>
-          </section>
-          <section class="step"><header><span>4</span><div><h2 data-i18n="advancedSettings">تنظیمات پیشرفته</h2><p data-i18n="advancedSettingsHelp">همه گزینه‌های موتور انتشار. خالی‌گذاشتن هر مورد یعنی از mardas.toml یا مقدار پیش‌فرض ارث ببرد.</p></div></header>
+          <section class="step"><header><span>3</span><div><h2 data-i18n="documentSettings">تنظیمات پیشرفته</h2><p data-i18n="documentSettingsHelp">هر گزینه یک‌بار و در یک جا. خالی‌گذاشتن یعنی از preset، mardas.toml یا مقدار پیش‌فرض ارث ببرد.</p></div></header>
             <div class="advanced-actions"><button class="text-button" id="reset-advanced" type="button" data-i18n="resetAdvanced">بازنشانی</button></div>
             <div class="advanced-groups" id="advanced-groups"></div>
           </section>
-          <section class="step"><header><span>5</span><div><h2 data-i18n="outputFile">فایل خروجی</h2><p data-i18n="outputFileHelp">محل ذخیره PDF را مشخص کن.</p></div></header><div class="path-row"><input id="output-path" readonly data-i18n-aria-label="outputFile" aria-label="فایل خروجی" placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse">انتخاب</button></div></section>
+          <section class="step"><header><span>4</span><div><h2 data-i18n="outputFile">فایل خروجی</h2><p data-i18n="outputFileHelp">محل ذخیره PDF را مشخص کن.</p></div></header><div class="path-row"><input id="output-path" readonly data-i18n-aria-label="outputFile" aria-label="فایل خروجی" placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse">انتخاب</button></div></section>
           <footer class="form-actions"><button class="button secondary" id="validate-button" type="button" data-i18n="checkDocument">بررسی سند</button><button class="button primary" id="export-button" type="submit" data-i18n="exportPdf">ساخت PDF</button><button class="button danger hidden" id="cancel-button" type="button" data-i18n="cancel">لغو</button></footer>
         </form>
         <aside class="panel export-preview-panel" aria-labelledby="export-preview-title">

@@ -2868,9 +2868,13 @@ button:focus-visible,
   font-size: 15px;
   line-height: 1.75;
   color: var(--ui-text);
-  /* A comfortable measure, centred, with room for the caret at the edges. */
-  padding: 40px max(40px, calc((100% - 780px) / 2)) 45vh;
-  max-width: none;
+  /* A comfortable measure, centred. Percentage padding would resolve against
+   * the containing block and push the content wider than the scroller, which
+   * reintroduces the horizontal scrollbar wrapping is meant to remove. */
+  box-sizing: border-box;
+  max-width: 820px;
+  margin-inline: auto;
+  padding: 40px 22px 45vh;
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-line {
@@ -2998,7 +3002,7 @@ button:focus-visible,
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
-  max-height: 62vh;
+  max-height: 74vh;
   overflow: hidden;
 }
 
@@ -3307,4 +3311,16 @@ button:focus-visible,
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-panel-soft);
+}
+
+/* Wrapped prose still needs code to keep its own line structure: a fenced
+ * block scrolls inside itself rather than forcing the whole document sideways. */
+.codemirror-mount .cm-editor .cm-code-line {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.codemirror-mount .cm-editor .cm-content {
+  overflow-wrap: anywhere;
 }

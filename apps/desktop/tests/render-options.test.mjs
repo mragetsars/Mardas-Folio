@@ -81,3 +81,24 @@ test("every field sits in exactly one group and has a label key", () => {
   }
   assert.equal(seen.size, Object.keys(engine).length);
 });
+
+test("the export preview is painted with the engine's own stylesheets", () => {
+  // A preview that shows generic Markdown cannot answer the question the export
+  // screen exists to answer, so the engine returns the same style sheet,
+  // palette and body classes the PDF is built with.
+  const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
+  assert.match(main, /appearance\.style_css/);
+  assert.match(main, /appearance\.palette_css/);
+  assert.match(main, /appearance\.body_classes/);
+  // Those sheets style a whole printed page; a shadow root keeps them off the
+  // application around the preview.
+  assert.match(main, /attachShadow\(\{ mode: "open" \}\)/);
+});
+
+test("speculative preview work yields to a job the user asked for", () => {
+  // The engine runs one job at a time and answers a second with SERVER_BUSY.
+  const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
+  assert.match(main, /async function releaseEngineForJob/);
+  assert.match(main, /sidecar_cancel/);
+  assert.match(main, /if \(state\.activeRequestId\) return;/);
+});

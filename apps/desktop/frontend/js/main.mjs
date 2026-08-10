@@ -2,7 +2,7 @@ import { basename, buildDocumentParams, defaultOutputPath, validateExportSelecti
 import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
 import { onboardingIntentPresentation, onboardingPrimaryActionKey, normalizeOnboardingIntent } from "./core/onboarding.mjs";
 import { PRESETS, presetById } from "./core/presets.mjs";
-import { OPTION_GROUPS, collectRenderOptions } from "./core/render-options.mjs";
+import { OPTION_FIELDS, OPTION_GROUPS, collectRenderOptions } from "./core/render-options.mjs";
 import { addRecent, readRecents, writeRecents } from "./core/recents.mjs";
 import { invoke, listen } from "./core/tauri.mjs";
 import {
@@ -200,7 +200,6 @@ function setLocale(value) {
   translator.locale = state.locale;
   document.documentElement.lang = state.locale;
   document.documentElement.dir = state.locale === "fa" ? "rtl" : "ltr";
-  $("#locale-button").textContent = state.locale === "fa" ? "EN" : "فا";
   $$('[data-i18n]').forEach((element) => {
     element.textContent = t(element.dataset.i18n);
   });
@@ -895,7 +894,10 @@ function buildAdvancedControl(field) {
     for (const choice of field.choices) {
       const option = document.createElement("option");
       option.value = choice;
-      option.textContent = choice;
+      // Enum values are engine identifiers; show a translated label when the
+      // interface has one, and fall back to the identifier when it does not.
+      const label = t(choice);
+      option.textContent = label === choice ? choice : label;
       control.append(option);
     }
   } else if (field.kind === "toggle") {
@@ -982,6 +984,30 @@ function resetAdvancedOptions() {
  */
 let exportPreviewTimer = null;
 let exportPreviewSequence = 0;
+let exportPreviewRequestId = null;
+
+/**
+ * Stand the preview down before a job the user actually asked for.
+ *
+ * The engine runs one job at a time and answers a second with SERVER_BUSY, so
+ * a preview still rendering when "Create PDF" is pressed would fail the export.
+ * The preview is speculative work; it yields.
+ */
+async function releaseEngineForJob() {
+  if (exportPreviewTimer) {
+    clearTimeout(exportPreviewTimer);
+    exportPreviewTimer = null;
+  }
+  exportPreviewSequence += 1;
+  const pending = exportPreviewRequestId;
+  exportPreviewRequestId = null;
+  if (!pending) return;
+  try {
+    await invoke("sidecar_cancel", { request_id: pending });
+  } catch {
+    // Already finished, or never started; either way the engine is free.
+  }
+}
 
 function setExportPreviewState(key) {
   const label = $("#export-preview-state");
@@ -989,6 +1015,8 @@ function setExportPreviewState(key) {
 }
 
 function schedulePdfPreview(delay = 450) {
+  // A job the user asked for owns the engine until it finishes.
+  if (state.activeRequestId) return;
   if (exportPreviewTimer) clearTimeout(exportPreviewTimer);
   exportPreviewTimer = setTimeout(() => {
     exportPreviewTimer = null;
@@ -1006,45 +1034,103 @@ async function renderExportPreview() {
   }
   const sequence = (exportPreviewSequence += 1);
   setExportPreviewState("previewUpdating");
+  const id = `export-preview-${sequence}-${Date.now()}`;
+  exportPreviewRequestId = id;
   try {
     const file = await readDocument(state.sourcePath);
     const content = typeof file === "string" ? file : String(file?.content ?? "");
+    if (sequence !== exportPreviewSequence) return;
     const result = await previewDocumentText({
       path: state.sourcePath,
       content,
       options: exportOverrides(),
+      requestId: id,
     });
     if (sequence !== exportPreviewSequence) return;
-    surface.replaceChildren(safePreviewHtml(result.body_html));
-    surface.dir = "auto";
+    renderExportPreviewDocument(surface, result);
     setExportPreviewState("");
   } catch (error) {
     if (sequence !== exportPreviewSequence) return;
     setExportPreviewState("previewFailedShort");
     const payload = errorPayload(error);
     renderExportPreviewMessage(payload?.message || t("previewFailed"));
+  } finally {
+    if (exportPreviewRequestId === id) exportPreviewRequestId = null;
   }
+}
+
+/**
+ * Paint the preview with the engine's own stylesheets.
+ *
+ * The style sheet, palette and body classes come from the renderer, so what is
+ * on screen is the published appearance rather than a Markdown approximation.
+ * They are mounted in a shadow root because those stylesheets are written for a
+ * whole printed page and would otherwise restyle the application around them.
+ */
+function renderExportPreviewDocument(surface, result) {
+  const root = surface.shadowRoot || surface.attachShadow({ mode: "open" });
+  const appearance = result.appearance || {};
+
+  const page = document.createElement("div");
+  page.className = `mardas-preview-page ${appearance.body_classes || ""}`.trim();
+  page.dir = "auto";
+  const article = document.createElement("article");
+  article.className = "md2pdf-article";
+  article.append(safePreviewHtml(result.body_html));
+  page.append(article);
+
+  const sheet = document.createElement("style");
+  sheet.textContent = [
+    result.pygments_css || "",
+    appearance.style_css || "",
+    appearance.palette_css || "",
+    // The engine styles a paper page; inside the panel it becomes a scrollable
+    // sheet with the same proportions and margins the PDF will use.
+    `:host { display: block; }
+     .mardas-preview-page {
+       box-sizing: border-box;
+       min-height: 100%;
+       padding: 26px 30px 34px;
+       font-size: 11.5px;
+       line-height: 1.75;
+     }
+     .md2pdf-article { max-width: none; }
+     /* Anchors are an on-screen affordance of the authoring preview; a printed
+        page has no clickable heading marker. */
+     .heading-anchor, a.heading-anchor { display: none !important; }
+     img { max-width: 100%; height: auto; }
+     pre { overflow-x: auto; }
+     table { width: 100%; border-collapse: collapse; }`,
+  ].join("\n");
+
+  root.replaceChildren(sheet, page);
+  surface.dataset.appearance =
+    `${appearance.style || ""}/${appearance.palette || ""}/${appearance.mode || ""}`;
 }
 
 function renderExportPreviewMessage(text) {
   const surface = $("#export-preview");
   if (!surface) return;
+  const root = surface.shadowRoot || surface.attachShadow({ mode: "open" });
   const note = document.createElement("p");
-  note.className = "export-preview-empty";
   note.textContent = String(text || "");
-  surface.replaceChildren(note);
+  const sheet = document.createElement("style");
+  sheet.textContent =
+    "p { margin: 0; padding: 30px 10px; text-align: center; font: 12px/1.6 system-ui, sans-serif; color: #6b6b6b; }";
+  root.replaceChildren(sheet, note);
+  delete surface.dataset.appearance;
 }
 
+/**
+ * The overrides this export will send.
+ *
+ * One control per option. Page size, appearance, language and contents used to
+ * exist twice — once in a "basic settings" strip and again in the settings
+ * panel — so the same value had two widgets that could disagree, and which one
+ * won depended on merge order rather than on anything the user could see.
+ */
 function exportOverrides() {
-  return {
-    document_language: $("#document-language").value,
-    page_size: $("#page-size").value,
-    style: $("#appearance-style").value,
-    toc: $("#include-toc").checked,
-    // The advanced panel wins over the quick controls above it, because it is
-    // the more specific thing the user reached for.
-    ...collectRenderOptions(Object.fromEntries(advancedValues)),
-  };
+  return collectRenderOptions(Object.fromEntries(advancedValues));
 }
 
 function renderPresets() {
@@ -1066,16 +1152,37 @@ function renderPresets() {
   }
 }
 
+/**
+ * Apply a preset by seeding the settings panel with its values.
+ *
+ * The preset is a starting point the user can then adjust in place, so its
+ * choices have to be visible in the same controls they would use to change
+ * them — not held invisibly behind the card.
+ */
 function selectPreset(id) {
   const preset = presetById(id);
   state.presetId = preset.id;
-  $("#document-language").value = preset.options.document_language || "auto";
-  $("#page-size").value = preset.options.page_size || "A4";
-  $("#appearance-style").value = preset.options.style || "modern";
-  $("#include-toc").checked = Boolean(preset.options.toc);
+  advancedValues.clear();
+  for (const [key, value] of Object.entries(preset.options)) {
+    if (key in OPTION_FIELDS) advancedValues.set(key, value);
+  }
+  syncAdvancedControls();
   renderPresets();
   renderSummary();
   schedulePdfPreview();
+}
+
+/** Push the current values into the settings controls. */
+function syncAdvancedControls() {
+  for (const control of $$("#advanced-groups [data-option-key]")) {
+    const key = control.dataset.optionKey;
+    if (!advancedValues.has(key)) {
+      control.value = "";
+      continue;
+    }
+    const value = advancedValues.get(key);
+    control.value = typeof value === "boolean" ? String(value) : String(value);
+  }
 }
 
 function renderSummary() {
@@ -1180,6 +1287,7 @@ function exportSelectionValid() {
 
 async function validateExportDocument() {
   if (!exportSelectionValid()) return;
+  await releaseEngineForJob();
   working(true, "validate");
   const id = requestId("validate");
   state.activeRequestId = id;
@@ -1199,6 +1307,7 @@ async function validateExportDocument() {
 async function exportDocument(event) {
   event?.preventDefault();
   if (!exportSelectionValid()) return;
+  await releaseEngineForJob();
   working(true);
   hideExportResult();
   const id = requestId("render");
@@ -3101,7 +3210,6 @@ async function engineHealth() {
 
 function bindEvents() {
   $("#home-button").addEventListener("click", () => showView("start"));
-  $("#locale-button").addEventListener("click", () => setLocale(state.locale === "fa" ? "en" : "fa"));
   $("#command-button").addEventListener("click", openCommandPalette);
   $("#help-button").addEventListener("click", openHelp);
   $("#settings-button").addEventListener("click", openSettings);
@@ -3126,12 +3234,6 @@ function bindEvents() {
     state.recents = writeRecents([]);
     renderRecents();
   });
-  for (const id of ["document-language", "page-size", "appearance-style", "include-toc"]) {
-    $(`#${id}`).addEventListener("change", () => {
-      renderSummary();
-      schedulePdfPreview();
-    });
-  }
 
   $("#workspace-home").addEventListener("click", () => showView("start"));
   $("#workspace-new").addEventListener("click", createUntitledDocument);

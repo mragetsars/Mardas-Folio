@@ -4,8 +4,12 @@ function requestId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-async function sidecar(method, params) {
-  return invoke("sidecar_request", { request_id: requestId(method.replaceAll(".", "-")), method, params });
+async function sidecar(method, params, id = undefined) {
+  return invoke("sidecar_request", {
+    request_id: id || requestId(method.replaceAll(".", "-")),
+    method,
+    params,
+  });
 }
 
 export function readDocument(path) {
@@ -43,13 +47,13 @@ export function validateDocumentText({ path, content, options = {} }) {
   });
 }
 
-export function previewDocumentText({ path, content, options = {} }) {
+export function previewDocumentText({ path, content, options = {}, requestId: id } = {}) {
   return sidecar("preview.document_text", {
     input_path: path || "untitled.md",
     content,
     discover_config: Boolean(path),
     options,
-  });
+  }, id);
 }
 
 export function listDocumentAssets(path) {

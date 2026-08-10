@@ -30,7 +30,13 @@ from .markdown import (
     render_markdown_text,
 )
 from .protocol import PROTOCOL_NAME, PROTOCOL_VERSION
-from .renderer import PdfOptions, RenderSession, build_html, convert
+from .renderer import (
+    PdfOptions,
+    RenderSession,
+    build_html,
+    convert,
+    preview_appearance_payload,
+)
 from .runtime import runtime_info
 from .support import SupportBundleError, create_support_bundle
 from .workspace import (
@@ -849,6 +855,7 @@ def preview_document_text(options: PdfOptions, content: str) -> dict[str, Any]:
         "diagnostics": [item.to_dict() for item in result.diagnostics],
         "source_map": [dict(item) for item in result.source_map],
         "document": _document_summary(result),
+        "appearance": preview_appearance_payload(result.metadata, options),
     }
 
 

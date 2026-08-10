@@ -336,6 +336,26 @@ def _style_css(appearance: Appearance) -> str:
     return _asset_text(style_css_file(appearance.style, appearance.mode))
 
 
+def preview_appearance_payload(metadata: dict[str, Any], options: PdfOptions) -> dict[str, Any]:
+    """The stylesheets and body classes the PDF would be built with.
+
+    The authoring preview otherwise shows generic Markdown, which cannot answer
+    the question the export screen exists to answer: what will the published
+    document look like. Returning the same style sheet, palette and body classes
+    the renderer uses lets the preview be the real appearance rather than an
+    approximation of it.
+    """
+    appearance = _resolved_appearance(metadata, options)
+    return {
+        "style": appearance.style,
+        "palette": appearance.palette,
+        "mode": appearance.mode,
+        "style_css": _style_css(appearance),
+        "palette_css": palette_css(appearance.palette, appearance.mode, appearance.style),
+        "body_classes": appearance_body_classes(appearance),
+    }
+
+
 def _path_uri(path: Path | None) -> str | None:
     if not path:
         return None
