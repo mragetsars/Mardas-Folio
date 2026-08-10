@@ -18,6 +18,13 @@ The project follows semantic versioning for user-visible behavior. Patch release
 - Replaced CodeMirror's `defaultHighlightStyle` with a purpose-built syntax theme driven by `--cm-*` custom properties, so light and dark are one code path.
 
 ### Fixed
+- Made the editor wrap long lines. A prose editor that scrolls sideways forces the reader to pan for every line; only fenced code keeps its own horizontal overflow.
+- Removed the duplicated export controls. Page size, appearance, language and contents existed both in a "basic settings" strip and in the settings panel, so one value had two widgets that could disagree and precedence depended on merge order.
+- Stopped the export preview competing with the export itself. The engine runs one job at a time and answers a second with SERVER_BUSY, so pressing Create PDF while a preview was rendering failed until retried; speculative preview work now yields.
+- Moved the interface language into Settings, where it already existed, and removed the duplicate toggle from the title bar.
+- Made the export preview show the real published appearance by painting it with the engine's own style sheet, palette and body classes inside a shadow root, instead of generic Markdown.
+
+### Fixed (earlier in this cycle)
 - Made the editor parse GitHub-flavoured Markdown. `markdown()` defaults to CommonMark, so tables, task lists and strikethrough were never in the syntax tree even though the engine renders all three.
 - Fixed dark-mode editor contrast: link and code-fence tokens sat at 1.35:1 and Markdown punctuation at 1.84:1 against the editing surface. Every interface text node now meets WCAG AA in both themes.
 - Stopped the visually hidden switch inputs inheriting `input { width: 100% }`. Absolutely positioned with no positioned ancestor, that resolved against the viewport and produced a 1440px-wide invisible control that pushed the export view into horizontal scroll and swallowed clicks across a full-width strip.
