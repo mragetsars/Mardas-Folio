@@ -41,3 +41,25 @@ test("CSP permits runtime editor CSS without weakening script execution", () => 
   assert.match(main, /script,style,iframe,object,embed/);
   assert.match(main, /"style",/);
 });
+
+test("prefixing preview ids also prefixes what points at them", () => {
+  // A Mermaid arrowhead is a `<marker id=…>` referenced by
+  // `marker-end="url(#…)"`. Rewriting the id without the reference left every
+  // diagram in the preview without arrows.
+  const start = main.indexOf("function safePreviewHtml");
+  const end = main.indexOf("function renderPreviewMessage", start);
+  const sanitizer = main.slice(start, end);
+  assert.match(sanitizer, /url\\\(#/);
+  assert.match(sanitizer, /idMap\.get\(id\)/);
+});
+
+test("find navigation never asks the editor adapter for a computed style", () => {
+  // `currentEditor()` returns an adapter object, not an element. Passing it to
+  // getComputedStyle throws, which took find-and-replace navigation with it.
+  const start = main.indexOf("function selectFindMatch");
+  const end = main.indexOf("function openFind", start);
+  const implementation = main.slice(start, end);
+  assert.match(implementation, /editorAdapter\?\.kind !== "codemirror"/);
+  assert.match(implementation, /getComputedStyle\(element\)/);
+  assert.doesNotMatch(implementation, /getComputedStyle\(editor\)/);
+});

@@ -3098,6 +3098,18 @@ function safePreviewHtml(value) {
           .join(" ");
         element.setAttribute(attribute.name, rewritten);
       }
+      // Prefixing ids also has to prefix what points at them. A Mermaid
+      // arrowhead is a `<marker id=…>` referenced by `marker-end="url(#…)"`,
+      // so rewriting one without the other left every diagram without arrows.
+      if (attribute.value.includes("url(#")) {
+        element.setAttribute(
+          attribute.name,
+          attribute.value.replace(
+            /url\(#([^)"']+)\)/g,
+            (whole, id) => `url(#${idMap.get(id) || `preview-${id}`})`,
+          ),
+        );
+      }
     }
     if (element instanceof HTMLInputElement) {
       if (element.type !== "checkbox") {
@@ -3368,10 +3380,17 @@ function selectFindMatch(index) {
   const editor = currentEditor();
   editor.focus();
   editor.setSelectionRange(match.start, match.end);
-  const before = editor.value.slice(0, match.start);
-  const line = before.split("\n").length;
-  const lineHeight = Number.parseFloat(getComputedStyle(editor).lineHeight) || 24;
-  editor.scrollTop = Math.max(0, (line - 4) * lineHeight);
+  // The professional editor scrolls the selection into view itself, and knows
+  // where a wrapped line actually sits. Only the plain-textarea fallback has to
+  // be scrolled by hand — and asking the adapter *object* for a computed style,
+  // as this once did, threw before the count below was ever updated, which took
+  // find-and-replace navigation down with it.
+  if (editorAdapter?.kind !== "codemirror") {
+    const element = editorAdapter?.element || $("#markdown-editor");
+    const line = editor.value.slice(0, match.start).split("\n").length;
+    const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight) || 24;
+    editor.scrollTop = Math.max(0, (line - 4) * lineHeight);
+  }
   $("#find-count").textContent = `${state.findIndex + 1}/${matches.length}`;
   updateEditorMetrics();
 }
@@ -3885,6 +3904,11 @@ function bindEvents() {
     if (event.key === "Escape") {
       closeEditorContextMenu();
       toggleHeadingMenu(false);
+      // A mode that hides the way out has to have one.
+      if (state.preferences.focusMode && !modalManager.hasOpenModal()) {
+        updatePreference({ focusMode: false });
+        toast(t("exitFocusMode"));
+      }
     }
     if (event.key === "F1") {
       event.preventDefault();
