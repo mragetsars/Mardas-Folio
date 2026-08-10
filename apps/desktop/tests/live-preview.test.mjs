@@ -97,3 +97,21 @@ test("block widgets come from a state field, never from a view plugin", () => {
   assert.doesNotMatch(widgets, /ViewPlugin\.fromClass/);
   assert.doesNotMatch(widgets, /import\s*\{[^}]*\bViewPlugin\b/);
 });
+
+test("line decorations never add box spacing that desynchronises the caret", () => {
+  // CodeMirror maps a click to a document position through its own height map,
+  // which is built from text layout. Margin sits outside the measured box and
+  // padding proved to desynchronise the map as well: every line below a spaced
+  // heading was offset, so the caret landed a line away from the click.
+  const css = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
+  const live = css.slice(css.indexOf("Live preview: a document"));
+  const headingRules = [...live.matchAll(/\.cm-md-h(?:eading|\d)\s*\{([^}]*)\}/g)].map((m) => m[1]);
+  assert.ok(headingRules.length >= 3, "expected the heading line rules");
+  for (const rule of headingRules) {
+    assert.ok(!/margin/.test(rule), `heading line rule uses margin: ${rule.trim()}`);
+    assert.ok(!/padding-block|padding-top|padding-bottom/.test(rule),
+      `heading line rule uses vertical padding: ${rule.trim()}`);
+  }
+  assert.ok(headingRules.some((rule) => /line-height/.test(rule)),
+    "heading spacing should come from line-height");
+});

@@ -2882,19 +2882,30 @@ button:focus-visible,
 }
 
 /* Headings carry their own space; the size comes from the highlight style. */
+/* Padding, never margin.
+ *
+ * CodeMirror measures each line's height to map a click to a position, and a
+ * margin sits outside that measurement — so with margins the caret landed one
+ * line below wherever the user clicked. Padding is inside the box and is
+ * measured, which keeps the mapping honest. */
+/* Spacing comes from line-height, not from padding or margin.
+ *
+ * CodeMirror maps a click to a document position through its own height map.
+ * Box spacing added with margin sits outside the measured box, and padding
+ * proved to desynchronise the map too: every line below a spaced heading was
+ * offset, so the caret landed a line away from the click. Line-height is part
+ * of normal text layout, which the map is built from, so it stays honest. */
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-heading {
-  margin-block: 1.4em 0.4em;
-  line-height: 1.3;
+  line-height: 2.4;
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-h1 {
-  margin-block: 0.6em 0.5em;
-  padding-bottom: 0.24em;
+  line-height: 2;
   border-bottom: 1px solid var(--ui-border);
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-h2 {
-  margin-block: 1.5em 0.4em;
+  line-height: 2.5;
 }
 
 /* A quotation reads as a quotation. */

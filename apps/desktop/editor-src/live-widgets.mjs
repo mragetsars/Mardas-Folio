@@ -18,7 +18,7 @@
  */
 import { RangeSetBuilder, StateField } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
-import { syntaxTree } from "@codemirror/language";
+import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 
 /**
  * Documents past this size skip block rendering.
@@ -236,12 +236,22 @@ function parseImage(markup) {
   return match ? { alt: match[1], src: match[2] } : null;
 }
 
+/** Time budget for forcing the parse; beyond it, use whatever is ready. */
+const PARSE_BUDGET_MS = 100;
+
 function buildBlockDecorations(state, resolveAsset) {
   if (state.doc.length > MAX_SCANNED_CHARS) return Decoration.none;
   const active = activeLines(state);
   const items = [];
 
-  syntaxTree(state).iterate({
+  // CodeMirror parses incrementally, so `syntaxTree` covers only what it has
+  // reached — on a 60k-character guide that was 6% of the document, and every
+  // table past the first few kilobytes stayed as raw pipes. A state field has
+  // no viewport to narrow to, so the parse is forced within a budget and
+  // whatever is ready is used if the budget runs out.
+  const tree = ensureSyntaxTree(state, state.doc.length, PARSE_BUDGET_MS) || syntaxTree(state);
+
+  tree.iterate({
     enter: (node) => {
       if (node.name === "Table" && !spansActiveLine(state, active, node)) {
         items.push([
