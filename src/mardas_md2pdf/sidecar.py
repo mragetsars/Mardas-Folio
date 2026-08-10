@@ -61,6 +61,7 @@ _HEAVY_METHODS = {
     "render.book",
     "preview.document",
     "preview.document_text",
+    "preview.document_page",
     "validate.document",
     "validate.document_text",
     "validate.book",

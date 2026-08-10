@@ -493,3 +493,28 @@ def test_sidecar_request_schema_matches_capability_methods() -> None:
     schema_methods = set(schema["properties"]["method"]["enum"])
     capability_methods = set(application.EngineService().capabilities()["methods"])
     assert schema_methods == capability_methods
+
+
+def test_every_advertised_method_is_actually_routed() -> None:
+    """The engine must not advertise a method the transport refuses to route.
+
+    Methods are declared in three places: ``EngineService.capabilities`` says
+    what exists, ``EngineService.dispatch`` implements it, and the JSON-RPC
+    layer decides whether a request even reaches dispatch. Adding a method to
+    the first two and forgetting the third produces the worst possible symptom —
+    a client that sees the method offered, calls it, and is told it is unknown.
+    """
+    control_methods = {
+        "system.health",
+        "system.capabilities",
+        "system.shutdown",
+        "job.cancel",
+    }
+    routed = set(sidecar._HEAVY_METHODS) | control_methods
+    advertised = set(application.EngineService().capabilities()["methods"])
+    assert advertised - routed == set(), (
+        "these methods are advertised but the sidecar refuses to route them"
+    )
+    assert routed - advertised == set(), (
+        "these methods are routed but never advertised"
+    )
