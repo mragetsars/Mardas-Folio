@@ -3165,3 +3165,124 @@ button:focus-visible,
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* A fenced block reads as one panel: the opener carries the rounded top and
+ * the language chip, the closer the rounded bottom. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-open {
+  border-top: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius) var(--ui-radius) 0 0;
+  padding-top: 5px;
+  color: var(--ui-muted);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-close {
+  border-bottom: 1px solid var(--ui-border);
+  border-radius: 0 0 var(--ui-radius) var(--ui-radius);
+  padding-bottom: 5px;
+  min-height: 10px;
+  color: transparent;
+}
+
+/* ---- Editor pane: tools attached to the writing surface ------------------
+ * The formatting controls used to live in the window toolbar, far from the
+ * text they act on. They belong to the document, so they sit directly above
+ * it — and the view control sits with them, because choosing how you are
+ * looking at the document is the same kind of decision. */
+.editor-pane {
+  grid-template-rows: auto auto minmax(0, 1fr) 24px;
+}
+
+.editor-pane .pane-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.pane-identity {
+  min-width: 0;
+  display: grid;
+}
+
+.view-modes {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel-muted);
+}
+
+.view-mode {
+  min-height: 22px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ui-muted);
+  font: 600 11.5px/1 inherit;
+  cursor: pointer;
+}
+
+.view-mode:hover {
+  color: var(--ui-text);
+}
+
+.view-mode.selected {
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.view-mode:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 1px;
+}
+
+.format-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-panel-soft);
+  direction: ltr;
+}
+
+.format-bar button {
+  width: 27px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-text-soft);
+  font: 650 12px/1 inherit;
+  cursor: pointer;
+}
+
+.format-bar button:hover {
+  background: var(--ui-panel-muted);
+  color: var(--ui-accent);
+}
+
+.format-bar button:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: -1px;
+}
+
+.format-bar .formatting-divider {
+  width: 1px;
+  height: 15px;
+  margin-inline: 5px;
+  background: var(--ui-border);
+}
+
+/* Write mode is for writing: the document gets the whole pane. */
+.editor-pane[data-view-mode="write"] .format-bar {
+  background: var(--ui-panel);
+}

@@ -131,31 +131,9 @@
           <button class="button primary compact" id="workspace-save" type="button" data-i18n="save">ذخیره</button>
           <button class="button secondary compact toolbar-optional-label" id="workspace-save-as" type="button" data-i18n="saveAs">ذخیره با نام</button>
         </div>
-        <div class="toolbar-group formatting" data-i18n-aria-label="formattingTools" aria-label="ابزارهای قالب‌بندی">
-          <button type="button" data-editor-command="bold" data-i18n-title="bold" title="پررنگ"><b>B</b></button>
-          <button type="button" data-editor-command="italic" data-i18n-title="italic" title="مورب"><i>I</i></button>
-          <button type="button" data-editor-command="heading" data-i18n-title="heading" title="عنوان">H2</button>
-          <span class="formatting-divider" aria-hidden="true"></span>
-          <button type="button" data-editor-command="link" data-i18n-title="link" title="پیوند">↗</button>
-          <button type="button" data-editor-command="code" data-i18n-title="code" title="کد">&lt;/&gt;</button>
-          <button type="button" id="workspace-import-asset" data-i18n-title="importAsset" title="افزودن فایل">▧</button>
-          <button type="button" data-editor-command="citation" data-i18n-title="insertCitation" title="درج ارجاع">@</button>
-          <span class="formatting-divider" aria-hidden="true"></span>
-          <button type="button" data-editor-command="strike" data-i18n-title="strikethrough" title="خط‌خورده"><s>S</s></button>
-          <button type="button" data-editor-command="bullet-list" data-i18n-title="bulletList" title="فهرست نقطه‌ای">&#8226;&#8801;</button>
-          <button type="button" data-editor-command="ordered-list" data-i18n-title="orderedList" title="فهرست شماره‌دار">1&#8801;</button>
-          <button type="button" data-editor-command="task-list" data-i18n-title="taskList" title="فهرست کارها">&#9745;</button>
-          <button type="button" data-editor-command="quote" data-i18n-title="blockQuote" title="نقل‌قول">&#8220;</button>
-          <button type="button" data-editor-command="table" data-i18n-title="insertTable" title="جدول">&#9638;</button>
-          <button type="button" data-editor-command="code-block" data-i18n-title="codeBlock" title="بلوک کد">&#123;&#125;</button>
-          <button type="button" data-editor-command="image" data-i18n-title="insertImage" title="تصویر">&#9635;</button>
-          <button type="button" data-editor-command="rule" data-i18n-title="horizontalRule" title="خط جداکننده">&#8213;</button>
-        </div>
         <div class="toolbar-group toolbar-publish-actions">
           <div class="layout-controls" data-i18n-aria-label="workspaceLayout" aria-label="چیدمان فضای کار">
-            <button class="toolbar-icon-button" id="workspace-toggle-source" type="button" aria-pressed="false" data-i18n-title="toggleSourceMode" title="نمایش سورس Markdown" data-i18n-aria-label="toggleSourceMode" aria-label="نمایش سورس Markdown"><svg class="ui-icon" aria-hidden="true"><use href="#icon-source"></use></svg></button>
             <button class="toolbar-icon-button" id="workspace-toggle-sidebar" type="button" aria-controls="author-sidebar" aria-pressed="true" data-i18n-title="toggleSidebar" title="نمایش یا پنهان‌کردن نوار کناری" aria-label="نمایش یا پنهان‌کردن نوار کناری"><svg class="ui-icon" aria-hidden="true"><use href="#icon-panel-left"></use></svg></button>
-            <button class="toolbar-icon-button" id="workspace-toggle-preview" type="button" aria-controls="preview-pane" aria-pressed="true" data-i18n-title="togglePreview" title="نمایش یا پنهان‌کردن پیش‌نمایش" aria-label="نمایش یا پنهان‌کردن پیش‌نمایش"><svg class="ui-icon" aria-hidden="true"><use href="#icon-panel-right"></use></svg></button>
           </div>
           <span class="toolbar-divider" aria-hidden="true"></span>
           <button class="button secondary compact" id="workspace-validate" type="button" data-i18n="checkDocument">بررسی سند</button>
@@ -264,7 +242,36 @@
         <div class="pane-resizer sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-controls="author-sidebar" aria-valuemin="248" aria-valuemax="420" aria-valuenow="296" aria-label="Sidebar width" data-i18n-aria-label="resizeSidebar" tabindex="0"></div>
 
         <section class="editor-pane">
-          <header class="pane-header"><div><strong id="editor-title" data-i18n="untitled">بدون عنوان</strong><small id="editor-path"></small></div><span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span></header>
+          <header class="pane-header">
+            <div class="pane-identity"><strong id="editor-title" data-i18n="untitled">بدون عنوان</strong><small id="editor-path"></small></div>
+            <div class="view-modes" role="radiogroup" data-i18n-aria-label="viewMode" aria-label="حالت نمایش">
+              <button type="button" class="view-mode" data-view-mode="write" role="radio" aria-checked="true" data-i18n="viewWrite">نوشتن</button>
+              <button type="button" class="view-mode" data-view-mode="source" role="radio" aria-checked="false" data-i18n="viewSource">سورس</button>
+              <button type="button" class="view-mode" data-view-mode="split" role="radio" aria-checked="false" data-i18n="viewSplit">دوستونه</button>
+            </div>
+            <span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span>
+          </header>
+        <div class="format-bar" data-i18n-aria-label="formattingTools" aria-label="ابزارهای قالب‌بندی">
+              <button type="button" data-editor-command="bold" data-i18n-title="bold" title="پررنگ"><b>B</b></button>
+              <button type="button" data-editor-command="italic" data-i18n-title="italic" title="مورب"><i>I</i></button>
+              <button type="button" data-editor-command="heading" data-i18n-title="heading" title="عنوان">H2</button>
+              <span class="formatting-divider" aria-hidden="true"></span>
+              <button type="button" data-editor-command="link" data-i18n-title="link" title="پیوند">↗</button>
+              <button type="button" data-editor-command="code" data-i18n-title="code" title="کد">&lt;/&gt;</button>
+              <button type="button" id="workspace-import-asset" data-i18n-title="importAsset" title="افزودن فایل">▧</button>
+              <button type="button" data-editor-command="citation" data-i18n-title="insertCitation" title="درج ارجاع">@</button>
+              <span class="formatting-divider" aria-hidden="true"></span>
+              <button type="button" data-editor-command="strike" data-i18n-title="strikethrough" title="خط‌خورده"><s>S</s></button>
+              <button type="button" data-editor-command="bullet-list" data-i18n-title="bulletList" title="فهرست نقطه‌ای">&#8226;&#8801;</button>
+              <button type="button" data-editor-command="ordered-list" data-i18n-title="orderedList" title="فهرست شماره‌دار">1&#8801;</button>
+              <button type="button" data-editor-command="task-list" data-i18n-title="taskList" title="فهرست کارها">&#9745;</button>
+              <button type="button" data-editor-command="quote" data-i18n-title="blockQuote" title="نقل‌قول">&#8220;</button>
+              <button type="button" data-editor-command="table" data-i18n-title="insertTable" title="جدول">&#9638;</button>
+              <button type="button" data-editor-command="code-block" data-i18n-title="codeBlock" title="بلوک کد">&#123;&#125;</button>
+              <button type="button" data-editor-command="image" data-i18n-title="insertImage" title="تصویر">&#9635;</button>
+              <button type="button" data-editor-command="rule" data-i18n-title="horizontalRule" title="خط جداکننده">&#8213;</button>
+              </div>
+
           <div class="find-bar hidden" id="find-bar">
             <input id="find-query" type="search" data-i18n-placeholder="find" data-i18n-aria-label="find" aria-label="جست‌وجو" placeholder="جست‌وجو">
             <input id="replace-query" type="text" data-i18n-placeholder="replaceWith" data-i18n-aria-label="replaceWith" aria-label="جایگزین" placeholder="جایگزین">

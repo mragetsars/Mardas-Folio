@@ -123,7 +123,11 @@ def run_audit(
         checks["professional_editor_input"] = (
             "متن فارسی and English" in editor.input_value()
         )
+        # The engine preview is one half of Split view now, not an always-on
+        # pane; "show source" and "show preview" used to be separate toggles.
+        page.locator('[data-view-mode="split"]').click()
         page.locator("#preview-preview-heading").wait_for(state="visible")
+        checks["split_view_shows_preview"] = page.locator("#preview-pane").is_visible()
         checks["preview_contract"] = page.locator("#preview-preview-heading").inner_text() == "Preview"
         checks["preview_sanitized"] = page.evaluate(
             """() => {

@@ -7,7 +7,12 @@ import {
   editorModeExtension,
   normalizeEditorMode,
 } from "../editor-src/live-preview.mjs";
-import { DEFAULT_PREFERENCES, normalizePreferences } from "../frontend/js/core/preferences.mjs";
+import {
+  DEFAULT_PREFERENCES,
+  editorModeForView,
+  normalizePreferences,
+  previewVisibleForView,
+} from "../frontend/js/core/preferences.mjs";
 
 const source = readFileSync(new URL("../editor-src/live-preview.mjs", import.meta.url), "utf8");
 
@@ -23,10 +28,10 @@ test("live preview is the default and unknown modes fall back to it", () => {
 test("source mode renders the document verbatim but keeps bidi measurement", () => {
   // Source mode adds no rendering, only the per-line direction support that
   // live mode cannot use: `perLineTextDirection` measures each line, and a line
-  // hidden behind a decoration has no tile to measure.
+  // replaced by a block widget has no tile to measure.
   const live = editorModeExtension("live");
   const source = editorModeExtension("source");
-  assert.equal(live.length, 1, "live mode is the preview plugin alone");
+  assert.equal(live.length, 2, "live mode is the block field plus the preview plugin");
   assert.equal(source.length, 2, "source mode is direction support only");
   assert.notDeepEqual(live, source);
 });
@@ -63,9 +68,32 @@ test("the caret's own line is always shown as source", () => {
   assert.match(source, /if \(active\.has\(state\.doc\.lineAt\(node\.from\)\.number\)\) return;/);
 });
 
-test("the editor mode is a persisted preference defaulting to live", () => {
-  assert.equal(DEFAULT_PREFERENCES.editorMode, "live");
-  assert.equal(normalizePreferences({ editorMode: "source" }).editorMode, "source");
-  assert.equal(normalizePreferences({ editorMode: "nonsense" }).editorMode, "live");
-  assert.equal(normalizePreferences({}).editorMode, "live");
+test("one view mode decides both the rendering and the preview pane", () => {
+  // Two independent toggles allowed states nobody wants, such as a rendered
+  // editor beside a rendered preview showing the same thing twice.
+  assert.equal(DEFAULT_PREFERENCES.viewMode, "write");
+  assert.equal(normalizePreferences({ viewMode: "split" }).viewMode, "split");
+  assert.equal(normalizePreferences({ viewMode: "nonsense" }).viewMode, "write");
+  assert.equal(normalizePreferences({}).viewMode, "write");
+
+  assert.equal(editorModeForView("write"), "live");
+  assert.equal(editorModeForView("source"), "source");
+  assert.equal(editorModeForView("split"), "source");
+
+  assert.equal(previewVisibleForView("write"), false);
+  assert.equal(previewVisibleForView("source"), false);
+  assert.equal(previewVisibleForView("split"), true);
+});
+
+test("block widgets come from a state field, never from a view plugin", () => {
+  // CodeMirror rejects block decorations supplied by plugins outright, and the
+  // symptom is an unrelated "No tile at position" during measurement.
+  const widgets = readFileSync(new URL("../editor-src/live-widgets.mjs", import.meta.url), "utf8");
+  assert.match(widgets, /StateField\.define/);
+  assert.match(widgets, /EditorView\.decorations\.from/);
+  assert.match(widgets, /block: true/);
+  // The prose above mentions ViewPlugin deliberately; what must not exist is a
+  // plugin actually being declared or imported here.
+  assert.doesNotMatch(widgets, /ViewPlugin\.fromClass/);
+  assert.doesNotMatch(widgets, /import\s*\{[^}]*\bViewPlugin\b/);
 });

@@ -16,6 +16,8 @@ import { syntaxTree } from "@codemirror/language";
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin } from "@codemirror/view";
 
+import { blockWidgetField, blockWidgetRanges } from "./live-widgets.mjs";
+
 /**
  * Marks that are safe to hide once their effect is rendered.
  *
@@ -47,6 +49,8 @@ const hidden = Decoration.replace({});
 const autoDirection = Decoration.line({ attributes: { dir: "auto" } });
 const codeLine = Decoration.line({ class: "cm-code-line" });
 const quoteLine = Decoration.line({ class: "cm-quote-line" });
+const codeOpenLine = Decoration.line({ class: "cm-code-line cm-code-open" });
+const codeCloseLine = Decoration.line({ class: "cm-code-line cm-code-close" });
 
 /**
  * Block-level line classes.
@@ -110,7 +114,12 @@ function buildDecorations(view) {
       enter: (node) => {
         // Keep fenced code monospaced even when the surrounding prose is not.
         if (node.name === "FencedCode" || node.name === "CodeBlock") {
-          eachLine(state, node, (at) => lines.push({ at, deco: codeLine }));
+          const opener = state.doc.lineAt(node.from).from;
+          const closer = state.doc.lineAt(node.to).from;
+          eachLine(state, node, (at) => {
+            const deco = at === opener ? codeOpenLine : at === closer ? codeCloseLine : codeLine;
+            lines.push({ at, deco });
+          });
           return;
         }
         if (node.name === "Blockquote") {
@@ -135,6 +144,15 @@ function buildDecorations(view) {
           marks.push([node.from, to]);
           return;
         }
+        // A task item is introduced by its checkbox; the list bullet in front
+        // of it is redundant once the checkbox is drawn.
+        if (node.name === "ListMark") {
+          const after = state.doc.sliceString(node.to, Math.min(node.to + 5, state.doc.length));
+          if (/^\s*\[[ xX]\]/.test(after)) {
+            marks.push([node.from, swallowSpace(state, node.to)]);
+          }
+          return;
+        }
         // Only the backticks of an inline span; a fence keeps its marker.
         if (node.name === "CodeMark" && node.node.parent?.name === "InlineCode") {
           marks.push([node.from, node.to]);
@@ -155,9 +173,18 @@ function buildDecorations(view) {
     }
   }
 
+  // A block widget owns its whole range; a line class or a hidden mark inside
+  // it would have no tile to attach to.
+  const blocks = blockWidgetRanges(state);
+  const insideBlock = (at) => blocks.some(([from, to]) => at >= from && at < to);
+
   const events = [
-    ...lines.map(({ at, deco }) => ({ from: at, to: at, deco, line: true })),
-    ...marks.map(([from, to]) => ({ from, to, deco: hidden, line: false })),
+    ...lines
+      .filter(({ at }) => !insideBlock(at))
+      .map(({ at, deco }) => ({ from: at, to: at, deco, line: true })),
+    ...marks
+      .filter(([from]) => !insideBlock(from))
+      .map(([from, to]) => ({ from, to, deco: hidden, line: false })),
   ].sort((a, b) => a.from - b.from || Number(b.line) - Number(a.line));
 
   let lastFrom = -1;
@@ -239,6 +266,6 @@ export function normalizeEditorMode(value) {
  */
 export function editorModeExtension(mode) {
   return normalizeEditorMode(mode) === "live"
-    ? [livePreviewPlugin]
+    ? [blockWidgetField, livePreviewPlugin]
     : [autoDirectionPlugin, EditorView.perLineTextDirection.of(true)];
 }

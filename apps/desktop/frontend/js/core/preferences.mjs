@@ -7,15 +7,22 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   contentScale: "comfortable",
   reducedMotion: "system",
   autoPreview: true,
-  editorMode: "live",
+  viewMode: "write",
   onboardingComplete: false,
 });
 
 const THEMES = new Set(["system", "light", "dark"]);
 const SCALES = new Set(["comfortable", "large", "extra-large"]);
 const MOTION = new Set(["system", "reduce", "full"]);
-// Live preview renders Markdown as it will read; source shows the raw text.
-const EDITOR_MODES = new Set(["live", "source"]);
+/**
+ * How the workspace is arranged.
+ *
+ * One choice instead of two independent toggles: "show source?" and "show the
+ * preview pane?" were separate switches whose combinations included states
+ * nobody wants (rendered editor beside a rendered preview, showing the same
+ * thing twice). A view mode names the three arrangements that make sense.
+ */
+const VIEW_MODES = new Set(["write", "source", "split"]);
 
 function booleanValue(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
@@ -27,7 +34,7 @@ export function normalizePreferences(value = {}) {
     contentScale: SCALES.has(value?.contentScale) ? value.contentScale : DEFAULT_PREFERENCES.contentScale,
     reducedMotion: MOTION.has(value?.reducedMotion) ? value.reducedMotion : DEFAULT_PREFERENCES.reducedMotion,
     autoPreview: booleanValue(value?.autoPreview, DEFAULT_PREFERENCES.autoPreview),
-    editorMode: EDITOR_MODES.has(value?.editorMode) ? value.editorMode : DEFAULT_PREFERENCES.editorMode,
+    viewMode: VIEW_MODES.has(value?.viewMode) ? value.viewMode : DEFAULT_PREFERENCES.viewMode,
     onboardingComplete: booleanValue(value?.onboardingComplete, DEFAULT_PREFERENCES.onboardingComplete),
   };
 }
@@ -78,4 +85,14 @@ export function applyPreferences(documentElement, value, matchMedia = globalThis
   documentElement.dataset.contentScale = normalized.contentScale;
   documentElement.dataset.reducedMotion = resolvedReducedMotion(normalized.reducedMotion, matchMedia) ? "reduce" : "full";
   return normalized;
+}
+
+/** The editor rendering a view mode implies. */
+export function editorModeForView(viewMode) {
+  return viewMode === "write" ? "live" : "source";
+}
+
+/** Whether a view mode shows the engine preview pane. */
+export function previewVisibleForView(viewMode) {
+  return viewMode === "split";
 }

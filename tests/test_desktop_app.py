@@ -191,7 +191,6 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "update-state",
         "update-progress",
         "workspace-toggle-sidebar",
-        "workspace-toggle-preview",
         "sidebar-resizer",
         "preview-resizer",
         "sidebar-problem-badge",
@@ -284,11 +283,20 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     assert all(tab.get("aria-controls") for tab in tabs)
     assert len(sidebar.select("[role='tabpanel']")) == 7
 
-    for element_id in ("workspace-toggle-sidebar", "workspace-toggle-preview"):
-        button = soup.select_one(f"#{element_id}")
-        assert button is not None
-        assert button.get("aria-pressed") == "true"
-        assert button.get("aria-controls")
+    sidebar_toggle = soup.select_one("#workspace-toggle-sidebar")
+    assert sidebar_toggle is not None
+    assert sidebar_toggle.get("aria-pressed") == "true"
+    assert sidebar_toggle.get("aria-controls")
+
+    # The preview pane is not a standalone switch any more. Showing source and
+    # showing the preview were separate toggles whose combinations included
+    # states nobody wants, so one radio group names the arrangements instead.
+    modes = soup.select("[data-view-mode]")
+    assert [button.get("data-view-mode") for button in modes] == ["write", "source", "split"]
+    assert all(button.get("role") == "radio" for button in modes)
+    assert sum(button.get("aria-checked") == "true" for button in modes) == 1
+    group = soup.select_one(".view-modes")
+    assert group is not None and group.get("role") == "radiogroup"
 
     for element_id in ("sidebar-resizer", "preview-resizer"):
         separator = soup.select_one(f"#{element_id}")
@@ -595,10 +603,13 @@ def test_live_preview_mode_is_presentation_only() -> None:
     assert "setMode(value)" in editor
 
     # Reachable from the toolbar and the command palette, and remembered.
-    assert 'id="workspace-toggle-source"' in index
-    assert '"#workspace-toggle-source"' in main
-    assert '"toggle-source"' in main
-    assert "editorMode" in (DESKTOP / "frontend" / "js" / "core" / "preferences.mjs").read_text(
+    assert 'data-view-mode="write"' in index
+    assert '"[data-view-mode]"' in main
+    assert '"view-split"' in main
+    # The writing tools belong to the document, not to the window chrome.
+    assert '<div class="format-bar"' in index
+    assert index.index('class="format-bar"') > index.index('class="editor-pane"')
+    assert "viewMode" in (DESKTOP / "frontend" / "js" / "core" / "preferences.mjs").read_text(
         encoding="utf-8"
     )
 

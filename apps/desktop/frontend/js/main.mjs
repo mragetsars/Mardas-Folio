@@ -46,6 +46,8 @@ import { bookTaskBlocked, claimBookTask } from "./core/book-task-state.mjs";
 import {
   DEFAULT_PREFERENCES,
   applyPreferences,
+  editorModeForView,
+  previewVisibleForView,
   readPreferences,
   writePreferences,
 } from "./core/preferences.mjs";
@@ -235,28 +237,36 @@ function showView(name) {
 
 
 /**
- * Reflect the editor mode on the editor and its toggle.
+ * Apply the current view mode.
  *
- * Live preview hides the Markdown marks and renders the formatting; source
- * shows the document verbatim. The button is pressed when source is showing,
- * because that is the state the user has switched *into*.
+ * The mode is the single source of truth for two things that used to be
+ * toggled apart: whether the editor renders formatting, and whether the engine
+ * preview pane is on screen. Write is the default because the app is for
+ * writing; Split is for checking the published result against the source.
  */
-function applyEditorMode() {
-  const mode = state.preferences.editorMode === "source" ? "source" : "live";
-  editorAdapter?.setMode?.(mode);
-  const button = $("#workspace-toggle-source");
-  if (!button) return;
-  const showingSource = mode === "source";
-  button.setAttribute("aria-pressed", String(showingSource));
-  const label = t(showingSource ? "livePreviewMode" : "toggleSourceMode");
-  button.title = label;
-  button.setAttribute("aria-label", label);
+function applyViewMode() {
+  const mode = state.preferences.viewMode;
+  editorAdapter?.setMode?.(editorModeForView(mode));
+
+  const showPreview = previewVisibleForView(mode);
+  if (state.workspaceLayout.previewOpen !== showPreview) {
+    state.workspaceLayout = { ...state.workspaceLayout, previewOpen: showPreview };
+    applyWorkspaceLayout({ persist: true });
+  }
+
+  for (const button of $$("[data-view-mode]")) {
+    const selected = button.dataset.viewMode === mode;
+    button.setAttribute("aria-checked", String(selected));
+    button.classList.toggle("selected", selected);
+  }
+  const surface = $(".editor-pane");
+  if (surface) surface.dataset.viewMode = mode;
+  if (showPreview) schedulePreview(120);
 }
 
-function toggleEditorMode() {
-  updatePreference({
-    editorMode: state.preferences.editorMode === "source" ? "live" : "source",
-  });
+function setViewMode(mode) {
+  if (state.preferences.viewMode === mode) return;
+  updatePreference({ viewMode: mode });
   editorAdapter?.focus?.();
 }
 
@@ -266,7 +276,7 @@ function applyInterfacePreferences({ persist = false } = {}) {
   // The editor keeps its own light/dark state so CodeMirror's floating panels
   // match the workspace.
   editorAdapter?.setTheme?.(document.documentElement.dataset.theme);
-  applyEditorMode();
+  applyViewMode();
   const autoPreview = $("#auto-preview");
   if (autoPreview) autoPreview.checked = Boolean(state.preferences.autoPreview);
 }
@@ -289,11 +299,9 @@ function applyWorkspaceLayout({ persist = false } = {}) {
     element.style.setProperty("--preview-width", `${state.workspaceLayout.previewWidth}px`);
   }
   const sidebarButton = $("#workspace-toggle-sidebar");
-  const previewButton = $("#workspace-toggle-preview");
   const sidebarResizer = $("#sidebar-resizer");
   const previewResizer = $("#preview-resizer");
   if (sidebarButton) sidebarButton.setAttribute("aria-pressed", String(state.workspaceLayout.sidebarOpen));
-  if (previewButton) previewButton.setAttribute("aria-pressed", String(state.workspaceLayout.previewOpen));
   if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.sidebarWidth));
   if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.previewWidth));
 }
@@ -648,7 +656,9 @@ function commandDefinitions() {
     { id: "settings", icon: "⚙", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
     { id: "support-bundle", icon: "ZIP", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
     { id: "updates", icon: "↑", label: t("commandCheckUpdates"), keywords: "update upgrade release version", priority: 37, run: () => { openSettings(); setTimeout(() => checkUpdates(), 0); } },
-    { id: "toggle-source", icon: "</>", label: t("commandToggleSource"), keywords: "source markdown raw preview wysiwyg formatted سورس نمایش", priority: 40, run: () => toggleEditorMode() },
+    { id: "view-write", icon: "\u270e", label: t("viewWrite"), keywords: "write live formatted wysiwyg نوشتن", priority: 42, run: () => setViewMode("write") },
+    { id: "view-source", icon: "</>", label: t("viewSource"), keywords: "source raw markdown سورس", priority: 41, run: () => setViewMode("source") },
+    { id: "view-split", icon: "\u25eb", label: t("viewSplit"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, run: () => setViewMode("split") },
     { id: "help", icon: "?", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
     { id: "home", icon: "⌂", label: t("commandHome"), keywords: "start home center", priority: 20, run: () => showView("start") },
   ];
@@ -3049,7 +3059,9 @@ function bindEvents() {
   $("#help-button").addEventListener("click", openHelp);
   $("#settings-button").addEventListener("click", openSettings);
   $("#template-help").addEventListener("click", openHelp);
-  $("#workspace-toggle-source").addEventListener("click", toggleEditorMode);
+  for (const button of $$("[data-view-mode]")) {
+    button.addEventListener("click", () => setViewMode(button.dataset.viewMode));
+  }
   $("#reset-advanced").addEventListener("click", resetAdvancedOptions);
   $("#workflow-quick").addEventListener("click", () => showView("export"));
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
@@ -3083,7 +3095,6 @@ function bindEvents() {
   $("#workspace-export").addEventListener("click", exportActiveDocument);
   $("#workspace-import-asset").addEventListener("click", importAsset);
   $("#workspace-toggle-sidebar").addEventListener("click", () => toggleWorkspacePane("sidebar"));
-  $("#workspace-toggle-preview").addEventListener("click", () => toggleWorkspacePane("preview"));
   $("#sidebar-resizer").addEventListener("pointerdown", (event) => beginPaneResize(event, "sidebar"));
   $("#preview-resizer").addEventListener("pointerdown", (event) => beginPaneResize(event, "preview"));
   $("#sidebar-resizer").addEventListener("keydown", (event) => resizePaneWithKeyboard(event, "sidebar"));
@@ -3247,7 +3258,7 @@ async function boot() {
   const textarea = $("#markdown-editor");
   const editorOptions = {
     theme: document.documentElement.dataset.theme,
-    mode: state.preferences.editorMode,
+    mode: editorModeForView(state.preferences.viewMode),
     getCompletions: () => activeDocument()?.projectPath === state.project?.path
       ? state.bibliographyEntries
       : [],
