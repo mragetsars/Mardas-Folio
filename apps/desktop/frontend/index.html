@@ -84,7 +84,7 @@
       <div class="export-layout">
         <form class="panel form-panel" id="export-form" novalidate>
           <section class="step"><header><span>1</span><div><h2 data-i18n="sourceFile">فایل مبدأ</h2><p data-i18n="sourceFileHelp">فایل Markdown را از سیستم انتخاب کن.</p></div></header><div class="path-row"><input id="source-path" readonly data-i18n-aria-label="sourceFile" aria-label="فایل مبدأ" placeholder="report.md"><button class="button secondary compact" id="choose-source" type="button" data-i18n="browse">انتخاب</button></div></section>
-          <section class="step"><header><span>2</span><div><h2 data-i18n="documentPreset">نوع خروجی</h2><p data-i18n="documentPresetHelp">یک preset انتخاب کن؛ جزئیات مناسب خودکار تنظیم می‌شوند.</p></div></header><div class="preset-grid" id="preset-grid" role="radiogroup"></div></section>
+          <section class="step"><header><span>2</span><div><h2 id="preset-grid-title" data-i18n="documentPreset">نوع خروجی</h2><p data-i18n="documentPresetHelp">یک preset انتخاب کن؛ جزئیات مناسب خودکار تنظیم می‌شوند.</p></div></header><div class="preset-grid" id="preset-grid" role="radiogroup" aria-labelledby="preset-grid-title"></div></section>
           <section class="step step-settings"><header><span>3</span><div><h2 data-i18n="documentSettings">تنظیمات سند</h2><p data-i18n="documentSettingsHelp">هر گزینه یک‌بار و در یک جا. خالی‌گذاشتن یعنی از preset، mardas.toml یا مقدار پیش‌فرض ارث ببرد.</p></div></header>
             <div class="settings-toolbar">
               <label class="option-search"><span class="sr-only" data-i18n="searchOptions">جست‌وجوی تنظیمات خروجی</span><input id="option-search" type="search" autocomplete="off" data-i18n-placeholder="searchOptions" placeholder="جست‌وجوی تنظیمات خروجی"></label>

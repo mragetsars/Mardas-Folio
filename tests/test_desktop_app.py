@@ -476,6 +476,37 @@ def test_desktop_accessibility_contracts_cover_navigation_and_modals() -> None:
     assert 'event.key === "Escape"' in modal_manager
     assert "previousFocus" in modal_manager
 
+    # A grouping role without a name announces as an unlabelled group, which is
+    # worse than no role at all.
+    for grouping in soup.select('[role="radiogroup"], [role="tablist"], [role="toolbar"]'):
+        assert grouping.get("aria-label") or grouping.get("aria-labelledby"), (
+            f"{grouping.get('id') or grouping.get('class')} has a grouping role but no name"
+        )
+
+
+def test_runtime_built_controls_carry_their_own_accessible_names() -> None:
+    """Controls the settings browser and menus build are named where they are built.
+
+    None of these exist in the markup, so the static sweep above cannot see
+    them. Each is created in one place, and that place is what has to attach
+    the name.
+    """
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    for construct, expectation in {
+        "buildToggleControl": r'setAttribute\("aria-checked"',
+        "buildSwatchControl": r'setAttribute\("aria-label", choiceLabel\(choice\)\)',
+        "buildOptionRow": r'reset\.setAttribute\("aria-label"',
+        "renderOptionRail": r'setAttribute\("role", "tab"\)',
+        "openEditorContextMenu": r'setAttribute\("role", "menuitem"\)',
+    }.items():
+        start = main.index(f"function {construct}")
+        body = main[start : start + 3000]
+        assert re.search(expectation, body), f"{construct} builds an unnamed control"
+
+    # Both tri-state groups point at the label rendered beside them.
+    assert 'aria-labelledby", `${advancedControlId(field.key)}-label`' in main
+    assert 'label.id = `${advancedControlId(field.key)}-label`' in main
+
 
 def test_desktop_ux_is_offline_and_exposes_guided_entry_points() -> None:
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
