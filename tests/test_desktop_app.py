@@ -636,3 +636,31 @@ def test_every_engine_render_option_has_a_control() -> None:
     ).read_text(encoding="utf-8")
     missing = [key for key in RENDER_OPTION_SPECS if f'key: "{key}"' not in schema]
     assert missing == [], f"these engine options have no interface control: {missing}"
+
+
+def test_editor_images_load_through_a_bounded_asset_scope() -> None:
+    """Rendering local images must not hand the webview the filesystem.
+
+    The asset protocol ships with an empty scope. Opening a document widens it
+    by exactly that document's own directory, non-recursively, so a Markdown
+    file can show the images beside it and nothing else.
+    """
+    config = json.loads((TAURI / "tauri.conf.json").read_text(encoding="utf-8"))
+    security = config["app"]["security"]
+    assert security["assetProtocol"]["enable"] is True
+    assert security["assetProtocol"]["scope"] == [], "the static scope must stay empty"
+    assert "img-src 'self' data: asset: http://asset.localhost" in security["csp"]
+
+    main_rs = (TAURI / "src" / "main.rs").read_text(encoding="utf-8")
+    assert "fn allow_document_images" in main_rs
+    assert "asset_protocol_scope()" in main_rs
+    # Non-recursive: the second argument to allow_directory is the recursion flag.
+    assert "allow_directory(&directory, false)" in main_rs
+    assert "canonicalize()" in main_rs, "resolve the directory before trusting it"
+
+    main_js = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    assert '"allow_document_images"' in main_js
+    # Remote sources and parent-directory escapes are refused in the interface
+    # too, so a document cannot pull the webview off the machine.
+    assert "normalized.split(\"/\").includes(\"..\")" in main_js
+    assert "/^[a-z][a-z0-9+.-]*:/i" in main_js

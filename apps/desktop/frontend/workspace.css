@@ -887,7 +887,10 @@ html[data-theme="dark"] .hero .button.primary {
   min-width: 0;
   min-height: 56px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* Two groups since the formatting tools moved down to the document: file
+   * actions take the free space, publish actions stay pinned to the end. The
+   * old three-column track left them stranded in the middle. */
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
@@ -3285,4 +3288,23 @@ button:focus-visible,
 /* Write mode is for writing: the document gets the whole pane. */
 .editor-pane[data-view-mode="write"] .format-bar {
   background: var(--ui-panel);
+}
+
+.author-toolbar .toolbar-publish-actions {
+  justify-self: end;
+}
+
+/* An image rendered in place of its Markdown. */
+.codemirror-mount .cm-md-image {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+.codemirror-mount .cm-md-image img {
+  max-width: 100%;
+  max-height: 420px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel-soft);
 }

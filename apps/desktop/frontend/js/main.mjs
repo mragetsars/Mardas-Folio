@@ -237,6 +237,37 @@ function showView(name) {
 
 
 /**
+ * Map a Markdown image path to a URL the webview may load.
+ *
+ * Only paths that resolve inside the open document's own directory are turned
+ * into asset URLs; the native side allows exactly that directory and nothing
+ * below it. Remote and absolute-URL sources are declined here rather than
+ * fetched, which keeps the offline guarantee the app makes on its own footer.
+ */
+function resolveEditorAsset(source) {
+  const raw = String(source || "").trim();
+  if (!raw || /^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith("//")) return null;
+  const model = activeDocument();
+  if (!model?.path) return null;
+  const separator = model.path.includes("\\") ? "\\" : "/";
+  const directory = model.path.slice(0, model.path.lastIndexOf(separator));
+  if (!directory) return null;
+
+  const normalized = raw.replaceAll("\\", "/");
+  // A path that climbs out of the document directory is outside the scope the
+  // native side allowed, so it would fail to load anyway.
+  if (normalized.split("/").includes("..")) return null;
+  const absolute = normalized.startsWith("/")
+    ? normalized
+    : `${directory}${separator}${normalized}`;
+  try {
+    return globalThis.__TAURI__?.core?.convertFileSrc?.(absolute) || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Apply the current view mode.
  *
  * The mode is the single source of truth for two things that used to be
@@ -1459,10 +1490,26 @@ function renderWorkspace() {
   renderPreview(model);
 }
 
+/**
+ * Let the webview read images from a document's own directory.
+ *
+ * The asset scope starts empty; this widens it by exactly one directory, and
+ * only for a document the user actually opened.
+ */
+async function allowDocumentImages(model) {
+  if (!model?.path) return;
+  try {
+    await invoke("allow_document_images", { path: model.path });
+  } catch {
+    // Images stay as Markdown text; nothing else about the document changes.
+  }
+}
+
 function activateDocument(id) {
   const model = state.documents.find((document) => document.id === id);
   if (!model) return;
   state.activeDocumentId = id;
+  void allowDocumentImages(model);
   state.validationSequence += 1;
   state.assetSequence += 1;
   state.bibliographySequence += 1;
@@ -3259,6 +3306,7 @@ async function boot() {
   const editorOptions = {
     theme: document.documentElement.dataset.theme,
     mode: editorModeForView(state.preferences.viewMode),
+    resolveAsset: resolveEditorAsset,
     getCompletions: () => activeDocument()?.projectPath === state.project?.path
       ? state.bibliographyEntries
       : [],

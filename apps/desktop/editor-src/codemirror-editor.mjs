@@ -153,7 +153,7 @@ function documentTheme() {
 
 export function createCodeMirrorEditorAdapter(
   textarea,
-  { getCompletions, onChange, onScroll, onSelectionChange, theme, mode } = {},
+  { getCompletions, onChange, onScroll, onSelectionChange, resolveAsset, theme, mode } = {},
 ) {
   if (!(textarea instanceof HTMLTextAreaElement)) {
     throw new TypeError("CodeMirror editor requires a textarea fallback element.");
@@ -191,7 +191,7 @@ export function createCodeMirrorEditorAdapter(
           extensions: [frontmatter],
         }),
         appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
-        preview.of(editorModeExtension(editorMode)),
+        preview.of(editorModeExtension(editorMode, { resolveAsset })),
         EditorState.allowMultipleSelections.of(true),
         keymap.of([indentWithTab]),
         autocompletion({
@@ -345,7 +345,7 @@ export function createCodeMirrorEditorAdapter(
       const next = normalizeEditorMode(value);
       if (next === editorMode) return editorMode;
       editorMode = next;
-      view.dispatch({ effects: preview.reconfigure(editorModeExtension(next)) });
+      view.dispatch({ effects: preview.reconfigure(editorModeExtension(next, { resolveAsset })) });
       mount.dataset.mode = next;
       view.dom.dataset.editorMode = next;
       return editorMode;

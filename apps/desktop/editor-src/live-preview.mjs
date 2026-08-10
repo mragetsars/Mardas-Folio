@@ -16,7 +16,7 @@ import { syntaxTree } from "@codemirror/language";
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin } from "@codemirror/view";
 
-import { blockWidgetField, blockWidgetRanges } from "./live-widgets.mjs";
+import { blockWidgetRanges, createBlockWidgetField } from "./live-widgets.mjs";
 
 /**
  * Marks that are safe to hide once their effect is rendered.
@@ -264,8 +264,8 @@ export function normalizeEditorMode(value) {
  * to be exact, so that is where the facet earns its cost. Live mode still sets
  * `dir="auto"` per line, so the text lays out correctly either way.
  */
-export function editorModeExtension(mode) {
+export function editorModeExtension(mode, { resolveAsset } = {}) {
   return normalizeEditorMode(mode) === "live"
-    ? [blockWidgetField, livePreviewPlugin]
+    ? [createBlockWidgetField(resolveAsset), livePreviewPlugin]
     : [autoDirectionPlugin, EditorView.perLineTextDirection.of(true)];
 }

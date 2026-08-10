@@ -78,6 +78,41 @@ class TableWidget extends WidgetType {
   }
 }
 
+/**
+ * A rendered image.
+ *
+ * The source is resolved by the host, which is the only layer that knows how a
+ * relative path maps to a URL the webview may load. If it declines — a remote
+ * URL, or a path outside the document's own directory — the Markdown is left
+ * as written rather than silently showing a broken image.
+ */
+class ImageWidget extends WidgetType {
+  constructor(url, alt) {
+    super();
+    this.url = url;
+    this.alt = alt;
+  }
+
+  eq(other) {
+    return other.url === this.url && other.alt === this.alt;
+  }
+
+  toDOM() {
+    const figure = document.createElement("span");
+    figure.className = "cm-md-image";
+    const image = document.createElement("img");
+    image.src = this.url;
+    image.alt = this.alt;
+    image.loading = "lazy";
+    figure.append(image);
+    return figure;
+  }
+
+  ignoreEvent() {
+    return false;
+  }
+}
+
 class RuleWidget extends WidgetType {
   eq() {
     return true;
@@ -152,7 +187,13 @@ function spansActiveLine(state, active, node) {
   return false;
 }
 
-function buildBlockDecorations(state) {
+/** Read `![alt](src)` out of the source text of an Image node. */
+function parseImage(markup) {
+  const match = /^!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?(?:\s+"[^"]*")?\s*\)$/.exec(markup.trim());
+  return match ? { alt: match[1], src: match[2] } : null;
+}
+
+function buildBlockDecorations(state, resolveAsset) {
   if (state.doc.length > MAX_SCANNED_CHARS) return Decoration.none;
   const active = activeLines(state);
   const items = [];
@@ -174,6 +215,18 @@ function buildBlockDecorations(state) {
         items.push([node.from, node.to, Decoration.replace({ widget: new RuleWidget(), block: true })]);
         return false;
       }
+      if (node.name === "Image" && !spansActiveLine(state, active, node)) {
+        const parsed = parseImage(state.doc.sliceString(node.from, node.to));
+        const url = parsed && resolveAsset ? resolveAsset(parsed.src) : null;
+        if (url) {
+          items.push([
+            node.from,
+            node.to,
+            Decoration.replace({ widget: new ImageWidget(url, parsed.alt) }),
+          ]);
+        }
+        return false;
+      }
       if (node.name === "TaskMarker" && !active.has(state.doc.lineAt(node.from).number)) {
         const text = state.doc.sliceString(node.from, node.to);
         items.push([
@@ -192,19 +245,30 @@ function buildBlockDecorations(state) {
   return builder.finish();
 }
 
-export const blockWidgetField = StateField.define({
-  create: buildBlockDecorations,
-  update(value, transaction) {
-    if (!transaction.docChanged && !transaction.selection) return value;
-    return buildBlockDecorations(transaction.state);
-  },
-  provide: (field) => EditorView.decorations.from(field),
-});
+let blockWidgetFieldInstance = null;
+
+/**
+ * The block decoration field.
+ *
+ * `resolveAsset` is captured once when the editor is created; it maps a
+ * Markdown image path to a URL the webview is allowed to load, or null.
+ */
+export function createBlockWidgetField(resolveAsset) {
+  blockWidgetFieldInstance = StateField.define({
+    create: (state) => buildBlockDecorations(state, resolveAsset),
+    update(value, transaction) {
+      if (!transaction.docChanged && !transaction.selection) return value;
+      return buildBlockDecorations(transaction.state, resolveAsset);
+    },
+    provide: (field) => EditorView.decorations.from(field),
+  });
+  return blockWidgetFieldInstance;
+}
 
 /** Ranges a block widget covers, so the inline layer can skip them. */
 export function blockWidgetRanges(state) {
   const ranges = [];
-  const set = state.field(blockWidgetField, false);
+  const set = blockWidgetFieldInstance ? state.field(blockWidgetFieldInstance, false) : null;
   if (!set) return ranges;
   const cursor = set.iter();
   while (cursor.value) {

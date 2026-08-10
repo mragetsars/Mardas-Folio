@@ -235,6 +235,30 @@ fn launch_path(path: &Path, reveal: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn allow_document_images(app: AppHandle, path: String) -> Result<(), String> {
+    // Local images render in the editor through the asset protocol, whose scope
+    // starts empty. Only the directory holding the open document is added, and
+    // only non-recursively, so opening a file never exposes the tree beneath
+    // it — let alone the rest of the filesystem — to the webview.
+    let document = PathBuf::from(&path);
+    if !document.is_absolute() {
+        return Err("Document path must be absolute.".into());
+    }
+    let directory = document
+        .parent()
+        .ok_or_else(|| "Document has no parent directory.".to_string())?;
+    let directory = directory
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve document directory: {error}"))?;
+    if !directory.is_dir() {
+        return Err("Document directory does not exist.".into());
+    }
+    app.asset_protocol_scope()
+        .allow_directory(&directory, false)
+        .map_err(|error| format!("Could not allow document images: {error}"))
+}
+
+#[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
     let resolved = existing_path(&path)?;
     launch_path(&resolved, false)
@@ -301,6 +325,7 @@ fn main() {
             pick_pdf_output,
             pick_support_bundle_output,
             open_path,
+            allow_document_images,
             reveal_path,
             sidecar_request,
             sidecar_cancel,
