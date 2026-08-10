@@ -931,6 +931,69 @@ function resetAdvancedOptions() {
   schedulePdfPreview();
 }
 
+/**
+ * Preview of the document as the chosen options will publish it.
+ *
+ * The engine renders the same Markdown the exporter will, with the same option
+ * payload, so changing the palette or turning the contents off shows here
+ * before a PDF is written. It is debounced because every keystroke in a text
+ * option would otherwise start a render.
+ */
+let exportPreviewTimer = null;
+let exportPreviewSequence = 0;
+
+function setExportPreviewState(key) {
+  const label = $("#export-preview-state");
+  if (label) label.textContent = key ? t(key) : "";
+}
+
+function schedulePdfPreview(delay = 450) {
+  if (exportPreviewTimer) clearTimeout(exportPreviewTimer);
+  exportPreviewTimer = setTimeout(() => {
+    exportPreviewTimer = null;
+    void renderExportPreview();
+  }, delay);
+}
+
+async function renderExportPreview() {
+  const surface = $("#export-preview");
+  if (!surface) return;
+  if (!state.sourcePath) {
+    setExportPreviewState("");
+    renderExportPreviewMessage(t("previewChooseSource"));
+    return;
+  }
+  const sequence = (exportPreviewSequence += 1);
+  setExportPreviewState("previewUpdating");
+  try {
+    const file = await readDocument(state.sourcePath);
+    const content = typeof file === "string" ? file : String(file?.content ?? "");
+    const result = await previewDocumentText({
+      path: state.sourcePath,
+      content,
+      options: exportOverrides(),
+    });
+    if (sequence !== exportPreviewSequence) return;
+    surface.replaceChildren(safePreviewHtml(result.body_html));
+    surface.dir = "auto";
+    setExportPreviewState("");
+  } catch (error) {
+    if (sequence !== exportPreviewSequence) return;
+    setExportPreviewState("previewFailedShort");
+    const payload = errorPayload(error);
+    renderExportPreviewMessage(payload?.message || t("previewFailed"));
+  }
+}
+
+function renderExportPreviewMessage(text) {
+  const surface = $("#export-preview");
+  if (!surface) return;
+  const note = document.createElement("p");
+  note.className = "export-preview-empty";
+  note.textContent = String(text || "");
+  surface.replaceChildren(note);
+}
+
 function exportOverrides() {
   return {
     document_language: $("#document-language").value,
@@ -971,6 +1034,7 @@ function selectPreset(id) {
   $("#include-toc").checked = Boolean(preset.options.toc);
   renderPresets();
   renderSummary();
+  schedulePdfPreview();
 }
 
 function renderSummary() {
@@ -3004,7 +3068,10 @@ function bindEvents() {
     renderRecents();
   });
   for (const id of ["document-language", "page-size", "appearance-style", "include-toc"]) {
-    $(`#${id}`).addEventListener("change", renderSummary);
+    $(`#${id}`).addEventListener("change", () => {
+      renderSummary();
+      schedulePdfPreview();
+    });
   }
 
   $("#workspace-home").addEventListener("click", () => showView("start"));

@@ -601,3 +601,27 @@ def test_live_preview_mode_is_presentation_only() -> None:
     assert "editorMode" in (DESKTOP / "frontend" / "js" / "core" / "preferences.mjs").read_text(
         encoding="utf-8"
     )
+
+
+def test_every_engine_render_option_has_a_control() -> None:
+    """No publishing option may be reachable only from the CLI.
+
+    The engine accepts 53 render options; the interface used to send nine and
+    the rest needed a hand-edited ``mardas.toml``. The fixture is generated from
+    ``RENDER_OPTION_SPECS`` and the desktop suite holds the settings panel to
+    it, so this check guards the Python side of that contract.
+    """
+    from mardas_md2pdf.config import RENDER_OPTION_SPECS
+
+    fixture = json.loads(
+        (ROOT / "tests" / "fixtures" / "render_options.json").read_text(encoding="utf-8")
+    )
+    assert set(fixture["options"]) == set(RENDER_OPTION_SPECS), (
+        "regenerate tests/fixtures/render_options.json; the engine option list moved"
+    )
+
+    schema = (
+        DESKTOP / "frontend" / "js" / "core" / "render-options.mjs"
+    ).read_text(encoding="utf-8")
+    missing = [key for key in RENDER_OPTION_SPECS if f'key: "{key}"' not in schema]
+    assert missing == [], f"these engine options have no interface control: {missing}"

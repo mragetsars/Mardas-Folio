@@ -2987,3 +2987,181 @@ button:focus-visible,
   vertical-align: baseline;
   cursor: pointer;
 }
+
+/* ---- Export preview ------------------------------------------------------
+ * The document rendered through the engine with the options currently chosen,
+ * so appearance decisions are made against the real result. */
+.export-preview-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  max-height: 62vh;
+  overflow: hidden;
+}
+
+.export-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.export-preview-head strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.export-preview-state {
+  color: var(--ui-muted);
+  font-size: 10.5px;
+}
+
+.export-preview-page {
+  overflow: auto;
+  padding: 16px 18px 24px;
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.export-preview-page :is(h1, h2, h3, h4) {
+  margin-block: 0.9em 0.35em;
+  line-height: 1.3;
+}
+
+.export-preview-page h1 { font-size: 1.5em; }
+.export-preview-page h2 { font-size: 1.25em; }
+.export-preview-page h3 { font-size: 1.1em; }
+
+.export-preview-page pre {
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel-soft);
+  direction: ltr;
+  text-align: left;
+}
+
+.export-preview-page table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.export-preview-page :is(th, td) {
+  border: 1px solid var(--ui-border);
+  padding: 4px 7px;
+}
+
+.export-preview-page img {
+  max-width: 100%;
+  height: auto;
+}
+
+.export-preview-empty {
+  margin: 0;
+  padding: 28px 8px;
+  color: var(--ui-muted);
+  text-align: center;
+}
+
+#export-view .export-layout {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+/* ---- Advanced export settings -------------------------------------------
+ * Ten collapsed groups rather than one long form: the whole engine surface is
+ * present, but only the group being adjusted is open. */
+.advanced-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.advanced-groups {
+  display: grid;
+  gap: 6px;
+}
+
+.advanced-group {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-panel);
+}
+
+.advanced-group > summary {
+  padding: 8px 11px;
+  color: var(--ui-text-soft);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--ui-radius);
+}
+
+.advanced-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-group > summary::before {
+  content: "›";
+  display: inline-block;
+  width: 12px;
+  color: var(--ui-muted);
+  transition: transform 120ms ease;
+}
+
+.advanced-group[open] > summary {
+  border-bottom: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius) var(--ui-radius) 0 0;
+  background: var(--ui-panel-soft);
+  color: var(--ui-text);
+}
+
+.advanced-group[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.advanced-group > summary:hover {
+  background: var(--ui-panel-muted);
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 12px;
+  padding: 11px;
+}
+
+.advanced-field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.advanced-label {
+  color: var(--ui-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+/* A path takes a browse button beside its input. */
+.advanced-field.advanced-path {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "label label" "input button";
+  align-items: center;
+  gap: 3px 6px;
+}
+
+.advanced-field.advanced-path .advanced-label { grid-area: label; }
+.advanced-field.advanced-path input { grid-area: input; }
+.advanced-field.advanced-path .button { grid-area: button; }
+
+@media (max-width: 1180px) {
+  .advanced-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
