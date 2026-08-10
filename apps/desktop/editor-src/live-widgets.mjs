@@ -29,14 +29,55 @@ import { syntaxTree } from "@codemirror/language";
  */
 const MAX_SCANNED_CHARS = 200_000;
 
+/** Split a table row into cells, honouring escaped pipes. */
+function splitRow(line) {
+  const trimmed = line.replace(/^\s*\|/, "").replace(/\|\s*$/, "");
+  const cells = [];
+  let current = "";
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const character = trimmed[index];
+    if (character === "\\" && trimmed[index + 1] === "|") {
+      current += "|";
+      index += 1;
+      continue;
+    }
+    if (character === "|") {
+      cells.push(current);
+      current = "";
+      continue;
+    }
+    current += character;
+  }
+  cells.push(current);
+  return cells.map((cell) => cell.trim());
+}
+
+const isAlignmentRow = (cells) => cells.every((cell) => /^:?-{1,}:?$/.test(cell.trim()));
+
+/**
+ * A rendered GitHub table.
+ *
+ * The cells are deliberately not `contenteditable`. Nesting an editable element
+ * inside CodeMirror's own editable host makes its DOM observer reconcile those
+ * keystrokes back into the document, which rewrote the whole file in testing.
+ * Editing a cell in place needs an editor mounted outside `contentDOM` — a
+ * tooltip or panel over the cell — rather than an editable inside it. Clicking
+ * the table still opens its Markdown for editing.
+ */
 class TableWidget extends WidgetType {
-  constructor(markup) {
+  constructor(markup, from, to) {
     super();
     this.markup = markup;
+    this.from = from;
+    this.to = to;
   }
 
   eq(other) {
-    return other.markup === this.markup;
+    return other.markup === this.markup && other.from === this.from;
+  }
+
+  rows() {
+    return this.markup.split("\n").filter((line) => line.trim()).map(splitRow);
   }
 
   toDOM() {
@@ -45,21 +86,23 @@ class TableWidget extends WidgetType {
     const table = document.createElement("table");
     let body = null;
 
-    this.markup.split("\n").filter((line) => line.trim()).forEach((line, index) => {
-      const cells = line.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|");
-      // The row after the header is the alignment rule, not content.
-      if (index === 1 && cells.every((cell) => /^\s*:?-+:?\s*$/.test(cell))) return;
+    const rows = this.rows();
+    let rendered = 0;
+    rows.forEach((cells, index) => {
+      if (index === 1 && isAlignmentRow(cells)) return;
+      const head = rendered === 0;
       const row = document.createElement("tr");
       for (const cell of cells) {
-        const element = document.createElement(index === 0 ? "th" : "td");
-        element.textContent = cell.trim();
+        const element = document.createElement(head ? "th" : "td");
+        element.textContent = cell;
         element.dir = "auto";
         row.append(element);
       }
-      if (index === 0) {
-        const head = document.createElement("thead");
-        head.append(row);
-        table.append(head);
+      rendered += 1;
+      if (head) {
+        const header = document.createElement("thead");
+        header.append(row);
+        table.append(header);
         return;
       }
       if (!body) {
@@ -205,7 +248,11 @@ function buildBlockDecorations(state, resolveAsset) {
           node.from,
           node.to,
           Decoration.replace({
-            widget: new TableWidget(state.doc.sliceString(node.from, node.to)),
+            widget: new TableWidget(
+              state.doc.sliceString(node.from, node.to),
+              node.from,
+              node.to,
+            ),
             block: true,
           }),
         ]);
