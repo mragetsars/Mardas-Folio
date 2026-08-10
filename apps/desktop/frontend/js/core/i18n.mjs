@@ -335,3 +335,10 @@ Object.assign(fa, {
   horizontalRule: "خط جداکننده",
   preset: "الگو",
 });
+Object.assign(fa, {
+  previewEngineOutdated: "موتور محلی قدیمی‌تر از رابط است؛ اندازه صفحه و پاصفحه فرضی‌اند.",
+});
+Object.assign(en, {
+  previewEngineOutdated:
+    "The local engine is older than this interface; page size and footer are assumed.",
+});

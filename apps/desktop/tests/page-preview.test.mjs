@@ -195,3 +195,33 @@ test("the export screen asks for the page, not just the body", () => {
   );
   assert.match(api, /preview\.document_page/);
 });
+
+test("choosing a source file starts the preview", () => {
+  // The document is the preview's only subject. Without this the panel stayed
+  // on "choose a source file" until some unrelated option was touched.
+  const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
+  const start = main.indexOf("function openExportSource");
+  const end = main.indexOf("async function chooseExportSource", start);
+  assert.match(main.slice(start, end), /schedulePdfPreview\(/);
+});
+
+test("the preview stands down gracefully on an engine that predates it", () => {
+  // A desktop build carries a compiled engine, so a rebuilt interface on an
+  // unrebuilt runtime is a normal state — and answering it with the raw string
+  // "Unknown method: preview.document_page" in the panel is not.
+  const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
+  assert.match(main, /async function engineCapabilities/);
+  assert.match(main, /system\.capabilities/);
+  assert.match(main, /function engineSupports/);
+  assert.match(main, /engineSupports\("preview\.document_page"\)/);
+  assert.match(main, /function pagePayloadFromBodyPreview/);
+  // The fallback says what it is assuming rather than pretending to be exact.
+  assert.match(main, /payload\?\.degraded/);
+  assert.match(main, /previewEngineOutdated/);
+});
+
+test("an engine that cannot describe itself is not assumed to be broken", () => {
+  const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
+  const start = main.indexOf("function engineSupports");
+  assert.match(main.slice(start, start + 200), /!state\.engineMethods \|\| state\.engineMethods\.has/);
+});

@@ -147,6 +147,7 @@ const state = {
   onboardingIntent: null,
   commandIndex: 0,
   visibleCommands: [],
+  engineMethods: null,
   updateStatus: null,
   updateCheck: null,
   updateInstalling: false,
@@ -1383,18 +1384,62 @@ function movePreviewPage(delta) {
 }
 
 /**
- * A note under the preview for the one thing it cannot show.
+ * A note under the preview for the things it cannot show.
  *
  * Equations are typeset by MathJax inside Chromium at export time. Rather than
  * silently showing TeX source and letting the user believe that is the output,
- * the preview says how many expressions are waiting.
+ * the preview says how many expressions are waiting — and, when the local
+ * engine is older than this interface, that the page furniture is assumed
+ * rather than measured.
  */
 function renderPreviewNote(payload) {
   const note = $("#export-preview-note");
   if (!note) return;
+  const lines = [];
+  if (payload?.degraded) lines.push(t("previewEngineOutdated"));
   const pending = payload?.math?.typeset_at_export ? Number(payload.math.expressions) || 0 : 0;
-  note.classList.toggle("hidden", pending < 1);
-  note.textContent = pending < 1 ? "" : `${t("previewMathPending")} (${pending})`;
+  if (pending > 0) lines.push(`${t("previewMathPending")} (${pending})`);
+  note.classList.toggle("hidden", lines.length === 0);
+  note.textContent = lines.join(" · ");
+}
+
+/**
+ * Build a page payload from the body-only preview an older engine can give.
+ *
+ * `preview.document_page` was added with this screen. A desktop build carries a
+ * compiled engine, so a rebuilt interface on an unrebuilt runtime is a normal
+ * state — and answering it with the raw string "Unknown method:
+ * preview.document_page" in the preview panel is not. The appearance the older
+ * method does return is real; only the sheet geometry is assumed, and the note
+ * says so.
+ */
+function pagePayloadFromBodyPreview(result) {
+  const appearance = result?.appearance || {};
+  return {
+    degraded: true,
+    title: result?.title || "",
+    lang: "",
+    direction: "",
+    page: {},
+    css: {
+      fonts: "",
+      pygments: result?.pygments_css || "",
+      style: appearance.style_css || "",
+      palette: appearance.palette_css || "",
+      layout: "",
+    },
+    body_classes: appearance.body_classes || "",
+    content_html: [
+      result?.toc_html || "",
+      result?.reference_lists_html || "",
+      result?.body_html || "",
+      result?.bibliography_html || "",
+    ].join(""),
+    watermark_html: "",
+    cover: null,
+    footer: { enabled: false, html: "" },
+    math: { typeset_at_export: true, expressions: 0 },
+  };
 }
 
 async function renderExportPreview() {
@@ -1414,12 +1459,10 @@ async function renderExportPreview() {
     const file = await readDocument(state.sourcePath);
     const content = typeof file === "string" ? file : String(file?.content ?? "");
     if (sequence !== exportPreviewSequence) return;
-    const result = await previewDocumentPage({
-      path: state.sourcePath,
-      content,
-      options: exportOverrides(),
-      requestId: id,
-    });
+    const request = { path: state.sourcePath, content, options: exportOverrides(), requestId: id };
+    const result = engineSupports("preview.document_page")
+      ? await previewDocumentPage(request)
+      : pagePayloadFromBodyPreview(await previewDocumentText(request));
     if (sequence !== exportPreviewSequence) return;
     deck.render(result);
     renderPreviewNote(result);
@@ -1563,6 +1606,10 @@ function openExportSource(path) {
   $("#output-path").value = state.outputPath;
   setExportStatus("idle", "readyTitle", t("readyMessage"));
   showView("export");
+  // The document is the preview's only subject. Without this the panel stayed
+  // on "choose a source file" until some unrelated option was touched, which
+  // is the one moment the user is least expecting to have to.
+  schedulePdfPreview(120);
 }
 
 async function chooseExportSource() {
@@ -3684,6 +3731,36 @@ async function exportActiveDocument() {
 // ---------------------------------------------------------------------------
 // Runtime lifecycle and event wiring
 // ---------------------------------------------------------------------------
+/**
+ * Ask the engine what it can do, once.
+ *
+ * The interface and the engine ship together, but they do not always run
+ * together: a desktop build carries a compiled sidecar, and a rebuilt front end
+ * on an unrebuilt runtime is a normal state during development and after a
+ * partial update. Knowing which methods exist lets a feature stand down
+ * gracefully instead of putting a protocol error on screen.
+ */
+async function engineCapabilities() {
+  try {
+    const capabilities = await invoke("sidecar_request", {
+      request_id: requestId("capabilities"),
+      method: "system.capabilities",
+      params: {},
+    });
+    state.engineMethods = new Set(
+      Array.isArray(capabilities?.methods) ? capabilities.methods.map(String) : [],
+    );
+  } catch {
+    // An engine that cannot describe itself is assumed to support everything;
+    // the individual call will fail on its own terms if it does not.
+    state.engineMethods = null;
+  }
+}
+
+function engineSupports(method) {
+  return !state.engineMethods || state.engineMethods.has(method);
+}
+
 async function engineHealth() {
   const element = $("#engine-state");
   try {
@@ -3692,6 +3769,7 @@ async function engineHealth() {
     element.querySelector("span").dataset.i18n = "engineReady";
     element.querySelector("span").textContent = t("engineReady");
     $("#runtime-detail").textContent = `${health.engine_version || ""} · ${health.runtime?.platform || t("localRuntime")}`;
+    await engineCapabilities();
   } catch (error) {
     element.dataset.state = "error";
     element.querySelector("span").dataset.i18n = "engineUnavailable";
