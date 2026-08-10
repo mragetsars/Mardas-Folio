@@ -301,3 +301,5 @@ Object.assign(en, {
   focusModeHelp:"Hides the sidebar, tabs and tools so only the document remains.",
   exitFocusMode:"Leave focus mode",
 });
+Object.assign(fa, { moveLine: "جابه‌جایی خط" });
+Object.assign(en, { moveLine: "Move line" });

@@ -134,3 +134,18 @@ test("narrow book chapter rows preserve titles and reveal actions on intent", ()
   assert.match(workspaceStyles, /\.book-chapter-row:focus-within \.book-chapter-actions/);
   assert.match(workspaceStyles, /\.book-actions-primary \{[\s\S]*?grid-template-columns: 1fr;/);
 });
+
+test("every stylesheet is brace-balanced", () => {
+  // A single unmatched brace silently disables every rule after it, and a
+  // minified stylesheet gives no visual clue that it happened.
+  for (const name of ["styles.css", "workspace.css"]) {
+    const css = readFileSync(new URL(`../frontend/${name}`, import.meta.url), "utf8");
+    let depth = 0;
+    for (const character of css) {
+      if (character === "{") depth += 1;
+      else if (character === "}") depth -= 1;
+      assert.ok(depth >= 0, `${name} closes a block that was never opened`);
+    }
+    assert.equal(depth, 0, `${name} leaves ${depth} block(s) open`);
+  }
+});
