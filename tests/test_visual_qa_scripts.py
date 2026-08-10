@@ -307,7 +307,7 @@ def test_visual_contract_checker_accepts_complete_manifests(tmp_path: Path) -> N
         },
     )
     checks = {
-        "title": "Mardas MD2PDF Studio",
+        "title": "Mardas Folio",
         "preview_mode": "accurate",
         "preview_failed": False,
     }

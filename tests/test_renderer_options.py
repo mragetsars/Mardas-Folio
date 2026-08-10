@@ -102,12 +102,12 @@ def test_manual_pagebreak_css_breaks_after_marker_not_before(tmp_path):
 def test_footer_template_isolates_mixed_title_in_ltr_footer_slot():
     from mardas_md2pdf.renderer import _footer_template
 
-    footer = _footer_template("راهنمای Mardas MD2PDF", "modern")
+    footer = _footer_template("راهنمای Mardas Folio", "modern")
 
     assert 'dir="ltr"' in footer
     assert "direction:ltr" in footer
     assert "unicode-bidi:isolate" in footer
-    assert "راهنمای Mardas MD2PDF" in footer
+    assert "راهنمای Mardas Folio" in footer
     assert "text-align:left" in footer
     assert "position:absolute; left:50%; transform:translateX(-50%)" in footer
 
@@ -564,7 +564,7 @@ def test_cover_branding_is_off_by_default(tmp_path):
     assert "md2pdf-cover--branding-off" in html
     assert '<div class="md2pdf-cover__brand' not in html
     assert '<span class="md2pdf-cover__brand-copy' not in html
-    assert '<strong>Mardas MD2PDF</strong>' not in html
+    assert '<strong>Mardas Folio</strong>' not in html
     assert '<em>Markdown to PDF Engine</em>' not in html
 
 
@@ -585,7 +585,7 @@ def test_cover_branding_full_is_explicit(tmp_path):
     assert "linear-gradient(135deg, var(--accent), var(--accent-2))" in html
     assert "linear-gradient(135deg, #0f172a, #2563eb)" not in html
     assert "color-mix(in srgb, var(--accent) 54%, #64748b)" in html
-    assert "Mardas MD2PDF" in html
+    assert "Mardas Folio" in html
     assert "Markdown to PDF Engine" in html
 
 
@@ -630,7 +630,7 @@ def test_cover_branding_subtle_is_not_a_large_brand_block(tmp_path):
 
     assert "md2pdf-cover--branding-subtle" in html
     assert "md2pdf-cover__brand--subtle" in html
-    assert "Generated with Mardas MD2PDF" in html
+    assert "Generated with Mardas Folio" in html
     assert '<span class="md2pdf-cover__mark"' not in html
 
 

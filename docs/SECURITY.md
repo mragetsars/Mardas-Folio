@@ -1,6 +1,6 @@
 # Security Policy
 
-Mardas MD2PDF is a local publishing tool. It is safe by default for normal
+Mardas Folio is a local publishing tool. It is safe by default for normal
 Markdown authoring, but it is not a sandbox for hostile documents. Treat
 Markdown, front matter, raw HTML, attached Studio assets, logos, watermarks, and
 local image references as author-controlled input.
@@ -8,7 +8,7 @@ local image references as author-controlled input.
 ## Supported versions
 
 Security fixes are made on the current `master` branch and the latest tagged
-release. When reporting an issue, include the Mardas MD2PDF version, Python
+release. When reporting an issue, include the Mardas Folio version, Python
 version, operating system, and the command or Studio settings used to render the
 PDF.
 

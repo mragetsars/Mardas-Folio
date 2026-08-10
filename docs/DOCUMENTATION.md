@@ -1,6 +1,6 @@
 # Documentation System
 
-Mardas MD2PDF documentation follows a **guide-first** model. The English and Persian guides are the canonical user manuals, the feature references, and the official live rendering samples. Supporting documents under `docs/` are limited to operations, release discipline, security boundaries, changelog history, and documentation policy.
+Mardas Folio documentation follows a **guide-first** model. The English and Persian guides are the canonical user manuals, the feature references, and the official live rendering samples. Supporting documents under `docs/` are limited to operations, release discipline, security boundaries, changelog history, and documentation policy.
 
 ## Goals
 

@@ -410,7 +410,7 @@ def main(argv: list[str] | None = None) -> int:
             process.kill()
             process.wait(timeout=5)
 
-    if checks.get("title") != "Mardas MD2PDF Studio":
+    if checks.get("title") != "Mardas Folio":
         raise SystemExit("unexpected Studio page title")
     for key in [
         "export_button_visible",

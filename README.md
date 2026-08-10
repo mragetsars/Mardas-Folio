@@ -1,4 +1,4 @@
-# Mardas MD2PDF
+# Mardas Folio
 
 > **Professional Markdown to PDF converter for Persian, English, and mixed RTL/LTR technical documents**
 
@@ -6,7 +6,7 @@
 
 ## Overview
 
-This repository contains **Mardas MD2PDF**, a Markdown-to-PDF publishing tool designed for clean Persian, English, and mixed-language documents.
+This repository contains **Mardas Folio**, a Markdown-to-PDF publishing tool designed for clean Persian, English, and mixed-language documents.
 
 The project converts single Markdown documents or ordered multi-file books into print-ready PDF files with support for RTL/LTR direction handling, Persian-friendly typography, cover pages, tables of contents, PDF outline bookmarks, deterministic figure/table/equation/listing numbering, semantic cross-references, generated reference lists, offline BibTeX/CSL JSON citations and bibliographies, GitHub-style Markdown features, MathJax formulas, enhanced syntax-highlighted code, offline Mermaid flowchart-subset diagrams, local images, footnotes, callouts, safe HTML, watermarks, and a clean appearance system built around styles, palettes, and light/dark modes.
 
@@ -16,7 +16,7 @@ The main goal of the project is to make technical Markdown documents publishable
 Markdown -> Structured HTML -> Chromium PDF
 ```
 
-![Mardas MD2PDF](./README.png)
+![Mardas Folio](./README.png)
 
 ## Architecture
 
@@ -48,7 +48,7 @@ The target product architecture keeps the Python publishing engine and places a 
 
 ## Documentation
 
-The README is intentionally short. Mardas MD2PDF uses a **guide-first documentation model**:
+The README is intentionally short. Mardas Folio uses a **guide-first documentation model**:
 
 - [English Guide](./docs/guides/GUIDE.en.md) — the complete English user manual and live rendering sample.
 - [راهنمای فارسی](./docs/guides/GUIDE.fa.md) — the complete Persian/RTL user manual and live rendering sample.
@@ -89,7 +89,7 @@ Mardas-Folio-X.Y.Z-linux-x86_64.AppImage
 Mardas-Folio-X.Y.Z-linux-x86_64.deb
 ```
 
-Each package contains the previously verified target-platform standalone runtime, including Python, Mardas MD2PDF, Playwright resources, and pinned Chromium. End users do not install Python, pip, Node.js, Git, Chrome, Rust, or the source repository.
+Each package contains the previously verified target-platform standalone runtime, including Python, Mardas Folio, Playwright resources, and pinned Chromium. End users do not install Python, pip, Node.js, Git, Chrome, Rust, or the source repository.
 
 The supported native targets follow the frozen renderer toolchain: Windows 11
 x86-64 (or Windows Server 2019+), macOS 14+ on Apple Silicon or Intel, and
@@ -162,7 +162,7 @@ mrs-md2pdf input.md -o output.pdf \
   --quality-report build/output-quality.json
 ```
 
-The standard profile remains backward compatible and reports these conditions as warnings. Override one category with `--math-error-policy`, `--font-error-policy`, or `--navigation-error-policy`. Mardas MD2PDF does not redistribute font binaries; install the required families locally or point `--font-dir` to trusted font files.
+The standard profile remains backward compatible and reports these conditions as warnings. Override one category with `--math-error-policy`, `--font-error-policy`, or `--navigation-error-policy`. Mardas Folio does not redistribute font binaries; install the required families locally or point `--font-dir` to trusted font files.
 
 Create a reusable project configuration and validate it without opening Chromium:
 
@@ -282,7 +282,7 @@ mrs-md2pdf audit-book-accessibility path/to/book
 mrs-md2pdf audit-pdf dist/book.pdf --profile all
 ```
 
-Source audits check declared language, heading hierarchy, image alternative text, link names, table headers/captions, and the selected theme's text contrast. PDF audits inspect catalog language, XMP metadata, font embedding, ToUnicode maps, tagging signals, JavaScript, attachments, output intents, and PDF/A identifiers. JSON output and `--fail-on error|warning|never` make the commands suitable for CI. These are readiness checks: Mardas MD2PDF does **not** claim PDF/UA or PDF/A conformance without an independent standards validator.
+Source audits check declared language, heading hierarchy, image alternative text, link names, table headers/captions, and the selected theme's text contrast. PDF audits inspect catalog language, XMP metadata, font embedding, ToUnicode maps, tagging signals, JavaScript, attachments, output intents, and PDF/A identifiers. JSON output and `--fail-on error|warning|never` make the commands suitable for CI. These are readiness checks: Mardas Folio does **not** claim PDF/UA or PDF/A conformance without an independent standards validator.
 
 ## Release Verification and Offline Bundles
 
@@ -372,7 +372,7 @@ These files are intended to show the real PDF output produced by the current doc
 
 ## Security Model
 
-Mardas MD2PDF is intended for local publishing workflows. Local Markdown images and all front-matter branding logos are resolved relative to the Markdown document, restricted to regular supported image files inside that document root, and embedded before Chromium renders the PDF. Out-of-bound paths, symlink escapes, unsupported files, and oversized images are rejected or rendered as visible blocked placeholders. Relative filesystem links remain readable text but are not exported as machine-local `file:` annotations.
+Mardas Folio is intended for local publishing workflows. Local Markdown images and all front-matter branding logos are resolved relative to the Markdown document, restricted to regular supported image files inside that document root, and embedded before Chromium renders the PDF. Out-of-bound paths, symlink escapes, unsupported files, and oversized images are rejected or rendered as visible blocked placeholders. Relative filesystem links remain readable text but are not exported as machine-local `file:` annotations.
 Bibliography sources are bounded local `.bib` or CSL `.json` files resolved inside the document/project root; citation rendering performs no network lookup and accepts only validated internal citation keys.
 
 Remote `http(s)` images are blocked by default for privacy; use `--allow-remote-assets` only for trusted documents that intentionally fetch network images. Studio Fast Preview follows the same privacy boundary: it does not fetch remote or local image paths, and it disables unsafe or filesystem link schemes. Raw HTML is sanitized unless `--unsafe-html` is used, and safe `data:` image URLs are limited to common raster formats.

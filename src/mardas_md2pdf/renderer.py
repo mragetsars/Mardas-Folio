@@ -85,7 +85,7 @@ ALLOWED_EMBED_ASSET_MIME_TYPES = {
 ProgressCallback = Callable[[str, float], None]
 CancellationCallback = Callable[[], bool]
 BRANDING_MODES = ("off", "subtle", "full")
-PRODUCT_BRAND_NAME = "Mardas MD2PDF"
+PRODUCT_BRAND_NAME = "Mardas Folio"
 PRODUCT_BRAND_FOOTER = "Markdown to PDF Engine"
 
 
@@ -555,7 +555,7 @@ def _image_data_uri(path: Path | None) -> str | None:
 
 
 def _default_logo_path(*, variant: str = "default") -> Path | None:
-    """Return the packaged Mardas MD2PDF product logo for built-in branding."""
+    """Return the packaged Mardas Folio product logo for built-in branding."""
     return product_logo_path(variant=variant)
 
 
@@ -2886,8 +2886,8 @@ def _xmp_packet(metadata: dict[str, str], *, lang: str | None) -> bytes:
     author = html.escape(str(metadata.get("/Author") or ""))
     subject = html.escape(str(metadata.get("/Subject") or ""))
     keywords = html.escape(str(metadata.get("/Keywords") or ""))
-    creator = html.escape(str(metadata.get("/Creator") or "Mardas MD2PDF"))
-    producer = html.escape(str(metadata.get("/Producer") or "Mardas MD2PDF"))
+    creator = html.escape(str(metadata.get("/Creator") or "Mardas Folio"))
+    producer = html.escape(str(metadata.get("/Producer") or "Mardas Folio"))
     language = html.escape(normalize_language(lang, "und"))
     created = html.escape(_pdf_date_to_iso(str(metadata.get("/CreationDate") or "")))
     modified = html.escape(_pdf_date_to_iso(str(metadata.get("/ModDate") or "")))
@@ -2958,8 +2958,8 @@ def _pdf_metadata(result: MarkdownRenderResult, options: PdfOptions, title: str)
     )
     data = {
         "/Title": str(title or result.title or "Document"),
-        "/Creator": "Mardas MD2PDF",
-        "/Producer": "Mardas MD2PDF + Playwright/Chromium + pypdf",
+        "/Creator": "Mardas Folio",
+        "/Producer": "Mardas Folio + Playwright/Chromium + pypdf",
         "/CreationDate": _pdf_date(),
         "/ModDate": _pdf_date(),
     }

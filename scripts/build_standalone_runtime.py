@@ -194,7 +194,7 @@ def _write_manifest(runtime_dir: Path, *, browser_source: Path | None) -> Path:
         )
     manifest = {
         "schema_version": RUNTIME_MANIFEST_SCHEMA,
-        "product": "Mardas MD2PDF standalone sidecar runtime",
+        "product": "Mardas Folio standalone sidecar runtime",
         "version": __version__,
         "engine_api_version": ENGINE_API_VERSION,
         "protocol": PROTOCOL_NAME,

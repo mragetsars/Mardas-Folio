@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark representative Mardas MD2PDF documents with reproducible inputs."""
+"""Benchmark representative Mardas Folio documents with reproducible inputs."""
 from __future__ import annotations
 
 import argparse
@@ -212,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
     payload = {
-        "project": "Mardas MD2PDF",
+        "project": "Mardas Folio",
         "version": __version__,
         "python": sys.version,
         "platform": platform.platform(),

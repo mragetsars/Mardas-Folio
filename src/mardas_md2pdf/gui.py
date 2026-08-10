@@ -1736,7 +1736,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mrs-md2pdf-gui",
-        description="Open the local Mardas MD2PDF Studio GUI for editing Markdown and exporting PDFs.",
+        description="Open the local Mardas Folio GUI for editing Markdown and exporting PDFs.",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind; default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=8765, help="Port to bind; default: 8765")
@@ -1801,7 +1801,7 @@ def main(argv: list[str] | None = None) -> int:
     server.studio_export_manager = export_manager  # type: ignore[attr-defined]
     server.studio_project_workspace = project_workspace  # type: ignore[attr-defined]
     url = _studio_url(args.host, server.server_port)
-    print(f"Mardas MD2PDF Studio is running at {url}")
+    print(f"Mardas Folio is running at {url}")
     if project_workspace is not None:
         print(f"Project workspace: {project_workspace.root}")
     warning = _studio_bind_warning(args.host)
@@ -1813,7 +1813,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nStopping Mardas MD2PDF Studio...")
+        print("\nStopping Mardas Folio...")
     finally:
         export_manager.close()
         server.server_close()

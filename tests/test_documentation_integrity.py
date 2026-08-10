@@ -142,7 +142,7 @@ def test_changelog_is_descending_and_has_single_intro():
     changelog = (ROOT / "docs/CHANGELOG.md").read_text(encoding="utf-8")
 
     assert changelog.startswith("# Changelog\n\nAll notable changes")
-    assert changelog.count("All notable changes to Mardas MD2PDF are tracked here.") == 1
+    assert changelog.count("All notable changes to Mardas Folio are tracked here.") == 1
     versions = [tuple(map(int, match.groups())) for match in VERSION_RE.finditer(changelog)]
     assert versions == sorted(versions, reverse=True)
     assert len(versions) == len(set(versions))

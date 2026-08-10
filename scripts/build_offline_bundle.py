@@ -57,7 +57,7 @@ def verify_bundle(root: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Install Mardas MD2PDF from an offline wheel bundle")
+    parser = argparse.ArgumentParser(description="Install Mardas Folio from an offline wheel bundle")
     parser.add_argument("--target", type=Path, default=Path("mardas-md2pdf-venv"))
     parser.add_argument("--clear", action="store_true")
     args = parser.parse_args()
@@ -76,7 +76,7 @@ def main() -> int:
         cli = target / "bin" / "mrs-md2pdf"
     wheels = sorted((root / "wheelhouse").glob("mardas_md2pdf-*.whl"))
     if len(wheels) != 1:
-        raise SystemExit("The bundle must contain exactly one Mardas MD2PDF wheel")
+        raise SystemExit("The bundle must contain exactly one Mardas Folio wheel")
     subprocess.run(
         [
             str(python_exe),
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 '''
 
-README_TEMPLATE = """# Mardas MD2PDF offline Python bundle
+README_TEMPLATE = """# Mardas Folio offline Python bundle
 
 Version: {version}
 Platform label: {platform_label}

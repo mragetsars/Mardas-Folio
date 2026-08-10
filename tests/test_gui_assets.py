@@ -812,7 +812,7 @@ def test_studio_get_routes_ignore_query_strings():
         thread.join(timeout=10)
 
     assert response.status == 200
-    assert "Mardas MD2PDF Studio" in body
+    assert "Mardas Folio" in body
 
 
 def test_studio_safe_filenames_are_bounded_and_content_disposition_is_utf8_safe():

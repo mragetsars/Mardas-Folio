@@ -459,7 +459,7 @@ export function createCodeMirrorEditorAdapter(
           ...range,
           message: String(item?.message || item?.code || "Document issue"),
           severity: severity(item?.severity),
-          source: item?.code ? String(item.code) : "Mardas Studio",
+          source: item?.code ? String(item.code) : "Mardas Folio",
         });
       }
       view.dispatch(setDiagnostics(view.state, mapped));

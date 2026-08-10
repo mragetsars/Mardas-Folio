@@ -5,7 +5,7 @@
 
 ## Decision
 
-Mardas MD2PDF keeps the established Python renderer as the publishing engine and introduces a separate desktop boundary around it:
+Mardas Folio keeps the established Python renderer as the publishing engine and introduces a separate desktop boundary around it:
 
 1. `mardas_md2pdf` remains the renderer/core package.
 2. `mrs-md2pdf` remains the automation and power-user CLI.

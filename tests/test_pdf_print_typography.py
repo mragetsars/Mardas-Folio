@@ -221,7 +221,7 @@ def test_footer_context_collects_running_metadata(tmp_path: Path):
 def test_footer_template_is_bidi_safe_and_contains_running_metadata():
     template = _footer_template(
         FooterContext(
-            title="گزارش Mardas MD2PDF",
+            title="گزارش Mardas Folio",
             metadata="Mardas Lab · 1.8.4 · Stable",
             lang="fa",
             document_direction="rtl",
@@ -230,12 +230,12 @@ def test_footer_template_is_bidi_safe_and_contains_running_metadata():
         "light",
     )
 
-    assert "گزارش Mardas MD2PDF" in template
+    assert "گزارش Mardas Folio" in template
     assert "Mardas Lab · 1.8.4 · Stable" in template
     assert "صفحه" in template
     assert "unicode-bidi:plaintext" in template
     assert "position:absolute; left:50%; transform:translateX(-50%)" in template
-    assert template.index('class="pageNumber"') < template.index("گزارش Mardas MD2PDF")
+    assert template.index('class="pageNumber"') < template.index("گزارش Mardas Folio")
 
 
 
@@ -243,7 +243,7 @@ def test_footer_template_is_bidi_safe_and_contains_running_metadata():
 def test_ltr_footer_template_keeps_metadata_centered_between_outer_slots():
     template = _footer_template(
         FooterContext(
-            title="Mardas MD2PDF Guide",
+            title="Mardas Folio Guide",
             metadata="Markdown Publishing · 1.13.9 · Stable",
             lang="en",
             document_direction="ltr",
@@ -253,7 +253,7 @@ def test_ltr_footer_template_keeps_metadata_centered_between_outer_slots():
     )
 
     assert "position:absolute; left:50%; transform:translateX(-50%)" in template
-    assert template.index("Mardas MD2PDF Guide") < template.index('class="pageNumber"')
+    assert template.index("Mardas Folio Guide") < template.index('class="pageNumber"')
 
 
 

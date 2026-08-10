@@ -1,14 +1,14 @@
 ---
-title: "Mardas MD2PDF Guide"
+title: "Mardas Folio Guide"
 subtitle: "Complete user manual and feature reference"
 authors:
-  - name: "Mardas MD2PDF Team"
+  - name: "Mardas Folio Team"
     role: "Documentation"
   - name: "Meraj Rastegar"
     email: "mragetsars@gmail.com"
 date: "2026-05-20"
 summary: |
-  A complete guide for installing, configuring, and using Mardas MD2PDF.
+  A complete guide for installing, configuring, and using Mardas Folio.
   This document also acts as a live rendering sample for cover pages, tables of contents, mixed RTL/LTR text, formulas, code, Mermaid flowcharts, images, tables, footnotes, page breaks, and safe HTML.
 institution: "Mardas Lab"
 course: "Markdown Publishing"
@@ -46,9 +46,9 @@ citations:
 # Introduction
 
 > [!NOTE]
-> This guide is the complete user manual and feature reference for Mardas MD2PDF. It teaches each supported feature with runnable Markdown and keeps those same examples in the official PDF output.
+> This guide is the complete user manual and feature reference for Mardas Folio. It teaches each supported feature with runnable Markdown and keeps those same examples in the official PDF output.
 
-Mardas MD2PDF is a Markdown-to-PDF publishing tool designed for documents that mix Persian and English content. It keeps the writing workflow simple while giving the final PDF a professional printed layout.
+Mardas Folio is a Markdown-to-PDF publishing tool designed for documents that mix Persian and English content. It keeps the writing workflow simple while giving the final PDF a professional printed layout.
 
 The project is useful for reports, university documents, technical guides, educational notes, research drafts, project documentation, and any Markdown file that needs a clean PDF output.
 
@@ -62,7 +62,7 @@ The renderer does not draw paragraphs manually on a PDF canvas. Instead, it conv
 > This guide is both documentation and a rendering sample. The PDF version of this file is available in the `examples/` directory, so users can inspect the actual output of every major feature.
 
 > [!TIP]
-> Mardas MD2PDF now keeps user-facing feature documentation in this guide instead of maintaining parallel feature-reference pages. Release, maintenance, security, and changelog files remain under `docs/` for project operations.
+> Mardas Folio now keeps user-facing feature documentation in this guide instead of maintaining parallel feature-reference pages. Release, maintenance, security, and changelog files remain under `docs/` for project operations.
 
 ## Rendering sample checklist
 
@@ -84,7 +84,7 @@ Captioned images, tables, code listings, and Mermaid diagrams are now normalized
 
 ## Main capabilities
 
-Mardas MD2PDF focuses on the features that matter most for polished technical PDFs:
+Mardas Folio focuses on the features that matter most for polished technical PDFs:
 
 | Capability | Description |
 | :--- | :--- |
@@ -361,11 +361,11 @@ Keep the cover but hide the logo:
 mrs-md2pdf input.md -o output.pdf --no-cover-logo
 ```
 
-Use `branding.mode: subtle` for a small generated-with note, and keep `branding.mode: full` for documents that intentionally show a product or organization brand. The guides in `examples/` use full branding because they document Mardas MD2PDF itself.
+Use `branding.mode: subtle` for a small generated-with note, and keep `branding.mode: full` for documents that intentionally show a product or organization brand. The guides in `examples/` use full branding because they document Mardas Folio itself.
 
 # Language and Direction
 
-Direction is one of the most important parts of Persian/English PDF generation. Mardas MD2PDF separates language selection from direction control.
+Direction is one of the most important parts of Persian/English PDF generation. Mardas Folio separates language selection from direction control.
 
 `lang: en` creates an English/LTR document shell, English cover labels, English callout titles, and a `Table of Contents` heading.
 
@@ -746,7 +746,7 @@ mrs-md2pdf input.md -o output.pdf --unsafe-html
 
 # Security and Trusted Inputs
 
-Mardas MD2PDF is a local publishing tool. Treat Markdown, GUI attachments, cover logos, watermarks, and raw HTML as trusted author content unless you run the converter inside an isolated environment.
+Mardas Folio is a local publishing tool. Treat Markdown, GUI attachments, cover logos, watermarks, and raw HTML as trusted author content unless you run the converter inside an isolated environment.
 
 Default rendering keeps a conservative file boundary: local images are resolved relative to the Markdown file, embedded as `data:` URLs when safe, and blocked with a visible placeholder when they point outside the document directory or cannot be embedded. Remote `http(s)` images are also blocked by default and require `--allow-remote-assets`. Raw HTML is sanitized unless `--unsafe-html` is used.
 
@@ -875,7 +875,7 @@ The English and Persian guides explicitly use `branding.mode: full` because they
 
 # Appearance
 
-Mardas MD2PDF uses one appearance system instead of parallel visual presets. Choose a `style` for document shape, a `palette` for accent colors, and a `mode` for light or dark output.
+Mardas Folio uses one appearance system instead of parallel visual presets. Choose a `style` for document shape, a `palette` for accent colors, and a `mode` for light or dark output.
 
 | Style | Best for |
 | :--- | :--- |
@@ -938,7 +938,7 @@ mrs-md2pdf report.md -o report.pdf \
   --navigation-error-policy error
 ```
 
-`error` stops the build, `warn` records the problem and continues, and `ignore` records that the condition was deliberately ignored. When a category option is omitted, it inherits the profile: `warn` for `standard` and `error` for `strict-publication`. Strict publication defaults to requiring `Vazirmatn` when no family is specified. Mardas MD2PDF does not redistribute font binaries; install trusted fonts on the machine or use `--font-dir`.
+`error` stops the build, `warn` records the problem and continues, and `ignore` records that the condition was deliberately ignored. When a category option is omitted, it inherits the profile: `warn` for `standard` and `error` for `strict-publication`. Strict publication defaults to requiring `Vazirmatn` when no family is specified. Mardas Folio does not redistribute font binaries; install trusted fonts on the machine or use `--font-dir`.
 
 The same settings are available in `mardas.toml`:
 
@@ -1526,7 +1526,7 @@ Footnotes are useful for references, technical notes, and extra explanations.[^f
 
 [^rtl-smoke]: This live sample intentionally exercises Persian punctuation, mixed Latin identifiers, Persian digits, semantic table captions, and page-local footnote rendering in the official English guide.
 
-[^footnote-demo]: Mardas MD2PDF intentionally uses Chromium for layout instead of drawing every paragraph directly on a PDF canvas.
+[^footnote-demo]: Mardas Folio intentionally uses Chromium for layout instead of drawing every paragraph directly on a PDF canvas.
     This gives the project strong support for CSS print rules, mixed direction text, MathJax SVG output, tables, local images, and syntax-highlighted code.
 
     - Page-local footnote blocks are inserted near the reference instead of being collected as document-end endnotes.

@@ -37,7 +37,7 @@ SAMPLE_MARKDOWN = """---
 title: "Appearance Matrix Smoke"
 subtitle: "Style, palette and mode verification"
 authors:
-  - name: "Mardas MD2PDF QA"
+  - name: "Mardas Folio QA"
     role: "Appearance audit"
 date: "1405-03-20"
 summary: |
@@ -62,7 +62,7 @@ branding:
 
 # Overview
 
-This PDF is a compact visual benchmark for **Mardas MD2PDF** appearance combinations.
+This PDF is a compact visual benchmark for **Mardas Folio** appearance combinations.
 It includes Persian text مثل این جمله فارسی کنار English identifiers such as `RenderOptions` and `appearance.mode`.
 
 > [!NOTE]

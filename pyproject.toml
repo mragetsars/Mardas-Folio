@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mardas-md2pdf"
 version = "1.31.0"
-description = "Persian/English Markdown publishing tool with RTL/LTR typography, deterministic multi-file books, MathJax, diagrams, Studio workflow, and PDF navigation."
+description = "Mardas Folio: Persian/English Markdown publishing with RTL/LTR typography, deterministic multi-file books, MathJax, diagrams, a desktop authoring workspace, and PDF navigation."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

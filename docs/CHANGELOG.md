@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Mardas MD2PDF are tracked here.
+All notable changes to Mardas Folio are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
@@ -15,7 +15,7 @@ The project follows semantic versioning for user-visible behavior. Patch release
 - Added a heading menu that shows each level at its own weight, and a desktop-density right-click menu with copy, copy as HTML, copy as plain text, paste as plain text, insert image, validate, export and reveal.
 - Added typewriter scrolling and a distraction-free focus mode, both opt-in, in Settings and the command palette.
 - Rendered callouts, YAML front matter and fenced-code languages as what the engine publishes: `> [!WARNING]` becomes a coloured admonition card, front matter collapses to a metadata summary until the caret enters it, and a fence shows its language as a chip instead of its backticks.
-- Renamed the desktop product to **Mardas Folio** across the interface, window title, installer name, binary and release artifacts, with a new mark built from the letter F in four-fold rotational symmetry. The bundle identifier deliberately stays `io.github.mragetsars.mardas-studio`, because it is the key the updater and the per-user config directory are addressed by.
+- Completed the rename to **Mardas Folio**. The product is now called that everywhere it is named: the interface and window title, the cover and brand block of every generated PDF, the `/Creator` and `/Producer` metadata written into the file, the browser GUI, the packaged stylesheets, the documentation and the guides. Three kinds of identifier keep their existing names on purpose, because other systems resolve the project by them — the `mardas_md2pdf` import package and `mardas-md2pdf` distribution with its `mrs-md2pdf*` commands, the `Mardas-MD2PDF-*` release artifacts the update endpoint and attestation address, and the `io.github.mragetsars.mardas-studio` bundle identifier the updater and the per-user config directory are keyed by. A test now fails if the old name reappears anywhere else.
 - Added a live preview editing mode: Markdown syntax marks are hidden and the formatting is rendered in place, while the line holding the caret shows its raw source so it stays editable. Tables, thematic rules, task checkboxes and local images render as real elements.
 - Added a Write / Source / Split view control that replaces the separate "show source" and "show preview" toggles, and moved the formatting tools out of the window toolbar onto the document they act on.
 - Exposed all 53 publishing-engine options in an Advanced settings panel grouped by concern, alongside a live preview of the document as the chosen options will publish it. Previously the interface sent nine and the rest needed a hand-edited `mardas.toml`.
@@ -26,6 +26,9 @@ The project follows semantic versioning for user-visible behavior. Patch release
 - Replaced CodeMirror's `defaultHighlightStyle` with a purpose-built syntax theme driven by `--cm-*` custom properties, so light and dark are one code path.
 
 ### Fixed
+- Routed `preview.document_page` in the sidecar. Methods are declared in three places — what the engine advertises, what it implements, and what the JSON-RPC layer agrees to route — and the third was missed, so the desktop app was offered a method that then answered "Unknown method". A test now holds the routing table against the advertised list.
+- Started the export preview when a source file is chosen. It previously waited for some unrelated option to be touched, so the panel sat on "choose a source file" after one had been chosen.
+- Made the export preview stand down gracefully on an engine older than the interface: it asks what the engine supports, falls back to the body preview on assumed page geometry, and says so, instead of printing a protocol error into the panel.
 - Repaired find-and-replace navigation in the professional editor. `currentEditor()` returns an adapter object, not an element, and passing it to `getComputedStyle` threw on every jump to a match.
 - Restored arrowheads on Mermaid diagrams in the authoring preview. Preview ids are prefixed to avoid colliding with the application's own, but `marker-end="url(#…)"` was left pointing at the unprefixed id.
 - Translated the export preview, the view switcher and the formatting tools into Persian. Those strings had only ever been added to the English table, so the primary interface language fell back to English for all of them.

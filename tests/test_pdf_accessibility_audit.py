@@ -40,8 +40,8 @@ def test_pdf_postprocessing_adds_language_title_viewer_preference_and_xmp(tmp_pa
         {
             "/Title": "Accessible Report",
             "/Author": "Author",
-            "/Creator": "Mardas MD2PDF",
-            "/Producer": "Mardas MD2PDF",
+            "/Creator": "Mardas Folio",
+            "/Producer": "Mardas Folio",
             "/CreationDate": "D:20260711120000Z",
             "/ModDate": "D:20260711120000Z",
         },

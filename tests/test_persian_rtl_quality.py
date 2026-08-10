@@ -297,7 +297,7 @@ def test_persian_caption_profiles_expose_visual_audit_metadata():
 def test_persian_footer_template_uses_readable_page_total_phrase():
     template = _footer_template(
         FooterContext(
-            title="راهنمای Mardas MD2PDF",
+            title="راهنمای Mardas Folio",
             metadata="انتشار حرفه‌ای Markdown · 1.9.3 · Stable",
             lang="fa",
             document_direction="rtl",

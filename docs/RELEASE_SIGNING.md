@@ -1,6 +1,6 @@
 # Release Signing and Publication
 
-This file describes the release credentials that are deliberately kept **outside** the Mardas MD2PDF repository.
+This file describes the release credentials that are deliberately kept **outside** the Mardas Folio repository.
 
 ## Security model
 

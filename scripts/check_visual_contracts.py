@@ -191,7 +191,7 @@ def validate_studio_manifest(path: Path, failures: list[ContractFailure]) -> int
     if not isinstance(checks, dict):
         failures.append(ContractFailure(str(path), "Studio checks must be a JSON object"))
         return 0
-    if checks.get("title") != "Mardas MD2PDF Studio":
+    if checks.get("title") != "Mardas Folio":
         failures.append(ContractFailure(str(path), "unexpected Studio title"))
     if checks.get("preview_mode") != "accurate" or checks.get("preview_failed"):
         failures.append(ContractFailure(str(path), "Studio PDF-like preview did not become ready"))

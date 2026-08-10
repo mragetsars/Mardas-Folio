@@ -1,6 +1,6 @@
 # Mardas Folio Desktop
 
-This directory contains the native desktop product shipped with Mardas MD2PDF 1.31.
+This directory contains the native desktop product shipped with Mardas Folio 1.31.
 
 ```text
 frontend/       offline Start Center, Quick Export, and bundled CodeMirror workspace

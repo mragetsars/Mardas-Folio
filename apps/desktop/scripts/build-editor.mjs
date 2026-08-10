@@ -16,7 +16,7 @@ const checkOnly = process.argv.includes("--check");
 const result = await build({
   absWorkingDir: desktopRoot,
   banner: {
-    js: "/* Bundled locally for Mardas Studio; see THIRD_PARTY_NOTICES.md. */",
+    js: "/* Bundled locally for Mardas Folio; see THIRD_PARTY_NOTICES.md. */",
   },
   bundle: true,
   charset: "utf8",

@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist when preparing a tagged Mardas MD2PDF release.
+Use this checklist when preparing a tagged Mardas Folio release.
 
 ## Version bump
 

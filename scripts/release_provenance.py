@@ -372,7 +372,7 @@ def validate_spdx_document(payload: Mapping[str, Any], *, expected_version: str)
             if str(package.get("versionInfo", "")) != expected_version:
                 raise ReleaseProvenanceError("SBOM project version does not match the release")
     if root_matches != 1:
-        raise ReleaseProvenanceError("SBOM must describe exactly one Mardas MD2PDF package")
+        raise ReleaseProvenanceError("SBOM must describe exactly one Mardas Folio package")
 
     relationships = payload.get("relationships")
     if not isinstance(relationships, list) or not any(
