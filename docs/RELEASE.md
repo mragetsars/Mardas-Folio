@@ -4,11 +4,24 @@ Use this checklist when preparing a tagged Mardas Folio release.
 
 ## Version bump
 
-- Update `pyproject.toml`.
-- Update `src/mardas_md2pdf/__init__.py`.
-- Update the README version badge.
+The version is declared in six places. All six must agree, because the desktop
+package, the Rust crate and the Python distribution are built from different
+files and a mismatch is only caught late, during bundling:
+
+- `pyproject.toml` — Python distribution.
+- `src/mardas_md2pdf/__init__.py` — `__version__`, which the engine reports over the sidecar protocol.
+- `apps/desktop/package.json` and `apps/desktop/package-lock.json` — desktop workspace.
+- `apps/desktop/src-tauri/tauri.conf.json` — bundle version used for installer and update metadata.
+- `apps/desktop/src-tauri/Cargo.toml` — Rust crate.
+
+Then update the documentation:
+
+- Update the README version badge and any sample paths that carry the version.
 - Update guide front matter and the version-history section in `docs/guides/GUIDE.en.md` and `docs/guides/GUIDE.fa.md`.
 - Update `docs/CHANGELOG.md` with the release date and a concise summary.
+
+`tests/test_desktop_app.py` and `tests/test_documentation_integrity.py` hold the
+declared versions against `__version__`, so a partial bump fails the suite.
 
 ## Quality gates
 
