@@ -36,6 +36,7 @@ from .renderer import (
     build_html,
     convert,
     preview_appearance_payload,
+    preview_page_payload,
 )
 from .runtime import runtime_info
 from .support import SupportBundleError, create_support_bundle
@@ -859,6 +860,25 @@ def preview_document_text(options: PdfOptions, content: str) -> dict[str, Any]:
     }
 
 
+def preview_page_document_text(options: PdfOptions, content: str) -> dict[str, Any]:
+    """Return the published page itself, laid out as the exporter will print it.
+
+    ``preview.document_text`` answers "what does the body look like"; this
+    answers "what will the PDF look like", which is a different question and the
+    only one the export screen is actually asking. Cover, contents, watermark
+    and running footer come back with the page geometry so the caller can draw
+    real sheets instead of a scrolling article.
+    """
+
+    result = _render_markdown_text_for_options(options, content)
+    if has_errors(result.diagnostics):
+        raise EngineValidationError("Document validation failed.", result.diagnostics)
+    payload = preview_page_payload(result, options)
+    payload["diagnostics"] = [item.to_dict() for item in result.diagnostics]
+    payload["document"] = _document_summary(result)
+    return payload
+
+
 def preview_document(options: PdfOptions, *, output_path: Path) -> dict[str, Any]:
     target = Path(output_path).expanduser().resolve(strict=False)
     if _paths_refer_to_same_file(options.input_path, target):
@@ -1046,6 +1066,7 @@ class EngineService:
                 "render.book",
                 "preview.document",
                 "preview.document_text",
+                "preview.document_page",
                 "validate.document",
                 "validate.document_text",
                 "validate.book",
@@ -1428,7 +1449,11 @@ class EngineService:
                 cancelled=cancelled,
             )
             return validate_document(options)
-        if method in {"validate.document_text", "preview.document_text"}:
+        if method in {
+            "validate.document_text",
+            "preview.document_text",
+            "preview.document_page",
+        }:
             _validate_params(
                 params,
                 {"input_path", "content", "config_path", "discover_config", "options"},
@@ -1443,6 +1468,8 @@ class EngineService:
             content = _required_content(params)
             if method == "validate.document_text":
                 return validate_document_text(options, content)
+            if method == "preview.document_page":
+                return preview_page_document_text(options, content)
             return preview_document_text(options, content)
         if method == "preview.document":
             _validate_params(

@@ -82,6 +82,12 @@ Configured local bibliography sources are exposed through one read-only index sh
 {"jsonrpc":"2.0","id":"bib-1","method":"bibliography.index","params":{"project_path":"C:/work/book","query":"smith","cited_keys":["smith2025"],"max_results":500}}
 ```
 
+`preview.document_page` answers the different question the export screen asks: what the finished PDF will look like. It returns the composed cover, contents, body, bibliography and watermark alongside every stylesheet the exporter uses, the running-footer template, and the page geometry (`width_mm`, `height_mm`, the three margins and the resulting content box) so a caller can lay out real sheets. Fonts come back embedded as data URIs because a webview content-security policy will not load `file://`; MathJax does not, and the payload reports the number of expressions the exporter will typeset instead.
+
+```json
+{"jsonrpc":"2.0","id":"page-1","method":"preview.document_page","params":{"input_path":"C:/work/doc.md","content":"# Unsaved edit\n","discover_config":true,"options":{}}}
+```
+
 `preview.document_text` includes a `source_map` array for Markdown headings. Each item contains the rendered heading `id`, one-based source `line`, heading `level`, and plain `title`, allowing preview navigation without matching duplicate heading text.
 
 ## Native book-project lifecycle
@@ -162,6 +168,7 @@ Cancellation is cooperative. The engine checks the cancellation flag between ren
 - `render.book`
 - `preview.document`
 - `preview.document_text`
+- `preview.document_page`
 - `validate.document`
 - `validate.document_text`
 - `validate.book`

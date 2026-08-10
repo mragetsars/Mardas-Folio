@@ -199,7 +199,28 @@ def _asset_path(relative_path: str) -> Path:
     return Path(str(resources.files("mardas_md2pdf") / "assets" / relative_path))
 
 
-def _font_faces(font_dir: Path | None) -> str:
+@lru_cache(maxsize=8)
+def _cached_font_data_uri(path_text: str, mtime_ns: int, size: int, font_format: str) -> str:
+    del mtime_ns, size
+    mime = "font/woff2" if font_format == "woff2" else "font/ttf"
+    encoded = base64.b64encode(Path(path_text).read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
+def _font_source_url(path: Path, font_format: str, *, embed: bool) -> str:
+    """A URL the consumer can actually load the font from.
+
+    Chromium is handed the page over ``set_content`` and reads ``file://``
+    happily. The desktop preview runs inside a webview whose content-security
+    policy forbids it, so the same font has to arrive as a data URI there.
+    """
+    if not embed:
+        return path.as_uri()
+    stats = path.stat()
+    return _cached_font_data_uri(str(path), stats.st_mtime_ns, stats.st_size, font_format)
+
+
+def _font_faces(font_dir: Path | None, *, embed: bool = False) -> str:
     if not font_dir:
         return ""
     font_dir = font_dir.resolve()
@@ -227,10 +248,10 @@ def _font_faces(font_dir: Path | None) -> str:
         for filename in filenames:
             path = font_dir / filename
             if path.exists():
-                url = path.as_uri()
                 weight = "100 900" if "[wght]" in filename else ("800" if "Bold" in family else "400")
                 family_name = "Vazirmatn"
                 font_format = "truetype" if filename.lower().endswith(".ttf") else "woff2"
+                url = _font_source_url(path, font_format, embed=embed)
                 chunks.append(
                     "@font-face {"
                     f"font-family: '{family_name}'; src: url('{url}') format('{font_format}'); "
@@ -354,6 +375,130 @@ def preview_appearance_payload(metadata: dict[str, Any], options: PdfOptions) ->
         "palette_css": palette_css(appearance.palette, appearance.mode, appearance.style),
         "body_classes": appearance_body_classes(appearance),
     }
+
+
+def page_geometry(options: PdfOptions) -> dict[str, Any]:
+    """The physical sheet the PDF will be printed on, in millimetres.
+
+    Everything a paginated on-screen preview needs to be the same shape as the
+    file: the trimmed page, the margin box the text sits in, and therefore how
+    much content one page can hold. Values are millimetres because that is the
+    unit both the page sizes and the margin options are expressed in, and it is
+    the only unit that survives the trip to a browser at an arbitrary zoom.
+    """
+
+    css_size = _css_page_size(options.page_size)
+    match = CUSTOM_PAGE_DIMENSIONS_RE.fullmatch(css_size)
+    if match:
+        width_mm = _css_length_mm(match.group("width"))
+        height_mm = _css_length_mm(match.group("height"))
+    else:  # pragma: no cover - _css_page_size always returns explicit dimensions
+        width_mm, height_mm = 210.0, 297.0
+
+    def margin(value: str, fallback: float) -> float:
+        try:
+            return _css_length_mm(value)
+        except ValueError:
+            return fallback
+
+    top = margin(options.margin_top, 18.0)
+    bottom = margin(options.margin_bottom, 20.0)
+    side = margin(options.margin_x, 16.0)
+    # A margin box has to leave something to print in; a document configured
+    # with margins wider than the paper is a configuration error, not a page.
+    content_width = max(width_mm - (side * 2), 10.0)
+    content_height = max(height_mm - top - bottom, 10.0)
+    return {
+        "size": css_size,
+        "width_mm": round(width_mm, 3),
+        "height_mm": round(height_mm, 3),
+        "margin_top_mm": round(top, 3),
+        "margin_bottom_mm": round(bottom, 3),
+        "margin_x_mm": round(side, 3),
+        "content_width_mm": round(content_width, 3),
+        "content_height_mm": round(content_height, 3),
+        "orientation": "landscape" if width_mm > height_mm else "portrait",
+    }
+
+
+def preview_page_payload(
+    result: MarkdownRenderResult,
+    options: PdfOptions,
+) -> dict[str, Any]:
+    """The published page, in the pieces a paginated preview has to draw.
+
+    The exporter prints a full-bleed cover as its own PDF and the content with
+    the running footer as a second one, then merges them. A preview that wants
+    to be believable has to reproduce that structure — including the fact that
+    the cover has no margins and no page number — so both compositions are
+    returned rather than one flattened article.
+
+    MathJax is deliberately absent: it is a two-megabyte script the exporter
+    runs inside Chromium, and the preview reports how many expressions are
+    waiting for it instead of pretending to typeset them.
+    """
+
+    content = compose_document(
+        result,
+        options,
+        include_cover=False,
+        include_content=True,
+        include_watermark=True,
+        embed_fonts=True,
+    )
+    cover = (
+        compose_document(
+            result,
+            options,
+            include_cover=True,
+            include_content=False,
+            include_watermark=False,
+            cover_full_bleed=True,
+            embed_fonts=True,
+        )
+        if options.cover
+        else None
+    )
+    footer_context = _footer_context(result, options, content.title)
+    return {
+        "title": content.title,
+        "lang": content.lang,
+        "direction": content.document_direction,
+        "page": page_geometry(options),
+        "css": {
+            "fonts": content.font_faces_css,
+            "pygments": content.pygments_css,
+            "style": content.style_css,
+            "palette": content.palette_css,
+            "layout": content.layout_css,
+        },
+        "body_classes": f"{content.appearance_classes} {content.body_classes}".strip(),
+        "content_html": content.content_html,
+        "watermark_html": content.watermark_html,
+        "cover": None
+        if cover is None
+        else {
+            "html": cover.cover_html,
+            "layout_css": cover.layout_css,
+            "body_classes": f"{cover.appearance_classes} {cover.body_classes}".strip(),
+        },
+        "footer": {
+            "enabled": not options.no_header_footer,
+            "html": _footer_template(footer_context, options.style, options.mode),
+            "page_label": _footer_page_label(footer_context.lang),
+        },
+        "math": {
+            "typeset_at_export": not options.no_mathjax,
+            "expressions": _count_math_expressions(content.content_html),
+        },
+    }
+
+
+_MATH_SPAN_RE = re.compile(r'<(?:span|div)[^>]*\bclass="[^"]*\bmath\b', re.IGNORECASE)
+
+
+def _count_math_expressions(html_text: str) -> int:
+    return len(_MATH_SPAN_RE.findall(html_text or ""))
 
 
 def _path_uri(path: Path | None) -> str | None:
@@ -2200,7 +2345,34 @@ def _mathjax_block(options: PdfOptions) -> str:
     return "<!-- MathJax asset missing: equations will remain in TeX form. -->"
 
 
-def build_html(
+@dataclass(frozen=True)
+class DocumentComposition:
+    """The finished page, kept as parts rather than as one HTML string.
+
+    ``build_html`` used to be the only way to obtain any of this, which meant the
+    only consumer that could see the real published page was the PDF renderer
+    itself. Splitting composition from serialisation lets the desktop preview
+    draw the same cover, contents, watermark and stylesheets the exporter uses,
+    instead of approximating them.
+    """
+
+    lang: str
+    document_direction: str
+    title: str
+    body_classes: str
+    appearance_classes: str
+    font_faces_css: str
+    pygments_css: str
+    style_css: str
+    palette_css: str
+    layout_css: str
+    cover_html: str
+    content_html: str
+    watermark_html: str
+    mathjax_block: str
+
+
+def compose_document(
     result: MarkdownRenderResult,
     options: PdfOptions,
     *,
@@ -2209,14 +2381,17 @@ def build_html(
     include_watermark: bool = True,
     cover_full_bleed: bool = False,
     include_mathjax: bool | None = None,
-) -> str:
+    embed_fonts: bool = False,
+) -> DocumentComposition:
+    """Assemble every part of the published page for one document."""
+
     if include_mathjax is not None:
         options = replace(options, no_mathjax=not include_mathjax)
     appearance = _resolved_appearance(result.metadata, options)
     options = replace(options, style=appearance.style, palette=appearance.palette, mode=appearance.mode)
     style_css = _style_css(appearance)
     appearance_css = palette_css(appearance.palette, appearance.mode, appearance.style)
-    font_faces = _font_faces(options.font_dir)
+    font_faces = _font_faces(options.font_dir, embed=embed_fonts)
     metadata = result.metadata
     title = options.title or _stringify_metadata_value(metadata.get("title")) or result.title
     author = options.author if options.author is not None else _first_metadata_value(metadata, "authors", "author")
@@ -2296,27 +2471,63 @@ def build_html(
         content = f"{result.toc_html}{result.reference_lists_html}{result.body_html}{result.bibliography_html}"
     watermark = _watermark_html(options) if include_content and include_watermark else ""
 
-    appearance_classes = appearance_body_classes(appearance)
+    return DocumentComposition(
+        lang=str(lang),
+        document_direction=document_direction,
+        title=str(title),
+        body_classes=body_classes,
+        appearance_classes=appearance_body_classes(appearance),
+        font_faces_css=font_faces,
+        pygments_css=result.pygments_css,
+        style_css=style_css,
+        palette_css=appearance_css,
+        layout_css=css_variables,
+        cover_html=cover,
+        content_html=content,
+        watermark_html=watermark,
+        mathjax_block=_mathjax_block(options),
+    )
+
+
+def build_html(
+    result: MarkdownRenderResult,
+    options: PdfOptions,
+    *,
+    include_cover: bool = True,
+    include_content: bool = True,
+    include_watermark: bool = True,
+    cover_full_bleed: bool = False,
+    include_mathjax: bool | None = None,
+) -> str:
+    composed = compose_document(
+        result,
+        options,
+        include_cover=include_cover,
+        include_content=include_content,
+        include_watermark=include_watermark,
+        cover_full_bleed=cover_full_bleed,
+        include_mathjax=include_mathjax,
+    )
 
     return f"""<!doctype html>
-<html lang="{html.escape(str(lang))}" dir="{html.escape(document_direction)}">
+<html lang="{html.escape(composed.lang)}" dir="{html.escape(composed.document_direction)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{html.escape(str(title))}</title>
-  <style>{font_faces}</style>
-  <style>{result.pygments_css}</style>
-  <style>{style_css}</style>
-  <style>{appearance_css}</style>
-  <style>{css_variables}</style>
-  {_mathjax_block(options)}
+  <title>{html.escape(composed.title)}</title>
+  <style>{composed.font_faces_css}</style>
+  <style>{composed.pygments_css}</style>
+  <style>{composed.style_css}</style>
+  <style>{composed.palette_css}</style>
+  <style>{composed.layout_css}</style>
+  {composed.mathjax_block}
 </head>
-<body class="{html.escape(appearance_classes)} {html.escape(body_classes)}" dir="{html.escape(document_direction)}">
-  {watermark}
+<body class="{html.escape(composed.appearance_classes)} {html.escape(composed.body_classes)}" dir="{html.escape(composed.document_direction)}">
+  {composed.watermark_html}
   <main class="md2pdf-document">
     <article class="md2pdf-article">
-      {cover}
-      {content}
+      {composed.cover_html}
+      {composed.content_html}
     </article>
   </main>
 </body>
