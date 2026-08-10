@@ -150,7 +150,7 @@ test("formatting keys are bound inside the editor, above everything else", () =>
     new URL("../editor-src/codemirror-editor.mjs", import.meta.url),
     "utf8",
   );
-  assert.match(editor, /Prec\.highest\(keymap\.of\(markdownCommandKeymap\(\)\)\)/);
+  assert.match(editor, /Prec\.highest\(keymap\.of\(\[\.\.\.markdownCommandKeymap\(\)/);
   assert.match(editor, /runCommand\(name\)/);
 });
 
@@ -163,4 +163,31 @@ test("typewriter scrolling is opt-in and reconfigurable", () => {
   );
   assert.match(editor, /writingRhythm\.reconfigure/);
   assert.match(editor, /typewriter = false/);
+});
+
+test("the editor does not open a second search panel", () => {
+  // `basicSetup` binds Ctrl/Cmd+F to CodeMirror's own search panel. The
+  // workspace has a find bar of its own, so the key opened both at once — one
+  // of them unstyled and untranslated.
+  const editor = readFileSync(
+    new URL("../editor-src/codemirror-editor.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(editor, /APPLICATION_OWNED_KEYS/);
+  const block = editor.split("const APPLICATION_OWNED_KEYS = [", 1)[1] ?? "";
+  const claimed = [...editor.matchAll(/key:\s*"(Mod-[fh])"/g)].map((m) => m[1]);
+  assert.deepEqual(claimed.sort(), ["Mod-f", "Mod-h"]);
+  assert.match(editor, /markdownCommandKeymap\(\), \.\.\.APPLICATION_OWNED_KEYS/);
+});
+
+test("focus mode restates the workspace rows it empties", () => {
+  // Taking the tab strip out of the flow takes its grid row with it; without
+  // restating the rows the authoring grid lands in the 40px tab track.
+  const css = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
+  const start = css.indexOf('html[data-focus-mode="true"] .document-tabs');
+  assert.ok(start > 0, "focus mode does not hide the tab strip");
+  assert.match(
+    css.slice(start),
+    /html\[data-focus-mode="true"\] \.workspace-view\.active \{\s*grid-template-rows/,
+  );
 });

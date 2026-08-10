@@ -145,6 +145,20 @@ function severity(value) {
     : "info";
 }
 
+/**
+ * Keys the application answers, claimed here so CodeMirror does not answer too.
+ *
+ * `basicSetup` brings its own search panel bound to Ctrl/Cmd+F. The workspace
+ * has a find bar of its own — styled, translated, and wired to the same
+ * replace-all the command palette uses — so pressing the key opened both at
+ * once, one of them entirely unstyled. Consuming the key here leaves the window
+ * handler free to open the one the application owns.
+ */
+const APPLICATION_OWNED_KEYS = [
+  { key: "Mod-f", run: () => true },
+  { key: "Mod-h", run: () => true },
+];
+
 /** Read the interface theme the workspace is currently showing. */
 function documentTheme() {
   try {
@@ -217,7 +231,7 @@ export function createCodeMirrorEditorAdapter(
         // instead, they could not see that CodeMirror had already acted on the
         // same key — which is how Ctrl+I came to expand the selection to its
         // parent syntax node *and* wrap the result in underscores.
-        Prec.highest(keymap.of(markdownCommandKeymap())),
+        Prec.highest(keymap.of([...markdownCommandKeymap(), ...APPLICATION_OWNED_KEYS])),
         keymap.of([indentWithTab]),
         autocompletion({
           activateOnTyping: true,

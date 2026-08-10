@@ -3809,33 +3809,48 @@ button:focus-visible,
 
 /* Focus mode: everything that is not the document steps back. The controls
    stay reachable — Escape and the command palette both leave — but nothing
-   competes with the text while it is being written. */
+   competes with the text while it is being written.
+
+   The panes are collapsed the same way the layout already collapses them, by
+   zeroing their tracks; overriding grid-template-columns instead leaves five
+   children in a one-column grid, which stacks them into rows and pushes the
+   editor off screen. */
+html[data-focus-mode="true"] .authoring-grid {
+  --sidebar-track: 0px;
+  --sidebar-divider: 0px;
+  --preview-track: 0px;
+  --preview-divider: 0px;
+}
+
 html[data-focus-mode="true"] .author-sidebar,
-html[data-focus-mode="true"] .pane-resizer,
-html[data-focus-mode="true"] .document-tabs,
-html[data-focus-mode="true"] .app-footer {
+html[data-focus-mode="true"] .sidebar-resizer,
+html[data-focus-mode="true"] .preview-pane,
+html[data-focus-mode="true"] .preview-resizer,
+html[data-focus-mode="true"] .document-tabs {
   display: none !important;
 }
 
-html[data-focus-mode="true"] .authoring-grid {
-  grid-template-columns: minmax(0, 1fr) !important;
+/* Taking the tab strip out of the flow takes its grid row with it, so the
+   remaining rows have to be restated — otherwise the authoring grid lands in
+   the 40px track meant for the tabs and the document has nowhere to go. */
+html[data-focus-mode="true"] .workspace-view.active {
+  grid-template-rows: 56px minmax(0, 1fr);
 }
 
 html[data-focus-mode="true"] .format-bar,
-html[data-focus-mode="true"] .author-toolbar {
-  opacity: 0.25;
+html[data-focus-mode="true"] .author-toolbar,
+html[data-focus-mode="true"] .app-footer,
+html[data-focus-mode="true"] .editor-status {
+  opacity: 0.3;
   transition: opacity 140ms ease;
 }
 
 html[data-focus-mode="true"] .format-bar:hover,
 html[data-focus-mode="true"] .format-bar:focus-within,
 html[data-focus-mode="true"] .author-toolbar:hover,
-html[data-focus-mode="true"] .author-toolbar:focus-within {
+html[data-focus-mode="true"] .author-toolbar:focus-within,
+html[data-focus-mode="true"] .editor-status:hover {
   opacity: 1;
-}
-
-html[data-focus-mode="true"] .editor-pane {
-  border-inline-end: 0;
 }
 
 /* ---- Live blocks: callouts, metadata and code language ------------------
