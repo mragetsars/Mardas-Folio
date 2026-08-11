@@ -157,6 +157,11 @@ def test_normalize_sdist_preserves_archive_permissions(tmp_path: Path) -> None:
     with tarfile.open(archive, "w:gz") as target:
         target.add(payload, arcname="sample/payload.txt")
     archive.chmod(0o644)
+    # What matters is that normalization hands the archive back with the mode
+    # it was given, whatever that mode is. Windows maps `chmod` onto a single
+    # read-only flag and reports 0o666 for every writable file, so asserting
+    # the POSIX value here would only be testing the filesystem.
+    original_mode = stat.S_IMODE(archive.stat().st_mode)
 
     subprocess.run(
         [
@@ -169,7 +174,7 @@ def test_normalize_sdist_preserves_archive_permissions(tmp_path: Path) -> None:
         check=True,
     )
 
-    assert stat.S_IMODE(archive.stat().st_mode) == 0o644
+    assert stat.S_IMODE(archive.stat().st_mode) == original_mode
 
 
 def test_pytest_can_import_src_from_checkout() -> None:
