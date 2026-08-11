@@ -111,7 +111,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pypdf: ['4.0.0', 'latest']
+        # The declared floor and the newest release. Pinning a version below
+        # `pypdf>=6.15.0` tests a combination pip refuses to install, so it
+        # measured nothing except how far the matrix had drifted from the
+        # dependency floor raised for the pypdf security advisories.
+        pypdf: ['6.15.0', 'latest']
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -290,7 +294,7 @@ jobs:
       - name: Verify frozen runtime and Unicode rendering
         shell: pwsh
         run: |
-          $runtime = Get-ChildItem build/standalone-runtime -Directory -Filter 'Mardas-MD2PDF-*-runtime-*' | Select-Object -First 1
+          $runtime = Get-ChildItem build/standalone-runtime -Directory -Filter 'Mardas-Folio-*-runtime-*' | Select-Object -First 1
           if (-not $runtime) { throw 'Standalone runtime directory was not created.' }
           python scripts/verify_standalone_runtime.py $runtime.FullName --render
 
@@ -329,6 +333,11 @@ jobs:
 
       - name: Install locked desktop editor dependencies
         run: npm --prefix apps/desktop ci --no-audit --no-fund
+
+      # The core-tests matrix skips this suite because it never installs the
+      # editor's dependencies; this is the job that actually runs it.
+      - name: Run desktop interface suite
+        run: npm --prefix apps/desktop test
 
       - name: Build and verify offline frontend
         run: |
@@ -403,7 +412,7 @@ jobs:
           if (-not $zip) { throw 'Standalone runtime archive was not downloaded.' }
           New-Item -ItemType Directory -Force build/runtime-extracted | Out-Null
           Expand-Archive -Path $zip.FullName -DestinationPath build/runtime-extracted -Force
-          $runtime = Get-ChildItem build/runtime-extracted -Directory -Filter 'Mardas-MD2PDF-*-runtime-*' | Select-Object -First 1
+          $runtime = Get-ChildItem build/runtime-extracted -Directory -Filter 'Mardas-Folio-*-runtime-*' | Select-Object -First 1
           if (-not $runtime) { throw 'Standalone runtime directory was not found after extraction.' }
           "RUNTIME_DIR=$($runtime.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -506,7 +515,7 @@ jobs:
       - name: Resolve and verify standalone runtime
         shell: bash
         run: |
-          runtime="$(find build/standalone-runtime -maxdepth 1 -type d -name 'Mardas-MD2PDF-*-runtime-*' -print -quit)"
+          runtime="$(find build/standalone-runtime -maxdepth 1 -type d -name 'Mardas-Folio-*-runtime-*' -print -quit)"
           test -n "$runtime"
           python scripts/verify_standalone_runtime.py "$runtime" --render
           printf 'RUNTIME_DIR=%s\n' "$runtime" >> "$GITHUB_ENV"

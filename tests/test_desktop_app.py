@@ -415,9 +415,20 @@ def test_installer_verifier_rejects_symlink_input(tmp_path: Path) -> None:
 
 
 def test_node_frontend_contracts() -> None:
+    """Run the desktop interface suite when its dependencies are present.
+
+    Several of those tests import the editor's own dependencies — `@codemirror`
+    and `@lezer` — to drive commands and the Markdown parser against the real
+    parser rather than a stand-in. Without `node_modules` they cannot resolve
+    those imports and fail, which is why this skips instead of reporting a
+    dependency gap as a product defect. The `Native desktop contracts` CI job
+    installs the locked dependencies and runs the same suite for real.
+    """
     node = shutil.which("node")
     if node is None:
         pytest.skip("Node.js is not installed")
+    if not (DESKTOP / "node_modules").is_dir():
+        pytest.skip("desktop dependencies are not installed; run `npm --prefix apps/desktop ci`")
     tests = sorted(str(path) for path in (DESKTOP / "tests").glob("*.test.mjs"))
     subprocess.run([node, "--test", *tests], cwd=ROOT, check=True)
 
