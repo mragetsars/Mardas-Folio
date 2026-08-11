@@ -21,6 +21,50 @@ def _pad(prefix: bytes, *, size: int = MIN_NATIVE_BYTES + 4096) -> bytes:
     return prefix + b"\0" * (size - len(prefix))
 
 
+def test_updater_build_config_carries_the_public_key(tmp_path: Path) -> None:
+    """A release build must put the real key into the configuration.
+
+    The committed `tauri.conf.json` keeps an empty `plugins.updater.pubkey` so
+    ordinary source builds stay offline, and the Rust side reads the real key
+    from a compile-time variable. But `tauri-plugin-updater` validates the
+    configured key too, and an empty one fails the build outright with
+    "Missing comment in public key" — which is how every native desktop job
+    failed the first time a release ran with an updater key configured.
+    """
+    from scripts.build_native_desktop import _native_build_config
+
+    endpoint = "https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json"
+    environment = {
+        "MARDAS_UPDATER_PUBKEY": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkK",
+        "MARDAS_UPDATE_ENDPOINT": endpoint,
+    }
+
+    path, _ = _native_build_config(
+        tmp_path,
+        create_updater_artifacts=True,
+        release_mode="draft",
+        platform_name="linux",
+        environment=environment,
+    )
+
+    assert path is not None
+    config = json.loads(path.read_text(encoding="utf-8"))
+    assert config["bundle"]["createUpdaterArtifacts"] is True
+    assert config["plugins"]["updater"]["pubkey"] == environment["MARDAS_UPDATER_PUBKEY"]
+    assert config["plugins"]["updater"]["endpoints"] == [endpoint]
+
+    # Without updater artifacts there is nothing to configure, and the build
+    # must stay on the committed offline configuration.
+    unsigned, _ = _native_build_config(
+        tmp_path,
+        create_updater_artifacts=False,
+        release_mode="draft",
+        platform_name="linux",
+        environment={},
+    )
+    assert unsigned is None
+
+
 def test_native_artifact_classification() -> None:
     version = "1.29.0"
     cases = {

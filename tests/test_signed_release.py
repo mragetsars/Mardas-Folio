@@ -306,12 +306,17 @@ def test_native_builder_materializes_only_public_tauri_signing_settings(
     tmp_path: Path,
 ) -> None:
     module = _load("build_native_desktop.py")
+    endpoint = "https://updates.example.invalid/latest.json"
     windows_environment = {
         "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT": "a" * 40,
         "MARDAS_WINDOWS_DIGEST_ALGORITHM": "sha256",
         "MARDAS_WINDOWS_TIMESTAMP_URL": "https://timestamp.example.invalid",
         "MARDAS_WINDOWS_CERTIFICATE_PASSWORD": "must-not-be-serialized",
         "MARDAS_WINDOWS_SIGN_COMMAND": "unsafe-tool %1",
+        # The updater public key is not a secret — it ships inside every
+        # binary — and the bundler rejects an empty one.
+        "MARDAS_UPDATER_PUBKEY": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkK",
+        "MARDAS_UPDATE_ENDPOINT": endpoint,
     }
     config, contract = module._native_build_config(
         tmp_path,
@@ -331,7 +336,13 @@ def test_native_builder_materializes_only_public_tauri_signing_settings(
                     "digestAlgorithm": "sha256",
                     "timestampUrl": "https://timestamp.example.invalid",
                 },
-            }
+            },
+            "plugins": {
+                "updater": {
+                    "pubkey": windows_environment["MARDAS_UPDATER_PUBKEY"],
+                    "endpoints": [endpoint],
+                }
+            },
         }
         assert "must-not-be-serialized" not in config.read_text(encoding="utf-8")
         assert "signCommand" not in config.read_text(encoding="utf-8")

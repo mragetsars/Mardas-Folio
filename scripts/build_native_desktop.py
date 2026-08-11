@@ -281,8 +281,22 @@ def _native_build_config(
     if release_mode not in {"draft", "public"}:
         raise SystemExit(f"Unsupported native release mode: {release_mode}")
     bundle: dict[str, object] = {}
+    plugins: dict[str, object] = {}
     if create_updater_artifacts:
         bundle["createUpdaterArtifacts"] = True
+        # The committed configuration carries an empty pubkey so ordinary
+        # source builds stay offline, and the Rust side reads the real key from
+        # a compile-time variable. `tauri-plugin-updater` validates the *config*
+        # key as well, though, and an empty one fails the build with "Missing
+        # comment in public key" — so a release build has to supply it here too.
+        pubkey = environment.get("MARDAS_UPDATER_PUBKEY", "").strip()
+        endpoint = environment.get("MARDAS_UPDATE_ENDPOINT", "").strip()
+        if not pubkey or not endpoint:
+            raise SystemExit(
+                "Updater artifacts need MARDAS_UPDATER_PUBKEY and "
+                "MARDAS_UPDATE_ENDPOINT; the bundler rejects an empty key."
+            )
+        plugins["updater"] = {"pubkey": pubkey, "endpoints": [endpoint]}
 
     signing_required = release_mode == "public" and platform_name in {"windows", "macos"}
     signing: dict[str, object] = {
@@ -313,12 +327,17 @@ def _native_build_config(
     elif release_mode == "public":
         signing["status"] = "not-required"
 
-    if not bundle:
+    if not bundle and not plugins:
         return None, signing
+    payload: dict[str, object] = {}
+    if bundle:
+        payload["bundle"] = bundle
+    if plugins:
+        payload["plugins"] = plugins
     path = _write_temporary_build_config(
         output,
         prefix=".mardas-native-build-",
-        payload={"bundle": bundle},
+        payload=payload,
     )
     return path, signing
 
