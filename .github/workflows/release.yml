@@ -83,8 +83,14 @@ jobs:
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
 
-      - name: Install package and Chromium
+      # poppler-utils provides pdftoppm, which the release gate needs: it runs
+      # the visual QA matrix with `--render-png`, and every case fails to
+      # rasterize without it. The CI visual QA job installs it for the same
+      # reason.
+      - name: Install package, Chromium, and PDF rasterizer
         run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
           python -m playwright install --with-deps chromium
@@ -114,6 +120,7 @@ jobs:
           path: |
             build/release/visual-qa/summary.json
             build/release/visual-qa-smoke/summary.json
+            build/release/**/failures.txt
             build/release/visual-contracts/
             build/release/pdf-preflight.json
             build/release/desktop-ui-audit/

@@ -248,6 +248,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if failures:
         (args.output_dir / "failures.txt").write_text("\n".join(failures) + "\n", encoding="utf-8")
+        # See the note in audit_appearance_matrix: a file the caller never
+        # receives is not a report.
+        print(f"{len(failures)} feature case(s) failed:", file=sys.stderr)
+        for failure in failures:
+            print(f"  {failure}", file=sys.stderr)
         return 1
     return 0
 

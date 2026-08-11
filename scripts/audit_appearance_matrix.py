@@ -358,6 +358,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if failures:
         (args.output_dir / "failures.txt").write_text("\n".join(failures) + "\n", encoding="utf-8")
+        # Also say it out loud. A caller that only sees exit code 1 has to go
+        # looking for a file it may never receive — the release gate runs this
+        # in a child process whose output directory is not uploaded on failure.
+        print(f"{len(failures)} appearance case(s) failed:", file=sys.stderr)
+        for failure in failures:
+            print(f"  {failure}", file=sys.stderr)
         return 1
     return 0
 
