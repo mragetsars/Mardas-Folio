@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1916" height="821" viewBox="0 0 1916 821">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#161616"/>
+      <stop offset="0" stop-color="#171717"/>
       <stop offset="0.55" stop-color="#121212"/>
       <stop offset="1" stop-color="#0d0d0d"/>
     </linearGradient>
@@ -10,7 +10,7 @@
       <stop offset="1" stop-color="#f97316" stop-opacity="0"/>
     </linearGradient>
     <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
-      <path d="M48 0 H0 V48" fill="none" stroke="#ffffff" stroke-opacity="0.022" stroke-width="1"/>
+      <path d="M48 0 H0 V48" fill="none" stroke="#ffffff" stroke-opacity="0.02" stroke-width="1"/>
     </pattern>
   </defs>
 
@@ -18,90 +18,102 @@
   <rect width="1916" height="821" fill="url(#grid)"/>
   <rect x="0" y="0" width="1916" height="3" fill="url(#rule)"/>
 
-  <!-- ── Left: identity ───────────────────────────────────────────── -->
-  <g transform="translate(128 150)">
-    <!-- Folio mark, the same glyph the desktop application ships as its icon -->
-    <g>
-      <rect width="104" height="104" rx="23" fill="#1c1c1c" stroke="#2a2a2a" stroke-width="1"/>
-      <g transform="translate(52 52) scale(0.5525)" fill="#f97316">
-        <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-        <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-        <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-        <g transform="rotate(270) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-      </g>
+  <!-- ══ Left column: identity ══════════════════════════════════════
+       Vertical rhythm: mark 168–272, wordmark cap-top 320, baselines
+       at 400 / 466 / 512, chips 600–652. The mark and the wordmark
+       previously overlapped; they now sit 48px apart. -->
+
+  <!-- Mark and eyebrow -->
+  <g transform="translate(128 168)">
+    <rect width="104" height="104" rx="23" fill="#1c1c1c" stroke="#2b2b2b" stroke-width="1"/>
+    <g transform="translate(52 52) scale(0.5525)" fill="#f97316">
+      <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
+      <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
+      <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
+      <g transform="rotate(270) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
     </g>
 
-    <text x="132" y="52" font-family="Inter Display, Inter, DejaVu Sans, sans-serif"
-          font-size="30" font-weight="500" letter-spacing="7" fill="#6f6f6f">MARKDOWN</text>
-    <text x="132" y="92" font-family="Inter Display, Inter, DejaVu Sans, sans-serif"
-          font-size="30" font-weight="500" letter-spacing="7" fill="#6f6f6f">PUBLISHING</text>
+    <g font-family="Inter Display, Inter, DejaVu Sans, sans-serif" font-size="26"
+       font-weight="500" letter-spacing="6.5" fill="#6b6b6b">
+      <text x="136" y="43">MARKDOWN</text>
+      <text x="136" y="81">PUBLISHING</text>
+    </g>
   </g>
 
-  <g transform="translate(128 330)">
-    <text font-family="Inter Display, Inter, DejaVu Sans, sans-serif" font-size="112" font-weight="700">
-      <tspan fill="#f4f4f4">Mardas</tspan><tspan dx="26" fill="#f97316">Folio</tspan>
-    </text>
+  <!-- Wordmark -->
+  <text x="128" y="400" font-family="Inter Display, Inter, DejaVu Sans, sans-serif"
+        font-size="112" font-weight="700" letter-spacing="-1.5">
+    <tspan fill="#f4f4f4">Mardas</tspan><tspan dx="26" fill="#f97316">Folio</tspan>
+  </text>
 
-    <text y="78" font-family="Inter, DejaVu Sans, sans-serif" font-size="38" font-weight="400" fill="#b4b4b4">
-      Desktop authoring and PDF publishing
-    </text>
-    <text y="130" font-family="Inter, DejaVu Sans, sans-serif" font-size="32" font-weight="400" fill="#7d7d7d">
-      Persian, English, and mixed RTL / LTR technical documents
-    </text>
-  </g>
+  <!-- Tagline -->
+  <text x="128" y="466" font-family="Inter, DejaVu Sans, sans-serif"
+        font-size="37" font-weight="400" fill="#b6b6b6">Desktop authoring and PDF publishing</text>
+  <text x="128" y="512" font-family="Inter, DejaVu Sans, sans-serif"
+        font-size="31" font-weight="400" fill="#7c7c7c">Persian, English, and mixed RTL / LTR technical documents</text>
 
   <!-- Capability chips -->
-  <g transform="translate(128 617)" font-family="Inter, DejaVu Sans, sans-serif" font-size="25" font-weight="500">
+  <g transform="translate(128 600)" font-family="Inter, DejaVu Sans, sans-serif"
+     font-size="24" font-weight="500">
     <g>
+      <rect width="152" height="52" rx="7" fill="#191919" stroke="#2d2d2d"/>
+      <text x="76" y="34" text-anchor="middle" fill="#c4c4c4">RTL / LTR</text>
+    </g>
+    <g transform="translate(168 0)">
+      <rect width="170" height="52" rx="7" fill="#191919" stroke="#2d2d2d"/>
+      <text x="85" y="34" text-anchor="middle" fill="#c4c4c4">Typography</text>
+    </g>
+    <g transform="translate(354 0)">
+      <rect width="188" height="52" rx="7" fill="#191919" stroke="#2d2d2d"/>
+      <text x="94" y="34" text-anchor="middle" fill="#c4c4c4">Math &amp; Code</text>
+    </g>
+    <g transform="translate(558 0)">
       <rect width="158" height="52" rx="7" fill="#191919" stroke="#2d2d2d"/>
-      <text x="79" y="34" text-anchor="middle" fill="#c6c6c6">RTL / LTR</text>
+      <text x="79" y="34" text-anchor="middle" fill="#c4c4c4">Diagrams</text>
     </g>
-    <g transform="translate(174 0)">
-      <rect width="176" height="52" rx="7" fill="#191919" stroke="#2d2d2d"/>
-      <text x="88" y="34" text-anchor="middle" fill="#c6c6c6">Typography</text>
-    </g>
-    <g transform="translate(366 0)">
-      <rect width="196" height="52" rx="7" fill="#191919" stroke="#2d2d2d"/>
-      <text x="98" y="34" text-anchor="middle" fill="#c6c6c6">Math &amp; Code</text>
-    </g>
-    <g transform="translate(578 0)">
-      <rect width="164" height="52" rx="7" fill="#191919" stroke="#2d2d2d"/>
-      <text x="82" y="34" text-anchor="middle" fill="#c6c6c6">Diagrams</text>
-    </g>
-    <g transform="translate(758 0)">
-      <rect width="164" height="52" rx="7" fill="#191919" stroke="#2d2d2d"/>
-      <text x="82" y="34" text-anchor="middle" fill="#c6c6c6">Citations</text>
+    <g transform="translate(732 0)">
+      <rect width="156" height="52" rx="7" fill="#191919" stroke="#2d2d2d"/>
+      <text x="78" y="34" text-anchor="middle" fill="#c4c4c4">Citations</text>
     </g>
   </g>
 
-  <!-- ── Right: Markdown becomes a printed page ───────────────────── -->
-  <g transform="translate(1148 216)">
+  <!-- ══ Right column: Markdown becomes a printed page ══════════════
+       The source panel shows what the engine actually does with mixed
+       content: the Persian block is laid out right to left, the
+       English block left to right, in the same document. -->
 
-    <!-- Source panel -->
+  <g transform="translate(1148 200)">
+
+    <!-- Source -->
     <g>
       <rect width="286" height="392" rx="12" fill="#181818" stroke="#2c2c2c"/>
       <rect x="1" y="1" width="284" height="42" rx="11" fill="#1f1f1f"/>
       <circle cx="26" cy="22" r="5" fill="#3a3a3a"/>
       <circle cx="44" cy="22" r="5" fill="#3a3a3a"/>
       <circle cx="62" cy="22" r="5" fill="#3a3a3a"/>
-      <text x="90" y="28" font-family="DejaVu Sans Mono, monospace" font-size="17" fill="#6b6b6b">document.md</text>
+      <text x="88" y="28" font-family="DejaVu Sans Mono, monospace" font-size="16"
+            fill="#6b6b6b">document.md</text>
 
-      <g font-family="DejaVu Sans Mono, monospace" font-size="19">
-        <text x="26" y="86" fill="#f97316"># عنوان</text>
-        <rect x="26" y="106" width="180" height="9" rx="4" fill="#333333"/>
-        <rect x="26" y="127" width="228" height="9" rx="4" fill="#333333"/>
-        <rect x="26" y="148" width="146" height="9" rx="4" fill="#333333"/>
+      <!-- RTL block: heading and paragraph align to the right margin -->
+      <text x="260" y="88" direction="rtl" text-anchor="start"
+            font-family="DejaVu Sans Mono, monospace" font-size="19" fill="#f97316"># عنوان</text>
+      <rect x="80"  y="108" width="180" height="9" rx="4.5" fill="#343434"/>
+      <rect x="32"  y="129" width="228" height="9" rx="4.5" fill="#343434"/>
+      <rect x="114" y="150" width="146" height="9" rx="4.5" fill="#343434"/>
 
-        <text x="26" y="196" fill="#f97316">## Section</text>
-        <rect x="26" y="216" width="206" height="9" rx="4" fill="#333333"/>
-        <rect x="26" y="237" width="164" height="9" rx="4" fill="#333333"/>
-      </g>
+      <!-- LTR block: the same document, the other direction -->
+      <text x="26" y="200" font-family="DejaVu Sans Mono, monospace" font-size="19"
+            fill="#f97316">## Section</text>
+      <rect x="26" y="220" width="206" height="9" rx="4.5" fill="#343434"/>
+      <rect x="26" y="241" width="164" height="9" rx="4.5" fill="#343434"/>
 
-      <rect x="26" y="266" width="234" height="96" rx="8" fill="#141414" stroke="#2a2a2a"/>
-      <text x="40" y="292" font-family="DejaVu Sans Mono, monospace" font-size="16" fill="#5f5f5f">```python</text>
-      <rect x="40" y="306" width="120" height="8" rx="4" fill="#f97316" fill-opacity="0.55"/>
-      <rect x="40" y="324" width="176" height="8" rx="4" fill="#333333"/>
-      <rect x="40" y="342" width="96" height="8" rx="4" fill="#333333"/>
+      <!-- Code stays left to right in either case -->
+      <rect x="26" y="272" width="234" height="94" rx="8" fill="#141414" stroke="#2a2a2a"/>
+      <text x="40" y="297" font-family="DejaVu Sans Mono, monospace" font-size="15"
+            fill="#5f5f5f">```python</text>
+      <rect x="40" y="311" width="120" height="8" rx="4" fill="#f97316" fill-opacity="0.55"/>
+      <rect x="40" y="329" width="176" height="8" rx="4" fill="#343434"/>
+      <rect x="40" y="347" width="96"  height="8" rx="4" fill="#343434"/>
     </g>
 
     <!-- Transform -->
@@ -109,31 +121,30 @@
       <line x1="0" y1="0" x2="86" y2="0" stroke="#3a3a3a" stroke-width="2"/>
       <path d="M86 -8 L104 0 L86 8 Z" fill="#f97316"/>
       <text x="52" y="-22" text-anchor="middle" font-family="Inter, DejaVu Sans, sans-serif"
-            font-size="19" font-weight="500" fill="#6f6f6f">Chromium</text>
+            font-size="18" font-weight="500" fill="#6f6f6f">Chromium</text>
     </g>
 
-    <!-- Printed page -->
-    <g transform="translate(444 -22)">
+    <!-- Printed page, carrying the same two directions -->
+    <g transform="translate(444 -20)">
       <rect x="14" y="14" width="286" height="436" rx="10" fill="#0f0f0f" stroke="#242424"/>
       <rect width="286" height="436" rx="10" fill="#fbfbfa" stroke="#e2e2e0"/>
 
-      <rect x="34" y="40" width="120" height="10" rx="5" fill="#f97316"/>
-      <rect x="34" y="70" width="196" height="18" rx="6" fill="#1d1d1d"/>
-      <rect x="34" y="100" width="150" height="10" rx="5" fill="#b9b9b6"/>
+      <!-- RTL heading block -->
+      <rect x="132" y="40" width="120" height="10" rx="5" fill="#f97316"/>
+      <rect x="56"  y="70" width="196" height="18" rx="6" fill="#1d1d1d"/>
+      <rect x="34"  y="118" width="218" height="7" rx="3.5" fill="#cfcfcc"/>
+      <rect x="52"  y="136" width="200" height="7" rx="3.5" fill="#cfcfcc"/>
+      <rect x="132" y="154" width="120" height="7" rx="3.5" fill="#cfcfcc"/>
 
-      <rect x="34" y="146" width="218" height="7" rx="3.5" fill="#cfcfcc"/>
-      <rect x="34" y="164" width="200" height="7" rx="3.5" fill="#cfcfcc"/>
-      <rect x="34" y="182" width="212" height="7" rx="3.5" fill="#cfcfcc"/>
-      <rect x="34" y="200" width="120" height="7" rx="3.5" fill="#cfcfcc"/>
+      <!-- LTR section -->
+      <rect x="34" y="196" width="150" height="12" rx="5" fill="#1d1d1d"/>
+      <rect x="34" y="224" width="218" height="7" rx="3.5" fill="#cfcfcc"/>
+      <rect x="34" y="242" width="186" height="7" rx="3.5" fill="#cfcfcc"/>
 
-      <rect x="34" y="228" width="218" height="72" rx="6" fill="#f3f3f1" stroke="#e4e4e1"/>
-      <rect x="46" y="244" width="86" height="7" rx="3.5" fill="#f97316" fill-opacity="0.8"/>
-      <rect x="46" y="262" width="150" height="7" rx="3.5" fill="#c6c6c3"/>
-      <rect x="46" y="280" width="112" height="7" rx="3.5" fill="#c6c6c3"/>
-
-      <rect x="34" y="322" width="218" height="7" rx="3.5" fill="#cfcfcc"/>
-      <rect x="34" y="340" width="186" height="7" rx="3.5" fill="#cfcfcc"/>
-      <rect x="34" y="358" width="206" height="7" rx="3.5" fill="#cfcfcc"/>
+      <rect x="34" y="272" width="218" height="72" rx="6" fill="#f3f3f1" stroke="#e4e4e1"/>
+      <rect x="46" y="288" width="86"  height="7" rx="3.5" fill="#f97316" fill-opacity="0.8"/>
+      <rect x="46" y="306" width="150" height="7" rx="3.5" fill="#c6c6c3"/>
+      <rect x="46" y="324" width="112" height="7" rx="3.5" fill="#c6c6c3"/>
 
       <line x1="34" y1="396" x2="252" y2="396" stroke="#e4e4e1" stroke-width="1"/>
       <text x="252" y="416" text-anchor="end" font-family="Inter, DejaVu Sans, sans-serif"
