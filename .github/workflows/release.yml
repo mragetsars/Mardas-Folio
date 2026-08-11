@@ -167,6 +167,12 @@ jobs:
           python-version: '3.12'
           cache: pip
 
+      # build_offline_bundle imports release_provenance, which imports
+      # packaging. This job installs no project dependencies, so the import
+      # only ever resolved on the runners that happened to ship it.
+      - name: Install release tooling dependencies
+        run: python -m pip install "packaging>=24.0"
+
       - name: Download core artifacts
         uses: actions/download-artifact@v8
         with:
@@ -769,6 +775,12 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+
+      # finalize_release_artifacts reaches release_provenance, and so needs
+      # packaging here too. This is the last job in the pipeline, so a missing
+      # import costs the entire build before it is noticed.
+      - name: Install release tooling dependencies
+        run: python -m pip install "packaging>=24.0"
 
       - name: Download finalized release package
         uses: actions/download-artifact@v8

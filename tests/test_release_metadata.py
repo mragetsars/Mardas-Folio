@@ -10,6 +10,7 @@ import tarfile
 from pathlib import Path
 
 import pytest
+import yaml
 
 try:
     import tomllib
@@ -483,6 +484,87 @@ def test_release_workflow_runs_the_complete_release_gate() -> None:
     assert "publish-draft:" in workflow
     assert "gh release create" in workflow
     assert "--draft" in workflow
+    # poppler-utils backs `--render-png` in the release gate, and every visual
+    # QA chunk fails without it.
+    assert "poppler-utils" in workflow
+
+
+def test_release_jobs_install_what_their_scripts_import() -> None:
+    """Every release script must find its third-party imports in its own job.
+
+    Two jobs run release tooling without installing the project. That worked
+    only on the runners that happened to ship `packaging`: the Linux offline
+    bundle failed on it, and `publish-draft` — the last job in the pipeline,
+    after every build — would have failed the same way at the finish line.
+    """
+    import ast
+
+    scripts_dir = ROOT / "scripts"
+    local = {path.stem: path for path in scripts_dir.glob("*.py")}
+    stdlib = set(sys.stdlib_module_names)
+
+    def third_party_closure(entry: str) -> set[str]:
+        seen: set[str] = set()
+        pending = [entry]
+        found: set[str] = set()
+        while pending:
+            name = pending.pop()
+            if name in seen or name not in local:
+                continue
+            seen.add(name)
+            tree = ast.parse(local[name].read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    modules = {alias.name.split(".")[0] for alias in node.names}
+                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                    modules = {node.module.split(".")[0]}
+                else:
+                    continue
+                for module in modules:
+                    if module in local:
+                        pending.append(module)
+                    elif module not in stdlib and module != "__future__":
+                        found.add(module)
+        return found
+
+    workflow = yaml.safe_load(_read(".github/workflows/release.yml"))
+
+    def steps_of(job: dict) -> list[dict]:
+        return [step for step in job.get("steps", []) if isinstance(step, dict)]
+
+    for entry in ("build_offline_bundle", "finalize_release_artifacts"):
+        requirements = third_party_closure(entry)
+        assert requirements, f"expected scripts/{entry}.py to have third-party imports"
+        running_jobs = [
+            (name, job)
+            for name, job in workflow["jobs"].items()
+            if any(f"scripts/{entry}.py" in str(step.get("run", "")) for step in steps_of(job))
+        ]
+        assert running_jobs, f"no release job runs scripts/{entry}.py"
+        dev_extra = {
+            re.split(r"[<>=!~\[; ]", entry_spec)[0].strip().lower()
+            for entry_spec in tomllib.loads(_read("pyproject.toml"))["project"][
+                "optional-dependencies"
+            ]["dev"]
+        }
+        for name, job in running_jobs:
+            # Only the install commands count. A mention in a comment is not an
+            # installation, which is exactly how this went unnoticed.
+            installs = " ".join(
+                str(step.get("run", ""))
+                for step in steps_of(job)
+                if "pip install" in str(step.get("run", ""))
+            )
+            # Installing the project's dev extra supplies everything it declares.
+            via_dev_extra = '".[dev]"' in installs or "'.[dev]'" in installs
+            for requirement in requirements:
+                satisfied = requirement in installs or (
+                    via_dev_extra and requirement.lower() in dev_extra
+                )
+                assert satisfied, (
+                    f"job {name!r} runs scripts/{entry}.py, which needs "
+                    f"{requirement!r}, but the job never installs it"
+                )
 
 
 def test_check_render_smoke_uses_process_tree_safe_command_runner() -> None:
