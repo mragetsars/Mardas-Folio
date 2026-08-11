@@ -65,6 +65,37 @@ def test_updater_build_config_carries_the_public_key(tmp_path: Path) -> None:
     assert unsigned is None
 
 
+def test_blank_signing_credentials_are_removed_from_the_build_environment() -> None:
+    """An empty credential must look absent, not present-and-empty.
+
+    Tauri treats a *defined* `APPLE_SIGNING_IDENTITY` as an instruction to
+    codesign, so forwarding an unconfigured secret makes it run
+    `codesign --sign ""` and fail with "The specified item could not be found
+    in the keychain". Both macOS release jobs failed that way while the CI
+    jobs, which never define the variable at all, built fine.
+    """
+    from scripts.build_native_desktop import _drop_empty_signing_variables
+
+    environment = {
+        "APPLE_SIGNING_IDENTITY": "",
+        "APPLE_CERTIFICATE": "   ",
+        "KEYCHAIN_PASSWORD": "",
+        "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT": "",
+        "APPLE_TEAM_ID": "ABCDE12345",
+        "PATH": "/usr/bin",
+    }
+
+    _drop_empty_signing_variables(environment)
+
+    assert "APPLE_SIGNING_IDENTITY" not in environment
+    assert "APPLE_CERTIFICATE" not in environment
+    assert "KEYCHAIN_PASSWORD" not in environment
+    assert "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT" not in environment
+    # A configured credential must survive, or public releases cannot sign.
+    assert environment["APPLE_TEAM_ID"] == "ABCDE12345"
+    assert environment["PATH"] == "/usr/bin"
+
+
 def test_native_artifact_classification() -> None:
     version = "1.29.0"
     cases = {

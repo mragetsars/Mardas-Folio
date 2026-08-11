@@ -270,6 +270,36 @@ def _updater_build_config(output: Path) -> Path:
     )
 
 
+# Credentials the platform bundlers read directly. An unset variable and one
+# set to the empty string are the same thing to a person and opposite things to
+# the bundler: Tauri treats a *defined* `APPLE_SIGNING_IDENTITY` as an
+# instruction to codesign, so an empty one makes it run `codesign --sign ""`
+# and fail with "The specified item could not be found in the keychain". A
+# workflow that forwards unconfigured secrets hands over exactly that.
+_OPTIONAL_SIGNING_VARIABLES = (
+    "APPLE_SIGNING_IDENTITY",
+    "APPLE_CERTIFICATE",
+    "APPLE_CERTIFICATE_PASSWORD",
+    "APPLE_API_ISSUER",
+    "APPLE_API_KEY",
+    "APPLE_API_KEY_PATH",
+    "APPLE_ID",
+    "APPLE_PASSWORD",
+    "APPLE_TEAM_ID",
+    "KEYCHAIN_PASSWORD",
+    "MARDAS_WINDOWS_CERTIFICATE",
+    "MARDAS_WINDOWS_CERTIFICATE_PASSWORD",
+    "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT",
+)
+
+
+def _drop_empty_signing_variables(environment: dict[str, str]) -> None:
+    """Remove blank signing credentials so the bundler treats them as absent."""
+    for name in _OPTIONAL_SIGNING_VARIABLES:
+        if name in environment and not environment[name].strip():
+            del environment[name]
+
+
 def _native_build_config(
     output: Path,
     *,
@@ -586,6 +616,7 @@ def build(args: argparse.Namespace) -> list[Path]:
     require_tauri_cli()
 
     environment = os.environ.copy()
+    _drop_empty_signing_variables(environment)
     environment["MARDAS_DESKTOP_VERSION"] = __version__
     if args.create_updater_artifacts:
         private_key = environment.get("TAURI_SIGNING_PRIVATE_KEY", "").strip()
