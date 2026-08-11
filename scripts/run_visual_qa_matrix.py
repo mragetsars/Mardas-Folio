@@ -267,6 +267,21 @@ def main(argv: list[str] | None = None) -> int:
         summary.pop("active_chunk", None)
         _write_summary(summary_path, summary)
         ok = result["returncode"] == 0
+        if not ok:
+            # The child's output is captured rather than inherited, so without
+            # this the only trace of a failure is the summary file — and a
+            # release gate that fails does not upload one. Report it where the
+            # person reading the log is already looking.
+            print(
+                f"{kind} chunk {index}/{total} failed with exit code {result['returncode']}",
+                file=sys.stderr,
+            )
+            for stream in ("stderr_tail", "stdout_tail"):
+                tail = str(result.get(stream) or "").strip()
+                if tail:
+                    print(f"--- {kind} chunk {index}/{total} {stream} ---", file=sys.stderr)
+                    print(tail, file=sys.stderr)
+            sys.stderr.flush()
         if not ok and args.fail_fast:
             return False
         return True

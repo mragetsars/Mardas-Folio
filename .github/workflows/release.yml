@@ -104,6 +104,22 @@ jobs:
           MARDAS_RELEASE_DESKTOP_UI: '1'
         run: ./scripts/release_gate.sh
 
+      # The gate's evidence is only worth having when it fails, and a failed
+      # step skips every upload after it. This one runs either way.
+      - name: Upload release gate evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-gate-evidence-${{ github.run_id }}
+          path: |
+            build/release/visual-qa/summary.json
+            build/release/visual-qa-smoke/summary.json
+            build/release/visual-contracts/
+            build/release/pdf-preflight.json
+            build/release/desktop-ui-audit/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Assemble core release directory
         shell: bash
         run: |
