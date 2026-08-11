@@ -45,7 +45,7 @@ def assemble(
     directory: Path,
     *,
     version: str,
-    repository: str = "mragetsars/Mardas-MD2PDF",
+    repository: str = "mragetsars/Mardas-Folio",
     tag: str | None = None,
     notes: str | None = None,
     pub_date: str | None = None,
@@ -105,7 +105,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--artifact-dir", type=Path, required=True)
     parser.add_argument("--version", required=True)
-    parser.add_argument("--repository", default="mragetsars/Mardas-MD2PDF")
+    parser.add_argument("--repository", default="mragetsars/Mardas-Folio")
     parser.add_argument("--tag")
     parser.add_argument("--notes-file", type=Path)
     parser.add_argument("--pub-date")

@@ -199,7 +199,7 @@ python -m pip install -e '.[desktop]'
 python -m playwright install chromium --only-shell
 python scripts/build_standalone_runtime.py --clean
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-X.Y.Z-runtime-<platform>-<arch> \
+  build/standalone-runtime/Mardas-Folio-X.Y.Z-runtime-<platform>-<arch> \
   --render
 ```
 

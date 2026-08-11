@@ -103,7 +103,7 @@ def _synthetic_archive(
 def test_safe_symlinks_are_manifested_staged_and_archived_deterministically(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    runtime = tmp_path / f"Mardas-MD2PDF-{__version__}-runtime-linux-x86_64"
+    runtime = tmp_path / f"Mardas-Folio-{__version__}-runtime-linux-x86_64"
     internal = runtime / "_internal"
     browser = runtime / "runtime" / "chromium"
     internal.mkdir(parents=True)
@@ -187,7 +187,7 @@ def test_browser_claim_requires_regular_inventory_evidence(tmp_path: Path) -> No
     with pytest.raises(ValueError, match="without an inventoried browser file"):
         load_and_verify_manifest(runtime, expected_version=__version__)
 
-    archive = tmp_path / f"Mardas-MD2PDF-{__version__}-runtime-no-browser.zip"
+    archive = tmp_path / f"Mardas-Folio-{__version__}-runtime-no-browser.zip"
     _synthetic_archive(archive, symlinks={}, include_browser=False)
     with pytest.raises(ReleaseProvenanceError, match="without an inventoried browser file"):
         verify_standalone_runtime(archive, expected_version=__version__)
@@ -197,7 +197,7 @@ def test_runtime_file_limit_excludes_the_root_manifest(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    runtime = tmp_path / f"Mardas-MD2PDF-{__version__}-runtime-boundary"
+    runtime = tmp_path / f"Mardas-Folio-{__version__}-runtime-boundary"
     browser = runtime / "runtime" / "chromium"
     browser.mkdir(parents=True)
     (runtime / "mardas-sidecar").write_bytes(b"sidecar")
@@ -298,7 +298,7 @@ def test_release_provenance_rejects_unsafe_or_mismatched_symlinks(
     manifest_links: dict[str, str] | None,
     message: str,
 ) -> None:
-    archive = tmp_path / f"Mardas-MD2PDF-{__version__}-runtime-{name}.zip"
+    archive = tmp_path / f"Mardas-Folio-{__version__}-runtime-{name}.zip"
     _synthetic_archive(
         archive,
         symlinks=symlinks,

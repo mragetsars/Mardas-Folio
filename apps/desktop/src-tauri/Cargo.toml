@@ -4,7 +4,7 @@ version = "2.0.0"
 description = "Native desktop shell for the Mardas Folio publishing engine"
 authors = ["mragetsars <mragetsars@gmail.com>"]
 license = "MIT"
-repository = "https://github.com/mragetsars/Mardas-MD2PDF"
+repository = "https://github.com/mragetsars/Mardas-Folio"
 edition = "2021"
 rust-version = "1.97.1"
 

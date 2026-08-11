@@ -37,7 +37,7 @@ from runtime_manifest import (  # noqa: E402
 )
 
 PROJECT_NAME = "mardas-md2pdf"
-REPOSITORY_URL = "https://github.com/mragetsars/Mardas-MD2PDF"
+REPOSITORY_URL = "https://github.com/mragetsars/Mardas-Folio"
 SPDX_VERSION = "SPDX-2.3"
 RELEASE_MANIFEST_SCHEMA = 1
 BUNDLE_MANIFEST_SCHEMA = 1
@@ -341,7 +341,7 @@ def generate_spdx_document(
         "documentNamespace": f"{REPOSITORY_URL}/sbom/{root.version}/{identity_digest}",
         "creationInfo": {
             "created": timestamp_from_epoch(epoch),
-            "creators": ["Tool: Mardas-MD2PDF generate_sbom.py"],
+            "creators": ["Tool: Mardas-Folio generate_sbom.py"],
             "comment": f"Source revision: {source_revision or 'unknown'}",
         },
         "documentDescribes": [spdx_id(f"Package-{root_key}")],
@@ -415,7 +415,7 @@ def artifact_kind(name: str) -> str:
         return "guide-pdf"
     if "offline-" in name and name.endswith(".zip"):
         return "offline-install-bundle"
-    if name.startswith("Mardas-MD2PDF-") and "-runtime-" in name and name.endswith(".zip"):
+    if name.startswith("Mardas-Folio-") and "-runtime-" in name and name.endswith(".zip"):
         return "standalone-runtime"
     if name.startswith("Mardas-Folio-") and name.endswith("-setup.exe"):
         return "desktop-installer"
@@ -552,7 +552,7 @@ def build_release_manifest(
         "verification": {
             "checksums": "CHECKSUMS.sha256",
             "attestation_command": (
-                "gh attestation verify <artifact> --repo mragetsars/Mardas-MD2PDF"
+                "gh attestation verify <artifact> --repo mragetsars/Mardas-Folio"
             ),
             "browser_in_offline_bundles": False,
             "browser_in_standalone_runtime": True,

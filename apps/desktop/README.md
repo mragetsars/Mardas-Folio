@@ -61,7 +61,7 @@ First build the frozen sidecar runtime with bundled Chromium. Then install Rust 
 ```powershell
 cargo install tauri-cli --version 2.11.4 --locked
 python scripts/build_desktop_app.py `
-  --runtime build/standalone-runtime/Mardas-MD2PDF-X.Y.Z-runtime-windows-x86_64 `
+  --runtime build/standalone-runtime/Mardas-Folio-X.Y.Z-runtime-windows-x86_64 `
   --clean
 ```
 

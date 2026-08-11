@@ -116,8 +116,8 @@ Before using the project, make sure you have:
 ## Install from source
 
 ```bash
-git clone https://github.com/mragetsars/Mardas-MD2PDF.git
-cd Mardas-MD2PDF
+git clone https://github.com/mragetsars/Mardas-Folio.git
+cd Mardas-Folio
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -164,7 +164,7 @@ Verify the runtime manifest, protocol lifecycle, bundled browser, and a real Uni
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-2.0.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-Folio-2.0.0-runtime-windows-x86_64 \
   --render
 ```
 
@@ -1447,7 +1447,7 @@ A GitHub-hosted artifact can also be checked against signed build provenance:
 
 ```bash
 gh attestation verify artifact-name \
-  --repo mragetsars/Mardas-MD2PDF
+  --repo mragetsars/Mardas-Folio
 ```
 
 After extracting an offline Python bundle, run:

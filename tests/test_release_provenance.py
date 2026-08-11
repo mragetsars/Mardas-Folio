@@ -236,7 +236,7 @@ def test_offline_bundle_manifest_and_checksums_are_verified(tmp_path: Path) -> N
 
 def test_standalone_runtime_manifest_and_checksums_are_verified(tmp_path: Path) -> None:
     version = "1.23.0"
-    root = f"Mardas-MD2PDF-{version}-runtime-windows-x86_64"
+    root = f"Mardas-Folio-{version}-runtime-windows-x86_64"
     files = {
         "mardas-sidecar.exe": b"sidecar",
         "_internal/runtime/chromium/chrome-headless-shell.exe": b"chromium",

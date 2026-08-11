@@ -47,7 +47,7 @@
     "publisher": "mragetsars",
     "shortDescription": "Persian and English Markdown publishing studio",
     "longDescription": "Mardas Folio converts Persian and English Markdown into publication-ready PDF with RTL typography, MathJax, Mermaid, citations, and PDF navigation.",
-    "homepage": "https://github.com/mragetsars/Mardas-MD2PDF",
+    "homepage": "https://github.com/mragetsars/Mardas-Folio",
     "license": "MIT",
     "icon": [
       "icons/32x32.png",

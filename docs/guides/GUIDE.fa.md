@@ -114,8 +114,8 @@ Markdown -> Structured HTML -> Chromium PDF
 ## نصب از سورس
 
 ```bash
-git clone https://github.com/mragetsars/Mardas-MD2PDF.git
-cd Mardas-MD2PDF
+git clone https://github.com/mragetsars/Mardas-Folio.git
+cd Mardas-Folio
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -162,7 +162,7 @@ python scripts/build_standalone_runtime.py --clean
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-2.0.0-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-Folio-2.0.0-runtime-windows-x86_64 \
   --render
 ```
 
@@ -1370,7 +1370,7 @@ python scripts/finalize_release_artifacts.py \
 
 ```bash
 gh attestation verify artifact-name \
-  --repo mragetsars/Mardas-MD2PDF
+  --repo mragetsars/Mardas-Folio
 ```
 
 پس از استخراج بسته آفلاین Python، فرمان زیر را اجرا کنید:

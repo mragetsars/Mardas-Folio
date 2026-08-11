@@ -5,7 +5,7 @@ use tauri_plugin_updater::UpdaterExt;
 use url::Url;
 
 const DEFAULT_ENDPOINT: &str =
-    "https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json";
+    "https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json";
 const UPDATE_TIMEOUT_SECS: u64 = 30;
 
 #[derive(Clone, Serialize)]

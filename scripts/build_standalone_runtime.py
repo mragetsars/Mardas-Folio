@@ -309,7 +309,7 @@ def build(args: argparse.Namespace) -> tuple[Path, Path | None]:
     produced = dist_root / "mardas-sidecar"
     if not produced.is_dir():
         raise SystemExit(f"PyInstaller did not create the expected runtime directory: {produced}")
-    final_dir = build_root / f"Mardas-MD2PDF-{__version__}-runtime-{_platform_tag()}"
+    final_dir = build_root / f"Mardas-Folio-{__version__}-runtime-{_platform_tag()}"
     shutil.rmtree(final_dir, ignore_errors=True)
     shutil.move(str(produced), final_dir)
     _write_manifest(final_dir, browser_source=browser_source)

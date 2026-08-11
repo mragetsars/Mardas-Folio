@@ -39,7 +39,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           MARDAS_UPDATER_PUBKEY: ${{ vars.MARDAS_UPDATER_PUBKEY }}
-          MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json
+          MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json
           MARDAS_WINDOWS_CERTIFICATE: ${{ secrets.MARDAS_WINDOWS_CERTIFICATE }}
           MARDAS_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.MARDAS_WINDOWS_CERTIFICATE_PASSWORD }}
           MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT }}
@@ -191,7 +191,7 @@ jobs:
       - name: Verify frozen runtime and Unicode rendering
         shell: pwsh
         run: |
-          $runtime = Get-ChildItem build/standalone-runtime -Directory -Filter 'Mardas-MD2PDF-*-runtime-*' | Select-Object -First 1
+          $runtime = Get-ChildItem build/standalone-runtime -Directory -Filter 'Mardas-Folio-*-runtime-*' | Select-Object -First 1
           if (-not $runtime) { throw 'Standalone runtime directory was not created.' }
           python scripts/verify_standalone_runtime.py $runtime.FullName --render
 
@@ -244,7 +244,7 @@ jobs:
           if (-not $zip) { throw 'Standalone runtime archive was not downloaded.' }
           New-Item -ItemType Directory -Force build/runtime-extracted | Out-Null
           Expand-Archive -Path $zip.FullName -DestinationPath build/runtime-extracted -Force
-          $runtime = Get-ChildItem build/runtime-extracted -Directory -Filter 'Mardas-MD2PDF-*-runtime-*' | Select-Object -First 1
+          $runtime = Get-ChildItem build/runtime-extracted -Directory -Filter 'Mardas-Folio-*-runtime-*' | Select-Object -First 1
           if (-not $runtime) { throw 'Standalone runtime directory was not found after extraction.' }
           "RUNTIME_DIR=$($runtime.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -303,7 +303,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           MARDAS_UPDATER_PUBKEY: ${{ vars.MARDAS_UPDATER_PUBKEY }}
-          MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json
+          MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json
           MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT }}
           MARDAS_WINDOWS_DIGEST_ALGORITHM: ${{ vars.MARDAS_WINDOWS_DIGEST_ALGORITHM }}
           MARDAS_WINDOWS_TIMESTAMP_URL: ${{ vars.MARDAS_WINDOWS_TIMESTAMP_URL }}
@@ -484,7 +484,7 @@ jobs:
         shell: bash
         run: |
           python scripts/build_standalone_runtime.py --clean
-          runtime="$(find build/standalone-runtime -maxdepth 1 -type d -name 'Mardas-MD2PDF-*-runtime-*' -print -quit)"
+          runtime="$(find build/standalone-runtime -maxdepth 1 -type d -name 'Mardas-Folio-*-runtime-*' -print -quit)"
           test -n "$runtime"
           python scripts/verify_standalone_runtime.py "$runtime" --render
           echo "RUNTIME_DIR=$runtime" >> "$GITHUB_ENV"
@@ -495,7 +495,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           MARDAS_UPDATER_PUBKEY: ${{ vars.MARDAS_UPDATER_PUBKEY }}
-          MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json
+          MARDAS_UPDATE_ENDPOINT: https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json
           APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
           APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ vars.APPLE_API_KEY }}
@@ -582,7 +582,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [build-core, offline-bundles, standalone-runtime, desktop-installer, unix-desktop-packages]
-    if: github.repository == 'mragetsars/Mardas-MD2PDF'
+    if: github.repository == 'mragetsars/Mardas-Folio'
     permissions:
       contents: read
       id-token: write
@@ -733,7 +733,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [build-core, attest]
-    if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'mragetsars/Mardas-MD2PDF'
+    if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'mragetsars/Mardas-Folio'
     permissions:
       contents: write
     steps:

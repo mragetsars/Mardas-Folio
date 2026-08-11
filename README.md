@@ -64,7 +64,7 @@ Saving is conflict-aware. Every write carries the revision the document was open
 
 ### Desktop application
 
-Download the package for your operating system from the [Releases](https://github.com/mragetsars/Mardas-MD2PDF/releases) page. Each package embeds the rendering runtime, including Python and a pinned Chromium, so no separate installation is required.
+Download the package for your operating system from the [Releases](https://github.com/mragetsars/Mardas-Folio/releases) page. Each package embeds the rendering runtime, including Python and a pinned Chromium, so no separate installation is required.
 
 | Platform | Package |
 | :--- | :--- |
@@ -75,8 +75,8 @@ Download the package for your operating system from the [Releases](https://githu
 ### Command line
 
 ```bash
-git clone https://github.com/mragetsars/Mardas-MD2PDF.git
-cd Mardas-MD2PDF
+git clone https://github.com/mragetsars/Mardas-Folio.git
+cd Mardas-Folio
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -166,7 +166,7 @@ python -m pip install -e '.[desktop]'
 python -m playwright install chromium --only-shell
 python scripts/build_standalone_runtime.py --clean
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-2.0.0-runtime-linux-x86_64 \
+  build/standalone-runtime/Mardas-Folio-2.0.0-runtime-linux-x86_64 \
   --render
 ```
 
@@ -177,7 +177,7 @@ The desktop shell lives under `apps/desktop/`. Its offline frontend is built and
 The project is organized as follows:
 
 ```text
-Mardas-MD2PDF/
+Mardas-Folio/
 ├── src/mardas_md2pdf/          # Python publishing engine
 │   ├── markdown.py             # Parsing, front matter, contents, math, Mermaid, footnotes, safe HTML
 │   ├── renderer.py             # HTML assembly, appearance CSS, MathJax, Chromium PDF rendering
@@ -242,7 +242,7 @@ Official artifacts can also be checked against their signed provenance:
 
 ```bash
 gh attestation verify mardas_md2pdf-X.Y.Z-py3-none-any.whl \
-  --repo mragetsars/Mardas-MD2PDF
+  --repo mragetsars/Mardas-Folio
 ```
 
 An offline Python bundle is installed from its extracted directory with `python install.py --target mardas-md2pdf-venv`. The installer verifies the embedded checksums and invokes pip with `--no-index`; PDF rendering still requires a compatible Chromium executable.

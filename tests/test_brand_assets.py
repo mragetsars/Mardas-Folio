@@ -30,7 +30,7 @@ def test_the_product_is_named_mardas_folio_everywhere_it_is_named() -> None:
 
     The rename left three kinds of identifier alone on purpose, because other
     systems resolve the project by them: the ``mardas_md2pdf`` import package
-    and ``mardas-md2pdf`` distribution, the ``Mardas-MD2PDF-*`` release
+    and ``mardas-md2pdf`` distribution, the ``Mardas-Folio-*`` release
     artifacts the update endpoint and attestation address, and the repository
     slug. Everything else names the product, and the product is Mardas Folio.
     """
@@ -39,7 +39,7 @@ def test_the_product_is_named_mardas_folio_everywhere_it_is_named() -> None:
     # distribution and its wheel, the release artifacts, the repository slug,
     # and the HTTP server token of the legacy browser GUI.
     allowed = re.compile(
-        r"Mardas-MD2PDF|mardas-md2pdf|mardas_md2pdf|Mardas_MD2PDF|MardasMD2PDFGUI"
+        r"Mardas-Folio|mardas-md2pdf|mardas_md2pdf|Mardas_MD2PDF|MardasMD2PDFGUI"
     )
     skip_dirs = {
         ".git", ".venv", "node_modules", "target", "build", "dist", "patches",

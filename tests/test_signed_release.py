@@ -74,7 +74,7 @@ def test_signed_update_assembly_uses_verified_native_payloads(tmp_path: Path) ->
     latest = module.assemble(
         tmp_path,
         version=version,
-        repository="mragetsars/Mardas-MD2PDF",
+        repository="mragetsars/Mardas-Folio",
         tag=f"v{version}",
         notes="Release notes",
         pub_date="2026-08-08T00:00:00Z",

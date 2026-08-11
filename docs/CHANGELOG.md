@@ -27,10 +27,13 @@ configuration file by hand.
 - Added YAML front matter parsing to the editor, matching the engine's own rules, so document metadata is highlighted as metadata.
 
 ### Changed
+- Renamed the repository to `Mardas-Folio` so the project, the product and the repository share one name. Three systems address it by that slug and were moved together: the update endpoint compiled into desktop binaries, the provenance and attestation repository, and the release artifact names. No release had been published, so no installed client was holding the previous endpoint.
 - Rebuilt the interface around a strictly neutral grey scale with an orange accent, at desktop control density: no marketing hero, no drop shadows on static panels, ~30px controls and small radii.
 - Replaced CodeMirror's `defaultHighlightStyle` with a purpose-built syntax theme driven by `--cm-*` custom properties, so light and dark are one code path.
 
 ### Fixed
+- Stopped the core test matrix failing on every operating system and Python version. `test_node_frontend_contracts` shells out to the desktop interface suite, several of whose tests import `@codemirror` and `@lezer` to drive the real parser — but that job never installs `node_modules`, so the imports could not resolve. It now skips when the dependencies are absent, and the `Native desktop contracts` job, which does install them, runs the suite for real.
+- Pointed the pypdf compatibility matrix at the supported floor. It still pinned `4.0.0`, a version `pypdf>=6.15.0` refuses to install and which predates the `root_object` API the PDF audit uses, so the job only measured how far the matrix had drifted from the dependency floor raised for the pypdf advisories.
 - Routed `preview.document_page` in the sidecar. Methods are declared in three places — what the engine advertises, what it implements, and what the JSON-RPC layer agrees to route — and the third was missed, so the desktop app was offered a method that then answered "Unknown method". A test now holds the routing table against the advertised list.
 - Started the export preview when a source file is chosen. It previously waited for some unrelated option to be touched, so the panel sat on "choose a source file" after one had been chosen.
 - Made the export preview stand down gracefully on an engine older than the interface: it asks what the engine supports, falls back to the body preview on assumed page geometry, and says so, instead of printing a protocol error into the panel.

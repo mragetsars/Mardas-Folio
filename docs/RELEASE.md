@@ -138,7 +138,7 @@ python -m pip install -e '.[desktop]'
 python -m playwright install chromium --only-shell
 python scripts/build_standalone_runtime.py --clean
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-MD2PDF-X.Y.Z-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-Folio-X.Y.Z-runtime-windows-x86_64 \
   --render
 ```
 
@@ -154,7 +154,7 @@ mardas-md2pdf-venv/bin/mrs-md2pdf --version
 GitHub-hosted release jobs use `actions/attest` to create signed SLSA build-provenance and SPDX SBOM attestations. Verify an artifact after download:
 
 ```bash
-gh attestation verify artifact-name --repo mragetsars/Mardas-MD2PDF
+gh attestation verify artifact-name --repo mragetsars/Mardas-Folio
 ```
 
 The workflow uploads the manifest-governed release payload and the generated Sigstore bundles as separate artifacts. The attestation artifact has its own checksum inventory because signatures are produced only after the release payload is finalized. The workflow does not create or publish a GitHub Release automatically; publishing remains an explicit maintainer action.
@@ -207,7 +207,7 @@ Build the standalone Windows runtime first, then build the native NSIS installer
 
 ```powershell
 python scripts/build_desktop_app.py `
-  --runtime build/standalone-runtime/Mardas-MD2PDF-X.Y.Z-runtime-windows-x86_64 `
+  --runtime build/standalone-runtime/Mardas-Folio-X.Y.Z-runtime-windows-x86_64 `
   --clean
 python scripts/verify_desktop_installer.py `
   build/desktop/Mardas-Folio-X.Y.Z-windows-x86_64-setup.exe `

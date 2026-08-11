@@ -14,7 +14,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 DEFAULT_UPDATE_ENDPOINT = (
-    "https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json"
+    "https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json"
 )
 WINDOWS_THUMBPRINT_RE = re.compile(r"^[0-9A-Fa-f]{40}$")
 APPLE_IDENTITY_RE = re.compile(

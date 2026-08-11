@@ -24,7 +24,7 @@ Variable: MARDAS_UPDATER_PUBKEY
 The application embeds only the public key and an HTTPS endpoint. The default stable feed is:
 
 ```text
-https://github.com/mragetsars/Mardas-MD2PDF/releases/latest/download/latest.json
+https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json
 ```
 
 `release_preflight.py` rejects an HTTP endpoint, embedded credentials, or fragments.
@@ -94,7 +94,7 @@ python scripts/extract_release_notes.py \
 python scripts/assemble_signed_updates.py \
   --artifact-dir build/release \
   --version X.Y.Z \
-  --repository mragetsars/Mardas-MD2PDF \
+  --repository mragetsars/Mardas-Folio \
   --tag vX.Y.Z \
   --notes-file build/RELEASE-NOTES.md
 ```
