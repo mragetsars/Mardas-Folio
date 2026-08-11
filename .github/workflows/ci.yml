@@ -422,6 +422,14 @@ jobs:
           python -m pip install -e ".[desktop]"
           cargo install tauri-cli --version 2.11.4 --locked
 
+      # `cargo test` compiles the shell, and `generate_context!` resolves
+      # `frontendDist` at compile time, so the frontend has to be on disk
+      # before the tests run. `beforeBuildCommand` builds it for `tauri build`
+      # only, which is too late for this step. The script is pure Python and
+      # needs neither Node nor the editor's dependencies.
+      - name: Build desktop frontend for the compile-time context
+        run: python scripts/build_desktop_frontend.py
+
       - name: Run locked Rust tests
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 
@@ -497,6 +505,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[desktop]"
           cargo install tauri-cli --version 2.11.4 --locked
+
+      # `cargo test` compiles the shell, and `generate_context!` resolves
+      # `frontendDist` at compile time, so the frontend has to be on disk
+      # before the tests run. `beforeBuildCommand` builds it for `tauri build`
+      # only, which is too late for this step. The script is pure Python and
+      # needs neither Node nor the editor's dependencies.
+      - name: Build desktop frontend for the compile-time context
+        run: python scripts/build_desktop_frontend.py
 
       - name: Run locked Rust tests
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
