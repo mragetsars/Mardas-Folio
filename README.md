@@ -72,6 +72,24 @@ Download the package for your operating system from the [Releases](https://githu
 | macOS 14+ (Apple Silicon or Intel) | `Mardas-Folio-X.Y.Z-macos-arm64.dmg`, `-macos-x86_64.dmg` |
 | Linux x86-64 (built on Ubuntu 22.04) | `Mardas-Folio-X.Y.Z-linux-x86_64.AppImage`, `.deb` |
 
+#### Opening a release that is not yet code-signed
+
+These packages are not signed with a Windows Authenticode certificate or an
+Apple Developer ID yet, so Windows and macOS will warn that the publisher cannot
+be verified. The warning is about the absence of a paid publisher certificate,
+not about the contents of the package. Every release artifact is checksummed and
+attested, and [Release Verification](#release-verification-and-offline-bundles)
+describes how to confirm you have the file this repository built.
+
+- **Windows** — SmartScreen shows "Windows protected your PC". Choose **More
+  info**, then **Run anyway**.
+- **macOS** — Gatekeeper reports that the application "cannot be opened because
+  the developer cannot be verified". Open the DMG, drag the application to
+  `/Applications`, then right-click it and choose **Open**, and confirm **Open**
+  in the dialog. Double-clicking it will not offer that choice.
+- **Linux** — unaffected; there is no publisher-trust prompt. Mark the AppImage
+  executable with `chmod +x` before running it.
+
 ### Command line
 
 ```bash

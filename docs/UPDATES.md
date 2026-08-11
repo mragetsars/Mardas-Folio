@@ -31,15 +31,47 @@ https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json
 
 ## Generate the updater key once
 
-Run the Tauri key-generation command on a trusted maintainer machine using the same Tauri v2 toolchain used for release engineering. Store multiple secure backups of the private key and its password. Losing this key can prevent already-installed clients from accepting future updates.
+This key is required for **every** release, including an unsigned draft: the
+preflight marks `updater_private_key` and `updater_public_key` as blocking in
+both `draft` and `public` mode, so the tag workflow stops at its first job
+without them. It is unrelated to Windows Authenticode and Apple Developer ID
+signing, which are free to remain absent until a public release.
 
-Never paste the private key into an issue, release note, support bundle, source file, or chat transcript.
+Run the key generation on a trusted maintainer machine, with the same Tauri v2
+toolchain used for release engineering — the repository pins `tauri-cli 2.11.4`:
 
-After creating the key:
+```bash
+cargo install tauri-cli --version 2.11.4 --locked
+cargo tauri signer generate -w ~/.tauri/mardas-folio.key
+```
 
-1. store the private key as the GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY`;
-2. store its password, when used, as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`;
-3. store only the public key as the repository/environment variable `MARDAS_UPDATER_PUBKEY`.
+The command prompts for a password, which may be empty, and writes two files:
+
+```text
+~/.tauri/mardas-folio.key       # private key — never leaves the maintainer machine
+~/.tauri/mardas-folio.key.pub   # public key — embedded in every desktop build
+```
+
+Store multiple secure backups of the private key and its password. Losing this
+key can prevent already-installed clients from accepting future updates: an
+update is only installed when its detached signature verifies against the public
+key already embedded in the installed application, so a replacement key is
+rejected by every client built before it.
+
+Never paste the private key into an issue, release note, support bundle, source
+file, or chat transcript.
+
+After creating the key, register it on GitHub under
+**Settings → Secrets and variables → Actions**:
+
+1. store the *contents* of `mardas-folio.key` as the secret `TAURI_SIGNING_PRIVATE_KEY`;
+2. store its password, when one was set, as the secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`;
+3. store the *contents* of `mardas-folio.key.pub` as the **variable** — the
+   Variables tab, not Secrets — `MARDAS_UPDATER_PUBKEY`.
+
+The public key belongs in a variable rather than a secret because it is embedded
+in every published binary and is not confidential; masking it in logs would only
+obscure the build.
 
 Before creating a tag, the draft release preflight can be exercised locally without exposing values:
 

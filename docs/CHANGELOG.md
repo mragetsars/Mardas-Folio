@@ -26,6 +26,10 @@ configuration file by hand.
 - Exposed all 53 publishing-engine options in an Advanced settings panel grouped by concern, alongside a live preview of the document as the chosen options will publish it. Previously the interface sent nine and the rest needed a hand-edited `mardas.toml`.
 - Added YAML front matter parsing to the editor, matching the engine's own rules, so document metadata is highlighted as metadata.
 
+### Documentation
+- Wrote down the updater key generation the release guide had only referred to. `docs/UPDATES.md` said to "run the Tauri key-generation command" without giving it, named neither file it writes, and did not say that the key blocks a `draft` release exactly as it blocks a `public` one — so an unsigned first release looked possible with no secrets at all, and would have stopped at the tag workflow's first job.
+- Told users how to open a release that is not code-signed yet. The README described the packages without mentioning that Windows and macOS refuse to open them on a double-click, which is the point at which a first-time user gives up: SmartScreen needs **More info → Run anyway**, and Gatekeeper needs right-click **Open** rather than a double-click.
+
 ### Changed
 - Renamed the repository to `Mardas-Folio` so the project, the product and the repository share one name. Three systems address it by that slug and were moved together: the update endpoint compiled into desktop binaries, the provenance and attestation repository, and the release artifact names. No release had been published, so no installed client was holding the previous endpoint.
 - Rebuilt the interface around a strictly neutral grey scale with an orange accent, at desktop control density: no marketing hero, no drop shadows on static panels, ~30px controls and small radii.
