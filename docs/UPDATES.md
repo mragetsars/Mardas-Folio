@@ -73,15 +73,15 @@ The public key belongs in a variable rather than a secret because it is embedded
 in every published binary and is not confidential; masking it in logs would only
 obscure the build.
 
-Before creating a tag, the draft release preflight can be exercised locally without exposing values:
+Before creating a tag, the draft release preflight can be exercised locally against the generated key files, which keeps the values off the command line and out of shell history:
 
 ```bash
-TAURI_SIGNING_PRIVATE_KEY='...' \
-MARDAS_UPDATER_PUBKEY='...' \
+TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/mardas-folio.key)" \
+MARDAS_UPDATER_PUBKEY="$(cat ~/.tauri/mardas-folio.key.pub)" \
 python scripts/release_preflight.py --mode draft
 ```
 
-The preflight reports names and readiness only; it does not print secret contents.
+The preflight reports names and readiness only; it does not print secret contents. It exits 0 when the updater key is configured and 2 when it is missing, in `draft` mode as much as in `public`.
 
 ## Signed native updater artifacts
 
