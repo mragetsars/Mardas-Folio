@@ -119,9 +119,12 @@ def test_example_builds_set_deterministic_pdf_dates() -> None:
     assert "docs/guides/GUIDE.fa.md" in script
     assert "run_command" in script
     assert "--progress" in script
-    for option in ["--style", "modern", "--palette", "emerald", "--mode", "light"]:
+    # Amber is the palette closest to the product's own accent: its dark accent
+    # is the brand orange exactly, so the published guides look like the
+    # application that produced them.
+    for option in ["--style", "modern", "--palette", "amber", "--mode", "light"]:
         assert option in script
-    assert '"--palette",\n        "blue"' not in script
+    assert '"--palette",\n        "emerald"' not in script
 
 
 def test_build_dist_supports_no_isolation_mode() -> None:

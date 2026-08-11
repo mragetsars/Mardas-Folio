@@ -38,7 +38,7 @@ for source, output in examples:
         "--style",
         "modern",
         "--palette",
-        "emerald",
+        "amber",
         "--mode",
         "light",
         "--timeout-ms",
