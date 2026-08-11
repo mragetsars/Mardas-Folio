@@ -67,6 +67,27 @@ def platform_tag() -> str:
     return mapping[system]
 
 
+def updater_build_targets(
+    platform_name: str, bundles: tuple[str, ...], *, create_updater_artifacts: bool
+) -> tuple[str, ...]:
+    """Return the bundle targets to build, which is not the same as to publish.
+
+    The macOS updater payload is a `.app.tar.gz`, and only the `app` target
+    produces it. Asked for `dmg` alone, Tauri warns that no updater-enabled
+    target was built, cleans the `.app` away after building the disk image, and
+    leaves nothing for `_latest_macos_updater` to find. So `app` is a build
+    input on macOS, not a release artifact — callers keep collecting the
+    published artifacts from ``bundles``, which is why the `.app` itself is
+    never copied into the release directory.
+
+    Windows and Linux need nothing extra: `nsis` and `appimage` are already
+    updater-enabled targets.
+    """
+    if create_updater_artifacts and platform_name == "macos" and "app" not in bundles:
+        return ("app", *bundles)
+    return bundles
+
+
 def default_bundles(platform_name: str) -> tuple[str, ...]:
     if platform_name == "windows":
         return ("nsis",)
@@ -638,7 +659,10 @@ def build(args: argparse.Namespace) -> list[Path]:
         environment=environment,
     )
 
-    command = ["cargo", "tauri", "build", "--bundles", ",".join(bundles)]
+    build_targets = updater_build_targets(
+        platform_name, bundles, create_updater_artifacts=args.create_updater_artifacts
+    )
+    command = ["cargo", "tauri", "build", "--bundles", ",".join(build_targets)]
     if build_config is not None:
         command.extend(["--config", str(build_config)])
     command.extend(["--", "--locked"])

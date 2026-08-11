@@ -96,6 +96,35 @@ def test_blank_signing_credentials_are_removed_from_the_build_environment() -> N
     assert environment["PATH"] == "/usr/bin"
 
 
+def test_macos_updater_needs_the_app_target_built() -> None:
+    """macOS publishes a DMG but the updater payload comes from `app`.
+
+    Asked for `dmg` alone with `createUpdaterArtifacts` set, Tauri warns that
+    no updater-enabled target was built, deletes the `.app` after building the
+    disk image, and produces no `.app.tar.gz` at all — which failed both macOS
+    release jobs. `app` is a build input, so it must not appear in the list of
+    artifacts that get published.
+    """
+    from scripts.build_native_desktop import default_bundles, updater_build_targets
+
+    macos = default_bundles("macos")
+    assert macos == ("dmg",)
+
+    with_updater = updater_build_targets("macos", macos, create_updater_artifacts=True)
+    assert with_updater == ("app", "dmg")
+    assert "app" not in macos, "the published artifact list must stay the DMG alone"
+
+    # Without updater artifacts there is nothing extra to build.
+    assert updater_build_targets("macos", macos, create_updater_artifacts=False) == ("dmg",)
+
+    # NSIS and AppImage are already updater-enabled; they must not be altered.
+    for platform_name in ("windows", "linux"):
+        bundles = default_bundles(platform_name)
+        assert (
+            updater_build_targets(platform_name, bundles, create_updater_artifacts=True) == bundles
+        )
+
+
 def test_native_artifact_classification() -> None:
     version = "1.29.0"
     cases = {
