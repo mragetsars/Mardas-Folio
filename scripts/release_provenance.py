@@ -36,7 +36,7 @@ from runtime_manifest import (  # noqa: E402
     validate_symlink_target,
 )
 
-PROJECT_NAME = "mardas-md2pdf"
+PROJECT_NAME = "mardas-folio"
 REPOSITORY_URL = "https://github.com/mragetsars/Mardas-Folio"
 SPDX_VERSION = "SPDX-2.3"
 RELEASE_MANIFEST_SCHEMA = 1

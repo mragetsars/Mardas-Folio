@@ -7,7 +7,7 @@ import platform
 import tempfile
 from pathlib import Path
 
-from mardas_md2pdf.renderer import PdfOptions, convert
+from mardas_folio.renderer import PdfOptions, convert
 from pypdf import PdfReader
 
 

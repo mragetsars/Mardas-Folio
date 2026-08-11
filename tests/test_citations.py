@@ -5,14 +5,14 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from mardas_md2pdf.citations import (
+from mardas_folio.citations import (
     BibliographyLibrary,
     CitationOptions,
     annotate_citation_markup,
     load_bibliography,
     resolve_citations,
 )
-from mardas_md2pdf.markdown import render_markdown_file
+from mardas_folio.markdown import render_markdown_file
 
 
 def _write_bib(path: Path) -> Path:
@@ -273,7 +273,7 @@ def test_duplicate_bibliography_source_is_rejected(tmp_path: Path) -> None:
 
 
 def test_bibliography_source_and_entry_limits_are_enforced(tmp_path: Path, monkeypatch) -> None:
-    import mardas_md2pdf.citations as citations
+    import mardas_folio.citations as citations
 
     oversized = tmp_path / "oversized.bib"
     oversized.write_text("@book{x,title={X}}", encoding="utf-8")

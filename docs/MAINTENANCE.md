@@ -46,7 +46,7 @@ Before release, render a representative English/Persian book containing a labele
 
 ## Bibliography and citation checks
 
-When changing `src/mardas_md2pdf/citations.py`, bibliography configuration, or Book Mode citation assembly, run:
+When changing `src/mardas_folio/citations.py`, bibliography configuration, or Book Mode citation assembly, run:
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
@@ -61,7 +61,7 @@ Also rebuild both guides. They load `docs/guides/GUIDE.references.bib` as a live
 
 ## Studio Project Workspace checks
 
-Changes to `src/mardas_md2pdf/workspace.py`, project API routes, Project Explorer, Problems Panel, safe file saving, or Book preview/export require:
+Changes to `src/mardas_folio/workspace.py`, project API routes, Project Explorer, Problems Panel, safe file saving, or Book preview/export require:
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
@@ -81,7 +81,7 @@ python scripts/audit_studio_visual.py \
   --clean
 ```
 
-Verify project-relative diagnostics, safe navigation to a chapter line, external-change conflict handling, UTF-8/size boundaries, project-root and symlink rejection, renderer-backed active-file preview, and saved full-book preview/export. The installed-wheel release gate also imports `mardas_md2pdf.workspace`, performs a hash-guarded atomic save, checks `mrs-md2pdf-gui --help` for `--project`, and captures a Chromium project-workspace audit.
+Verify project-relative diagnostics, safe navigation to a chapter line, external-change conflict handling, UTF-8/size boundaries, project-root and symlink rejection, renderer-backed active-file preview, and saved full-book preview/export. The installed-wheel release gate also imports `mardas_folio.workspace`, performs a hash-guarded atomic save, checks `folio-gui --help` for `--project`, and captures a Chromium project-workspace audit.
 
 ## Performance and large-document checks
 
@@ -133,7 +133,7 @@ MARDAS_TIMEOUT_MS=240000 ./scripts/build_examples.sh
 Renderer, MathJax, font, or PDF-navigation changes require a strict smoke artifact and its structured report:
 
 ```bash
-mrs-md2pdf docs/guides/GUIDE.en.md \
+folio docs/guides/GUIDE.en.md \
   -o build/quality-smoke.pdf \
   --quality-profile strict-publication \
   --require-font Vazirmatn \
@@ -144,7 +144,7 @@ Do not override a strict failure merely to make a release pass. Confirm that eac
 
 ## Appearance matrix audit
 
-When changing `src/mardas_md2pdf/appearance.py` or any `src/mardas_md2pdf/assets/style-*.css` file, render
+When changing `src/mardas_folio/appearance.py` or any `src/mardas_folio/assets/style-*.css` file, render
 every built-in style, palette, and mode combination before shipping the patch:
 
 ```bash
@@ -247,10 +247,10 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
   tests/test_markdown.py \
   tests/test_pdf_output.py
 
-mrs-md2pdf audit-accessibility docs/guides/GUIDE.en.md --format json --fail-on error
-mrs-md2pdf audit-accessibility docs/guides/GUIDE.fa.md --format json --fail-on error
-mrs-md2pdf audit-pdf examples/GUIDE.en.pdf --profile all --format json --fail-on never
-mrs-md2pdf audit-pdf examples/GUIDE.fa.pdf --profile all --format json --fail-on never
+folio audit-accessibility docs/guides/GUIDE.en.md --format json --fail-on error
+folio audit-accessibility docs/guides/GUIDE.fa.md --format json --fail-on error
+folio audit-pdf examples/GUIDE.en.pdf --profile all --format json --fail-on never
+folio audit-pdf examples/GUIDE.fa.pdf --profile all --format json --fail-on never
 ```
 
 Review source diagnostics for language, heading order, alternative text, link purpose, table headers/captions, and palette contrast. Review PDF metrics for `/Lang`, XMP, font embedding, ToUnicode, tagging, output intents, JavaScript, and attachments. Do not convert the absence of a structure tree or PDF/A identifier into a passing result by adding unsupported catalog flags. Independent PDF/UA/PDF/A validation remains outside the built-in audit.

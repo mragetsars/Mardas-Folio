@@ -19,13 +19,15 @@ operating system; they are not cross-compiled release evidence.
 The product is **Mardas Folio**: `productName`, `mainBinaryName`, every release
 artifact (`Mardas-Folio-X.Y.Z-*`), the window title and the whole interface.
 
-The bundle identifier deliberately still reads
-`io.github.mragetsars.mardas-studio`. It is the key the updater matches an
-installed application by, and the name of the per-user config and data
-directory. Changing it would make every existing install look like a different
-application: updates would stop arriving, and saved preferences, recent
-documents and recovery snapshots would be orphaned. Renaming it is a migration,
-not a rebrand, and needs its own change with a data-migration path.
+The bundle identifier is `io.github.mragetsars.mardas-folio`. It is the key the
+updater matches an installed application by, and the name of the per-user config
+and data directory, so it is the one identifier here that cannot be changed
+cheaply: to an installed client a new identifier is a different application,
+which stops updates arriving and orphans saved preferences, recent documents and
+recovery snapshots. It was moved onto the product name before the first release,
+while no published artifact and no install addressed the old one. Changing it
+again is a migration, not a rebrand, and needs its own change with a
+data-migration path.
 
 Note that `tauri.conf.json` rejects unknown keys, so this rationale cannot live
 in the file as a comment — `cargo check` fails on any extra field.

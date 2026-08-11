@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from mardas_md2pdf.book import convert_book, load_book_manifest, render_book
-from mardas_md2pdf.cli import main
-from mardas_md2pdf.config import load_project_config
+from mardas_folio.book import convert_book, load_book_manifest, render_book
+from mardas_folio.cli import main
+from mardas_folio.config import load_project_config
 
 
 def _write_book_project(tmp_path: Path, *, chapter_page_break: bool = True) -> Path:
@@ -235,7 +235,7 @@ def test_build_book_uses_pre_rendered_bundle_and_output_override(
         options.output_path.write_bytes(b"%PDF-1.7\n")
         return options.output_path
 
-    monkeypatch.setattr("mardas_md2pdf.book.convert_render_result", fake_convert_render_result)
+    monkeypatch.setattr("mardas_folio.book.convert_render_result", fake_convert_render_result)
 
     assert (
         main(
@@ -410,7 +410,7 @@ def test_build_book_reports_controlled_render_error(
     def fail_convert(*_args, **_kwargs):
         raise RuntimeError("Chromium unavailable")
 
-    monkeypatch.setattr("mardas_md2pdf.project_commands.convert_book", fail_convert)
+    monkeypatch.setattr("mardas_folio.project_commands.convert_book", fail_convert)
 
     assert (
         main(

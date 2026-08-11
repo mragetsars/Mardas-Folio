@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-GUI_HTML = Path(__file__).resolve().parents[1] / "src" / "mardas_md2pdf" / "assets" / "gui.html"
+GUI_HTML = Path(__file__).resolve().parents[1] / "src" / "mardas_folio" / "assets" / "gui.html"
 
 
 def _gui_html() -> str:
@@ -171,7 +171,7 @@ def test_studio_logo_and_toolbar_icons_are_minimal_and_centered() -> None:
 
     brand_mask_rule = _css_rule(html, ".brand-mark::before")
     assert "background:currentColor" in brand_mask_rule
-    assert 'mask:url("/assets/mardas-md2pdf-mark-gui-mask.svg") center/contain no-repeat' in brand_mask_rule
+    assert 'mask:url("/assets/mardas-folio-mark-gui-mask.svg") center/contain no-repeat' in brand_mask_rule
 
     header_title_rule = _css_rule(html, ".sidebar-head strong,.pane-head strong")
     assert "font-size:11px" in header_title_rule

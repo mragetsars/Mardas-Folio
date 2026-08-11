@@ -10,8 +10,8 @@ from threading import Lock, Thread
 
 import pytest
 
-from mardas_md2pdf import gui
-from mardas_md2pdf.workspace import (
+from mardas_folio import gui
+from mardas_folio.workspace import (
     WorkspaceError,
     load_workspace,
     read_workspace_file,
@@ -446,7 +446,7 @@ def test_workspace_rejects_invalid_encoding_and_oversized_text(tmp_path, monkeyp
         read_workspace_file(workspace, "invalid.txt")
     assert invalid_exc.value.code == "invalid_project_file_encoding"
 
-    monkeypatch.setattr("mardas_md2pdf.workspace.MAX_WORKSPACE_TEXT_BYTES", 32)
+    monkeypatch.setattr("mardas_folio.workspace.MAX_WORKSPACE_TEXT_BYTES", 32)
     with pytest.raises(WorkspaceError) as large_exc:
         read_workspace_file(workspace, "large.txt")
     assert large_exc.value.code == "project_file_too_large"
@@ -464,7 +464,7 @@ def test_visual_audit_script_supports_project_mode():
 
 
 def test_studio_html_contains_project_explorer_problems_and_book_actions():
-    html = (Path(__file__).resolve().parents[1] / "src/mardas_md2pdf/assets/gui.html").read_text(
+    html = (Path(__file__).resolve().parents[1] / "src/mardas_folio/assets/gui.html").read_text(
         encoding="utf-8"
     )
 

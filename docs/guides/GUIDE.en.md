@@ -146,9 +146,9 @@ The package exposes three process interfaces:
 
 | Command | Purpose |
 | :--- | :--- |
-| `mrs-md2pdf` | Convert Markdown files to PDF from the command line. |
-| `mrs-md2pdf-gui` | Launch the current local browser-based graphical interface. |
-| `mrs-md2pdf-sidecar` | Start the versioned stdio JSON-RPC engine for native desktop clients. |
+| `folio` | Convert Markdown files to PDF from the command line. |
+| `folio-gui` | Launch the current local browser-based graphical interface. |
+| `folio-sidecar` | Start the versioned stdio JSON-RPC engine for native desktop clients. |
 
 ## Standalone runtime for desktop packaging
 
@@ -220,19 +220,19 @@ Keyboard accessibility is part of the desktop contract: a skip link reaches the 
 Create a simple PDF:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf
+folio input.md -o output.pdf
 ```
 
 Create a PDF with a table of contents and the project's recommended Mardas appearance:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --toc --style modern --palette emerald --mode light
+folio input.md -o output.pdf --toc --style modern --palette emerald --mode light
 ```
 
 Create a long report with book-like page flow:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf \
+folio input.md -o output.pdf \
   --toc \
   --toc-depth 4 \
   --toc-page-break \
@@ -245,13 +245,13 @@ mrs-md2pdf input.md -o output.pdf \
 Save the intermediate HTML for debugging:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --debug-html output.html
+folio input.md -o output.pdf --debug-html output.html
 ```
 
 Show the progress bar explicitly in terminal sessions:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --progress on
+folio input.md -o output.pdf --progress on
 ```
 
 By default, `--progress auto` shows the progress bar only when the command is running in an interactive terminal. Use `--progress off` for quiet scripts.
@@ -340,25 +340,25 @@ The cover is rendered separately from the main document. This gives the output c
 Disable the cover:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --no-cover
+folio input.md -o output.pdf --no-cover
 ```
 
 The default cover is unbranded. Enable full project or organization branding only when needed:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --branding full --brand-name "Acme Research Lab"
+folio input.md -o output.pdf --branding full --brand-name "Acme Research Lab"
 ```
 
 Use a custom brand logo:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --branding full --brand-logo ./assets/logo.png
+folio input.md -o output.pdf --branding full --brand-logo ./assets/logo.png
 ```
 
 Keep the cover but hide the logo:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --no-cover-logo
+folio input.md -o output.pdf --no-cover-logo
 ```
 
 Use `branding.mode: subtle` for a small generated-with note, and keep `branding.mode: full` for documents that intentionally show a product or organization brand. The guides in `examples/` use full branding because they document Mardas Folio itself.
@@ -386,7 +386,7 @@ English writing can include Persian terms such as راست به چپ, فونت �
 
 Persian writing can include English identifiers such as `Playwright`, `MathJax`, `GitHub Actions`, `PDF`, and `RTL/LTR` inside the same paragraph.
 
-Inline code remains stable: `mrs-md2pdf input.md -o output.pdf --toc`.
+Inline code remains stable: `folio input.md -o output.pdf --toc`.
 
 ## Persian/RTL visual smoke sample
 
@@ -409,25 +409,25 @@ Use this section as the Persian/RTL checklist for mixed identifiers, numeric sty
 Enable the table of contents:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --toc
+folio input.md -o output.pdf --toc
 ```
 
 Control the depth:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --toc --toc-depth 3
+folio input.md -o output.pdf --toc --toc-depth 3
 ```
 
 Start the body on a new page after the TOC:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --toc --toc-page-break
+folio input.md -o output.pdf --toc --toc-page-break
 ```
 
 Start each top-level heading on a new page:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --h1-page-break
+folio input.md -o output.pdf --h1-page-break
 ```
 
 The TOC is generated from Markdown headings and preserves readable inline math in headings such as $E = mc^2$ and $\epsilon$.
@@ -494,7 +494,7 @@ Callouts use GitHub-style markers and are translated according to the document l
 Version 1.6.2 replaces the older parallel visual controls with one appearance model: `style` controls shape and layout, `palette` controls accent colors, and `mode` controls light or dark output. Use the GitHub style when the source document is similar to a README, project guide, API note, or engineering document:
 
 ```bash
-mrs-md2pdf README.md -o README.pdf --style github --palette blue --mode light --toc
+folio README.md -o README.pdf --style github --palette blue --mode light --toc
 ```
 
 ## Alerts
@@ -514,7 +514,7 @@ GitHub-style alerts are written as blockquotes and become highlighted PDF callou
 
 Bare URLs and email addresses are linked automatically outside code spans:
 
-- Project page: www.example.com/mardas-md2pdf
+- Project page: www.example.com/mardas-folio
 - Maintainer contact: docs@example.com
 - Literal code remains unchanged: `www.example.com`
 
@@ -623,7 +623,7 @@ Indented code blocks are supported:
 
     SELECT title, lang, version
     FROM documents
-    WHERE renderer = 'mardas-md2pdf';
+    WHERE renderer = 'mardas-folio';
 
 Inline code is protected from math and footnote processing. For example, `$x$` and `[^note]` remain literal when they are inside backticks.
 
@@ -738,7 +738,7 @@ Safe `data:` images are limited to common raster formats such as PNG, JPEG, GIF,
 Use unsafe HTML only for trusted local files:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --unsafe-html
+folio input.md -o output.pdf --unsafe-html
 ```
 
 <div class="md2pdf-page-break"></div>
@@ -787,19 +787,19 @@ A manual page break can be inserted with safe HTML:
 Use a named page size:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --page-size A4
+folio input.md -o output.pdf --page-size A4
 ```
 
 Use landscape orientation:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --page-size "A4 landscape"
+folio input.md -o output.pdf --page-size "A4 landscape"
 ```
 
 Use explicit dimensions:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --page-size "210mm 297mm"
+folio input.md -o output.pdf --page-size "210mm 297mm"
 ```
 
 Named A0-A6, B0-B6, Letter, Legal, Tabloid, and Ledger sizes are converted to explicit Chromium dimensions so unsupported named formats do not silently fall back to A4. Custom dimensions must remain between 10 mm and 5000 mm per side. Unknown or out-of-range values fail early, and Studio uses the same validation with a structured `invalid_page_size` error.
@@ -807,7 +807,7 @@ Named A0-A6, B0-B6, Letter, Legal, Tabloid, and Ledger sizes are converted to ex
 ## Margins
 
 ```bash
-mrs-md2pdf input.md -o output.pdf \
+folio input.md -o output.pdf \
   --margin-top 18mm \
   --margin-bottom 18mm \
   --margin-x 16mm
@@ -818,14 +818,14 @@ mrs-md2pdf input.md -o output.pdf \
 Text watermark:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --watermark "DRAFT"
+folio input.md -o output.pdf --watermark "DRAFT"
 ```
 
 Image watermark:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf \
-  --watermark-image ./src/mardas_md2pdf/assets/mardas-md2pdf-logo.png \
+folio input.md -o output.pdf \
+  --watermark-image ./src/mardas_folio/assets/mardas-folio-logo.png \
   --watermark-opacity 0.05 \
   --watermark-width 95mm
 ```
@@ -863,7 +863,7 @@ brand:
 CLI equivalent:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf \
+folio input.md -o output.pdf \
   --branding full \
   --brand-name "Acme Research Lab" \
   --brand-logo assets/acme.png \
@@ -897,8 +897,8 @@ Mardas Folio uses one appearance system instead of parallel visual presets. Choo
 Choose appearance from the CLI:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --style modern --palette emerald --mode light
-mrs-md2pdf input.md -o output.pdf --style academic --palette emerald --mode dark
+folio input.md -o output.pdf --style modern --palette emerald --mode light
+folio input.md -o output.pdf --style academic --palette emerald --mode dark
 ```
 
 Or store it in front matter:
@@ -919,7 +919,7 @@ Dark mode is style-aware. `modern` uses a deep navy surface, `github` follows a 
 Normal interactive work uses the `standard` profile. It preserves the historical behavior: quality problems are recorded and emitted as warnings so exploratory exports can continue. For a thesis, journal submission, public report, or release artifact, use `strict-publication` so the build fails when the renderer cannot prove that formulas, required fonts, and internal PDF navigation survived the complete pipeline.
 
 ```bash
-mrs-md2pdf report.md -o report.pdf \
+folio report.md -o report.pdf \
   --quality-profile strict-publication \
   --require-font Vazirmatn \
   --require-font "JetBrains Mono" \
@@ -931,7 +931,7 @@ The report is bounded JSON suitable for CI. It records the selected profile, pas
 Each category can be overridden independently:
 
 ```bash
-mrs-md2pdf report.md -o report.pdf \
+folio report.md -o report.pdf \
   --quality-profile strict-publication \
   --math-error-policy error \
   --font-error-policy warn \
@@ -957,7 +957,7 @@ Studio exposes these controls under **Publication Quality**. A queued export ret
 Use a versioned `mardas.toml` when a document or repository needs repeatable settings without a long command line. Create the initial file in the current directory:
 
 ```bash
-mrs-md2pdf init
+folio init
 ```
 
 The generated configuration is deliberately conservative: safe HTML, blocked remote assets, an ordinary A4 page, explicit appearance settings, and schema version `1`. Relative paths in the configuration are resolved from the directory containing `mardas.toml`, not from the shell working directory.
@@ -1021,8 +1021,8 @@ Negative overrides such as `--no-toc`, `--cover`, `--header-footer`, `--mathjax`
 Validate configuration and Markdown without launching Chromium:
 
 ```bash
-mrs-md2pdf validate report.md
-mrs-md2pdf validate report.md --format json
+folio validate report.md
+folio validate report.md --format json
 ```
 
 Validation reports malformed TOML or YAML, unsupported schema versions, unknown keys, invalid values, missing configured assets, blocked images, heading-level jumps, and risky security settings. Diagnostics use stable identifiers such as `MARDAS-E103`, `MARDAS-E109`, `MARDAS-W203`, and `MARDAS-W301`; automation should rely on the code rather than matching the English message.
@@ -1030,15 +1030,15 @@ Validation reports malformed TOML or YAML, unsupported schema versions, unknown 
 Inspect the effective values and their sources:
 
 ```bash
-mrs-md2pdf explain-config report.md
-mrs-md2pdf explain-config report.md --format json
+folio explain-config report.md
+folio explain-config report.md --format json
 ```
 
 Check the local runtime, packaged MathJax, required dependencies, Chromium discovery, configuration, and optionally the document itself:
 
 ```bash
-mrs-md2pdf doctor
-mrs-md2pdf doctor report.md --format json
+folio doctor
+folio doctor report.md --format json
 ```
 
 Warnings do not make `validate` or `doctor` fail, while error diagnostics return a non-zero exit status. A configuration that enables `unsafe_html` or remote assets is accepted only as an explicit project decision and is surfaced as a warning because it expands the trust boundary and can reduce build reproducibility.
@@ -1050,7 +1050,7 @@ Book Mode builds one PDF from an explicit, deterministic list of Markdown chapte
 Create a starter project:
 
 ```bash
-mrs-md2pdf init my-book --book
+folio init my-book --book
 ```
 
 The generated project contains `mardas.toml` and two starter chapter files:
@@ -1095,17 +1095,17 @@ The optional chapter `title` replaces the visible level-one heading and global T
 Validate and inspect the complete project without launching Chromium:
 
 ```bash
-mrs-md2pdf validate-book my-book
-mrs-md2pdf validate-book my-book --format json
-mrs-md2pdf explain-book my-book --format json
+folio validate-book my-book
+folio validate-book my-book --format json
+folio explain-book my-book --format json
 ```
 
 Build the PDF and optionally keep the combined renderer HTML:
 
 ```bash
-mrs-md2pdf build-book my-book
-mrs-md2pdf build-book my-book -o releases/handbook.pdf
-mrs-md2pdf build-book my-book --debug-html build/handbook.html --progress on
+folio build-book my-book
+folio build-book my-book -o releases/handbook.pdf
+folio build-book my-book --debug-html build/handbook.html --progress on
 ```
 
 Book Mode applies these rules:
@@ -1243,7 +1243,7 @@ Repeated Studio exports use a bounded queue and a persistent renderer session. E
 Tune the local queue from the GUI command line:
 
 ```bash
-mrs-md2pdf-gui \
+folio-gui \
   --render-workers 2 \
   --export-queue-size 6 \
   --render-idle-timeout 60
@@ -1280,9 +1280,9 @@ The same setting can be supplied in front matter with `lang: en-US` or for one c
 Run the source audit before opening Chromium:
 
 ```bash
-mrs-md2pdf audit-accessibility report.md
-mrs-md2pdf audit-accessibility report.md --format json --fail-on warning
-mrs-md2pdf audit-book-accessibility path/to/book
+folio audit-accessibility report.md
+folio audit-accessibility report.md --format json --fail-on warning
+folio audit-book-accessibility path/to/book
 ```
 
 The source audit checks heading hierarchy, alternative text, link names, table headers and captions, declared language, and the selected appearance contrast. It reports stable `MARDAS-A...` diagnostic codes with file and line information where available.
@@ -1309,9 +1309,9 @@ Rendered image figures are associated with their captions. Table captions receiv
 Inspect the final artifact separately:
 
 ```bash
-mrs-md2pdf audit-pdf output.pdf --profile accessibility
-mrs-md2pdf audit-pdf output.pdf --profile archival
-mrs-md2pdf audit-pdf output.pdf --profile all --format json --fail-on never
+folio audit-pdf output.pdf --profile accessibility
+folio audit-pdf output.pdf --profile archival
+folio audit-pdf output.pdf --profile all --format json --fail-on never
 ```
 
 Generated PDFs include catalog `/Lang`, viewer title preferences, document information metadata, and XMP metadata. The PDF audit reports font embedding, ToUnicode maps, tagging signals, output intents, JavaScript, attachments, and PDF/A identifiers. Current Chromium output is not claimed to be PDF/UA compliant, and the project does not add a false structure tree or PDF/A identifier. Formal conformance requires an independent validator and manual accessibility review.
@@ -1321,13 +1321,13 @@ Generated PDFs include catalog `/Lang`, viewer title preferences, document infor
 Launch the GUI for a standalone document:
 
 ```bash
-mrs-md2pdf-gui
+folio-gui
 ```
 
 Open a live project workspace rooted at `mardas.toml`:
 
 ```bash
-mrs-md2pdf-gui --project path/to/project
+folio-gui --project path/to/project
 ```
 
 Project Workspace mode shows the ordered Book Mode chapters and supported project text files in a Project Explorer. The Problems panel uses the same `MARDAS-*` diagnostics as `validate` and `validate-book`; selecting a problem opens the responsible file and moves the editor to its line and column when available. The active Markdown file uses renderer-backed project configuration, bibliography, cross-references, and project-root asset rules. **Preview Book** and **Export Book** operate on the saved complete project, so save the active file before running either action.
@@ -1391,7 +1391,7 @@ If an export fails, Studio shows the HTTP status and stable backend error code, 
 Run the full help command when needed:
 
 ```bash
-mrs-md2pdf --help
+folio --help
 ```
 
 # Automation and CI
@@ -1399,13 +1399,13 @@ mrs-md2pdf --help
 A typical automation command can be as simple as:
 
 ```bash
-mrs-md2pdf docs/report.md -o build/report.pdf --toc --style modern --palette emerald --mode light
+folio docs/report.md -o build/report.pdf --toc --style modern --palette emerald --mode light
 ```
 
 The repository includes a GitHub Actions CI workflow that runs Ruff, pytest, and a Chromium render smoke test on supported Python versions. For CI workflows, prefer explicit options:
 
 ```bash
-mrs-md2pdf docs/report.md -o build/report.pdf \
+folio docs/report.md -o build/report.pdf \
   --toc \
   --toc-depth 4 \
   --style modern \
@@ -1420,7 +1420,7 @@ mrs-md2pdf docs/report.md -o build/report.pdf \
 For debugging CI failures, save the intermediate HTML as an artifact:
 
 ```bash
-mrs-md2pdf docs/report.md -o build/report.pdf --debug-html build/report.html
+folio docs/report.md -o build/report.pdf --debug-html build/report.html
 ```
 
 ## Verifying Release Artifacts
@@ -1453,7 +1453,7 @@ gh attestation verify artifact-name \
 After extracting an offline Python bundle, run:
 
 ```bash
-python install.py --target mardas-md2pdf-venv
+python install.py --target mardas-folio-venv
 ```
 
 The bundle installs Python wheels without contacting a package index. It does not include Chromium or a standalone Python runtime; browser installation remains a separate, explicit step.
@@ -1471,7 +1471,7 @@ python -m playwright install chromium
 or pass a custom browser path:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --chromium-path /path/to/chrome
+folio input.md -o output.pdf --chromium-path /path/to/chrome
 ```
 
 ## Persian text looks wrong
@@ -1479,7 +1479,7 @@ mrs-md2pdf input.md -o output.pdf --chromium-path /path/to/chrome
 Install a Persian-capable font such as Vazirmatn, or pass a font directory:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --font-dir ./fonts
+folio input.md -o output.pdf --font-dir ./fonts
 ```
 
 If the directory is missing or does not contain recognized font files, the renderer prints a fallback warning and uses system fonts.
@@ -1493,7 +1493,7 @@ Check that image paths are relative to the Markdown file and stay inside the Mar
 Make sure MathJax is enabled and check for renderer warnings. For large documents, increase the timeout:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --timeout-ms 90000
+folio input.md -o output.pdf --timeout-ms 90000
 ```
 
 ## Layout needs inspection
@@ -1501,7 +1501,7 @@ mrs-md2pdf input.md -o output.pdf --timeout-ms 90000
 Export debug HTML:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --debug-html output.html
+folio input.md -o output.pdf --debug-html output.html
 ```
 
 Open `output.html` in a browser and inspect the generated structure and CSS.

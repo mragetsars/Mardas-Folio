@@ -6,7 +6,7 @@ import io
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SOURCE = ROOT / "src" / "mardas_md2pdf" / "assets" / "mardas-md2pdf-app-icon.svg"
+DEFAULT_SOURCE = ROOT / "src" / "mardas_folio" / "assets" / "mardas-folio-app-icon.svg"
 DEFAULT_OUTPUT = ROOT / "apps" / "desktop" / "src-tauri" / "icons"
 
 

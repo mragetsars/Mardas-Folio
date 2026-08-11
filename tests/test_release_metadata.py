@@ -32,7 +32,7 @@ def _project_version() -> str:
 def test_project_version_metadata_matches() -> None:
     version = _project_version()
 
-    assert f'__version__ = "{version}"' in _read("src/mardas_md2pdf/__init__.py")
+    assert f'__version__ = "{version}"' in _read("src/mardas_folio/__init__.py")
     assert f"Version-v{version}-success" in _read("README.md")
     assert f'version: "{version}"' in _read("docs/guides/GUIDE.en.md")
     assert f'version: "{version}"' in _read("docs/guides/GUIDE.fa.md")
@@ -49,7 +49,7 @@ def test_visual_qa_fixtures_use_the_project_version() -> None:
         "scripts/audit_pdf_features.py",
     ):
         script = _read(relative_path)
-        assert "from mardas_md2pdf import __version__" in script
+        assert "from mardas_folio import __version__" in script
         assert "__MARDAS_VERSION__" in script
         assert "1.13.2" not in script
         assert "1.13.11" not in script
@@ -114,7 +114,7 @@ def test_example_builds_set_deterministic_pdf_dates() -> None:
 
     assert "SOURCE_DATE_EPOCH" in script
     assert "1735689600" in script
-    assert "mardas_md2pdf.cli" in script
+    assert "mardas_folio.cli" in script
     assert "docs/guides/GUIDE.en.md" in script
     assert "docs/guides/GUIDE.fa.md" in script
     assert "run_command" in script
@@ -343,7 +343,7 @@ raise SystemExit(f"Unexpected fake-python invocation: {args!r}")
     if editables is None:
         editables = [
             {
-                "name": "Mardas_MD2PDF",
+                "name": "Mardas_Folio",
                 "version": "1.26.0",
                 "editable_project_location": str(ROOT),
             }
@@ -382,7 +382,7 @@ raise SystemExit(f"Unexpected fake-python invocation: {args!r}")
 @pytest.mark.skipif(os.name == "nt", reason="The security audit is a POSIX Bash CI job")
 def test_dependency_audit_requires_exact_checkout_editable(tmp_path: Path) -> None:
     valid = {
-        "name": "mardas-md2pdf",
+        "name": "mardas-folio",
         "version": "1.26.0",
         "editable_project_location": str(ROOT),
     }
@@ -512,7 +512,7 @@ def test_release_gate_verifies_installed_project_commands() -> None:
     assert "bibliography_entries" in script
     assert "references.bib" in script
     assert "bib-" in script
-    assert "mardas_md2pdf.workspace" in script
+    assert "mardas_folio.workspace" in script
     assert "workspace_payload" in script
     assert 'grep -F -- "--project"' in script
     assert "scripts/audit_studio_visual.py" in script
@@ -540,7 +540,7 @@ def test_release_gate_verifies_current_packaged_asset_names() -> None:
         "style-github.css",
         "style-textbook.css",
         "style-academic.css",
-        "mardas-md2pdf-mark.svg",
+        "mardas-folio-mark.svg",
         "mathjax/tex-svg-full.js",
     ]:
         assert asset in script
@@ -592,7 +592,7 @@ def test_desktop_sidecar_packaging_metadata_is_declared() -> None:
     pyproject = _read("pyproject.toml")
     manifest = _read("MANIFEST.in")
 
-    assert 'mrs-md2pdf-sidecar = "mardas_md2pdf.sidecar:main"' in pyproject
+    assert 'folio-sidecar = "mardas_folio.sidecar:main"' in pyproject
     assert 'desktop = [' in pyproject
     assert '"pyinstaller>=6.11,<7"' in pyproject
     assert "recursive-include packaging *.py *.spec" in manifest
@@ -609,8 +609,8 @@ def test_standalone_pyinstaller_chromium_uses_analysis_data_pair() -> None:
 def test_release_gate_verifies_installed_sidecar_contract() -> None:
     script = _read("scripts/release_gate.sh")
 
-    assert '"$venv_bin/mrs-md2pdf-sidecar" --version' in script
-    assert '"$venv_bin/mrs-md2pdf-sidecar" --health' in script
+    assert '"$venv_bin/folio-sidecar" --version' in script
+    assert '"$venv_bin/folio-sidecar" --health' in script
     assert 'payload.get("protocol") != "mardas-sidecar"' in script
     assert 'payload.get("protocol_version") != 1' in script
 

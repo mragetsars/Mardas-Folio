@@ -6,12 +6,12 @@ import threading
 
 import pytest
 
-from mardas_md2pdf import renderer, studio_jobs
-from mardas_md2pdf.book import load_book_manifest, render_book
-from mardas_md2pdf.config import load_project_config
-from mardas_md2pdf.render_pool import RenderPool, RenderQueueFullError
-from mardas_md2pdf.renderer import PdfOptions, RenderCancelledError, RenderSession
-from mardas_md2pdf.studio_jobs import StudioExportJobError, StudioExportManager
+from mardas_folio import renderer, studio_jobs
+from mardas_folio.book import load_book_manifest, render_book
+from mardas_folio.config import load_project_config
+from mardas_folio.render_pool import RenderPool, RenderQueueFullError
+from mardas_folio.renderer import PdfOptions, RenderCancelledError, RenderSession
+from mardas_folio.studio_jobs import StudioExportJobError, StudioExportManager
 
 
 def test_render_pool_reuses_one_thread_affine_session() -> None:

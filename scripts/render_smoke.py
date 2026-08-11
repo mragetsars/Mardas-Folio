@@ -16,7 +16,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path(os.environ.get("TMPDIR", "/tmp")) / "mardas-md2pdf-smoke.pdf",
+        default=Path(os.environ.get("TMPDIR", "/tmp")) / "mardas-folio-smoke.pdf",
         help="Output PDF path for the smoke render.",
     )
     parser.add_argument(
@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     command = [
         sys.executable,
         "-m",
-        "mardas_md2pdf.cli",
+        "mardas_folio.cli",
         "docs/guides/GUIDE.en.md",
         "-o",
         str(output_path),

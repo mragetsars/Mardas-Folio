@@ -75,16 +75,16 @@ def _add_config_arguments(parser: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="mrs-md2pdf",
+        prog="folio",
         description=(
             "Convert Markdown to polished PDF with Persian RTL/LTR typography, "
             "professional covers, hierarchical TOC, code highlighting, Mermaid flowcharts, tables, watermarking, and MathJax."
         ),
         epilog=(
-            "Project workflows: `mrs-md2pdf init`, `validate`, `doctor`, `explain-config`, "
+            "Project workflows: `folio init`, `validate`, `doctor`, `explain-config`, "
             "`validate-book`, `explain-book`, `build-book`, `audit-accessibility`, "
             "`audit-book-accessibility`, and `audit-pdf`. Legacy conversion syntax remains "
-            "`mrs-md2pdf input.md [options]`."
+            "`folio input.md [options]`."
         ),
     )
     parser.add_argument("input", nargs="?", type=Path, help="Input Markdown file")

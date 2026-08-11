@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from mardas_md2pdf import application, sidecar
-from mardas_md2pdf.application import EngineError, EngineService
-from mardas_md2pdf.workspace import (
+from mardas_folio import application, sidecar
+from mardas_folio.application import EngineError, EngineService
+from mardas_folio.workspace import (
     WorkspaceError,
     add_workspace_book_chapter,
     create_book_workspace,

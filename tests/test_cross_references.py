@@ -5,10 +5,10 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from mardas_md2pdf.book import load_book_manifest, render_book
-from mardas_md2pdf.cli import main
-from mardas_md2pdf.config import load_project_config
-from mardas_md2pdf.markdown import render_markdown
+from mardas_folio.book import load_book_manifest, render_book
+from mardas_folio.cli import main
+from mardas_folio.config import load_project_config
+from mardas_folio.markdown import render_markdown
 
 
 def _diagnostic_codes(result) -> list[str]:
@@ -335,7 +335,7 @@ def test_cli_no_references_overrides_project_configuration(
         options.output_path.write_bytes(b"%PDF-1.7\n")
         return options.output_path
 
-    monkeypatch.setattr("mardas_md2pdf.cli.convert", fake_convert)
+    monkeypatch.setattr("mardas_folio.cli.convert", fake_convert)
 
     assert main([str(document), "--no-references", "--progress", "off"]) == 0
     assert captured["references_enabled"] is False
@@ -490,8 +490,8 @@ references:
 
 
 def test_single_file_conversion_rejects_unresolved_reference_before_browser(tmp_path: Path) -> None:
-    from mardas_md2pdf.markdown import MarkdownInputError
-    from mardas_md2pdf.renderer import PdfOptions, convert
+    from mardas_folio.markdown import MarkdownInputError
+    from mardas_folio.renderer import PdfOptions, convert
 
     source = tmp_path / "document.md"
     source.write_text("See @fig:missing.\n", encoding="utf-8")

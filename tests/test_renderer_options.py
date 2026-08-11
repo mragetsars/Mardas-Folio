@@ -1,4 +1,4 @@
-from mardas_md2pdf.renderer import _css_page_size, _playwright_page_size_kwargs, validate_page_size
+from mardas_folio.renderer import _css_page_size, _playwright_page_size_kwargs, validate_page_size
 
 
 def test_css_page_size_accepts_named_orientation_and_dimensions():
@@ -32,7 +32,7 @@ def test_playwright_page_size_uses_explicit_dimensions_for_all_formats():
 def test_font_faces_warns_for_missing_font_directory(tmp_path):
     import pytest
 
-    from mardas_md2pdf.renderer import _font_faces
+    from mardas_folio.renderer import _font_faces
 
     with pytest.warns(RuntimeWarning, match="Font directory not found"):
         assert _font_faces(tmp_path / "missing-fonts") == ""
@@ -41,7 +41,7 @@ def test_font_faces_warns_for_missing_font_directory(tmp_path):
 def test_render_pdf_warns_when_mathjax_evaluation_fails(tmp_path):
     import pytest
 
-    from mardas_md2pdf.renderer import PdfOptions, _render_pdf
+    from mardas_folio.renderer import PdfOptions, _render_pdf
 
     class FakePage:
         def __init__(self):
@@ -81,8 +81,8 @@ def test_render_pdf_warns_when_mathjax_evaluation_fails(tmp_path):
 
 
 def test_manual_pagebreak_css_breaks_after_marker_not_before(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "A\n\n<div class=\"md2pdf-page-break\"></div>\n\n# B\n"
     result = render_markdown(md)
@@ -100,7 +100,7 @@ def test_manual_pagebreak_css_breaks_after_marker_not_before(tmp_path):
 
 
 def test_footer_template_isolates_mixed_title_in_ltr_footer_slot():
-    from mardas_md2pdf.renderer import _footer_template
+    from mardas_folio.renderer import _footer_template
 
     footer = _footer_template("راهنمای Mardas Folio", "modern")
 
@@ -113,8 +113,8 @@ def test_footer_template_isolates_mixed_title_in_ltr_footer_slot():
 
 
 def test_print_css_hides_heading_permalink_markers(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "# Heading\n"
     input_path = tmp_path / "heading.md"
@@ -127,8 +127,8 @@ def test_print_css_hides_heading_permalink_markers(tmp_path):
 
 
 def test_callout_direction_follows_resolved_document_direction(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "---\nlang: en\ndir: ltr\n---\n\n> [!NOTE]\n> English callout text.\n"
     input_path = tmp_path / "callout.md"
@@ -145,8 +145,8 @@ def test_callout_direction_follows_resolved_document_direction(tmp_path):
 
 
 def test_mermaid_css_uses_appearance_color_variables(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "```mermaid\nflowchart LR\nA[A] --> B[B]\n```\n"
     input_path = tmp_path / "diagram.md"
@@ -163,8 +163,8 @@ def test_mermaid_css_uses_appearance_color_variables(tmp_path):
 
 
 def test_mermaid_css_caps_diagram_height_for_print_layout(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "```mermaid\nflowchart TD\nA[A] --> B[B]\nB --> C[C]\nC --> D[D]\n```\n"
     input_path = tmp_path / "diagram.md"
@@ -178,7 +178,7 @@ def test_mermaid_css_caps_diagram_height_for_print_layout(tmp_path):
 
 
 def test_chromium_sandbox_off_adds_no_sandbox(tmp_path):
-    from mardas_md2pdf.renderer import PdfOptions, _chromium_launch_args
+    from mardas_folio.renderer import PdfOptions, _chromium_launch_args
 
     options = PdfOptions(
         input_path=tmp_path / "input.md",
@@ -190,7 +190,7 @@ def test_chromium_sandbox_off_adds_no_sandbox(tmp_path):
 
 
 def test_chromium_sandbox_on_omits_no_sandbox(tmp_path):
-    from mardas_md2pdf.renderer import PdfOptions, _chromium_launch_args
+    from mardas_folio.renderer import PdfOptions, _chromium_launch_args
 
     options = PdfOptions(
         input_path=tmp_path / "input.md",
@@ -202,7 +202,7 @@ def test_chromium_sandbox_on_omits_no_sandbox(tmp_path):
 
 
 def test_cli_exposes_chromium_sandbox_modes():
-    from mardas_md2pdf.cli import build_parser
+    from mardas_folio.cli import build_parser
 
     parser = build_parser()
     sandbox_action = next(action for action in parser._actions if "--chromium-sandbox" in action.option_strings)
@@ -211,8 +211,8 @@ def test_cli_exposes_chromium_sandbox_modes():
 
 
 def test_outline_source_entries_follow_markdown_headings():
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import _outline_source_entries
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import _outline_source_entries
 
     result = render_markdown("# Intro\n\n## Details\n\n### Deep dive\n")
 
@@ -224,7 +224,7 @@ def test_outline_source_entries_follow_markdown_headings():
 
 
 def test_locate_outline_pages_uses_start_page_and_monotonic_lookup():
-    from mardas_md2pdf.renderer import _locate_outline_pages
+    from mardas_folio.renderer import _locate_outline_pages
 
     page_texts = [
         "cover",
@@ -250,7 +250,7 @@ def test_locate_outline_pages_uses_start_page_and_monotonic_lookup():
 def test_add_pdf_outline_writes_nested_bookmarks(tmp_path):
     from pypdf import PdfReader, PdfWriter
 
-    from mardas_md2pdf.renderer import _add_pdf_outline
+    from mardas_folio.renderer import _add_pdf_outline
 
     output_path = tmp_path / "outlined.pdf"
     writer = PdfWriter()
@@ -271,7 +271,7 @@ def test_add_pdf_outline_writes_nested_bookmarks(tmp_path):
 def test_cli_rejects_invalid_page_size(tmp_path):
     import pytest
 
-    from mardas_md2pdf.cli import main
+    from mardas_folio.cli import main
 
     input_path = tmp_path / "doc.md"
     input_path.write_text("# Title\n", encoding="utf-8")
@@ -281,7 +281,7 @@ def test_cli_rejects_invalid_page_size(tmp_path):
 
 
 def test_cli_exposes_remote_asset_opt_in():
-    from mardas_md2pdf.cli import build_parser
+    from mardas_folio.cli import build_parser
 
     parser = build_parser()
     action = next(action for action in parser._actions if "--allow-remote-assets" in action.option_strings)
@@ -291,8 +291,8 @@ def test_cli_exposes_remote_asset_opt_in():
 
 
 def test_blocked_image_placeholder_css_is_print_friendly(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown_file
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown_file
+    from mardas_folio.renderer import PdfOptions, build_html
 
     input_path = tmp_path / "missing.md"
     input_path.write_text("![Missing](missing.png)\n", encoding="utf-8")
@@ -306,8 +306,8 @@ def test_blocked_image_placeholder_css_is_print_friendly(tmp_path):
 
 
 def test_wide_table_css_fits_columns_for_print(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     columns = "|" + "|".join(f"C{i}" for i in range(1, 13)) + "|"
     divider = "|" + "|".join("---" for _ in range(12)) + "|"
@@ -325,7 +325,7 @@ def test_wide_table_css_fits_columns_for_print(tmp_path):
 
 
 def test_pdf_date_honors_source_date_epoch(monkeypatch):
-    from mardas_md2pdf.renderer import _pdf_date
+    from mardas_folio.renderer import _pdf_date
 
     monkeypatch.setenv("SOURCE_DATE_EPOCH", "1735689600")
 
@@ -334,8 +334,8 @@ def test_pdf_date_honors_source_date_epoch(monkeypatch):
 
 
 def test_watermark_css_overlays_content_with_mode_aware_blending(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     input_path = tmp_path / "watermark.md"
     input_path.write_text("# Watermark\n", encoding="utf-8")
@@ -352,8 +352,8 @@ def test_watermark_css_overlays_content_with_mode_aware_blending(tmp_path):
 
 
 def test_build_html_uses_resolved_appearance_classes_and_palette_css(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     input_path = tmp_path / "appearance.md"
     input_path.write_text("# Appearance\n", encoding="utf-8")
@@ -376,8 +376,8 @@ def test_build_html_uses_resolved_appearance_classes_and_palette_css(tmp_path):
 
 
 def test_front_matter_appearance_is_used_when_cli_keeps_defaults(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "---\nappearance:\n  style: textbook\n  palette: rose\n  mode: dark\n---\n\n# Title\n"
     input_path = tmp_path / "frontmatter.md"
@@ -390,7 +390,7 @@ def test_front_matter_appearance_is_used_when_cli_keeps_defaults(tmp_path):
 
 
 def test_cli_lists_appearance_choices_without_input(capsys):
-    from mardas_md2pdf.cli import main
+    from mardas_folio.cli import main
 
     assert main(["--list-styles"]) == 0
     styles_output = capsys.readouterr().out
@@ -412,7 +412,7 @@ def test_cli_lists_appearance_choices_without_input(capsys):
 
 
 def test_dark_appearance_css_uses_style_specific_surfaces():
-    from mardas_md2pdf.appearance import palette_css
+    from mardas_folio.appearance import palette_css
 
     modern = palette_css("blue", "dark", "modern")
     github = palette_css("blue", "dark", "github")
@@ -427,7 +427,7 @@ def test_dark_appearance_css_uses_style_specific_surfaces():
 
 
 def test_dark_appearance_css_overrides_full_bleed_cover_background():
-    from mardas_md2pdf.appearance import palette_css
+    from mardas_folio.appearance import palette_css
 
     css = palette_css("emerald", "dark", "textbook")
 
@@ -437,7 +437,7 @@ def test_dark_appearance_css_overrides_full_bleed_cover_background():
 
 
 def test_light_appearance_css_tints_cover_with_palette():
-    from mardas_md2pdf.appearance import palette_css
+    from mardas_folio.appearance import palette_css
 
     css = palette_css("rose", "light", "modern")
 
@@ -447,8 +447,8 @@ def test_light_appearance_css_tints_cover_with_palette():
 
 
 def test_cover_eyebrow_is_not_rendered_as_badge_highlight(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = """---
 title: Guide
@@ -496,8 +496,8 @@ cover_label: Complete Guide
 
 
 def test_numbered_code_css_aligns_line_numbers_with_code_rows(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = '```python title="main.py" linenos\nprint(1)\nprint(2)\n```\n'
     input_path = tmp_path / "code.md"
@@ -529,8 +529,8 @@ def test_numbered_code_css_aligns_line_numbers_with_code_rows(tmp_path):
 
 
 def test_highlighted_code_css_preserves_indentation_and_line_metrics(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = (
         '```python title="renderer.py" {2} linenos\n'
@@ -553,8 +553,8 @@ def test_highlighted_code_css_preserves_indentation_and_line_metrics(tmp_path):
     assert '</span>\n    <span class="n">pdf</span>' in html
 
 def test_cover_branding_is_off_by_default(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "---\ntitle: User Report\n---\n\n# Body\n"
     input_path = tmp_path / "report.md"
@@ -569,8 +569,8 @@ def test_cover_branding_is_off_by_default(tmp_path):
 
 
 def test_cover_branding_full_is_explicit(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "---\ntitle: Guide\nbranding:\n  mode: full\n---\n\n# Body\n"
     input_path = tmp_path / "guide.md"
@@ -590,8 +590,8 @@ def test_cover_branding_full_is_explicit(tmp_path):
 
 
 def test_cover_branding_uses_custom_brand_metadata(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = """---
 title: Internal Report
@@ -617,8 +617,8 @@ brand:
 
 
 def test_cover_branding_subtle_is_not_a_large_brand_block(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "---\ntitle: Report\n---\n\n# Body\n"
     input_path = tmp_path / "subtle.md"
@@ -637,8 +637,8 @@ def test_cover_branding_subtle_is_not_a_large_brand_block(tmp_path):
 def test_strict_publication_fails_when_required_font_is_missing(tmp_path):
     import pytest
 
-    from mardas_md2pdf.quality import FontValidationError
-    from mardas_md2pdf.renderer import PdfOptions, _render_pdf
+    from mardas_folio.quality import FontValidationError
+    from mardas_folio.renderer import PdfOptions, _render_pdf
 
     class FakePage:
         def set_content(self, html_text, wait_until):
@@ -681,8 +681,8 @@ def test_strict_publication_fails_when_required_font_is_missing(tmp_path):
 def test_strict_publication_fails_when_mathjax_is_unresolved(tmp_path):
     import pytest
 
-    from mardas_md2pdf.quality import MathJaxRenderError
-    from mardas_md2pdf.renderer import PdfOptions, _render_pdf
+    from mardas_folio.quality import MathJaxRenderError
+    from mardas_folio.renderer import PdfOptions, _render_pdf
 
     class FakePage:
         def set_content(self, html_text, wait_until):
@@ -734,7 +734,7 @@ def test_strict_publication_fails_when_mathjax_is_unresolved(tmp_path):
 def test_quality_report_serializes_font_and_math_evidence(tmp_path):
     import json
 
-    from mardas_md2pdf.renderer import PdfOptions, _render_pdf, _write_quality_report
+    from mardas_folio.renderer import PdfOptions, _render_pdf, _write_quality_report
 
     class FakePage:
         def __init__(self):

@@ -1,5 +1,5 @@
 {
-  "comment": "Shared ground truth for YAML front matter recognition. The publishing engine (src/mardas_md2pdf/markdown.py FRONTMATTER_RE), the desktop outline/metadata helper (apps/desktop/frontend/js/core/markdown-analysis.mjs frontMatterRange) and the editor's CodeMirror block parser (apps/desktop/editor-src/markdown-frontmatter.mjs) must all agree on every case here, so a document's body starts at the same place in the PDF, the outline and the editor. Expected values were taken from the engine.",
+  "comment": "Shared ground truth for YAML front matter recognition. The publishing engine (src/mardas_folio/markdown.py FRONTMATTER_RE), the desktop outline/metadata helper (apps/desktop/frontend/js/core/markdown-analysis.mjs frontMatterRange) and the editor's CodeMirror block parser (apps/desktop/editor-src/markdown-frontmatter.mjs) must all agree on every case here, so a document's body starts at the same place in the PDF, the outline and the editor. Expected values were taken from the engine.",
   "cases": [
     { "name": "simple", "text": "---\ntitle: x\n---\n\n# Hi\n", "frontmatter": true },
     { "name": "no_content_line", "text": "---\n---\n", "frontmatter": false },

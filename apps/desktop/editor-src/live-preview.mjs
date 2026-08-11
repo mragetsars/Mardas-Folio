@@ -72,7 +72,7 @@ const headingLines = new Map(
 /**
  * Callout kinds the publishing engine renders as cards.
  *
- * Mirrored from `_localized_labels` in `src/mardas_md2pdf/markdown.py`. A
+ * Mirrored from `_localized_labels` in `src/mardas_folio/markdown.py`. A
  * callout the engine will turn into a coloured admonition should not look like
  * an ordinary quotation while it is being written.
  */

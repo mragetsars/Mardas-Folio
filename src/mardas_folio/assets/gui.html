@@ -86,7 +86,7 @@
     .brand-mark{width:36px;height:36px;border-radius:0;display:grid;place-items:center;background:transparent;border:0;box-shadow:none;color:var(--text);font-weight:900;letter-spacing:-.05em;padding:0;flex:0 0 36px}
     .brand-copy strong{display:block;font-size:15px;font-weight:900;letter-spacing:.02em;color:var(--text)}
     .brand-copy span{display:block;margin-top:2px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
-    .brand-mark::before{content:"";width:100%;height:100%;display:block;background:currentColor;-webkit-mask:url("/assets/mardas-md2pdf-mark-gui-mask.svg") center/contain no-repeat;mask:url("/assets/mardas-md2pdf-mark-gui-mask.svg") center/contain no-repeat}
+    .brand-mark::before{content:"";width:100%;height:100%;display:block;background:currentColor;-webkit-mask:url("/assets/mardas-folio-mark-gui-mask.svg") center/contain no-repeat;mask:url("/assets/mardas-folio-mark-gui-mask.svg") center/contain no-repeat}
     .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .btn,.seg button,select,input[type=text],input[type=number]{
       height:36px;border:1px solid var(--border);border-radius:12px;background:var(--panel);color:var(--text);
@@ -658,10 +658,10 @@ let activeExportJobId = null;
 let activeExportCancelRequested = false;
 let activeResizePane = null;
 let settingsCollapsed = false;
-const MARDAS_STUDIO_STATE_KEY = 'mardas-md2pdf-studio-state-v1';
-const MARDAS_PROJECT_SCHEMA = 'mardas-md2pdf-studio-project-v1';
+const MARDAS_STUDIO_STATE_KEY = 'mardas-folio-studio-state-v1';
+const MARDAS_PROJECT_SCHEMA = 'mardas-folio-studio-project-v1';
 const MARDAS_STUDIO_TOKEN = '__MARDAS_STUDIO_TOKEN__';
-const MARDAS_STUDIO_CLIENT_KEY = 'mardas-md2pdf-studio-client-v1';
+const MARDAS_STUDIO_CLIENT_KEY = 'mardas-folio-studio-client-v1';
 const MAX_STORED_MARKDOWN_CHARS = 250000;
 const MAX_AUTO_ACCURATE_PREVIEW_CHARS = 180000;
 const MAX_FAST_PREVIEW_CHARS = 350000;
@@ -2533,7 +2533,7 @@ function pushOption(cmd, flag, value){
 function copyCommand(){
   const options = getOptions();
   const cmd = [
-    'mrs-md2pdf',
+    'folio',
     shellQuote('input.md'),
     '-o', shellQuote(options.filename || 'output.pdf'),
     '--page-size', shellQuote(options.pageSize || 'A4'),

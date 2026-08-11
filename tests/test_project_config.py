@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from mardas_md2pdf.cli import main
-from mardas_md2pdf.config import (
+from mardas_folio.cli import main
+from mardas_folio.config import (
     CONFIG_SCHEMA_VERSION,
     default_config_text,
     discover_config,
     load_project_config,
 )
-from mardas_md2pdf.renderer import PdfOptions
+from mardas_folio.renderer import PdfOptions
 
 
 def test_init_creates_versioned_configuration_atomically(tmp_path: Path, capsys) -> None:
@@ -125,7 +125,7 @@ allow_remote_assets = true
         captured.append(options)
         return options.output_path
 
-    monkeypatch.setattr("mardas_md2pdf.cli.convert", fake_convert)
+    monkeypatch.setattr("mardas_folio.cli.convert", fake_convert)
 
     assert main([str(input_path), "--style", "github", "--no-toc", "--progress", "off"]) == 0
 
@@ -155,7 +155,7 @@ def test_no_config_preserves_legacy_defaults(
         captured.append(options)
         return options.output_path
 
-    monkeypatch.setattr("mardas_md2pdf.cli.convert", fake_convert)
+    monkeypatch.setattr("mardas_folio.cli.convert", fake_convert)
 
     assert main([str(input_path), "--no-config", "--progress", "off"]) == 0
     assert captured[0].toc is False
@@ -335,7 +335,7 @@ def test_doctor_reports_dependency_versions(tmp_path: Path, capsys) -> None:
 def test_front_matter_appearance_controls_code_style_when_cli_is_silent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from mardas_md2pdf.markdown import render_markdown
+    from mardas_folio.markdown import render_markdown
 
     captured: list[str] = []
 
@@ -354,7 +354,7 @@ def test_front_matter_appearance_controls_code_style_when_cli_is_silent(
         captured.append(code_style)
         return "<pre><code>ok</code></pre>"
 
-    monkeypatch.setattr("mardas_md2pdf.markdown.highlight_code", fake_highlight_code)
+    monkeypatch.setattr("mardas_folio.markdown.highlight_code", fake_highlight_code)
 
     render_markdown(
         "---\nappearance:\n  style: academic\n  mode: dark\n---\n```python\nprint('x')\n```\n"
@@ -366,7 +366,7 @@ def test_front_matter_appearance_controls_code_style_when_cli_is_silent(
 def test_partial_project_appearance_combines_with_front_matter_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from mardas_md2pdf.markdown import render_markdown
+    from mardas_folio.markdown import render_markdown
 
     captured: list[str] = []
 
@@ -385,7 +385,7 @@ def test_partial_project_appearance_combines_with_front_matter_mode(
         captured.append(code_style)
         return "<pre><code>ok</code></pre>"
 
-    monkeypatch.setattr("mardas_md2pdf.markdown.highlight_code", fake_highlight_code)
+    monkeypatch.setattr("mardas_folio.markdown.highlight_code", fake_highlight_code)
 
     render_markdown(
         "---\nappearance:\n  mode: dark\n---\n```python\nprint('x')\n```\n",
@@ -396,7 +396,7 @@ def test_partial_project_appearance_combines_with_front_matter_mode(
 
 
 def test_resolved_appearance_is_persisted_for_footer_and_pdf_rendering(tmp_path: Path) -> None:
-    from mardas_md2pdf.renderer import PdfOptions, _apply_resolved_appearance
+    from mardas_folio.renderer import PdfOptions, _apply_resolved_appearance
 
     options = PdfOptions(input_path=tmp_path / "in.md", output_path=tmp_path / "out.pdf")
 
@@ -412,7 +412,7 @@ def test_resolved_appearance_is_persisted_for_footer_and_pdf_rendering(tmp_path:
 
 
 def test_oversized_project_config_is_rejected_before_toml_parsing(tmp_path: Path) -> None:
-    from mardas_md2pdf.config import MAX_CONFIG_BYTES
+    from mardas_folio.config import MAX_CONFIG_BYTES
 
     config_path = tmp_path / "mardas.toml"
     config_path.write_bytes(b"#" * (MAX_CONFIG_BYTES + 1))
@@ -473,7 +473,7 @@ include_uncited = true
         captured.append(options)
         return options.output_path
 
-    monkeypatch.setattr("mardas_md2pdf.cli.convert", fake_convert)
+    monkeypatch.setattr("mardas_folio.cli.convert", fake_convert)
     assert (
         main(
             [

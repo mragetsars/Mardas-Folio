@@ -192,11 +192,11 @@ class PdfOptions:
 
 @lru_cache(maxsize=16)
 def _asset_text(relative_path: str) -> str:
-    return (resources.files("mardas_md2pdf") / "assets" / relative_path).read_text(encoding="utf-8")
+    return (resources.files("mardas_folio") / "assets" / relative_path).read_text(encoding="utf-8")
 
 
 def _asset_path(relative_path: str) -> Path:
-    return Path(str(resources.files("mardas_md2pdf") / "assets" / relative_path))
+    return Path(str(resources.files("mardas_folio") / "assets" / relative_path))
 
 
 @lru_cache(maxsize=8)
@@ -3432,7 +3432,7 @@ def convert_render_result(
     _check_cancel(options)
     _report_progress(progress, "HTML prepared", 0.28)
 
-    with tempfile.TemporaryDirectory(prefix="mardas-md2pdf-") as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="mardas-folio-") as tmpdir:
         tmp = Path(tmpdir)
         _check_cancel(options)
         with _render_page(options, session) as (page, reused_browser):

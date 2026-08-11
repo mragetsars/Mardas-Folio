@@ -23,7 +23,7 @@ SRC = ROOT / "src"
 if SRC.is_dir() and str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from mardas_md2pdf.appearance import MODES, PALETTES_ORDER, STYLES  # noqa: E402
+from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES  # noqa: E402
 from visual_qa import ensure_clean_dir, run_command, write_json  # noqa: E402
 
 

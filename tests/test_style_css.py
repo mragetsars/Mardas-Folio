@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from mardas_md2pdf.appearance import PALETTES_ORDER
-from mardas_md2pdf.markdown import render_markdown
-from mardas_md2pdf.renderer import PdfOptions, build_html
+from mardas_folio.appearance import PALETTES_ORDER
+from mardas_folio.markdown import render_markdown
+from mardas_folio.renderer import PdfOptions, build_html
 
 
-STYLE_DIR = Path(__file__).resolve().parents[1] / "src" / "mardas_md2pdf" / "assets"
+STYLE_DIR = Path(__file__).resolve().parents[1] / "src" / "mardas_folio" / "assets"
 
 
 def test_toc_can_split_across_pages_without_moving_whole_sections():
@@ -18,7 +18,7 @@ def test_toc_can_split_across_pages_without_moving_whole_sections():
 
 
 def test_dark_style_overrides_details_and_mermaid_for_contrast():
-    from mardas_md2pdf.appearance import palette_css
+    from mardas_folio.appearance import palette_css
 
     css = palette_css("neutral", "dark", "textbook")
     assert "--md2pdf-details-bg: #101010" in css
@@ -40,7 +40,7 @@ def test_dark_style_overrides_details_and_mermaid_for_contrast():
 
 
 def test_all_dark_appearance_styles_emit_complete_mermaid_contrast_contract():
-    from mardas_md2pdf.appearance import PALETTES_ORDER, STYLES, palette_css
+    from mardas_folio.appearance import PALETTES_ORDER, STYLES, palette_css
 
     required_vars = [
         "--md2pdf-mermaid-figure-bg:",
@@ -100,9 +100,9 @@ def test_academic_palette_overrides_are_emitted_for_every_palette(tmp_path):
 
 
 def test_all_appearance_combinations_emit_clean_palette_css(tmp_path):
-    from mardas_md2pdf.appearance import MODES, PALETTES_ORDER, STYLES
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "---\ntitle: Matrix\ncover_label: Complete Guide\n---\n\n# Heading\n\n`code` and <mark>mark</mark>.\n"
     result = render_markdown(md)
@@ -132,8 +132,8 @@ def test_all_appearance_combinations_emit_clean_palette_css(tmp_path):
 
 
 def test_dark_code_highlight_overrides_root_light_code_surface(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = (
         '```python title="renderer.py" {2} linenos\n'
@@ -188,7 +188,7 @@ def test_code_highlight_uses_code_surface_not_pale_callout_color(tmp_path):
 
 
 def test_dark_mode_palettes_use_screen_safe_accent_tokens():
-    from mardas_md2pdf.appearance import DARK_PALETTES, DARK_STYLE_SURFACES, palette_css
+    from mardas_folio.appearance import DARK_PALETTES, DARK_STYLE_SURFACES, palette_css
 
     def relative_luminance(hex_color: str) -> float:
         channels = [int(hex_color[index : index + 2], 16) / 255 for index in (1, 3, 5)]
@@ -214,8 +214,8 @@ def test_dark_mode_palettes_use_screen_safe_accent_tokens():
 
 
 def test_rtl_script_code_blocks_use_persian_font_fallback(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.markdown import render_markdown
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "---\nlang: fa\ndir: rtl\n---\n\n```yaml\ntitle: \"گزارش فنی من\"\nversion: \"1.0.0\"\n```\n"
     input_path = tmp_path / "rtl-code.md"
@@ -228,7 +228,7 @@ def test_rtl_script_code_blocks_use_persian_font_fallback(tmp_path):
     assert "font-family: var(--font-fa), var(--font-code);" in html
 
 def test_modern_emerald_palette_has_strong_guide_identity_contract():
-    from mardas_md2pdf.appearance import palette_css
+    from mardas_folio.appearance import palette_css
 
     css = palette_css("emerald", "light", "modern")
 

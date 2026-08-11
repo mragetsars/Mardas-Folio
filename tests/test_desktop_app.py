@@ -8,6 +8,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
 import pytest
 from bs4 import BeautifulSoup
 
@@ -20,7 +25,7 @@ from build_desktop_frontend import build_frontend  # noqa: E402
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402
 from verify_desktop_installer import MIN_INSTALLER_BYTES, verify_installer  # noqa: E402
-from mardas_md2pdf import __version__  # noqa: E402
+from mardas_folio import __version__  # noqa: E402
 
 DESKTOP = ROOT / "apps" / "desktop"
 TAURI = DESKTOP / "src-tauri"
@@ -91,6 +96,15 @@ def test_tauri_configuration_is_native_and_versioned() -> None:
     assert {"icons/icon.icns", "icons/icon.ico", "icons/icon.png"} <= set(config["bundle"]["icon"])
     assert 'name = "mardas-folio"' in cargo
     assert f'version = "{__version__}"' in cargo
+    # The identifier the updater matches an installed application by, and the
+    # name of its per-user config directory. Changing it orphans both.
+    assert config["identifier"] == "io.github.mragetsars.mardas-folio"
+    # Cargo.lock carries the crate version too, and `cargo test --locked` in
+    # the native desktop jobs fails when it disagrees with Cargo.toml. It sat
+    # a release behind once because nothing here held it.
+    lock = tomllib.loads((TAURI / "Cargo.lock").read_text(encoding="utf-8"))
+    locked = [entry for entry in lock["package"] if entry["name"] == "mardas-folio"]
+    assert [entry["version"] for entry in locked] == [__version__]
 
 
 def test_native_shell_uses_stdio_sidecar_and_single_instance_first() -> None:
@@ -559,7 +573,7 @@ def test_engine_front_matter_matches_the_desktop_fixture(case: dict[str, object]
     to this same table by ``apps/desktop/tests/markdown-frontmatter.test.mjs``,
     so a heading cannot appear in the outline but be absent from the PDF.
     """
-    from mardas_md2pdf.markdown import FRONTMATTER_RE
+    from mardas_folio.markdown import FRONTMATTER_RE
 
     matched = FRONTMATTER_RE.match(str(case["text"])) is not None
     assert matched is bool(case["frontmatter"])
@@ -665,7 +679,7 @@ def test_every_engine_render_option_has_a_control() -> None:
     ``RENDER_OPTION_SPECS`` and the desktop suite holds the settings panel to
     it, so this check guards the Python side of that contract.
     """
-    from mardas_md2pdf.config import RENDER_OPTION_SPECS
+    from mardas_folio.config import RENDER_OPTION_SPECS
 
     fixture = json.loads(
         (ROOT / "tests" / "fixtures" / "render_options.json").read_text(encoding="utf-8")
@@ -688,7 +702,7 @@ def test_editor_recognises_every_callout_the_engine_publishes() -> None:
     only knows some of the kinds, the rest are written as plain quotations and
     the difference appears for the first time in the PDF.
     """
-    engine_source = (ROOT / "src" / "mardas_md2pdf" / "markdown.py").read_text(encoding="utf-8")
+    engine_source = (ROOT / "src" / "mardas_folio" / "markdown.py").read_text(encoding="utf-8")
     engine_kinds = set(re.findall(r'"callout_([a-z]+)"', engine_source))
     assert engine_kinds, "the engine's callout label table moved"
     live = (DESKTOP / "editor-src" / "live-preview.mjs").read_text(encoding="utf-8")
@@ -711,7 +725,7 @@ def test_palette_swatches_show_the_colour_the_engine_prints() -> None:
     renderer actually uses, so the copy in the interface is held against the
     engine's own table.
     """
-    from mardas_md2pdf.appearance import PALETTES
+    from mardas_folio.appearance import PALETTES
 
     main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
     block = main.split("const PALETTE_ACCENTS = Object.freeze({", 1)[1].split("});", 1)[0]

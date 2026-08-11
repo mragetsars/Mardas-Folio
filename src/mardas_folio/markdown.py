@@ -294,7 +294,7 @@ HIGHLIGHT_TRAILING_NEWLINE_RE = re.compile(
     re.DOTALL,
 )
 # Private-use parser sentinels; these are not credentials.
-PROTECTED_CODE_TOKEN_PREFIX = "\ue000MD2PDFCODE"  # nosec B105
+PROTECTED_CODE_TOKEN_PREFIX = "\ue000FOLIOCODE"  # nosec B105
 PROTECTED_CODE_TOKEN_SUFFIX = "\ue001"  # nosec B105
 
 

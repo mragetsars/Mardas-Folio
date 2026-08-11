@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mardas_md2pdf.sidecar import main
+from mardas_folio.sidecar import main
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@
  * text instead of metadata.
  *
  * The recognition rules below deliberately mirror `FRONTMATTER_RE` in
- * `src/mardas_md2pdf/markdown.py` so the editor and the publishing engine never
+ * `src/mardas_folio/markdown.py` so the editor and the publishing engine never
  * disagree about what counts as front matter:
  *
  *   - the opening fence is `---` on the very first line of the document;

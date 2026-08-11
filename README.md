@@ -50,9 +50,9 @@ Print-flow rules keep headings with their first block, protect paragraphs from o
 | Interface | Command | Purpose |
 | :--- | :--- | :--- |
 | Desktop application | — | Native authoring workspace, book projects, and PDF export |
-| Command line | `mrs-md2pdf` | Automation, CI, and scripted publishing |
-| Browser GUI | `mrs-md2pdf-gui` | Local single-document and project workspace in a browser |
-| Sidecar | `mrs-md2pdf-sidecar` | Versioned JSON-RPC over standard streams for desktop clients |
+| Command line | `folio` | Automation, CI, and scripted publishing |
+| Browser GUI | `folio-gui` | Local single-document and project workspace in a browser |
+| Sidecar | `folio-sidecar` | Versioned JSON-RPC over standard streams for desktop clients |
 
 The sidecar opens no localhost port, reports progress, and supports cooperative cancellation. JSON-RPC messages use `stdout`; operational logs use `stderr`. Architecture decisions and the protocol contract live under [`docs/architecture/`](./docs/architecture/).
 
@@ -86,16 +86,16 @@ python -m playwright install chromium
 Render a PDF:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --toc --style modern --palette emerald --mode light
+folio input.md -o output.pdf --toc --style modern --palette emerald --mode light
 ```
 
 Validate a document, inspect resolved configuration, and diagnose the environment without opening Chromium:
 
 ```bash
-mrs-md2pdf init
-mrs-md2pdf validate input.md
-mrs-md2pdf explain-config input.md
-mrs-md2pdf doctor input.md
+folio init
+folio validate input.md
+folio explain-config input.md
+folio doctor input.md
 ```
 
 The nearest `mardas.toml` is discovered from the document directory upward. Command-line options override project values, which override equivalent front-matter values.
@@ -103,15 +103,15 @@ The nearest `mardas.toml` is discovered from the document directory upward. Comm
 Build an ordered multi-file book:
 
 ```bash
-mrs-md2pdf init my-book --book
-mrs-md2pdf validate-book my-book
-mrs-md2pdf build-book my-book
+folio init my-book --book
+folio validate-book my-book
+folio build-book my-book
 ```
 
 Enable the strict publication profile for thesis, journal, and release artifacts. It fails instead of degrading when MathJax remains unresolved, a required font is unavailable, or PDF navigation cannot be preserved:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf \
+folio input.md -o output.pdf \
   --quality-profile strict-publication \
   --require-font Vazirmatn \
   --quality-report build/output-quality.json
@@ -139,9 +139,9 @@ See @fig:architecture for the processing pipeline.
 Audit source accessibility and inspect a finished PDF:
 
 ```bash
-mrs-md2pdf audit-accessibility report.md
-mrs-md2pdf audit-book-accessibility path/to/book
-mrs-md2pdf audit-pdf dist/book.pdf --profile all
+folio audit-accessibility report.md
+folio audit-book-accessibility path/to/book
+folio audit-pdf dist/book.pdf --profile all
 ```
 
 The complete option reference, including citations, branding, watermarks, and appearance, is in the guides.
@@ -151,8 +151,8 @@ The complete option reference, including citations, branding, watermarks, and ap
 The browser GUI opens a single document, or a real on-disk project:
 
 ```bash
-mrs-md2pdf-gui
-mrs-md2pdf-gui --project path/to/project
+folio-gui
+folio-gui --project path/to/project
 ```
 
 Project Workspace mode adds a project file tree, chapter badges, a Problems panel backed by the same diagnostics as the CLI, renderer-backed preview, and full-book preview and export. Saves use content hashes and atomic replacement, so a stale edit is rejected rather than overwriting an external change. **Open Bundle** and **Save Bundle** handle portable `.mardas.json` snapshots containing Markdown, export options, and attached assets; those are separate from the live project opened with `--project`.
@@ -178,7 +178,7 @@ The project is organized as follows:
 
 ```text
 Mardas-Folio/
-├── src/mardas_md2pdf/          # Python publishing engine
+├── src/mardas_folio/          # Python publishing engine
 │   ├── markdown.py             # Parsing, front matter, contents, math, Mermaid, footnotes, safe HTML
 │   ├── renderer.py             # HTML assembly, appearance CSS, MathJax, Chromium PDF rendering
 │   ├── references.py           # Numbered objects, labels, cross-references, generated lists
@@ -241,11 +241,11 @@ python scripts/finalize_release_artifacts.py \
 Official artifacts can also be checked against their signed provenance:
 
 ```bash
-gh attestation verify mardas_md2pdf-X.Y.Z-py3-none-any.whl \
+gh attestation verify mardas_folio-X.Y.Z-py3-none-any.whl \
   --repo mragetsars/Mardas-Folio
 ```
 
-An offline Python bundle is installed from its extracted directory with `python install.py --target mardas-md2pdf-venv`. The installer verifies the embedded checksums and invokes pip with `--no-index`; PDF rendering still requires a compatible Chromium executable.
+An offline Python bundle is installed from its extracted directory with `python install.py --target mardas-folio-venv`. The installer verifies the embedded checksums and invokes pip with `--no-index`; PDF rendering still requires a compatible Chromium executable.
 
 ## Testing
 

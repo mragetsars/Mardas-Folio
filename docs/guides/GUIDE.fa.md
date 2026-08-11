@@ -144,9 +144,9 @@ pytest
 
 | دستور | کاربرد |
 | :--- | :--- |
-| `mrs-md2pdf` | تبدیل Markdown به PDF از خط فرمان. |
-| `mrs-md2pdf-gui` | اجرای رابط گرافیکی مرورگرمحور فعلی. |
-| `mrs-md2pdf-sidecar` | اجرای موتور JSON-RPC نسخه‌دار روی ورودی/خروجی استاندارد برای برنامه دسکتاپ. |
+| `folio` | تبدیل Markdown به PDF از خط فرمان. |
+| `folio-gui` | اجرای رابط گرافیکی مرورگرمحور فعلی. |
+| `folio-sidecar` | اجرای موتور JSON-RPC نسخه‌دار روی ورودی/خروجی استاندارد برای برنامه دسکتاپ. |
 
 ## Runtime مستقل برای بسته‌بندی دسکتاپ
 
@@ -220,19 +220,19 @@ Start Center قالب‌های محلی برای سند خالی، گزارش، 
 تبدیل ساده:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf
+folio input.md -o output.pdf
 ```
 
 تبدیل همراه با فهرست مطالب و ظاهر GitHub-style:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --toc --style modern --palette emerald --mode light
+folio input.md -o output.pdf --toc --style modern --palette emerald --mode light
 ```
 
 تولید خروجی طولانی با رفتار شبیه کتاب:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf \
+folio input.md -o output.pdf \
   --toc \
   --toc-depth 4 \
   --toc-page-break \
@@ -245,13 +245,13 @@ mrs-md2pdf input.md -o output.pdf \
 ذخیره HTML میانی برای بررسی و رفع اشکال:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --debug-html output.html
+folio input.md -o output.pdf --debug-html output.html
 ```
 
 نمایش صریح progress bar در ترمینال:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --progress on
+folio input.md -o output.pdf --progress on
 ```
 
 حالت پیش‌فرض `--progress auto` فقط وقتی progress bar را نشان می‌دهد که دستور در ترمینال تعاملی اجرا شود. برای اسکریپت‌های ساکت‌تر می‌توانید از `--progress off` استفاده کنید.
@@ -340,25 +340,25 @@ dir: rtl
 حذف جلد:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --no-cover
+folio input.md -o output.pdf --no-cover
 ```
 
 جلد به صورت پیش‌فرض بدون برندینگ خروجی می‌گیرد تا سند عادی شبیه تبلیغ ابزار نباشد. برندینگ کامل را فقط وقتی فعال کنید که واقعاً لازم است:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --branding full --brand-name "Acme Research Lab"
+folio input.md -o output.pdf --branding full --brand-name "Acme Research Lab"
 ```
 
 استفاده از لوگوی برند سفارشی:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --branding full --brand-logo ./assets/logo.png
+folio input.md -o output.pdf --branding full --brand-logo ./assets/logo.png
 ```
 
 حفظ جلد بدون نمایش لوگو:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --no-cover-logo
+folio input.md -o output.pdf --no-cover-logo
 ```
 
 برای یادداشت کوچک تولیدشده با ابزار از `branding.mode: subtle` استفاده کنید. راهنماهای رسمی پروژه چون خود Mardas Folio را مستند می‌کنند، به‌صورت صریح `branding.mode: full` دارند.
@@ -386,7 +386,7 @@ mrs-md2pdf input.md -o output.pdf --no-cover-logo
 
 در متن فارسی نیز می‌توان شناسه‌های English مثل `Playwright`، `MathJax`، `GitHub Actions`، `PDF` و `RTL/LTR` را داخل همان پاراگراف استفاده کرد.
 
-همچنین Inline code هم پایدار می‌ماند: `mrs-md2pdf input.md -o output.pdf --toc`.
+همچنین Inline code هم پایدار می‌ماند: `folio input.md -o output.pdf --toc`.
 
 ## نمونه smoke تصویری فارسی/RTL
 
@@ -409,25 +409,25 @@ mrs-md2pdf input.md -o output.pdf --no-cover-logo
 فعال کردن فهرست مطالب:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --toc
+folio input.md -o output.pdf --toc
 ```
 
 تعیین عمق فهرست:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --toc --toc-depth 3
+folio input.md -o output.pdf --toc --toc-depth 3
 ```
 
 شروع متن اصلی از صفحه جدید بعد از فهرست:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --toc --toc-page-break
+folio input.md -o output.pdf --toc --toc-page-break
 ```
 
 شروع هر heading سطح اول از صفحه جدید:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --h1-page-break
+folio input.md -o output.pdf --h1-page-break
 ```
 
 فهرست مطالب از headingهای Markdown ساخته می‌شود و فرمول‌های درون‌خطی داخل headingها مثل $E = mc^2$ و $\epsilon$ را خوانا نگه می‌دارد.
@@ -562,7 +562,7 @@ console.log(message);
 
     SELECT title, lang, version
     FROM documents
-    WHERE renderer = 'mardas-md2pdf';
+    WHERE renderer = 'mardas-folio';
 
 توجه کنید که inline code در برابر پردازش فرمول و پانویس محافظت می‌شود. یعنی `$x$` و `[^note]` وقتی داخل backtick باشند، به شکل literal باقی می‌مانند.
 
@@ -661,7 +661,7 @@ flowchart LR
 غیرفعال کردن sanitizer فقط برای فایل‌های قابل اعتماد:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --unsafe-html
+folio input.md -o output.pdf --unsafe-html
 ```
 
 <div class="md2pdf-page-break"></div>
@@ -710,19 +710,19 @@ front matter خراب، بازگشتی، بیش‌ازحد عمیق یا بزر�
 استفاده از اندازه نام‌دار:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --page-size A4
+folio input.md -o output.pdf --page-size A4
 ```
 
 استفاده از حالت landscape:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --page-size "A4 landscape"
+folio input.md -o output.pdf --page-size "A4 landscape"
 ```
 
 استفاده از ابعاد دقیق:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --page-size "210mm 297mm"
+folio input.md -o output.pdf --page-size "210mm 297mm"
 ```
 
 اندازه‌های نام‌گذاری‌شده A0-A6، B0-B6، Letter، Legal، Tabloid و Ledger به ابعاد صریح Chromium تبدیل می‌شوند تا formatهای نام‌گذاری‌شده پشتیبانی‌نشده بی‌صدا به A4 برنگردند. هر ضلع اندازه سفارشی باید بین ۱۰ تا ۵۰۰۰ میلی‌متر باشد. مقدار ناشناخته یا خارج از محدوده زودتر خطا می‌دهد و Studio نیز همان validation را با خطای ساختاریافته `invalid_page_size` به‌کار می‌گیرد.
@@ -730,7 +730,7 @@ mrs-md2pdf input.md -o output.pdf --page-size "210mm 297mm"
 ## انواع Margin
 
 ```bash
-mrs-md2pdf input.md -o output.pdf \
+folio input.md -o output.pdf \
   --margin-top 18mm \
   --margin-bottom 18mm \
   --margin-x 16mm
@@ -741,14 +741,14 @@ mrs-md2pdf input.md -o output.pdf \
 اعمال Watermark متنی:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --watermark "DRAFT"
+folio input.md -o output.pdf --watermark "DRAFT"
 ```
 
 اعمال Watermark تصویری:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf \
-  --watermark-image ./src/mardas_md2pdf/assets/mardas-md2pdf-logo.png \
+folio input.md -o output.pdf \
+  --watermark-image ./src/mardas_folio/assets/mardas-folio-logo.png \
   --watermark-opacity 0.05 \
   --watermark-width 95mm
 ```
@@ -786,7 +786,7 @@ brand:
 معادل CLI:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf \
+folio input.md -o output.pdf \
   --branding full \
   --brand-name "Acme Research Lab" \
   --brand-logo assets/acme.png \
@@ -820,8 +820,8 @@ mrs-md2pdf input.md -o output.pdf \
 انتخاب appearance از CLI:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --style modern --palette emerald --mode light
-mrs-md2pdf input.md -o output.pdf --style academic --palette emerald --mode dark
+folio input.md -o output.pdf --style modern --palette emerald --mode light
+folio input.md -o output.pdf --style academic --palette emerald --mode dark
 ```
 
 یا ذخیره در front matter:
@@ -842,7 +842,7 @@ appearance:
 برای کار روزمره و پیش‌نمایش تعاملی، پروفایل `standard` رفتار سازگار نسخه‌های قبلی را نگه می‌دارد: مشکل‌های کیفیت ثبت و به‌صورت warning اعلام می‌شوند، اما خروجی آزمایشی می‌تواند ادامه پیدا کند. برای پایان‌نامه، مقاله، گزارش عمومی یا artifact انتشار از `strict-publication` استفاده کنید تا اگر renderer نتواند کامل‌بودن فرمول‌ها، فونت‌های الزامی و navigation داخلی PDF را اثبات کند، build واقعاً fail شود.
 
 ```bash
-mrs-md2pdf report.md -o report.pdf \
+folio report.md -o report.pdf \
   --quality-profile strict-publication \
   --require-font Vazirmatn \
   --require-font "JetBrains Mono" \
@@ -854,7 +854,7 @@ mrs-md2pdf report.md -o report.pdf \
 رفتار هر گروه مستقل قابل override است:
 
 ```bash
-mrs-md2pdf report.md -o report.pdf \
+folio report.md -o report.pdf \
   --quality-profile strict-publication \
   --math-error-policy error \
   --font-error-policy warn \
@@ -880,7 +880,7 @@ report = "build/report-quality.json"
 وقتی یک سند یا repository باید با تنظیمات ثابت و بدون فرمان طولانی ساخته شود، از فایل نسخه‌دار `mardas.toml` استفاده کنید. برای ایجاد فایل اولیه در پوشه فعلی بنویسید:
 
 ```bash
-mrs-md2pdf init
+folio init
 ```
 
 پیکربندی تولیدشده عمداً محافظه‌کارانه است: HTML امن، asset راه‌دور مسدود، صفحه A4 معمولی، appearance صریح و `schema_version = 1`. مسیر نسبی موجود در config نسبت به پوشه خود `mardas.toml` resolve می‌شود، نه نسبت به working directory ترمینال.
@@ -944,8 +944,8 @@ CLI از کنار فایل Markdown شروع می‌کند و نزدیک‌تر�
 برای اعتبارسنجی config و Markdown بدون اجرای Chromium بنویسید:
 
 ```bash
-mrs-md2pdf validate report.md
-mrs-md2pdf validate report.md --format json
+folio validate report.md
+folio validate report.md --format json
 ```
 
 اعتبارسنجی، TOML یا YAML خراب، نسخه schema پشتیبانی‌نشده، کلید ناشناخته، مقدار نامعتبر، asset تنظیم‌شده ولی مفقود، تصویر blockشده، پرش سطح heading و گزینه امنیتی پرریسک را گزارش می‌کند. Diagnosticها شناسه پایدار مثل `MARDAS-E103`، `MARDAS-E109`، `MARDAS-W203` و `MARDAS-W301` دارند؛ automation باید به code تکیه کند، نه متن انگلیسی پیام.
@@ -953,15 +953,15 @@ mrs-md2pdf validate report.md --format json
 برای مشاهده مقدار مؤثر و منبع هر تنظیم بنویسید:
 
 ```bash
-mrs-md2pdf explain-config report.md
-mrs-md2pdf explain-config report.md --format json
+folio explain-config report.md
+folio explain-config report.md --format json
 ```
 
 برای بررسی runtime محلی، MathJax بسته‌بندی‌شده، dependencyهای لازم، پیدا شدن Chromium، config و در صورت ارائه فایل، خود سند بنویسید:
 
 ```bash
-mrs-md2pdf doctor
-mrs-md2pdf doctor report.md --format json
+folio doctor
+folio doctor report.md --format json
 ```
 
 Warning باعث fail شدن `validate` یا `doctor` نمی‌شود، اما diagnostic سطح error کد خروج غیرصفر تولید می‌کند. فعال‌کردن `unsafe_html` یا asset راه‌دور تصمیم صریح پروژه است و به شکل warning نمایش داده می‌شود، چون trust boundary را بزرگ‌تر می‌کند و می‌تواند reproducibility ساخت را کاهش دهد.
@@ -973,7 +973,7 @@ Warning باعث fail شدن `validate` یا `doctor` نمی‌شود، اما d
 برای ساخت پروژه اولیه بنویسید:
 
 ```bash
-mrs-md2pdf init my-book --book
+folio init my-book --book
 ```
 
 ساختار تولیدشده شامل `mardas.toml` و دو فصل نمونه است:
@@ -1018,17 +1018,17 @@ chapter_page_break = true
 برای اعتبارسنجی و مشاهده ساختار کامل کتاب بدون اجرای Chromium بنویسید:
 
 ```bash
-mrs-md2pdf validate-book my-book
-mrs-md2pdf validate-book my-book --format json
-mrs-md2pdf explain-book my-book --format json
+folio validate-book my-book
+folio validate-book my-book --format json
+folio explain-book my-book --format json
 ```
 
 برای ساخت PDF و در صورت نیاز ذخیره HTML ترکیبی renderer:
 
 ```bash
-mrs-md2pdf build-book my-book
-mrs-md2pdf build-book my-book -o releases/handbook.pdf
-mrs-md2pdf build-book my-book --debug-html build/handbook.html --progress on
+folio build-book my-book
+folio build-book my-book -o releases/handbook.pdf
+folio build-book my-book --debug-html build/handbook.html --progress on
 ```
 
 قواعد اصلی Book Mode عبارت‌اند از:
@@ -1166,7 +1166,7 @@ Validation، منبع مفقود، BibTeX یا CSL JSON نامعتبر، کلی�
 برای تنظیم صف محلی، Studio را به شکل زیر اجرا کنید:
 
 ```bash
-mrs-md2pdf-gui \
+folio-gui \
   --render-workers 2 \
   --export-queue-size 6 \
   --render-idle-timeout 60
@@ -1203,9 +1203,9 @@ direction = "rtl"
 پیش از اجرای Chromium، audit منبع را اجرا کنید:
 
 ```bash
-mrs-md2pdf audit-accessibility report.md
-mrs-md2pdf audit-accessibility report.md --format json --fail-on warning
-mrs-md2pdf audit-book-accessibility path/to/book
+folio audit-accessibility report.md
+folio audit-accessibility report.md --format json --fail-on warning
+folio audit-book-accessibility path/to/book
 ```
 
 این audit ساختار headingها، متن جایگزین تصویر، نام لینک‌ها، header و caption جدول، زبان اعلام‌شده و کنتراست appearance انتخاب‌شده را بررسی می‌کند. خطاها و هشدارها با کدهای پایدار `MARDAS-A...` و در صورت امکان با نام فایل و شماره خط گزارش می‌شوند.
@@ -1232,9 +1232,9 @@ mrs-md2pdf audit-book-accessibility path/to/book
 فایل نهایی را نیز جداگانه بررسی کنید:
 
 ```bash
-mrs-md2pdf audit-pdf output.pdf --profile accessibility
-mrs-md2pdf audit-pdf output.pdf --profile archival
-mrs-md2pdf audit-pdf output.pdf --profile all --format json --fail-on never
+folio audit-pdf output.pdf --profile accessibility
+folio audit-pdf output.pdf --profile archival
+folio audit-pdf output.pdf --profile all --format json --fail-on never
 ```
 
 PDFهای تولیدشده `/Lang` در catalog، تنظیم نمایش عنوان، metadata اطلاعات سند و XMP metadata دارند. audit فایل PDF وضعیت embedding فونت‌ها، ToUnicode، tagging، output intent، JavaScript، attachment و شناسه‌های PDF/A را گزارش می‌کند. خروجی فعلی Chromium به‌عنوان PDF/UA compliant معرفی نمی‌شود و پروژه structure tree یا شناسه PDF/A جعلی اضافه نمی‌کند. انطباق رسمی به validator مستقل و بازبینی دستی دسترس‌پذیری نیاز دارد.
@@ -1244,13 +1244,13 @@ PDFهای تولیدشده `/Lang` در catalog، تنظیم نمایش عنوا
 اجرای GUI برای یک سند مستقل:
 
 ```bash
-mrs-md2pdf-gui
+folio-gui
 ```
 
 باز کردن workspace واقعی پروژه بر پایه `mardas.toml`:
 
 ```bash
-mrs-md2pdf-gui --project path/to/project
+folio-gui --project path/to/project
 ```
 
 در حالت Project Workspace، فصل‌های مرتب‌شده Book Mode و فایل‌های متنی پشتیبانی‌شده پروژه در Project Explorer نمایش داده می‌شوند. Problems Panel همان diagnosticهای پایدار `MARDAS-*` در فرمان‌های `validate` و `validate-book` را نشان می‌دهد؛ انتخاب هر مشکل، فایل مسئول را باز می‌کند و در صورت وجود اطلاعات مکان، editor را به خط و ستون مربوط می‌برد. Preview فایل Markdown فعال با تنظیمات واقعی پروژه، کتاب‌نامه، cross-reference و مرز assetهای project root ساخته می‌شود. دو فرمان **Preview Book** و **Export Book** کل نسخه ذخیره‌شده پروژه را پردازش می‌کنند؛ بنابراین ابتدا فایل فعال را ذخیره کنید.
@@ -1314,7 +1314,7 @@ Studio پیش‌نویس فعلی، layout، حالت روشن/تاریک، جه
 برای دیدن همه گزینه‌ها:
 
 ```bash
-mrs-md2pdf --help
+folio --help
 ```
 
 # اتوماسیون و CI
@@ -1322,13 +1322,13 @@ mrs-md2pdf --help
 یک دستور ساده برای ساخت PDF در اسکریپت:
 
 ```bash
-mrs-md2pdf docs/report.md -o build/report.pdf --toc --style modern --palette emerald --mode light
+folio docs/report.md -o build/report.pdf --toc --style modern --palette emerald --mode light
 ```
 
 مخزن شامل workflow گیت‌هاب Actions است که Ruff، pytest و یک smoke test واقعی رندر با Chromium را روی نسخه‌های پشتیبانی‌شده Python اجرا می‌کند. برای CI بهتر است گزینه‌ها صریح باشند:
 
 ```bash
-mrs-md2pdf docs/report.md -o build/report.pdf \
+folio docs/report.md -o build/report.pdf \
   --toc \
   --toc-depth 4 \
   --style modern \
@@ -1343,7 +1343,7 @@ mrs-md2pdf docs/report.md -o build/report.pdf \
 برای اشکال‌زدایی در CI، HTML میانی را به عنوان artifact نگه دارید:
 
 ```bash
-mrs-md2pdf docs/report.md -o build/report.pdf --debug-html build/report.html
+folio docs/report.md -o build/report.pdf --debug-html build/report.html
 ```
 
 ## اعتبارسنجی فایل‌های Release
@@ -1376,7 +1376,7 @@ gh attestation verify artifact-name \
 پس از استخراج بسته آفلاین Python، فرمان زیر را اجرا کنید:
 
 ```bash
-python install.py --target mardas-md2pdf-venv
+python install.py --target mardas-folio-venv
 ```
 
 این بسته wheelهای Python را بدون تماس با package index نصب می‌کند. Chromium و Python مستقل داخل آن قرار ندارند؛ نصب browser یک مرحله جداگانه و صریح است.
@@ -1394,7 +1394,7 @@ python -m playwright install chromium
 یا مسیر مرورگر را صریح بدهید:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --chromium-path /path/to/chrome
+folio input.md -o output.pdf --chromium-path /path/to/chrome
 ```
 
 ## متن فارسی ظاهر مناسبی ندارد
@@ -1402,7 +1402,7 @@ mrs-md2pdf input.md -o output.pdf --chromium-path /path/to/chrome
 یک فونت فارسی مناسب مثل Vazirmatn نصب کنید یا مسیر فونت را بدهید:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --font-dir ./fonts
+folio input.md -o output.pdf --font-dir ./fonts
 ```
 
 اگر مسیر فونت وجود نداشته باشد یا فایل شناخته‌شده‌ای داخل آن پیدا نشود، renderer هشدار می‌دهد و از فونت‌های سیستم استفاده می‌کند.
@@ -1416,7 +1416,7 @@ mrs-md2pdf input.md -o output.pdf --font-dir ./fonts
 مطمئن شوید MathJax فعال است و هشدارهای renderer را بررسی کنید. برای سندهای بزرگ مقدار timeout را افزایش دهید:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --timeout-ms 90000
+folio input.md -o output.pdf --timeout-ms 90000
 ```
 
 ## نیاز به بررسی Layout
@@ -1424,7 +1424,7 @@ mrs-md2pdf input.md -o output.pdf --timeout-ms 90000
 فایل HTML میانی را ذخیره کنید:
 
 ```bash
-mrs-md2pdf input.md -o output.pdf --debug-html output.html
+folio input.md -o output.pdf --debug-html output.html
 ```
 
 سپس `output.html` را در مرورگر باز کنید و ساختار و CSS تولیدشده را بررسی کنید.

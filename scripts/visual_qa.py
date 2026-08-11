@@ -403,7 +403,7 @@ def run_mardas_cli(
     command = [
         sys.executable,
         "-m",
-        "mardas_md2pdf.cli",
+        "mardas_folio.cli",
         str(source),
         "-o",
         str(output_pdf),
@@ -425,12 +425,12 @@ def run_mardas_cli(
         run_command(
             command,
             timeout=command_timeout,
-            description=f"mrs-md2pdf render for {output_pdf}",
+            description=f"folio render for {output_pdf}",
         )
     except RuntimeError as exc:
         if output_pdf.is_file() and output_pdf.stat().st_size > 0:
             raise RuntimeError(
-                f"mrs-md2pdf did not finish cleanly for {output_pdf}; "
+                f"folio did not finish cleanly for {output_pdf}; "
                 "a PDF was created but the render process did not exit cleanly.\n"
                 f"{exc}"
             ) from exc

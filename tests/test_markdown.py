@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from mardas_md2pdf.markdown import render_markdown
+from mardas_folio.markdown import render_markdown
 
 
 def test_mixed_direction_and_code_highlight():
@@ -48,7 +48,7 @@ def test_hierarchical_toc_numbers_and_nesting():
 
 
 def test_public_appearance_choices_are_separated_by_responsibility():
-    from mardas_md2pdf.cli import build_parser
+    from mardas_folio.cli import build_parser
 
     parser = build_parser()
     style_action = next(action for action in parser._actions if "--style" in action.option_strings)
@@ -65,7 +65,7 @@ def test_public_appearance_choices_are_separated_by_responsibility():
 
 
 def test_cover_branding_option_is_explicit_and_clean():
-    from mardas_md2pdf.cli import build_parser
+    from mardas_folio.cli import build_parser
 
     parser = build_parser()
     help_text = parser.format_help()
@@ -79,13 +79,13 @@ def test_cover_branding_option_is_explicit_and_clean():
 
 
 def test_gui_entrypoint_module_exists():
-    import mardas_md2pdf.gui as gui
+    import mardas_folio.gui as gui
 
-    assert gui.build_parser().prog == "mrs-md2pdf-gui"
+    assert gui.build_parser().prog == "folio-gui"
 
 
 def test_local_markdown_images_are_embedded_as_data_uris(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown_file
+    from mardas_folio.markdown import render_markdown_file
 
     png = tmp_path / "chart.png"
     png.write_bytes(
@@ -102,7 +102,7 @@ def test_local_markdown_images_are_embedded_as_data_uris(tmp_path):
 
 
 def test_local_image_lookup_falls_back_to_markdown_directory_basename(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown_file
+    from mardas_folio.markdown import render_markdown_file
 
     png = tmp_path / "executive_overview.png"
     png.write_bytes(
@@ -121,7 +121,7 @@ def test_local_image_lookup_falls_back_to_markdown_directory_basename(tmp_path):
 
 
 def test_local_image_lookup_stays_inside_markdown_directory(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown_file
+    from mardas_folio.markdown import render_markdown_file
 
     outside = tmp_path / "outside.png"
     outside.write_bytes(
@@ -143,7 +143,7 @@ def test_local_image_lookup_stays_inside_markdown_directory(tmp_path):
 
 
 def test_missing_local_image_is_blocked_before_chromium_can_resolve_it(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown_file
+    from mardas_folio.markdown import render_markdown_file
 
     md = tmp_path / "report.md"
     md.write_text('<img src="images/missing.png" alt="missing">\n', encoding="utf-8")
@@ -157,7 +157,7 @@ def test_missing_local_image_is_blocked_before_chromium_can_resolve_it(tmp_path)
     assert "Image blocked or missing" in result.body_html
 
 def test_file_url_markdown_images_are_not_embedded(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown_file
+    from mardas_folio.markdown import render_markdown_file
 
     image = tmp_path / "local.png"
     image.write_bytes(
@@ -202,7 +202,7 @@ def test_raw_html_sanitizer_rejects_obfuscated_url_controls():
 
 
 def test_cover_supports_multiline_summary_and_multiple_authors(tmp_path):
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = """---
 title: "گزارش نمونه"
@@ -287,7 +287,7 @@ def test_raw_html_is_sanitized_by_default():
 
 
 def test_renderer_page_size_and_direction_are_late_css_overrides(tmp_path):
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = """---
 title: English report
@@ -312,7 +312,7 @@ Only English text.
 
 
 def test_lang_en_localizes_toc_callouts_and_cover_direction(tmp_path):
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = """---
 title: English report
@@ -342,7 +342,7 @@ lang: en
 
 
 def test_lang_en_drives_ltr_shell_even_when_body_contains_persian(tmp_path):
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = """---
 title: Mixed language notes
@@ -364,7 +364,7 @@ dir: auto
 
 
 def test_math_scaling_rules_distinguish_inline_and_display_math(tmp_path):
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = "متن با $E=mc^2$ و سپس:\n\n$$\nE=mc^2\n$$\n"
     result = render_markdown(md)
@@ -379,7 +379,7 @@ def test_math_scaling_rules_distinguish_inline_and_display_math(tmp_path):
 
 
 def test_cover_label_aliases_and_ltr_cover_alignment(tmp_path):
-    from mardas_md2pdf.renderer import PdfOptions, build_html
+    from mardas_folio.renderer import PdfOptions, build_html
 
     md = """---
 title: English report
@@ -433,7 +433,7 @@ def test_footnote_refs_are_not_expanded_inside_fenced_code():
 def test_large_local_images_are_left_as_links_with_warning(tmp_path, monkeypatch):
     import pytest
 
-    from mardas_md2pdf import markdown as markdown_module
+    from mardas_folio import markdown as markdown_module
 
     image = tmp_path / "large.png"
     image.write_bytes(b"not really a png, but enough for this test")
@@ -466,7 +466,7 @@ def test_mermaid_flowchart_fence_renders_to_inline_svg():
 
 
 def test_mermaid_svg_rendering_does_not_require_xml_parser(monkeypatch):
-    from mardas_md2pdf import markdown as markdown_module
+    from mardas_folio import markdown as markdown_module
 
     real_beautiful_soup = markdown_module.BeautifulSoup
 
@@ -639,7 +639,7 @@ def test_render_markdown_can_allow_remote_images():
 
 
 def test_render_markdown_file_blocks_remote_images_by_default(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown_file
+    from mardas_folio.markdown import render_markdown_file
 
     input_path = tmp_path / "remote.md"
     input_path.write_text("![Remote](https://example.com/image.png)\n", encoding="utf-8")
@@ -653,7 +653,7 @@ def test_render_markdown_file_blocks_remote_images_by_default(tmp_path):
 
 
 def test_render_markdown_file_can_allow_remote_images(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown_file
+    from mardas_folio.markdown import render_markdown_file
 
     input_path = tmp_path / "remote.md"
     input_path.write_text("![Remote](https://example.com/image.png)\n", encoding="utf-8")
@@ -666,7 +666,7 @@ def test_render_markdown_file_can_allow_remote_images(tmp_path):
 
 
 def test_missing_local_images_render_visible_placeholders(tmp_path):
-    from mardas_md2pdf.markdown import render_markdown_file
+    from mardas_folio.markdown import render_markdown_file
 
     input_path = tmp_path / "missing.md"
     input_path.write_text("![Missing](images/missing.png)\n", encoding="utf-8")

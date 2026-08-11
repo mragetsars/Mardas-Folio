@@ -1,5 +1,5 @@
 {
-  "comment": "Every render option the engine accepts (mardas_md2pdf.config.RENDER_OPTION_SPECS). The desktop settings panel is held to this list by apps/desktop/tests/render-options.test.mjs, so an option added to the engine cannot quietly become CLI-only.",
+  "comment": "Every render option the engine accepts (mardas_folio.config.RENDER_OPTION_SPECS). The desktop settings panel is held to this list by apps/desktop/tests/render-options.test.mjs, so an option added to the engine cannot quietly become CLI-only.",
   "options": {
     "allow_remote_assets": {
       "choices": [],

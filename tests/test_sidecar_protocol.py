@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from mardas_md2pdf import application, protocol, runtime, sidecar
-from mardas_md2pdf.application import EngineError
+from mardas_folio import application, protocol, runtime, sidecar
+from mardas_folio.application import EngineError
 
 
 def _lines(stream: io.StringIO) -> list[dict[str, object]]:
@@ -235,7 +235,7 @@ def test_sidecar_cancels_an_active_job(monkeypatch: pytest.MonkeyPatch) -> None:
             deadline = time.monotonic() + 2
             while time.monotonic() < deadline:
                 if cancelled is not None and cancelled():
-                    from mardas_md2pdf.renderer import RenderCancelledError
+                    from mardas_folio.renderer import RenderCancelledError
 
                     raise RenderCancelledError("cancelled by test")
                 time.sleep(0.005)

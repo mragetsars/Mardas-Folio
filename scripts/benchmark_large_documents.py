@@ -26,8 +26,8 @@ if str(SOURCE_ROOT) not in sys.path:
 
 from pypdf import PdfReader  # noqa: E402
 
-from mardas_md2pdf import __version__  # noqa: E402
-from mardas_md2pdf.renderer import PdfOptions, RenderSession, convert  # noqa: E402
+from mardas_folio import __version__  # noqa: E402
+from mardas_folio.renderer import PdfOptions, RenderSession, convert  # noqa: E402
 
 
 @dataclass(frozen=True, slots=True)

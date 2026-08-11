@@ -79,11 +79,11 @@ def _fetch_studio_html(url: str, timeout: float) -> str:
         html_text = response.read().decode("utf-8")
     base_href = url.rstrip("/") + "/"
     html_text = html_text.replace("<head>", f'<head>\n<base href="{base_href}">', 1)
-    asset_url = base_href + "assets/mardas-md2pdf-logo.png"
+    asset_url = base_href + "assets/mardas-folio-logo.png"
     try:
         with _open_local_studio_url(asset_url, timeout=timeout) as response:
             logo_data = base64.b64encode(response.read()).decode("ascii")
-        html_text = html_text.replace("/assets/mardas-md2pdf-logo.png", f"data:image/png;base64,{logo_data}")
+        html_text = html_text.replace("/assets/mardas-folio-logo.png", f"data:image/png;base64,{logo_data}")
     except Exception:
         pass
     return html_text
@@ -369,7 +369,7 @@ def main(argv: list[str] | None = None) -> int:
     command = [
         sys.executable,
         "-m",
-        "mardas_md2pdf.gui",
+        "mardas_folio.gui",
         "--host",
         args.host,
         "--port",

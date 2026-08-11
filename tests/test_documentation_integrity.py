@@ -7,8 +7,8 @@ from pathlib import Path
 import yaml
 from bs4 import BeautifulSoup
 
-from mardas_md2pdf import __version__
-from mardas_md2pdf.markdown import render_markdown_file
+from mardas_folio import __version__
+from mardas_folio.markdown import render_markdown_file
 
 ROOT = Path(__file__).resolve().parents[1]
 GUIDES = [
@@ -56,12 +56,12 @@ def _png_dimensions(path: Path) -> tuple[int, int]:
 
 
 def test_project_logo_assets_are_packaged_and_documented():
-    logo = ROOT / "src/mardas_md2pdf/assets/mardas-md2pdf-logo.png"
-    logo_white = ROOT / "src/mardas_md2pdf/assets/mardas-md2pdf-logo-white.png"
-    mark = ROOT / "src/mardas_md2pdf/assets/mardas-md2pdf-mark.svg"
-    mark_white = ROOT / "src/mardas_md2pdf/assets/mardas-md2pdf-mark-white.svg"
-    app_icon = ROOT / "src/mardas_md2pdf/assets/mardas-md2pdf-app-icon.svg"
-    gui_mark_mask = ROOT / "src/mardas_md2pdf/assets/mardas-md2pdf-mark-gui-mask.svg"
+    logo = ROOT / "src/mardas_folio/assets/mardas-folio-logo.png"
+    logo_white = ROOT / "src/mardas_folio/assets/mardas-folio-logo-white.png"
+    mark = ROOT / "src/mardas_folio/assets/mardas-folio-mark.svg"
+    mark_white = ROOT / "src/mardas_folio/assets/mardas-folio-mark-white.svg"
+    app_icon = ROOT / "src/mardas_folio/assets/mardas-folio-app-icon.svg"
+    gui_mark_mask = ROOT / "src/mardas_folio/assets/mardas-folio-mark-gui-mask.svg"
     guide_logo_png = ROOT / "docs/guides/images/logo.png"
     readme_png = ROOT / "assets/readme/mardas-folio.png"
     documentation_docs = (ROOT / "docs/DOCUMENTATION.md").read_text(encoding="utf-8")
@@ -78,12 +78,23 @@ def test_project_logo_assets_are_packaged_and_documented():
         assert asset.exists(), f"missing logo asset: {asset}"
         svg_text = asset.read_text(encoding="utf-8")
         assert svg_text.startswith("<svg")
-        if asset in (mark, app_icon):
+        if asset == mark:
             assert "#088A83" in svg_text
             assert "#123664" in svg_text
+        # The application icon carries the Folio palette rather than the
+        # document mark's teal and navy: it is the icon the desktop packages
+        # actually ship, and the one the icon generator rasterizes.
+        if asset == app_icon:
+            assert "#f97316" in svg_text
+            assert "#161616" in svg_text
         if asset == gui_mark_mask:
             assert "mask" in svg_text
             assert "#000000" in svg_text
+
+    # The generated desktop icons drifted from their source once already, so
+    # the generator has to name the canonical icon rather than any other SVG.
+    icon_generator = (ROOT / "scripts/generate_desktop_icons.py").read_text(encoding="utf-8")
+    assert f'"{app_icon.name}"' in icon_generator
 
     mark_white_text = mark_white.read_text(encoding="utf-8")
     assert "mask" in mark_white_text
@@ -94,20 +105,20 @@ def test_project_logo_assets_are_packaged_and_documented():
     assert _png_dimensions(architecture) == (1200, 600)
     assert architecture.stat().st_size < 450_000
     assert not (ROOT / "docs/guides/images/architecture.svg").exists()
-    assert not (ROOT / "src/mardas_md2pdf/assets" / ("Mardas" + ".png")).exists()
+    assert not (ROOT / "src/mardas_folio/assets" / ("Mardas" + ".png")).exists()
     assert '"assets/*.png"' in pyproject
     assert '"assets/*.svg"' in pyproject
-    assert "mardas-md2pdf-logo.png" in documentation_docs
-    assert "mardas-md2pdf-logo-white.png" in documentation_docs
-    assert "mardas-md2pdf-mark.svg" in documentation_docs
-    assert "mardas-md2pdf-mark-white.svg" in documentation_docs
-    assert "mardas-md2pdf-app-icon.svg" in documentation_docs
-    assert "mardas-md2pdf-mark-gui-mask.svg" in documentation_docs
+    assert "mardas-folio-logo.png" in documentation_docs
+    assert "mardas-folio-logo-white.png" in documentation_docs
+    assert "mardas-folio-mark.svg" in documentation_docs
+    assert "mardas-folio-mark-white.svg" in documentation_docs
+    assert "mardas-folio-app-icon.svg" in documentation_docs
+    assert "mardas-folio-mark-gui-mask.svg" in documentation_docs
     assert (
         "should use `brand.logo` only for their own organization or lab logo" in documentation_docs
     )
     assert "Asset layout policy" in documentation_docs
-    assert "`src/mardas_md2pdf/assets/`" in documentation_docs
+    assert "`src/mardas_folio/assets/`" in documentation_docs
     assert "`docs/guides/images/`" in documentation_docs
     assert "`assets/readme/mardas-folio.png`" in documentation_docs
 
@@ -190,7 +201,7 @@ def test_advanced_code_samples_keep_highlight_ranges_visible():
     files = [
         ROOT / "docs/guides/GUIDE.en.md",
         ROOT / "docs/guides/GUIDE.fa.md",
-        ROOT / "src/mardas_md2pdf/assets/gui.html",
+        ROOT / "src/mardas_folio/assets/gui.html",
     ]
     for path in files:
         text = path.read_text(encoding="utf-8")
@@ -259,7 +270,7 @@ def test_docs_describe_live_Studio_project_workspace_boundaries():
     release = (ROOT / "docs/RELEASE.md").read_text(encoding="utf-8")
 
     for source in (readme, en, fa):
-        assert "mrs-md2pdf-gui --project path/to/project" in source
+        assert "folio-gui --project path/to/project" in source
         assert "Project Workspace" in source
         assert "Open Bundle" in source
         assert "Save Bundle" in source
@@ -440,10 +451,10 @@ def test_guides_document_project_configuration_and_diagnostics() -> None:
     for text in (en, fa):
         assert "mardas.toml" in text
         assert "schema_version = 1" in text
-        assert "mrs-md2pdf init" in text
-        assert "mrs-md2pdf validate" in text
-        assert "mrs-md2pdf doctor" in text
-        assert "mrs-md2pdf explain-config" in text
+        assert "folio init" in text
+        assert "folio validate" in text
+        assert "folio doctor" in text
+        assert "folio explain-config" in text
         assert "--format json" in text
         assert "MARDAS-E103" in text
         assert "MARDAS-W301" in text
@@ -455,20 +466,20 @@ def test_guides_document_multi_file_book_mode() -> None:
 
     for marker in [
         "# Multi-file Book Mode",
-        "mrs-md2pdf init my-book --book",
-        "mrs-md2pdf validate-book my-book",
-        "mrs-md2pdf explain-book my-book --format json",
-        "mrs-md2pdf build-book my-book",
+        "folio init my-book --book",
+        "folio validate-book my-book",
+        "folio explain-book my-book --format json",
+        "folio build-book my-book",
         "chapter_page_break = true",
         "Relative Markdown links",
     ]:
         assert marker in en
     for marker in [
         "# حالت کتاب چندفایلی",
-        "mrs-md2pdf init my-book --book",
-        "mrs-md2pdf validate-book my-book",
-        "mrs-md2pdf explain-book my-book --format json",
-        "mrs-md2pdf build-book my-book",
+        "folio init my-book --book",
+        "folio validate-book my-book",
+        "folio explain-book my-book --format json",
+        "folio build-book my-book",
         "chapter_page_break = true",
         "لینک نسبی Markdown",
     ]:
@@ -479,9 +490,9 @@ def test_readme_surfaces_book_mode_and_architecture_module() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
     assert "ordered multi-file books" in readme
-    assert "mrs-md2pdf init my-book --book" in readme
-    assert "mrs-md2pdf validate-book my-book" in readme
-    assert "mrs-md2pdf build-book my-book" in readme
+    assert "folio init my-book --book" in readme
+    assert "folio validate-book my-book" in readme
+    assert "folio build-book my-book" in readme
     assert "book.py" in readme
     assert "cross-links" in readme
 
@@ -560,7 +571,7 @@ def test_guides_document_the_standalone_runtime_boundary():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
     for source in (readme, en, fa):
-        assert "mrs-md2pdf-sidecar" in source
+        assert "folio-sidecar" in source
         assert "build_standalone_runtime.py" in source
         assert "verify_standalone_runtime.py" in source
         assert __version__ in source

@@ -2,8 +2,8 @@ from pathlib import Path
 
 from pypdf import PdfWriter
 
-from mardas_md2pdf.markdown import render_markdown, render_markdown_file
-from mardas_md2pdf.renderer import (
+from mardas_folio.markdown import render_markdown, render_markdown_file
+from mardas_folio.renderer import (
     FooterContext,
     PdfOptions,
     _add_pdf_page_labels,

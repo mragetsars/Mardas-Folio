@@ -7,9 +7,9 @@
 
 Mardas Folio keeps the established Python renderer as the publishing engine and introduces a separate desktop boundary around it:
 
-1. `mardas_md2pdf` remains the renderer/core package.
-2. `mrs-md2pdf` remains the automation and power-user CLI.
-3. `mrs-md2pdf-sidecar` is the versioned process boundary for desktop clients.
+1. `mardas_folio` remains the renderer/core package.
+2. `folio` remains the automation and power-user CLI.
+3. `folio-sidecar` is the versioned process boundary for desktop clients.
 4. A future Tauri shell owns native windows, menus, file dialogs, updates, and application lifecycle.
 
 The desktop shell must not import Python modules directly or expose the existing localhost Studio server. It communicates only through the sidecar contract.

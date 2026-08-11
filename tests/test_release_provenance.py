@@ -49,7 +49,7 @@ def _load_script(name: str):
 def test_runtime_dependency_closure_respects_markers_and_transitive_edges() -> None:
     records = [
         DistributionRecord(
-            name="mardas-md2pdf",
+            name="mardas-folio",
             version="1.21.0",
             summary="root",
             license_expression="MIT",
@@ -87,16 +87,16 @@ def test_runtime_dependency_closure_respects_markers_and_transitive_edges() -> N
 
     selected, relationships = runtime_dependency_closure(records)
 
-    assert [item.name for item in selected] == ["alpha", "beta", "mardas-md2pdf"]
-    assert relationships == [("alpha", "beta"), ("mardas-md2pdf", "alpha")]
+    assert [item.name for item in selected] == ["alpha", "beta", "mardas-folio"]
+    assert relationships == [("alpha", "beta"), ("mardas-folio", "alpha")]
 
 
 def test_spdx_document_is_deterministic_and_valid(tmp_path: Path) -> None:
-    artifact = tmp_path / "mardas_md2pdf-1.21.0-py3-none-any.whl"
+    artifact = tmp_path / "mardas_folio-1.21.0-py3-none-any.whl"
     artifact.write_bytes(b"wheel")
     records = [
         DistributionRecord(
-            name="mardas-md2pdf",
+            name="mardas-folio",
             version="1.21.0",
             summary="Publisher",
             license_expression="MIT",
@@ -114,9 +114,9 @@ def test_spdx_document_is_deterministic_and_valid(tmp_path: Path) -> None:
     ]
     kwargs = dict(
         distributions=records,
-        relationships=[("mardas-md2pdf", "alpha")],
+        relationships=[("mardas-folio", "alpha")],
         artifact_paths=[artifact],
-        root_name="mardas-md2pdf",
+        root_name="mardas-folio",
         source_revision="abc123",
         epoch=1_735_689_600,
     )
@@ -147,15 +147,15 @@ def test_deterministic_zip_has_stable_bytes_and_no_unsafe_members(tmp_path: Path
 
 
 def test_release_manifest_and_checksums_detect_tampering(tmp_path: Path) -> None:
-    wheel = tmp_path / "mardas_md2pdf-1.21.0-py3-none-any.whl"
-    sdist = tmp_path / "mardas_md2pdf-1.21.0.tar.gz"
-    sbom = tmp_path / "mardas-md2pdf-1.21.0.spdx.json"
+    wheel = tmp_path / "mardas_folio-1.21.0-py3-none-any.whl"
+    sdist = tmp_path / "mardas_folio-1.21.0.tar.gz"
+    sbom = tmp_path / "mardas-folio-1.21.0.spdx.json"
     wheel.write_bytes(b"wheel")
     sdist.write_bytes(b"sdist")
     spdx = generate_spdx_document(
         distributions=[
             DistributionRecord(
-                name="mardas-md2pdf",
+                name="mardas-folio",
                 version="1.21.0",
                 summary="Publisher",
                 license_expression="MIT",
@@ -165,7 +165,7 @@ def test_release_manifest_and_checksums_detect_tampering(tmp_path: Path) -> None
         ],
         relationships=[],
         artifact_paths=[wheel, sdist],
-        root_name="mardas-md2pdf",
+        root_name="mardas-folio",
         source_revision="abc",
         epoch=1_735_689_600,
     )
@@ -213,7 +213,7 @@ def test_offline_bundle_manifest_and_checksums_are_verified(tmp_path: Path) -> N
     builder = _load_script("build_offline_bundle.py")
     wheelhouse = tmp_path / "wheelhouse"
     wheelhouse.mkdir()
-    (wheelhouse / "mardas_md2pdf-1.21.0-py3-none-any.whl").write_bytes(b"project")
+    (wheelhouse / "mardas_folio-1.21.0-py3-none-any.whl").write_bytes(b"project")
     (wheelhouse / "dependency-2.0-py3-none-any.whl").write_bytes(b"dependency")
     members = builder._bundle_members(
         wheelhouse,
@@ -222,7 +222,7 @@ def test_offline_bundle_manifest_and_checksums_are_verified(tmp_path: Path) -> N
         python_version="3.12.0",
         epoch=1_735_689_600,
     )
-    bundle = tmp_path / "mardas-md2pdf-1.21.0-offline-linux-x64-py312.zip"
+    bundle = tmp_path / "mardas-folio-1.21.0-offline-linux-x64-py312.zip"
     deterministic_zip(bundle, members, epoch=1_735_689_600)
 
     verify_offline_bundle(bundle, expected_version="1.21.0")
@@ -427,14 +427,14 @@ def test_cross_platform_and_provenance_workflows_use_current_contracts() -> None
 
 
 def test_finalize_cli_round_trip(tmp_path: Path) -> None:
-    wheel = tmp_path / "mardas_md2pdf-1.21.0-py3-none-any.whl"
-    sdist = tmp_path / "mardas_md2pdf-1.21.0.tar.gz"
+    wheel = tmp_path / "mardas_folio-1.21.0-py3-none-any.whl"
+    sdist = tmp_path / "mardas_folio-1.21.0.tar.gz"
     wheel.write_bytes(b"wheel")
     sdist.write_bytes(b"sdist")
     spdx = generate_spdx_document(
         distributions=[
             DistributionRecord(
-                name="mardas-md2pdf",
+                name="mardas-folio",
                 version="1.21.0",
                 summary="Publisher",
                 license_expression="MIT",
@@ -444,11 +444,11 @@ def test_finalize_cli_round_trip(tmp_path: Path) -> None:
         ],
         relationships=[],
         artifact_paths=[wheel, sdist],
-        root_name="mardas-md2pdf",
+        root_name="mardas-folio",
         source_revision="abc",
         epoch=1_735_689_600,
     )
-    write_json(tmp_path / "mardas-md2pdf-1.21.0.spdx.json", spdx)
+    write_json(tmp_path / "mardas-folio-1.21.0.spdx.json", spdx)
     command = [
         sys.executable,
         str(SCRIPTS / "finalize_release_artifacts.py"),

@@ -25,7 +25,7 @@ from release_provenance import deterministic_zip, source_date_epoch  # noqa: E40
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402
 from verify_native_desktop import verify_native_artifact  # noqa: E402
-from mardas_md2pdf import __version__  # noqa: E402
+from mardas_folio import __version__  # noqa: E402
 
 DESKTOP_ROOT = ROOT / "apps" / "desktop"
 TAURI_ROOT = DESKTOP_ROOT / "src-tauri"

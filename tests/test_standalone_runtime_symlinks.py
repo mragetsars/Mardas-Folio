@@ -19,7 +19,7 @@ if str(SCRIPTS) not in sys.path:
 import build_standalone_runtime as runtime_builder  # noqa: E402
 import release_provenance as runtime_provenance  # noqa: E402
 from build_standalone_runtime import _archive_runtime, _write_manifest  # noqa: E402
-from mardas_md2pdf import __version__  # noqa: E402
+from mardas_folio import __version__  # noqa: E402
 from release_provenance import (  # noqa: E402
     ReleaseProvenanceError,
     verify_standalone_runtime,

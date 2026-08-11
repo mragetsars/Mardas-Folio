@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mardas_md2pdf.mermaid import render_mermaid_to_svg
-from mardas_md2pdf.markdown import render_markdown
-from mardas_md2pdf.renderer import PdfOptions, build_html
+from mardas_folio.mermaid import render_mermaid_to_svg
+from mardas_folio.markdown import render_markdown
+from mardas_folio.renderer import PdfOptions, build_html
 
 
 def test_mermaid_edge_labels_use_background_chips_not_stroked_text():

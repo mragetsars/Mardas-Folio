@@ -8,9 +8,9 @@ from threading import Thread
 
 import pytest
 
-from mardas_md2pdf import gui
-from mardas_md2pdf.markdown import render_markdown
-from mardas_md2pdf.renderer import (
+from mardas_folio import gui
+from mardas_folio.markdown import render_markdown
+from mardas_folio.renderer import (
     DocumentAssetError,
     OutputPathError,
     PdfOptions,

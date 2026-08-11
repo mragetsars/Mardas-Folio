@@ -183,7 +183,7 @@ def test_visual_qa_scripts_expose_reliable_batch_controls() -> None:
 
 def test_feature_audit_all_appearances_can_be_bounded_without_rendering() -> None:
     from audit_pdf_features import _parse_appearances
-    from mardas_md2pdf.appearance import MODES, PALETTES_ORDER, STYLES
+    from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES
 
     appearances = _parse_appearances(None, all_appearances=True)
 

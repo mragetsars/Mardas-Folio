@@ -28,9 +28,9 @@ if [[ "${MARDAS_SKIP_SECURITY_AUDIT:-0}" != "1" ]]; then
   bash scripts/security_audit.sh
 fi
 
-tmp_pdf="${TMPDIR:-/tmp}/mardas-md2pdf-release-smoke.pdf"
+tmp_pdf="${TMPDIR:-/tmp}/mardas-folio-release-smoke.pdf"
 timeout "${MARDAS_RELEASE_SMOKE_TIMEOUT:-240}" \
-  python -m mardas_md2pdf.cli \
+  python -m mardas_folio.cli \
     docs/guides/GUIDE.en.md \
     -o "$tmp_pdf" \
     --toc \
@@ -97,8 +97,8 @@ if [[ -z "$wheel_path" ]]; then
   exit 1
 fi
 
-verify_venv="$(mktemp -d "${TMPDIR:-/tmp}/mardas-md2pdf-release-venv.XXXXXX")"
-project_smoke="$(mktemp -d "${TMPDIR:-/tmp}/mardas-md2pdf-project-smoke.XXXXXX")"
+verify_venv="$(mktemp -d "${TMPDIR:-/tmp}/mardas-folio-release-venv.XXXXXX")"
+project_smoke="$(mktemp -d "${TMPDIR:-/tmp}/mardas-folio-project-smoke.XXXXXX")"
 cleanup_release_gate() {
   rm -rf "$verify_venv" "$project_smoke" "$tmp_pdf"
 }
@@ -114,11 +114,11 @@ fi
 
 "$venv_python" -m pip install --disable-pip-version-check "$wheel_path"
 "$venv_python" -m pip check
-"$venv_bin/mrs-md2pdf" --version
-"$venv_bin/mrs-md2pdf" --help >/dev/null
-"$venv_bin/mrs-md2pdf" --list-styles >/dev/null
-"$venv_bin/mrs-md2pdf-sidecar" --version
-"$venv_bin/mrs-md2pdf-sidecar" --health > "$project_smoke/sidecar-health.json"
+"$venv_bin/folio" --version
+"$venv_bin/folio" --help >/dev/null
+"$venv_bin/folio" --list-styles >/dev/null
+"$venv_bin/folio-sidecar" --version
+"$venv_bin/folio-sidecar" --health > "$project_smoke/sidecar-health.json"
 "$venv_python" - "$project_smoke/sidecar-health.json" <<'PY_SIDECAR_HEALTH'
 import json
 import sys
@@ -132,7 +132,7 @@ if payload.get("protocol") != "mardas-sidecar" or payload.get("protocol_version"
 if not payload.get("engine_api_version"):
     raise SystemExit("Installed-wheel sidecar did not expose an engine API version")
 PY_SIDECAR_HEALTH
-"$venv_bin/mrs-md2pdf" init "$project_smoke" --book
+"$venv_bin/folio" init "$project_smoke" --book
 "$venv_python" - "$project_smoke" <<'PY_REFERENCE_PROJECT'
 import sys
 from pathlib import Path
@@ -196,16 +196,16 @@ chapter_two = (
 (root / "chapters" / "02-content.md").write_text(chapter_two, encoding="utf-8")
 PY_REFERENCE_PROJECT
 printf '%s\n' '# Project command smoke' > "$project_smoke/report.md"
-"$venv_bin/mrs-md2pdf" validate "$project_smoke/report.md" --format json > "$project_smoke/validate.json"
-"$venv_bin/mrs-md2pdf" explain-config "$project_smoke/report.md" --format json > "$project_smoke/explain.json"
-"$venv_bin/mrs-md2pdf" doctor "$project_smoke/report.md" --format json > "$project_smoke/doctor.json"
-"$venv_bin/mrs-md2pdf" validate-book "$project_smoke" --format json > "$project_smoke/validate-book.json"
-"$venv_bin/mrs-md2pdf" explain-book "$project_smoke" --format json > "$project_smoke/explain-book.json"
-"$venv_bin/mrs-md2pdf" build-book "$project_smoke" --format json --progress off > "$project_smoke/build-book.json"
+"$venv_bin/folio" validate "$project_smoke/report.md" --format json > "$project_smoke/validate.json"
+"$venv_bin/folio" explain-config "$project_smoke/report.md" --format json > "$project_smoke/explain.json"
+"$venv_bin/folio" doctor "$project_smoke/report.md" --format json > "$project_smoke/doctor.json"
+"$venv_bin/folio" validate-book "$project_smoke" --format json > "$project_smoke/validate-book.json"
+"$venv_bin/folio" explain-book "$project_smoke" --format json > "$project_smoke/explain-book.json"
+"$venv_bin/folio" build-book "$project_smoke" --format json --progress off > "$project_smoke/build-book.json"
 test -s "$project_smoke/dist/book.pdf"
-"$venv_bin/mrs-md2pdf" audit-accessibility "$project_smoke/report.md" --format json > "$project_smoke/audit-accessibility.json"
-"$venv_bin/mrs-md2pdf" audit-book-accessibility "$project_smoke" --format json > "$project_smoke/audit-book-accessibility.json"
-"$venv_bin/mrs-md2pdf" audit-pdf "$project_smoke/dist/book.pdf" --format json --fail-on never > "$project_smoke/audit-pdf.json"
+"$venv_bin/folio" audit-accessibility "$project_smoke/report.md" --format json > "$project_smoke/audit-accessibility.json"
+"$venv_bin/folio" audit-book-accessibility "$project_smoke" --format json > "$project_smoke/audit-book-accessibility.json"
+"$venv_bin/folio" audit-pdf "$project_smoke/dist/book.pdf" --format json --fail-on never > "$project_smoke/audit-pdf.json"
 "$venv_python" - "$project_smoke" <<'PY_PROJECT'
 import json
 import sys
@@ -264,13 +264,13 @@ for expected in (
 if len([name for name in destinations if name.startswith("/bib-")]) != 2:
     raise SystemExit("Bibliography destinations are missing from the installed-wheel PDF")
 PY_PROJECT
-"$venv_bin/mrs-md2pdf-gui" --version
-"$venv_bin/mrs-md2pdf-gui" --help | grep -F -- "--project" >/dev/null
+"$venv_bin/folio-gui" --version
+"$venv_bin/folio-gui" --help | grep -F -- "--project" >/dev/null
 "$venv_python" - "$project_smoke" <<'PY_WORKSPACE'
 import sys
 from pathlib import Path
 
-from mardas_md2pdf.workspace import (
+from mardas_folio.workspace import (
     load_workspace,
     read_workspace_file,
     workspace_payload,
@@ -298,8 +298,8 @@ PY_WORKSPACE
 import sys
 from pathlib import Path
 
-from mardas_md2pdf.render_pool import RenderPool
-from mardas_md2pdf.renderer import PdfOptions, RenderSession, convert
+from mardas_folio.render_pool import RenderPool
+from mardas_folio.renderer import PdfOptions, RenderSession, convert
 from pypdf import PdfReader
 
 root = Path(sys.argv[1])
@@ -331,14 +331,14 @@ python scripts/check_visual_contracts.py \
 "$venv_python" - <<'PY'
 from importlib import resources
 
-assets = resources.files("mardas_md2pdf") / "assets"
+assets = resources.files("mardas_folio") / "assets"
 required = [
     "gui.html",
     "style-modern.css",
     "style-github.css",
     "style-textbook.css",
     "style-academic.css",
-    "mardas-md2pdf-mark.svg",
+    "mardas-folio-mark.svg",
     "mathjax/tex-svg-full.js",
 ]
 missing = [name for name in required if not (assets / name).is_file()]
@@ -346,11 +346,11 @@ if missing:
     raise SystemExit(f"Missing packaged assets: {', '.join(missing)}")
 
 for module in ("render_pool.py", "studio_jobs.py"):
-    if not (resources.files("mardas_md2pdf") / module).is_file():
+    if not (resources.files("mardas_folio") / module).is_file():
         raise SystemExit(f"Missing packaged performance module: {module}")
 PY
 
-release_version="$($venv_python -c 'from importlib import metadata; print(metadata.version("mardas-md2pdf"))')"
+release_version="$($venv_python -c 'from importlib import metadata; print(metadata.version("mardas-folio"))')"
 sdist_path="$(find dist -maxdepth 1 -type f -name '*.tar.gz' -print -quit)"
 if [[ -z "$sdist_path" ]]; then
   echo "Release gate failed: source distribution was not produced." >&2
@@ -359,12 +359,12 @@ fi
 source_revision="$(git rev-parse HEAD 2>/dev/null || printf 'unknown')"
 python scripts/generate_sbom.py \
   --python "$venv_python" \
-  --distribution mardas-md2pdf \
+  --distribution mardas-folio \
   --artifact "$wheel_path" \
   --artifact "$sdist_path" \
   --source-revision "$source_revision" \
   --source-date-epoch "$SOURCE_DATE_EPOCH" \
-  --output "dist/mardas-md2pdf-${release_version}.spdx.json"
+  --output "dist/mardas-folio-${release_version}.spdx.json"
 python scripts/finalize_release_artifacts.py \
   --artifact-dir dist \
   --version "$release_version" \

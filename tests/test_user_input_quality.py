@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from bs4 import BeautifulSoup
 
-from mardas_md2pdf.cli import main
-from mardas_md2pdf.markdown import MarkdownInputError, render_markdown, render_markdown_file
+from mardas_folio.cli import main
+from mardas_folio.markdown import MarkdownInputError, render_markdown, render_markdown_file
 
 
 def test_utf8_bom_does_not_break_frontmatter(tmp_path: Path) -> None:

@@ -8,7 +8,7 @@ export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 coverage erase
 coverage run \
   --branch \
-  --source=mardas_md2pdf.quality,mardas_md2pdf.pdf_navigation,mardas_md2pdf.protocol,mardas_md2pdf.runtime,mardas_md2pdf.application,mardas_md2pdf.sidecar \
+  --source=mardas_folio.quality,mardas_folio.pdf_navigation,mardas_folio.protocol,mardas_folio.runtime,mardas_folio.application,mardas_folio.sidecar \
   -m pytest -q \
   tests/test_renderer_options.py \
   tests/test_pdf_toc_destinations.py \

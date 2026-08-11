@@ -3,7 +3,7 @@ requires = ["setuptools==83.0.0", "wheel==0.47.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mardas-md2pdf"
+name = "mardas-folio"
 version = "2.0.0"
 description = "Mardas Folio: Persian/English Markdown publishing with RTL/LTR typography, deterministic multi-file books, MathJax, diagrams, a desktop authoring workspace, and PDF navigation."
 readme = "README.md"
@@ -42,17 +42,17 @@ desktop = [
 ]
 
 [project.scripts]
-mrs-md2pdf = "mardas_md2pdf.cli:main"
-mrs-md2pdf-gui = "mardas_md2pdf.gui:main"
-mrs-md2pdf-sidecar = "mardas_md2pdf.sidecar:main"
+folio = "mardas_folio.cli:main"
+folio-gui = "mardas_folio.gui:main"
+folio-sidecar = "mardas_folio.sidecar:main"
 
 [tool.setuptools]
-packages = ["mardas_md2pdf", "mardas_md2pdf.assets", "mardas_md2pdf.assets.mathjax"]
+packages = ["mardas_folio", "mardas_folio.assets", "mardas_folio.assets.mathjax"]
 package-dir = {"" = "src"}
 include-package-data = true
 
 [tool.setuptools.package-data]
-mardas_md2pdf = [
+mardas_folio = [
   "assets/*.css",
   "assets/*.png",
   "assets/*.svg",
@@ -75,7 +75,7 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["mardas_md2pdf"]
+source = ["mardas_folio"]
 
 [tool.coverage.report]
 show_missing = true

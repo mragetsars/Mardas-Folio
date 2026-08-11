@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from mardas_md2pdf import __version__
-from mardas_md2pdf.application import ENGINE_API_VERSION, EngineService
-from mardas_md2pdf.support import SupportBundleError, create_support_bundle
+from mardas_folio import __version__
+from mardas_folio.application import ENGINE_API_VERSION, EngineService
+from mardas_folio.support import SupportBundleError, create_support_bundle
 
 
 def test_support_bundle_is_privacy_safe_and_versioned(tmp_path: Path) -> None:

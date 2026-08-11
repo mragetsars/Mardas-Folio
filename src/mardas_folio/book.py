@@ -128,7 +128,7 @@ def load_book_manifest(
                 "MARDAS-E501",
                 "error",
                 "Book Mode requires a project configuration file.",
-                hint="Create mardas.toml with `mrs-md2pdf init --book`.",
+                hint="Create mardas.toml with `folio init --book`.",
             )
         )
         return None, tuple(diagnostics)
@@ -139,7 +139,7 @@ def load_book_manifest(
                 "error",
                 "Project configuration does not define book.chapters.",
                 path=config.path,
-                hint="Add an ordered [book].chapters array or run `mrs-md2pdf init --book`.",
+                hint="Add an ordered [book].chapters array or run `folio init --book`.",
             )
         )
         return None, tuple(diagnostics)

@@ -3,8 +3,8 @@ from pathlib import Path
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject, NumberObject
 
-from mardas_md2pdf.markdown import render_markdown
-from mardas_md2pdf.renderer import (
+from mardas_folio.markdown import render_markdown
+from mardas_folio.renderer import (
     _copy_pdf_with_metadata,
     _heading_destination_names,
 )
@@ -94,8 +94,8 @@ def test_visible_toc_link_annotations_are_rewritten_to_explicit_destinations(tmp
 def test_navigation_quality_reports_missing_heading_destinations():
     import pytest
 
-    from mardas_md2pdf.pdf_navigation import NavigationTracker, enforce_navigation_quality
-    from mardas_md2pdf.quality import PdfNavigationError, RenderQualityLog
+    from mardas_folio.pdf_navigation import NavigationTracker, enforce_navigation_quality
+    from mardas_folio.quality import PdfNavigationError, RenderQualityLog
 
     tracker = NavigationTracker(missing_heading_destinations=["missing-heading"])
     log = RenderQualityLog(profile="strict-publication")

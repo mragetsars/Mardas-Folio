@@ -8,11 +8,11 @@ from typing import Callable
 
 import pytest
 
-from mardas_md2pdf import application, renderer, runtime
-from mardas_md2pdf.application import EngineError, EngineService
-from mardas_md2pdf.diagnostics import Diagnostic
-from mardas_md2pdf.quality import RenderQualityLog
-from mardas_md2pdf.renderer import PdfOptions
+from mardas_folio import application, renderer, runtime
+from mardas_folio.application import EngineError, EngineService
+from mardas_folio.diagnostics import Diagnostic
+from mardas_folio.quality import RenderQualityLog
+from mardas_folio.renderer import PdfOptions
 
 
 def test_atomic_text_write_honors_umask_and_preserves_existing_mode(

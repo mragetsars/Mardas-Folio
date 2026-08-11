@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from mardas_md2pdf.markdown import render_markdown
-from mardas_md2pdf.renderer import FooterContext, PdfOptions, _footer_template, _layout_css
+from mardas_folio.markdown import render_markdown
+from mardas_folio.renderer import FooterContext, PdfOptions, _footer_template, _layout_css
 
 
 def test_persian_blocks_get_explicit_rtl_direction_classes():

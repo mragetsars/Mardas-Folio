@@ -4,15 +4,16 @@ Use this checklist when preparing a tagged Mardas Folio release.
 
 ## Version bump
 
-The version is declared in six places. All six must agree, because the desktop
-package, the Rust crate and the Python distribution are built from different
-files and a mismatch is only caught late, during bundling:
+The version is declared in seven places. All seven must agree, because the
+desktop package, the Rust crate and the Python distribution are built from
+different files and a mismatch is only caught late, during bundling:
 
 - `pyproject.toml` — Python distribution.
-- `src/mardas_md2pdf/__init__.py` — `__version__`, which the engine reports over the sidecar protocol.
+- `src/mardas_folio/__init__.py` — `__version__`, which the engine reports over the sidecar protocol.
 - `apps/desktop/package.json` and `apps/desktop/package-lock.json` — desktop workspace.
 - `apps/desktop/src-tauri/tauri.conf.json` — bundle version used for installer and update metadata.
 - `apps/desktop/src-tauri/Cargo.toml` — Rust crate.
+- `apps/desktop/src-tauri/Cargo.lock` — the crate's own locked entry. `cargo update -p mardas-folio --offline` rewrites it after the `Cargo.toml` bump; the native desktop jobs run `cargo test --locked` and fail when the two disagree.
 
 Then update the documentation:
 
@@ -104,9 +105,9 @@ The supported release pipeline has three distinct contracts:
 The local release gate writes the following core files under `dist/`:
 
 ```text
-mardas_md2pdf-X.Y.Z-py3-none-any.whl
-mardas_md2pdf-X.Y.Z.tar.gz
-mardas-md2pdf-X.Y.Z.spdx.json
+mardas_folio-X.Y.Z-py3-none-any.whl
+mardas_folio-X.Y.Z.tar.gz
+mardas-folio-X.Y.Z.spdx.json
 RELEASE-MANIFEST.json
 CHECKSUMS.sha256
 ```
@@ -116,9 +117,9 @@ Generate or verify those files directly when diagnosing a release runner:
 ```bash
 python scripts/generate_sbom.py \
   --python path/to/clean-venv/bin/python \
-  --artifact dist/mardas_md2pdf-X.Y.Z-py3-none-any.whl \
-  --artifact dist/mardas_md2pdf-X.Y.Z.tar.gz \
-  --output dist/mardas-md2pdf-X.Y.Z.spdx.json
+  --artifact dist/mardas_folio-X.Y.Z-py3-none-any.whl \
+  --artifact dist/mardas_folio-X.Y.Z.tar.gz \
+  --output dist/mardas-folio-X.Y.Z.spdx.json
 
 python scripts/finalize_release_artifacts.py \
   --artifact-dir dist \
@@ -147,8 +148,8 @@ A release standalone runtime must include Chromium and pass `verify_standalone_r
 The tag workflow creates one offline Python wheel bundle per runner platform with `scripts/build_offline_bundle.py`. Each archive contains an offline wheelhouse, deterministic bundle metadata, an installer, and its own checksum list. It does **not** contain Chromium or an embedded Python runtime. Test the bundle after extraction with:
 
 ```bash
-python install.py --target mardas-md2pdf-venv
-mardas-md2pdf-venv/bin/mrs-md2pdf --version
+python install.py --target mardas-folio-venv
+mardas-folio-venv/bin/folio --version
 ```
 
 GitHub-hosted release jobs use `actions/attest` to create signed SLSA build-provenance and SPDX SBOM attestations. Verify an artifact after download:
@@ -193,10 +194,10 @@ See [`docs/MAINTENANCE.md`](./MAINTENANCE.md) for the daily check, example-gener
 Before tagging a release that changes rendering, metadata, fonts, themes, images, tables, or navigation, build representative documents with `--quality-profile strict-publication` and retain the JSON quality report alongside the release evidence. Then run:
 
 ```bash
-mrs-md2pdf audit-accessibility docs/guides/GUIDE.en.md --format json --fail-on error
-mrs-md2pdf audit-accessibility docs/guides/GUIDE.fa.md --format json --fail-on error
-mrs-md2pdf audit-pdf examples/GUIDE.en.pdf --profile all --format json --fail-on never
-mrs-md2pdf audit-pdf examples/GUIDE.fa.pdf --profile all --format json --fail-on never
+folio audit-accessibility docs/guides/GUIDE.en.md --format json --fail-on error
+folio audit-accessibility docs/guides/GUIDE.fa.md --format json --fail-on error
+folio audit-pdf examples/GUIDE.en.pdf --profile all --format json --fail-on never
+folio audit-pdf examples/GUIDE.fa.pdf --profile all --format json --fail-on never
 ```
 
 The clean-wheel release gate must execute `audit-accessibility`, `audit-book-accessibility`, and `audit-pdf`. Confirm that generated PDFs declare language and contain XMP metadata, all ordinary fonts are embedded with usable ToUnicode mappings where applicable, and no unexpected JavaScript or attachments appear. An untagged Chromium PDF or missing PDF/A output intent must remain an explicit readiness limitation; the release notes must not claim PDF/UA or PDF/A conformance without independent validator evidence.

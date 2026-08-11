@@ -58,7 +58,7 @@ def verify_bundle(root: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install Mardas Folio from an offline wheel bundle")
-    parser.add_argument("--target", type=Path, default=Path("mardas-md2pdf-venv"))
+    parser.add_argument("--target", type=Path, default=Path("mardas-folio-venv"))
     parser.add_argument("--clear", action="store_true")
     args = parser.parse_args()
     if sys.version_info < (3, 10):
@@ -70,11 +70,11 @@ def main() -> int:
     builder.create(target)
     if os.name == "nt":
         python_exe = target / "Scripts" / "python.exe"
-        cli = target / "Scripts" / "mrs-md2pdf.exe"
+        cli = target / "Scripts" / "folio.exe"
     else:
         python_exe = target / "bin" / "python"
-        cli = target / "bin" / "mrs-md2pdf"
-    wheels = sorted((root / "wheelhouse").glob("mardas_md2pdf-*.whl"))
+        cli = target / "bin" / "folio"
+    wheels = sorted((root / "wheelhouse").glob("mardas_folio-*.whl"))
     if len(wheels) != 1:
         raise SystemExit("The bundle must contain exactly one Mardas Folio wheel")
     subprocess.run(
@@ -117,13 +117,13 @@ contain a Chromium browser binary.
 Linux/macOS:
 
 ```bash
-python3 install.py --target mardas-md2pdf-venv
+python3 install.py --target mardas-folio-venv
 ```
 
 Windows PowerShell:
 
 ```powershell
-py install.py --target mardas-md2pdf-venv
+py install.py --target mardas-folio-venv
 ```
 
 The installer verifies CHECKSUMS.sha256, creates a virtual environment, and
@@ -135,10 +135,10 @@ PDF rendering requires a supported Chromium executable. Use a system Chromium
 or install the Playwright-managed browser after the Python package is installed:
 
 ```bash
-mardas-md2pdf-venv/bin/python -m playwright install chromium
+mardas-folio-venv/bin/python -m playwright install chromium
 ```
 
-On Windows, use `mardas-md2pdf-venv\\Scripts\\python.exe`.
+On Windows, use `mardas-folio-venv\\Scripts\\python.exe`.
 The browser-install command may require network access and is intentionally not
 presented as part of the offline guarantee.
 """
@@ -264,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
             wheel = args.wheel.resolve()
         else:
             wheel_dir = args.wheel_dir.resolve()
-            candidates = sorted(wheel_dir.glob("mardas_md2pdf-*.whl")) if wheel_dir.is_dir() else []
+            candidates = sorted(wheel_dir.glob("mardas_folio-*.whl")) if wheel_dir.is_dir() else []
             if len(candidates) != 1:
                 raise ReleaseProvenanceError(
                     f"Expected exactly one project wheel in {wheel_dir}; found {len(candidates)}"
@@ -307,7 +307,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             python_tag = f"py{version_parts[0]}{version_parts[1]}"
             output_name = (
-                f"mardas-md2pdf-{version}-offline-{platform_label}-{python_tag}.zip"
+                f"mardas-folio-{version}-offline-{platform_label}-{python_tag}.zip"
             )
             output_path = args.output_dir.resolve() / output_name
             deterministic_zip(output_path, members, epoch=epoch)

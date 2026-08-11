@@ -7,8 +7,8 @@ from pathlib import Path
 from threading import Event, Thread
 import time
 
-from mardas_md2pdf import gui
-from mardas_md2pdf.studio_jobs import StudioExportManager
+from mardas_folio import gui
+from mardas_folio.studio_jobs import StudioExportManager
 
 
 def _start_server(*, workers: int = 1, queue_size: int = 2):

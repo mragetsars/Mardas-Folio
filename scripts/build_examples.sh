@@ -30,7 +30,7 @@ for source, output in examples:
     command = [
         sys.executable,
         "-m",
-        "mardas_md2pdf.cli",
+        "mardas_folio.cli",
         source,
         "-o",
         output,

@@ -4,12 +4,12 @@ import mimetypes
 from importlib import resources
 from pathlib import Path
 
-PRODUCT_LOGO = "mardas-md2pdf-logo.png"
-PRODUCT_LOGO_WHITE = "mardas-md2pdf-logo-white.png"
-PRODUCT_MARK_SVG = "mardas-md2pdf-mark.svg"
-PRODUCT_MARK_WHITE_SVG = "mardas-md2pdf-mark-white.svg"
-PRODUCT_APP_ICON_SVG = "mardas-md2pdf-app-icon.svg"
-PRODUCT_GUI_MARK_MASK_SVG = "mardas-md2pdf-mark-gui-mask.svg"
+PRODUCT_LOGO = "mardas-folio-logo.png"
+PRODUCT_LOGO_WHITE = "mardas-folio-logo-white.png"
+PRODUCT_MARK_SVG = "mardas-folio-mark.svg"
+PRODUCT_MARK_WHITE_SVG = "mardas-folio-mark-white.svg"
+PRODUCT_APP_ICON_SVG = "mardas-folio-app-icon.svg"
+PRODUCT_GUI_MARK_MASK_SVG = "mardas-folio-mark-gui-mask.svg"
 
 DEFAULT_LOGO_CANDIDATES = (PRODUCT_LOGO, PRODUCT_MARK_SVG)
 COVER_LABEL_LOGO_CANDIDATES = (PRODUCT_LOGO_WHITE, PRODUCT_MARK_WHITE_SVG)
@@ -25,7 +25,7 @@ GUI_BRAND_ASSET_ROUTES = {
 
 
 def packaged_asset_path(filename: str) -> Path:
-    return Path(str(resources.files("mardas_md2pdf") / "assets" / filename))
+    return Path(str(resources.files("mardas_folio") / "assets" / filename))
 
 
 def product_logo_path(*, variant: str = "default") -> Path | None:

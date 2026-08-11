@@ -5,13 +5,13 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from mardas_md2pdf.accessibility import (
+from mardas_folio.accessibility import (
     appearance_contrast_metrics,
     audit_markdown_result,
 )
-from mardas_md2pdf.appearance import MODES, PALETTES_ORDER, STYLES, resolve_appearance
-from mardas_md2pdf.cli import main
-from mardas_md2pdf.markdown import render_markdown, render_markdown_file
+from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES, resolve_appearance
+from mardas_folio.cli import main
+from mardas_folio.markdown import render_markdown, render_markdown_file
 
 
 def test_accessibility_audit_reports_source_and_semantic_problems(tmp_path: Path) -> None:

@@ -21,7 +21,7 @@ from build_desktop_frontend import build_frontend  # noqa: E402
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402
 from verify_desktop_installer import verify_installer  # noqa: E402
-from mardas_md2pdf import __version__  # noqa: E402
+from mardas_folio import __version__  # noqa: E402
 
 DESKTOP_ROOT = ROOT / "apps" / "desktop"
 TAURI_ROOT = DESKTOP_ROOT / "src-tauri"

@@ -150,9 +150,9 @@ def _iter_runtime_paths(root: Path, *, include_manifest: bool = False) -> Iterab
 
 
 def _write_manifest(runtime_dir: Path, *, browser_source: Path | None) -> Path:
-    from mardas_md2pdf import __version__
-    from mardas_md2pdf.application import ENGINE_API_VERSION
-    from mardas_md2pdf.protocol import PROTOCOL_NAME, PROTOCOL_VERSION
+    from mardas_folio import __version__
+    from mardas_folio.application import ENGINE_API_VERSION
+    from mardas_folio.protocol import PROTOCOL_NAME, PROTOCOL_VERSION
 
     entries: list[dict[str, object]] = []
     symlinks: dict[str, str] = {}
@@ -304,7 +304,7 @@ def build(args: argparse.Namespace) -> tuple[Path, Path | None]:
     ]
     subprocess.run(command, cwd=ROOT, env=environment, check=True)
 
-    from mardas_md2pdf import __version__
+    from mardas_folio import __version__
 
     produced = dist_root / "mardas-sidecar"
     if not produced.is_dir():

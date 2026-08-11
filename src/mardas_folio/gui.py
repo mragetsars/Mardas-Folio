@@ -525,7 +525,7 @@ def _validated_render_options(options: dict[str, Any]) -> dict[str, Any]:
 
 
 def _asset_text(name: str) -> str:
-    return (resources.files("mardas_md2pdf") / "assets" / name).read_text(encoding="utf-8")
+    return (resources.files("mardas_folio") / "assets" / name).read_text(encoding="utf-8")
 
 
 def _shorten_filename(value: str, *, max_chars: int) -> str:
@@ -978,7 +978,7 @@ def _render_studio_html_payload(payload: dict[str, Any]) -> str:
     markdown, options, assets, render_options, _filename = _validate_studio_payload(
         payload, allow_empty_markdown=True
     )
-    with tempfile.TemporaryDirectory(prefix="mardas-md2pdf-gui-html-") as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="mardas-folio-gui-html-") as tmpdir:
         tmp = Path(tmpdir)
         md_path = tmp / "document.md"
         html_path = tmp / "document.html"
@@ -1132,7 +1132,7 @@ def _studio_export_job_route(request_path: str) -> tuple[str, str] | None:
 
 
 class GuiRequestHandler(BaseHTTPRequestHandler):
-    server_version = f"MardasMD2PDFGUI/{__version__}"
+    server_version = f"MardasFolioGUI/{__version__}"
 
     def _studio_csrf_token(self) -> str:
         return str(getattr(self.server, "studio_csrf_token", ""))
@@ -1735,7 +1735,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="mrs-md2pdf-gui",
+        prog="folio-gui",
         description="Open the local Mardas Folio GUI for editing Markdown and exporting PDFs.",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind; default: 127.0.0.1")

@@ -530,7 +530,7 @@ def load_project_config(
             "error",
             "Project configuration file was not found or is not a regular file.",
             path=config_path,
-            hint=f"Create {CONFIG_FILENAME} with `mrs-md2pdf init` or provide a valid --config path.",
+            hint=f"Create {CONFIG_FILENAME} with `folio init` or provide a valid --config path.",
         )
         return ConfigLoadResult(
             LoadedProjectConfig(config_path, config_path.parent, {}), (diagnostic,)
@@ -628,7 +628,7 @@ def load_project_config(
                         "error",
                         f"Unknown configuration key {key}.{child_key}.",
                         path=config_path,
-                        hint="Run `mrs-md2pdf explain-config <input>` to inspect supported effective values.",
+                        hint="Run `folio explain-config <input>` to inspect supported effective values.",
                     )
                 )
 

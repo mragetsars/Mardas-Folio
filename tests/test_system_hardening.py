@@ -12,9 +12,9 @@ from threading import Event, Lock, Thread
 import pytest
 from pypdf import PdfWriter
 
-from mardas_md2pdf import gui
-from mardas_md2pdf.markdown import MarkdownInputError, extract_frontmatter, render_markdown
-from mardas_md2pdf.renderer import (
+from mardas_folio import gui
+from mardas_folio.markdown import MarkdownInputError, extract_frontmatter, render_markdown
+from mardas_folio.renderer import (
     PdfOptions,
     _atomic_write_pdf,
     _atomic_write_text,

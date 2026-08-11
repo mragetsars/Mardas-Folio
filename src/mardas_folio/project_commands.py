@@ -64,7 +64,7 @@ def _add_config_arguments(parser: argparse.ArgumentParser) -> None:
 
 def _init_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="mrs-md2pdf init", description=f"Create a versioned {CONFIG_FILENAME} project file."
+        prog="folio init", description=f"Create a versioned {CONFIG_FILENAME} project file."
     )
     parser.add_argument("directory", nargs="?", type=Path, default=Path.cwd())
     parser.add_argument(
@@ -131,7 +131,7 @@ def _analysis_parser(command: str) -> argparse.ArgumentParser:
         "explain-config": "Show effective project settings and their sources.",
     }
     parser = argparse.ArgumentParser(
-        prog=f"mrs-md2pdf {command}", description=descriptions[command]
+        prog=f"folio {command}", description=descriptions[command]
     )
     parser.add_argument(
         "input",
@@ -395,7 +395,7 @@ def _doctor_main(argv: list[str]) -> int:
             )
         )
 
-    mathjax_path = resources.files("mardas_md2pdf") / "assets" / "mathjax" / "tex-svg-full.js"
+    mathjax_path = resources.files("mardas_folio") / "assets" / "mathjax" / "tex-svg-full.js"
     if not mathjax_path.is_file():
         diagnostics.append(
             Diagnostic(
@@ -676,7 +676,7 @@ def _audit_parser(command: str) -> argparse.ArgumentParser:
         "audit-pdf": "Inspect PDF accessibility and archival-readiness signals.",
     }
     parser = argparse.ArgumentParser(
-        prog=f"mrs-md2pdf {command}", description=descriptions[command]
+        prog=f"folio {command}", description=descriptions[command]
     )
     parser.add_argument("input", type=Path)
     if command != "audit-pdf":
@@ -910,7 +910,7 @@ def _book_parser(command: str) -> argparse.ArgumentParser:
         "explain-book": "Show the resolved chapter order, titles, output, and heading counts.",
     }
     parser = argparse.ArgumentParser(
-        prog=f"mrs-md2pdf {command}", description=descriptions[command]
+        prog=f"folio {command}", description=descriptions[command]
     )
     parser.add_argument(
         "project",
@@ -1121,7 +1121,7 @@ def _build_book_main(argv: list[str]) -> int:
                 "error",
                 f"Book rendering failed: {exc}",
                 path=manifest.output_path,
-                hint="Run `mrs-md2pdf doctor` and retry with MARDAS_DEBUG=1 only for local debugging.",
+                hint="Run `folio doctor` and retry with MARDAS_DEBUG=1 only for local debugging.",
             ),
         )
     diagnostics.extend(build_diagnostics)

@@ -34,7 +34,7 @@ from .protocol import (
 )
 from .renderer import RenderCancelledError
 
-LOGGER = logging.getLogger("mardas_md2pdf.sidecar")
+LOGGER = logging.getLogger("mardas_folio.sidecar")
 _HEAVY_METHODS = {
     "system.support_bundle",
     "document.read",
@@ -406,7 +406,7 @@ class SidecarServer:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="mrs-md2pdf-sidecar",
+        prog="folio-sidecar",
         description="Versioned JSON-RPC sidecar for Mardas Folio desktop clients.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")

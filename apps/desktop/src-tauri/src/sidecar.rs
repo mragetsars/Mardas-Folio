@@ -418,7 +418,7 @@ fn resolve_sidecar(app: &AppHandle) -> Result<(PathBuf, Vec<String>, PathBuf), S
         let cwd = env::current_dir().map_err(|error| error.to_string())?;
         return Ok((
             python,
-            vec!["-m".into(), "mardas_md2pdf.sidecar".into()],
+            vec!["-m".into(), "mardas_folio.sidecar".into()],
             cwd,
         ));
     }

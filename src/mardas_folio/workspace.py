@@ -969,7 +969,7 @@ def load_workspace(
                 "error",
                 f"Studio project mode requires {CONFIG_FILENAME}.",
                 path=resolved,
-                hint="Run `mrs-md2pdf init --book` or pass a directory containing mardas.toml.",
+                hint="Run `folio init --book` or pass a directory containing mardas.toml.",
             )
         )
         raise WorkspaceError(

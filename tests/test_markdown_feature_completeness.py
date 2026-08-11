@@ -1,5 +1,5 @@
-from mardas_md2pdf.markdown import parse_code_fence_info, render_markdown
-from mardas_md2pdf.mermaid import render_mermaid_to_svg
+from mardas_folio.markdown import parse_code_fence_info, render_markdown
+from mardas_folio.mermaid import render_mermaid_to_svg
 
 
 def test_code_fence_parser_accepts_pandoc_style_attributes():

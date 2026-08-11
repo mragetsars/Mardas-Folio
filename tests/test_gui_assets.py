@@ -7,7 +7,7 @@ from pathlib import Path
 from threading import Event, Lock, Thread
 
 
-GUI_HTML = Path(__file__).resolve().parents[1] / "src" / "mardas_md2pdf" / "assets" / "gui.html"
+GUI_HTML = Path(__file__).resolve().parents[1] / "src" / "mardas_folio" / "assets" / "gui.html"
 
 
 def test_gui_exposes_pdf_like_and_fast_preview_modes_and_custom_page_sizes():
@@ -28,7 +28,7 @@ def test_gui_exposes_pdf_like_and_fast_preview_modes_and_custom_page_sizes():
 
 
 def test_studio_pdf_like_preview_page_dimensions():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     assert gui._studio_preview_page_dimensions("A4") == ("210mm", "297mm")
     assert gui._studio_preview_page_dimensions("A4 landscape") == ("297mm", "210mm")
@@ -37,7 +37,7 @@ def test_studio_pdf_like_preview_page_dimensions():
 
 
 def test_studio_html_preview_injects_pdf_like_screen_css():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     html = gui._render_studio_html_payload(
         {
@@ -63,7 +63,7 @@ def test_studio_html_preview_injects_pdf_like_screen_css():
 
 
 def test_studio_html_preview_styles_scrollbars_for_dark_pdf_like_frames():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     html = gui._render_studio_html_payload(
         {
@@ -132,7 +132,7 @@ def test_gui_copy_command_uses_shell_quoting_for_paths_and_metadata():
     assert "text.replace(/'/g" in html
     assert "\\''" in html
     assert "function pushOption" in html
-    assert "'mrs-md2pdf'," in html
+    assert "'folio'," in html
     assert "'--page-size', shellQuote(options.pageSize || 'A4')" in html
     assert "pushOption(cmd, '--title', options.title)" in html
     assert "pushOption(cmd, '--brand-name', options.brandName)" in html
@@ -150,7 +150,7 @@ def test_gui_clarifies_fast_mermaid_preview_is_subset_based():
 def test_gui_asset_writer_enforces_size_limits(tmp_path, monkeypatch):
     import base64
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     def asset(path: str, size: int) -> dict[str, str]:
         payload = base64.b64encode(b"x" * size).decode("ascii")
@@ -175,7 +175,7 @@ def _encoded_asset(path: str, payload: str = "eA==") -> dict[str, str]:
 def test_studio_asset_writer_rejects_file_directory_collisions_without_partial_writes(tmp_path):
     import pytest
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     for paths in [
         ("collision", "collision/child.png"),
@@ -193,7 +193,7 @@ def test_studio_asset_writer_rejects_file_directory_collisions_without_partial_w
 
 
 def test_studio_asset_writer_keeps_duplicate_basenames_in_separate_directories(tmp_path):
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     gui._write_gui_assets(
         tmp_path,
@@ -206,7 +206,7 @@ def test_studio_asset_writer_keeps_duplicate_basenames_in_separate_directories(t
 
 
 def test_studio_asset_writer_skips_ambiguous_basename_fallback(tmp_path):
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     gui._write_gui_assets(
         tmp_path,
@@ -220,7 +220,7 @@ def test_studio_asset_writer_skips_ambiguous_basename_fallback(tmp_path):
 def test_studio_asset_writer_rejects_reserved_working_paths(tmp_path):
     import pytest
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     for path in ("document.md", "document.md/child.png", "DOCUMENT.MD"):
         with pytest.raises(gui.StudioRequestError) as exc_info:
@@ -237,7 +237,7 @@ def test_studio_asset_writer_rejects_reserved_working_paths(tmp_path):
 def test_studio_http_preview_rejects_colliding_asset_paths_as_client_error():
     import json
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), gui.GuiRequestHandler)
     server.studio_bind_host = "127.0.0.1"  # type: ignore[attr-defined]
@@ -275,7 +275,7 @@ def test_studio_http_preview_rejects_colliding_asset_paths_as_client_error():
 
 
 def test_studio_asset_paths_preserve_spaces_and_unicode(tmp_path):
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     gui._write_gui_assets(
         tmp_path,
@@ -293,7 +293,7 @@ def test_studio_asset_paths_preserve_spaces_and_unicode(tmp_path):
 
 
 def test_studio_html_render_embeds_attached_assets_with_spaces_in_paths():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     html = gui._render_studio_html_payload(
         {
@@ -315,7 +315,7 @@ def test_studio_html_render_embeds_attached_assets_with_spaces_in_paths():
 
 
 def test_studio_brand_logo_path_uses_attached_assets(tmp_path):
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     gui._write_gui_assets(
         tmp_path,
@@ -344,7 +344,7 @@ def test_gui_documents_asset_limits():
 def test_studio_json_decode_errors_are_client_facing():
     import pytest
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     with pytest.raises(gui.StudioRequestError) as exc_info:
         gui._decode_json_payload(b'{bad json')
@@ -355,7 +355,7 @@ def test_studio_json_decode_errors_are_client_facing():
 
 
 def test_studio_error_payload_includes_code_and_status():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     assert gui._error_payload("Nope", status=413, code="too_large") == {
         "error": "Nope",
@@ -372,7 +372,7 @@ def _headers(**items: str) -> Message:
 
 
 def test_studio_api_headers_require_same_origin_json_and_token():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     gui._validate_studio_post_headers(
         _headers(
@@ -448,7 +448,7 @@ def test_studio_api_headers_require_same_origin_json_and_token():
 def test_studio_content_length_requires_non_negative_bounded_values():
     import pytest
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     assert gui._studio_content_length(_headers(Content_Length="0")) == 0
     assert (
@@ -476,7 +476,7 @@ def test_studio_content_length_requires_non_negative_bounded_values():
 def test_studio_post_headers_reject_transfer_encoding():
     import pytest
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     headers = _headers(
         Host="127.0.0.1:8765",
@@ -495,7 +495,7 @@ def test_studio_post_headers_reject_transfer_encoding():
 
 
 def test_studio_http_api_rejects_negative_content_length_before_reading_body():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), gui.GuiRequestHandler)
     server.studio_bind_host = "127.0.0.1"  # type: ignore[attr-defined]
@@ -533,7 +533,7 @@ def test_studio_http_api_rejects_negative_content_length_before_reading_body():
 
 
 def test_studio_http_api_rejects_incomplete_request_body():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), gui.GuiRequestHandler)
     server.studio_bind_host = "127.0.0.1"  # type: ignore[attr-defined]
@@ -572,7 +572,7 @@ def test_studio_http_api_rejects_incomplete_request_body():
 
 
 def test_studio_http_api_times_out_stalled_request_body(monkeypatch):
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     monkeypatch.setattr(gui, "STUDIO_REQUEST_BODY_TIMEOUT_SECONDS", 0.05)
     server = ThreadingHTTPServer(("127.0.0.1", 0), gui.GuiRequestHandler)
@@ -622,7 +622,7 @@ def test_gui_wires_studio_api_token_into_render_fetches():
 
 
 def test_studio_http_api_rejects_cross_origin_render_post():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), gui.GuiRequestHandler)
     server.studio_bind_host = "127.0.0.1"  # type: ignore[attr-defined]
@@ -656,7 +656,7 @@ def test_studio_http_render_errors_are_logged_without_leaking_internal_details(m
     import json
     import logging
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     sensitive_detail = "/tmp/private-project/secret.pdf"
 
@@ -704,7 +704,7 @@ def test_studio_http_render_errors_are_logged_without_leaking_internal_details(m
 
 
 def test_studio_http_preview_requests_are_latest_only(monkeypatch):
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     entered_old_render = Event()
     release_old_render = Event()
@@ -778,7 +778,7 @@ def test_studio_http_preview_requests_are_latest_only(monkeypatch):
 def test_studio_html_preview_allows_empty_draft_but_pdf_export_still_requires_content():
     import pytest
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     html = gui._render_studio_html_payload(
         {"markdown": "   ", "options": {"toc": False, "noCover": True}, "assets": []}
@@ -794,7 +794,7 @@ def test_studio_html_preview_allows_empty_draft_but_pdf_export_still_requires_co
 
 
 def test_studio_get_routes_ignore_query_strings():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), gui.GuiRequestHandler)
     server.studio_bind_host = "127.0.0.1"  # type: ignore[attr-defined]
@@ -816,7 +816,7 @@ def test_studio_get_routes_ignore_query_strings():
 
 
 def test_studio_safe_filenames_are_bounded_and_content_disposition_is_utf8_safe():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     filename = gui._safe_filename("x" * 240 + ".pdf")
     assert len(filename) <= gui.MAX_GUI_FILENAME_CHARS
@@ -848,7 +848,7 @@ def test_gui_large_document_preview_and_local_save_warnings_are_explicit():
     assert "Refresh PDF-like preview" in html
 
 def test_studio_bind_warning_only_for_non_local_hosts():
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     assert gui._studio_bind_warning("127.0.0.1") is None
     assert gui._studio_bind_warning("localhost") is None
@@ -864,7 +864,7 @@ def test_gui_persists_studio_workspace_state():
     html = GUI_HTML.read_text(encoding="utf-8")
 
     assert "MARDAS_STUDIO_STATE_KEY" in html
-    assert "mardas-md2pdf-studio-state-v1" in html
+    assert "mardas-folio-studio-state-v1" in html
     assert "function loadStudioState" in html
     assert "function saveStudioState" in html
     assert "Reset State" in html
@@ -893,7 +893,7 @@ def test_gui_displays_structured_render_error_codes():
 def test_studio_validates_render_options():
     import pytest
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     options = gui._validated_render_options(
         {
@@ -1036,9 +1036,9 @@ def test_gui_uses_inline_svg_icons_and_project_vector_brand_mark():
     assert 'href="#icon-bold"' in html
     assert 'href="#icon-table"' in html
     assert '<span class="brand-mark" aria-hidden="true"></span>' in html
-    assert '/assets/mardas-md2pdf-mark-gui-mask.svg' in html
+    assert '/assets/mardas-folio-mark-gui-mask.svg' in html
     assert 'background:currentColor' in html
-    assert '-webkit-mask:url("/assets/mardas-md2pdf-mark-gui-mask.svg") center/contain no-repeat' in html
+    assert '-webkit-mask:url("/assets/mardas-folio-mark-gui-mask.svg") center/contain no-repeat' in html
     assert 'stroke-width:1.8' in html
 
 
@@ -1155,7 +1155,7 @@ def test_gui_logo_uses_contain_fit_with_breathing_room():
 
     assert '.brand-mark{overflow:visible;background:transparent' in html
     assert '.brand-mark::before{content:"";width:100%;height:100%;display:block;background:currentColor' in html
-    assert 'mask:url("/assets/mardas-md2pdf-mark-gui-mask.svg") center/contain no-repeat' in html
+    assert 'mask:url("/assets/mardas-folio-mark-gui-mask.svg") center/contain no-repeat' in html
     assert 'body.light-mode .brand-mark{background:transparent;border:0;box-shadow:none}' in html
 
 
@@ -1163,7 +1163,7 @@ def test_studio_project_files_roundtrip_workspace_state():
     html = GUI_HTML.read_text(encoding="utf-8")
 
     assert "MARDAS_PROJECT_SCHEMA" in html
-    assert "mardas-md2pdf-studio-project-v1" in html
+    assert "mardas-folio-studio-project-v1" in html
     assert "function buildProjectBundle" in html
     assert "function applyProjectBundle" in html
     assert "function downloadProject" in html
@@ -1283,7 +1283,7 @@ def test_studio_first_run_state_is_not_reported_as_error():
 def test_studio_exposes_and_validates_publication_quality_controls():
     import pytest
 
-    from mardas_md2pdf import gui
+    from mardas_folio import gui
 
     html = GUI_HTML.read_text(encoding="utf-8")
     for control in (

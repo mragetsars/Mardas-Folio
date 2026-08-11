@@ -1,11 +1,11 @@
 from io import StringIO
 from pathlib import Path
 
-from mardas_md2pdf.cli import _CliProgressBar, build_parser
-from mardas_md2pdf.renderer import _report_progress
+from mardas_folio.cli import _CliProgressBar, build_parser
+from mardas_folio.renderer import _report_progress
 
 
-GUI_HTML = Path(__file__).resolve().parents[1] / "src" / "mardas_md2pdf" / "assets" / "gui.html"
+GUI_HTML = Path(__file__).resolve().parents[1] / "src" / "mardas_folio" / "assets" / "gui.html"
 
 
 def test_progress_reporter_clamps_values_and_ignores_callback_errors():

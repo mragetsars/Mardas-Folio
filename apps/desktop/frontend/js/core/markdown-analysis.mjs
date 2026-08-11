@@ -25,7 +25,7 @@ function stripMarkdown(value) {
  *
  * The closing fence can never be the line directly after the opening one, so
  * `---\n---` stays a pair of thematic breaks.  That matches `FRONTMATTER_RE` in
- * `src/mardas_md2pdf/markdown.py` and the editor's own front matter parser, so
+ * `src/mardas_folio/markdown.py` and the editor's own front matter parser, so
  * the metadata panel, the outline, and the published PDF agree on where a
  * document's body begins.
  */

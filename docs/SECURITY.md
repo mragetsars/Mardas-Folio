@@ -48,7 +48,7 @@ assets are rejected before Chromium starts.
 
 Project configuration can explicitly enable `security.unsafe_html` or
 `security.allow_remote_assets`. Both settings expand the trust boundary and are
-reported by `mrs-md2pdf validate` and `mrs-md2pdf doctor` as stable warning
+reported by `folio validate` and `folio doctor` as stable warning
 diagnostics. Keep both disabled for untrusted documents and reproducible offline
 builds. Command-line safety overrides such as `--safe-html` and
 `--block-remote-assets` take precedence over the project file.
@@ -77,7 +77,7 @@ runtime.
 
 ## Studio / GUI boundary
 
-`mrs-md2pdf-gui` is intended for local use. The backend enforces Markdown and
+`folio-gui` is intended for local use. The backend enforces Markdown and
 asset size limits and validates render options before calling the renderer. When
 binding Studio to a non-local host, remember that reachable users can submit
 Markdown and attached assets. Use host-level access controls or a private network
@@ -99,7 +99,7 @@ Cancellation is cooperative. It is checked before parsing, before browser startu
 
 ### Studio Project Workspace
 
-`mrs-md2pdf-gui --project PATH` explicitly grants the local Studio process access to the `mardas.toml` project rooted at `PATH`. The Project Explorer exposes only supported UTF-8 text files below that resolved project root. Hidden/generated directories, unsupported extensions, absolute paths, parent escapes, symbolic links, non-regular files, and files larger than 4 MiB are not editable through the API.
+`folio-gui --project PATH` explicitly grants the local Studio process access to the `mardas.toml` project rooted at `PATH`. The Project Explorer exposes only supported UTF-8 text files below that resolved project root. Hidden/generated directories, unsupported extensions, absolute paths, parent escapes, symbolic links, non-regular files, and files larger than 4 MiB are not editable through the API.
 
 Project file reads and writes require the same per-run Studio token and Host/Origin checks as render requests. A save must include the SHA-256 hash returned when the file was opened; if another tool changes the file first, Studio returns a conflict instead of overwriting the external edit. Successful writes use a sibling temporary file, flush it, preserve the original mode, and atomically replace the target. Diagnostic paths returned to the browser are project-relative and do not expose host paths outside the workspace. Book preview and export validate the saved project and retain the existing project-root, bibliography, cross-reference, citation, and output-integrity boundaries.
 
@@ -107,7 +107,7 @@ The portable `.mardas.json` Studio bundle workflow is separate from Project Work
 
 ## Desktop sidecar boundary
 
-`mrs-md2pdf-sidecar` is the process boundary for native desktop clients. It opens no network listener and accepts bounded newline-delimited JSON-RPC requests from `stdin`. Protocol output is written exclusively to `stdout`; logs and tracebacks remain on `stderr`. A complete JSON-RPC request envelope is limited to 64 MiB so an escaped 8 MiB UTF-8 document can be represented safely; the decoded text accepted by each standalone document read/save operation remains limited to 8 MiB. Oversized envelopes or documents, unknown methods, unknown parameters, invalid option names, concurrent heavy application jobs, and malformed JSON are rejected with stable error codes.
+`folio-sidecar` is the process boundary for native desktop clients. It opens no network listener and accepts bounded newline-delimited JSON-RPC requests from `stdin`. Protocol output is written exclusively to `stdout`; logs and tracebacks remain on `stderr`. A complete JSON-RPC request envelope is limited to 64 MiB so an escaped 8 MiB UTF-8 document can be represented safely; the decoded text accepted by each standalone document read/save operation remains limited to 8 MiB. Oversized envelopes or documents, unknown methods, unknown parameters, invalid option names, concurrent heavy application jobs, and malformed JSON are rejected with stable error codes.
 
 Only one heavy document, project, bibliography, book, support, preview, validation, or rendering job is active at a time; health, capabilities, cancellation, and shutdown remain responsive control methods. Cancellation is cooperative and uses the renderer's existing safe checkpoints; it does not kill a shared Chromium process mid-write. The desktop parent process is responsible for spawning the sidecar with private pipes, validating the ready/health protocol version, and terminating the child process during application shutdown.
 
@@ -183,9 +183,9 @@ Studio binding were used.
 The accessibility commands analyze trusted local project text and generated PDF structure without sending content to a network service:
 
 ```bash
-mrs-md2pdf audit-accessibility document.md
-mrs-md2pdf audit-book-accessibility path/to/book
-mrs-md2pdf audit-pdf output.pdf --profile all
+folio audit-accessibility document.md
+folio audit-book-accessibility path/to/book
+folio audit-pdf output.pdf --profile all
 ```
 
 Source audits are bounded by the existing Markdown, configuration, bibliography, and Book Mode limits. PDF audit opens only the explicitly supplied local file and reports metadata, fonts, tagging signals, actions, attachments, and archival indicators. Audit output avoids claiming PDF/UA, WCAG, or PDF/A conformance. A structure tree, output intent, or PDF/A identifier must never be fabricated merely to silence an audit; formal compliance requires an independent validator and manual review.

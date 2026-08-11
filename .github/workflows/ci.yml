@@ -70,9 +70,9 @@ jobs:
 
       - name: Run CLI path smoke
         run: |
-          python -m mardas_md2pdf.cli --version
-          python -m mardas_md2pdf.sidecar --health
-          python -m mardas_md2pdf.cli --list-styles
+          python -m mardas_folio.cli --version
+          python -m mardas_folio.sidecar --health
+          python -m mardas_folio.cli --list-styles
 
   dependency-audit:
     name: Runtime dependency audit

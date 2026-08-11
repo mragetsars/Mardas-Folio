@@ -5,9 +5,9 @@ from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
 
-from mardas_md2pdf.cli import main
-from mardas_md2pdf.pdf_audit import audit_pdf
-from mardas_md2pdf.renderer import _copy_pdf_with_metadata
+from mardas_folio.cli import main
+from mardas_folio.pdf_audit import audit_pdf
+from mardas_folio.renderer import _copy_pdf_with_metadata
 
 
 def _blank_pdf(path: Path) -> None:

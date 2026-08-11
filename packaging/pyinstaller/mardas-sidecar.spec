@@ -9,8 +9,8 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files, copy_metada
 project_root = Path(os.environ["MARDAS_PROJECT_ROOT"]).resolve()
 entrypoint = project_root / "packaging" / "pyinstaller" / "entrypoint.py"
 
-datas = collect_data_files("mardas_md2pdf")
-datas += copy_metadata("mardas-md2pdf")
+datas = collect_data_files("mardas_folio")
+datas += copy_metadata("mardas-folio")
 playwright_datas, playwright_binaries, playwright_hiddenimports = collect_all("playwright")
 datas += playwright_datas
 binaries = list(playwright_binaries)

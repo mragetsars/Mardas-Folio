@@ -44,7 +44,7 @@ def canonical_name(value: str) -> str:
 
 root = Path(sys.argv[1]).resolve(strict=True)
 inventory = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
-if len(inventory) != 1 or canonical_name(str(inventory[0].get("name", ""))) != "mardas-md2pdf":
+if len(inventory) != 1 or canonical_name(str(inventory[0].get("name", ""))) != "mardas-folio":
     raise SystemExit("Expected only the Mardas checkout to be installed as editable.")
 location = inventory[0].get("editable_project_location")
 if not location or Path(location).resolve(strict=True) != root:

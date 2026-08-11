@@ -3,8 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from mardas_md2pdf import brand_assets
-from mardas_md2pdf.renderer import _default_logo_path
+from mardas_folio import brand_assets
+from mardas_folio.renderer import _default_logo_path
 
 
 def test_product_logo_candidates_prefer_canonical_png_assets():
@@ -17,30 +17,31 @@ def test_product_logo_candidates_prefer_canonical_png_assets():
 def test_studio_brand_asset_routes_expose_only_current_application_logos():
     routes = brand_assets.GUI_BRAND_ASSET_ROUTES
 
-    assert routes["/assets/mardas-md2pdf-logo.png"] == brand_assets.PRODUCT_LOGO
-    assert routes["/assets/mardas-md2pdf-logo-white.png"] == brand_assets.PRODUCT_LOGO_WHITE
-    assert routes["/assets/mardas-md2pdf-mark.svg"] == brand_assets.PRODUCT_MARK_SVG
-    assert routes["/assets/mardas-md2pdf-mark-gui-mask.svg"] == brand_assets.PRODUCT_GUI_MARK_MASK_SVG
+    assert routes["/assets/mardas-folio-logo.png"] == brand_assets.PRODUCT_LOGO
+    assert routes["/assets/mardas-folio-logo-white.png"] == brand_assets.PRODUCT_LOGO_WHITE
+    assert routes["/assets/mardas-folio-mark.svg"] == brand_assets.PRODUCT_MARK_SVG
+    assert routes["/assets/mardas-folio-mark-gui-mask.svg"] == brand_assets.PRODUCT_GUI_MARK_MASK_SVG
     assert brand_assets.gui_brand_asset_filename("/assets/" + "Mardas" + ".png") is None
     assert brand_assets.asset_content_type(brand_assets.PRODUCT_LOGO) == "image/png"
 
 
 def test_the_product_is_named_mardas_folio_everywhere_it_is_named() -> None:
-    """The product has one name.
+    """The product has one name, and so does every identifier naming it.
 
-    The rename left three kinds of identifier alone on purpose, because other
-    systems resolve the project by them: the ``mardas_md2pdf`` import package
-    and ``mardas-md2pdf`` distribution, the ``Mardas-Folio-*`` release
-    artifacts the update endpoint and attestation address, and the repository
-    slug. Everything else names the product, and the product is Mardas Folio.
+    The three kinds of identifier that once kept the old name — the
+    ``mardas_folio`` import package and ``mardas-folio`` distribution with its
+    ``folio*`` commands, the ``Mardas-Folio-*`` release artifacts the update
+    endpoint and attestation address, and the
+    ``io.github.mragetsars.mardas-folio`` bundle identifier — were all moved
+    onto it before the first release, while no published artifact and no
+    installed client addressed the old ones. Nothing is exempt any more, so
+    this guard carries no allowlist: any spelling of the old name is a defect.
     """
     root = Path(__file__).resolve().parents[1]
-    # Names other systems resolve the project by: the import package, the
-    # distribution and its wheel, the release artifacts, the repository slug,
-    # and the HTTP server token of the legacy browser GUI.
-    allowed = re.compile(
-        r"Mardas-Folio|mardas-md2pdf|mardas_md2pdf|Mardas_MD2PDF|MardasMD2PDFGUI"
-    )
+    # Every spelling the project ever used: the product name, the import
+    # package, the distribution and its wheel, the commands, and the browser
+    # GUI's own former name.
+    forbidden = re.compile(r"Mardas[ _-]?MD2PDF|mrs-md2pdf|Mardas Studio", re.IGNORECASE)
     skip_dirs = {
         ".git", ".venv", "node_modules", "target", "build", "dist", "patches",
         "__pycache__", ".pytest_cache", ".ruff_cache", "artifacts",
@@ -68,10 +69,7 @@ def test_the_product_is_named_mardas_folio_everywhere_it_is_named() -> None:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
-        for match in re.finditer(r"Mardas[ _-]?MD2PDF|Mardas Studio", text):
-            window = text[max(0, match.start() - 20) : match.end() + 20]
-            if allowed.search(window):
-                continue
+        for match in forbidden.finditer(text):
             line = text.count("\n", 0, match.start()) + 1
             offenders.append(f"{path.relative_to(root)}:{line}: {match.group(0)}")
 

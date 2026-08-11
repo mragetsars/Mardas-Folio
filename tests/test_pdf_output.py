@@ -5,7 +5,7 @@ import os
 import pytest
 from pypdf import PdfReader
 
-from mardas_md2pdf.renderer import PdfOptions, convert
+from mardas_folio.renderer import PdfOptions, convert
 
 
 def _outline_titles(outline: list[object]) -> list[str]:
