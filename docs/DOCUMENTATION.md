@@ -61,7 +61,7 @@ The guides must cover at least these user-facing areas:
 
 Runtime packaged assets belong in `src/mardas_folio/assets/`. The packaged logo files are `mardas-folio-logo.png`, `mardas-folio-logo-white.png`, `mardas-folio-mark.svg`, `mardas-folio-mark-white.svg`, `mardas-folio-app-icon.svg`, and `mardas-folio-mark-gui-mask.svg`.
 
-Guide sample media belongs in `docs/guides/images/` and should remain lightweight. The guide currently uses `logo.png` and `architecture.png` as local documentation media. `assets/readme/mardas-folio.png` is repository-level artwork for the landing page and should not be embedded into the guides as a renderer sample. Users should use `brand.logo` only for their own organization or lab logo, not to re-embed the built-in project logo by default.
+Guide sample media belongs in `docs/guides/images/` and should remain lightweight. The guide currently uses `logo.png` and `architecture.png` as local documentation media. `assets/readme/mardas-folio.png` is repository-level artwork for the landing page and should not be embedded into the guides as a renderer sample. It is generated from `assets/readme/mardas-folio.svg` by `python scripts/build_readme_banner.py`; edit the SVG and re-run it rather than editing the PNG, and note that the script renders with Chromium on purpose, because the banner carries a line of Persian and a plain SVG rasterizer reorders it backwards. Users should use `brand.logo` only for their own organization or lab logo, not to re-embed the built-in project logo by default.
 
 ## Changelog policy
 
