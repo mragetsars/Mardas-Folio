@@ -407,6 +407,27 @@ def test_runtime_staging_is_verified_and_atomic(tmp_path: Path) -> None:
     assert (target / "runtime-manifest.json").is_file()
 
 
+def test_runtime_staging_keeps_the_tracked_placeholder(tmp_path: Path) -> None:
+    """Staging must not delete the file that keeps the directory in a checkout.
+
+    `tauri.conf.json` declares `resources/sidecar/` as a bundle resource and the
+    Tauri build script rejects a resource path that does not exist, so the
+    tracked placeholder is what lets `cargo test` run on a machine that has not
+    built the runtime. Staging replaces the whole directory, and when it dropped
+    the placeholder a local build deleted it and the deletion was committed,
+    which broke every native desktop job.
+    """
+    source = _synthetic_runtime(tmp_path / "runtime")
+    target = tmp_path / "resources" / "sidecar"
+    target.mkdir(parents=True)
+    (target / "README.md").write_text("staging directory\n", encoding="utf-8")
+
+    staged = stage_runtime(source, target, expected_version=__version__)
+
+    assert (staged / "README.md").read_text(encoding="utf-8") == "staging directory\n"
+    assert (staged / ".mardas-staged-runtime.json").is_file()
+
+
 def test_installer_verifier_accepts_versioned_pe_payload(tmp_path: Path) -> None:
     path = tmp_path / f"Mardas-Folio-{__version__}-windows-x86_64-setup.exe"
     path.write_bytes(b"MZ" + b"\0" * (MIN_INSTALLER_BYTES + 32))

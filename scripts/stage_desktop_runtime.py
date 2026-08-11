@@ -17,6 +17,13 @@ from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
 
 DEFAULT_TARGET = ROOT / "apps" / "desktop" / "src-tauri" / "resources" / "sidecar"
 MARKER = ".mardas-staged-runtime.json"
+# The tracked file that keeps the staging directory present in a fresh
+# checkout. `tauri.conf.json` declares the directory as a bundle resource and
+# the Tauri build script rejects a resource path that does not exist, so
+# without it `cargo test` fails before running a test. Staging replaces the
+# whole directory, so it has to be carried across or a local build silently
+# deletes it — which is how it was lost once already.
+PLACEHOLDER = "README.md"
 
 
 def _copy_tree(source: Path, target: Path) -> None:
@@ -75,6 +82,14 @@ def stage_runtime(source: Path, target: Path = DEFAULT_TARGET, *, expected_versi
         (staging / MARKER).write_text(
             json.dumps(marker, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
+        # Carry the placeholder into the replacement so it is present the
+        # instant the new directory appears, rather than restored afterwards
+        # in a window where the checkout looks modified.
+        placeholder = target / PLACEHOLDER
+        if placeholder.is_file() and not placeholder.is_symlink():
+            (staging / PLACEHOLDER).write_text(
+                placeholder.read_text(encoding="utf-8"), encoding="utf-8"
+            )
         backup = target.with_name(f".{target.name}.previous")
         if backup.exists():
             shutil.rmtree(backup)
