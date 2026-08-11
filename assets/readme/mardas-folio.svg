@@ -24,7 +24,7 @@
        previously overlapped; they now sit 48px apart. -->
 
   <!-- Mark and eyebrow -->
-  <g transform="translate(128 168)">
+  <g transform="translate(112 168)">
     <rect width="104" height="104" rx="23" fill="#1c1c1c" stroke="#2b2b2b" stroke-width="1"/>
     <g transform="translate(52 52) scale(0.5525)" fill="#f97316">
       <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
@@ -41,19 +41,19 @@
   </g>
 
   <!-- Wordmark -->
-  <text x="128" y="400" font-family="Inter Display, Inter, DejaVu Sans, sans-serif"
+  <text x="112" y="400" font-family="Inter Display, Inter, DejaVu Sans, sans-serif"
         font-size="112" font-weight="700" letter-spacing="-1.5">
     <tspan fill="#f4f4f4">Mardas</tspan><tspan dx="26" fill="#f97316">Folio</tspan>
   </text>
 
   <!-- Tagline -->
-  <text x="128" y="466" font-family="Inter, DejaVu Sans, sans-serif"
+  <text x="112" y="466" font-family="Inter, DejaVu Sans, sans-serif"
         font-size="37" font-weight="400" fill="#b6b6b6">Desktop authoring and PDF publishing</text>
-  <text x="128" y="512" font-family="Inter, DejaVu Sans, sans-serif"
+  <text x="112" y="512" font-family="Inter, DejaVu Sans, sans-serif"
         font-size="31" font-weight="400" fill="#7c7c7c">Persian, English, and mixed RTL / LTR technical documents</text>
 
   <!-- Capability chips -->
-  <g transform="translate(128 600)" font-family="Inter, DejaVu Sans, sans-serif"
+  <g transform="translate(112 600)" font-family="Inter, DejaVu Sans, sans-serif"
      font-size="24" font-weight="500">
     <g>
       <rect width="152" height="52" rx="7" fill="#191919" stroke="#2d2d2d"/>
@@ -82,7 +82,7 @@
        content: the Persian block is laid out right to left, the
        English block left to right, in the same document. -->
 
-  <g transform="translate(1148 200)">
+  <g transform="translate(1071 200)">
 
     <!-- Source -->
     <g>
