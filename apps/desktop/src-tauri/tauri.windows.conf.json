@@ -5,7 +5,6 @@
     ],
     "windows": {
       "allowDowngrades": false,
-      "bundleVCRuntime": true,
       "webviewInstallMode": {
         "type": "offlineInstaller",
         "silent": true

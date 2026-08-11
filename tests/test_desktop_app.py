@@ -89,6 +89,24 @@ def test_tauri_configuration_is_native_and_versioned() -> None:
     linux_config = json.loads((TAURI / "tauri.linux.conf.json").read_text(encoding="utf-8"))
     assert windows_config["bundle"]["windows"]["webviewInstallMode"]["type"] == "offlineInstaller"
     assert windows_config["bundle"]["windows"]["nsis"]["installMode"] == "currentUser"
+    # `tauri-build` rejects an unknown configuration field outright, and it only
+    # parses the platform file matching the host, so a stale key here fails the
+    # Windows installer job alone — after a full Rust compile. `bundleVCRuntime`
+    # survived the Tauri v1 to v2 migration this way: it was a WiX-only option,
+    # this bundle is NSIS, and no other platform ever read the file.
+    accepted_windows_keys = {
+        "digestAlgorithm",
+        "certificateThumbprint",
+        "timestampUrl",
+        "tsp",
+        "webviewInstallMode",
+        "allowDowngrades",
+        "minimumWebview2Version",
+        "wix",
+        "nsis",
+        "signCommand",
+    }
+    assert set(windows_config["bundle"]["windows"]) <= accepted_windows_keys
     assert macos_config["bundle"]["targets"] == ["dmg"]
     assert "signingIdentity" not in macos_config["bundle"]["macOS"]
     assert macos_config["bundle"]["macOS"]["minimumSystemVersion"] == "14.0"
