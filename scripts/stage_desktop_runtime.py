@@ -30,9 +30,15 @@ def _copy_tree(source: Path, target: Path) -> None:
         if stat.S_ISLNK(mode):
             destination.parent.mkdir(parents=True, exist_ok=True)
             link_target = validate_local_symlink(source, path)
+            # Ask what the link names, rather than asking the platform to
+            # follow the link itself. Windows stores a relative link target
+            # verbatim and refuses to resolve one written with POSIX
+            # separators, so dereferencing a runtime staged from another
+            # platform raises instead of answering. `validate_local_symlink`
+            # has already proven this target resolves inside the runtime root.
             destination.symlink_to(
                 Path(link_target),
-                target_is_directory=path.resolve(strict=True).is_dir(),
+                target_is_directory=(path.parent / link_target).is_dir(),
             )
         elif stat.S_ISDIR(mode):
             destination.mkdir(parents=True, exist_ok=True)

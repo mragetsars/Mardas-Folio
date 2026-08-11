@@ -16,12 +16,12 @@ def normalize_sdist(path: Path, *, epoch: int) -> None:
     """Rewrite ``path`` with stable ordering, ownership, modes, and timestamps."""
     path = path.resolve()
     original_mode = stat.S_IMODE(path.stat().st_mode)
-    with tarfile.open(path, "r:gz") as source:
-        members = sorted(source.getmembers(), key=lambda item: item.name)
-        fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
-        os.close(fd)
-        temporary_path = Path(temporary_name)
-        try:
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    os.close(fd)
+    temporary_path = Path(temporary_name)
+    try:
+        with tarfile.open(path, "r:gz") as source:
+            members = sorted(source.getmembers(), key=lambda item: item.name)
             with temporary_path.open("wb") as raw:
                 with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=epoch) as compressed:
                     with tarfile.open(
@@ -38,11 +38,14 @@ def normalize_sdist(path: Path, *, epoch: int) -> None:
                             member.pax_headers = {}
                             content = source.extractfile(member) if member.isfile() else None
                             target.addfile(member, content)
-            os.chmod(temporary_path, original_mode)
-            os.replace(temporary_path, path)
-        except Exception:
-            temporary_path.unlink(missing_ok=True)
-            raise
+        # Replace only after the archive being read is closed. POSIX allows a
+        # rename over a file that still has an open handle; Windows does not,
+        # and fails the whole normalization with a sharing violation.
+        os.chmod(temporary_path, original_mode)
+        os.replace(temporary_path, path)
+    except Exception:
+        temporary_path.unlink(missing_ok=True)
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -28,6 +28,7 @@ from runtime_manifest import (  # noqa: E402
     RUNTIME_FILE_TYPE,
     RUNTIME_MANIFEST_SCHEMA,
     RUNTIME_SYMLINK_TYPE,
+    normalize_symlink_target,
 )
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
@@ -38,6 +39,10 @@ def _symlink(link: Path, target: str | Path, *, directory: bool = False) -> None
         link.symlink_to(target, target_is_directory=directory)
     except (NotImplementedError, OSError) as exc:
         pytest.skip(f"symbolic links are unavailable: {exc}")
+
+
+def _staged_link_target(link: Path) -> str:
+    return normalize_symlink_target(os.readlink(link))
 
 
 def _file_entry(path: str, data: bytes) -> dict[str, object]:
@@ -142,8 +147,11 @@ def test_safe_symlinks_are_manifested_staged_and_archived_deterministically(
         expected_version=__version__,
     )
     assert (staged / "_internal" / "libengine.so").is_symlink()
-    assert os.readlink(staged / "_internal" / "libengine.so") == "libengine.so.1"
-    assert os.readlink(staged / "_internal" / "libshared.so") == "../libshared.so.1"
+    # A staged link has to name the same target, not spell it the same way:
+    # the platform decides the separator it stores, and the manifest and the
+    # archive both record the portable spelling this normalizes to.
+    assert _staged_link_target(staged / "_internal" / "libengine.so") == "libengine.so.1"
+    assert _staged_link_target(staged / "_internal" / "libshared.so") == "../libshared.so.1"
     assert (staged / "browser-current").is_symlink()
     assert (staged / "browser-current").resolve(strict=True).is_dir()
 
