@@ -12,7 +12,9 @@
       "nsis": {
         "displayLanguageSelector": false,
         "compression": "lzma",
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
       }
     }
   }

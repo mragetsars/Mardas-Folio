@@ -107,6 +107,31 @@ def test_tauri_configuration_is_native_and_versioned() -> None:
         "signCommand",
     }
     assert set(windows_config["bundle"]["windows"]) <= accepted_windows_keys
+    # The same deny-unknown-fields trap one level down, and the same blast
+    # radius: NSIS options are only parsed on the Windows host.
+    nsis_config = windows_config["bundle"]["windows"]["nsis"]
+    accepted_nsis_keys = {
+        "template",
+        "headerImage",
+        "sidebarImage",
+        "installerIcon",
+        "uninstallerIcon",
+        "uninstallerHeaderImage",
+        "installMode",
+        "languages",
+        "customLanguageFiles",
+        "displayLanguageSelector",
+        "compression",
+        "startMenuFolder",
+        "installerHooks",
+    }
+    assert set(nsis_config) <= accepted_nsis_keys
+    # Without these MUI falls back to its own stock installer graphic, so the
+    # setup executable ships to users wearing a generic NSIS icon rather than
+    # the application's own.
+    for key in ("installerIcon", "uninstallerIcon"):
+        assert nsis_config[key] == "icons/icon.ico"
+    assert (TAURI / "icons" / "icon.ico").is_file()
     assert macos_config["bundle"]["targets"] == ["dmg"]
     assert "signingIdentity" not in macos_config["bundle"]["macOS"]
     assert macos_config["bundle"]["macOS"]["minimumSystemVersion"] == "14.0"
