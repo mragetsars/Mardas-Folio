@@ -758,6 +758,17 @@ def annotate_citation_markup(
     path: Path | None = None,
 ) -> tuple[str, tuple[Diagnostic, ...]]:
     soup = BeautifulSoup(body_html, "html.parser")
+    diagnostics = annotate_citation_markup_soup(soup, path=path)
+    return str(soup), tuple(diagnostics)
+
+
+def annotate_citation_markup_soup(
+    soup: BeautifulSoup,
+    *,
+    path: Path | None = None,
+) -> tuple[Diagnostic, ...]:
+    """``annotate_citation_markup`` against a tree the caller already parsed."""
+
     diagnostics: list[Diagnostic] = []
     for node in list(soup.find_all(string=True)):
         if not isinstance(node, NavigableString) or _literal_parent(node):
@@ -823,7 +834,7 @@ def annotate_citation_markup(
         for fragment in reversed(narrative_fragments):
             node.insert_after(fragment if isinstance(fragment, Tag) else NavigableString(fragment))
         node.extract()
-    return str(soup), tuple(diagnostics)
+    return tuple(diagnostics)
 
 
 def _safe_fragment(prefix: str, key: str) -> str:

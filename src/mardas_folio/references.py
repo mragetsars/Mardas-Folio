@@ -451,6 +451,23 @@ def annotate_reference_markup(
     lang: str | None = None,
 ) -> tuple[str, tuple[Diagnostic, ...]]:
     soup = BeautifulSoup(body_html, "html.parser")
+    diagnostics = annotate_reference_markup_soup(soup, path=path, lang=lang)
+    return str(soup), tuple(diagnostics)
+
+
+def annotate_reference_markup_soup(
+    soup: BeautifulSoup,
+    *,
+    path: Path | None = None,
+    lang: str | None = None,
+) -> tuple[Diagnostic, ...]:
+    """``annotate_reference_markup`` against a tree the caller already parsed.
+
+    The postprocessing pass owns a tree already; handing this one HTML meant
+    serialising that tree and parsing it twice more, which on a long document
+    costs more than the annotation itself.
+    """
+
     diagnostics: list[Diagnostic] = []
     _validate_label_marker_syntax(soup, diagnostics, path)
     _prepare_objects(soup, diagnostics, path)
@@ -460,7 +477,7 @@ def annotate_reference_markup(
         tag["data-md2pdf-reference-lang"] = normalized_lang
     for tag in soup.find_all(attrs={"data-md2pdf-reference": True}):
         tag["data-md2pdf-reference-lang"] = normalized_lang
-    return str(soup), tuple(diagnostics)
+    return tuple(diagnostics)
 
 
 def _chapter_index(obj: Tag) -> int | None:
