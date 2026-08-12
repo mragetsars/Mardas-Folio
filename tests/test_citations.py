@@ -180,6 +180,68 @@ Evidence [@doe2024].
     assert "Doe & Smith, 2024" in BeautifulSoup(result.body_html, "html.parser").get_text(" ")
 
 
+def test_citations_enabled_without_a_bibliography_passes_when_nothing_is_cited(
+    tmp_path: Path,
+) -> None:
+    """Selecting "Academic paper" must not block an ordinary Markdown file.
+
+    That preset turns citations on. A document that cites nothing needs no
+    bibliography, so the citation pass has nothing to do and nothing to report;
+    the old blanket error made the preset refuse to render or export the file.
+    """
+
+    document = tmp_path / "document.md"
+    document.write_text(
+        """---
+title: سند بدون ارجاع
+lang: fa
+citations:
+  enabled: true
+---
+
+# مقدمه
+
+متنی که به هیچ منبعی ارجاع نمی‌دهد.
+""",
+        encoding="utf-8",
+    )
+
+    result = render_markdown_file(document, document_root=tmp_path)
+
+    assert [item for item in result.diagnostics if item.severity == "error"] == []
+    assert result.cited_keys == ()
+    assert result.bibliography_html == ""
+
+
+def test_citations_without_a_bibliography_still_name_each_unresolved_key(
+    tmp_path: Path,
+) -> None:
+    """The failure a missing bibliography really causes, reported per key."""
+
+    document = tmp_path / "document.md"
+    document.write_text(
+        """---
+title: Missing Bibliography
+lang: en
+citations:
+  enabled: true
+---
+
+# Heading
+
+Evidence [@nosuchkey] and more [@alsomissing].
+""",
+        encoding="utf-8",
+    )
+
+    result = render_markdown_file(document, document_root=tmp_path)
+
+    errors = [item for item in result.diagnostics if item.severity == "error"]
+    assert [item.code for item in errors] == ["MARDAS-E704", "MARDAS-E704"]
+    assert "nosuchkey" in errors[0].message
+    assert "alsomissing" in errors[1].message
+
+
 def test_unknown_narrative_citation_is_diagnosed() -> None:
     annotated, diagnostics = annotate_citation_markup("<p>See @missing for details.</p>")
     assert not diagnostics

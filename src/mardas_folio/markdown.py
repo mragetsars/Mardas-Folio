@@ -3097,19 +3097,16 @@ def render_markdown(
     citation_entries: tuple[dict[str, object], ...] = ()
     cited_keys: tuple[str, ...] = ()
     if resolved_citations_enabled:
-        from .citations import CitationOptions, resolve_citations
+        from .citations import BibliographyLibrary, CitationOptions, resolve_citations
 
-        if bibliography_library is None or not bibliography_library.entries:
-            reference_diagnostics = reference_diagnostics + (
-                Diagnostic(
-                    "MARDAS-E701",
-                    "error",
-                    "Citations are enabled but no bibliography entries were loaded.",
-                    path=source_path,
-                    hint="Configure bibliography.sources with local .bib or CSL .json files.",
-                ),
-            )
-        elif not defer_citation_resolution:
+        # An empty bibliography is only a problem for a document that actually
+        # cites something, and resolution says so per key and per location.
+        # Failing up front instead meant every preset that switches citations on
+        # — "Academic paper" does — refused to render an ordinary Markdown file
+        # that cites nothing, for a bibliography it never needed.
+        if bibliography_library is None:
+            bibliography_library = BibliographyLibrary({})
+        if not defer_citation_resolution:
             citation_metadata_style = citation_metadata.get(
                 "style", metadata.get("citation_style", "author-date")
             )
