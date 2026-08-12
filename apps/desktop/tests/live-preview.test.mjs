@@ -26,19 +26,30 @@ test("live preview is the default and unknown modes fall back to it", () => {
 });
 
 test("source mode renders the document verbatim but keeps bidi measurement", () => {
-  // Source mode adds no rendering, only the per-line direction support that
-  // live mode cannot use: `perLineTextDirection` measures each line, and a line
-  // replaced by a block widget has no tile to measure.
+  // Source mode adds no rendering, only the per-line direction support.
   const live = editorModeExtension("live");
   const source = editorModeExtension("source");
-  assert.equal(live.length, 2, "live mode is the block field plus the preview plugin");
+  assert.equal(live.length, 3, "live mode is the block field, the preview plugin and direction");
   assert.equal(source.length, 2, "source mode is direction support only");
   assert.notDeepEqual(live, source);
 });
 
-test("per-line direction is scoped to source mode", () => {
+test("both modes measure direction per line, not once for the editor", () => {
+  // Without this facet CodeMirror assumes a single direction for the whole
+  // editor while `dir="auto"` lets the browser lay each line out on its own.
+  // Every line of the opposite direction then has its selection drawn from a
+  // bidi model that does not describe it: measured against Chromium, a selected
+  // Persian sentence containing one Latin word was painted 231px wide over text
+  // occupying 307px. Live mode is where Persian gets written, so it is exactly
+  // the mode that must not be left out.
   assert.match(source, /perLineTextDirection/);
-  assert.match(source, /normalizeEditorMode\(mode\) === "live"/);
+  const factory = source.slice(source.indexOf("export function editorModeExtension"));
+  assert.match(factory, /perLineDirection\]/, "live mode carries the facet");
+  assert.doesNotMatch(
+    factory,
+    /\[createBlockWidgetField\(resolveAsset\), livePreviewPlugin\]/,
+    "live mode must not drop back to the two-extension set that omitted direction",
+  );
 });
 
 test("live preview never edits the document", () => {

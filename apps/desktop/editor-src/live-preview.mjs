@@ -328,15 +328,23 @@ export function normalizeEditorMode(value) {
 /**
  * The extension set for a mode; `source` renders the document verbatim.
  *
- * `perLineTextDirection` is enabled only in source mode. It makes CodeMirror
- * measure each line's computed direction, which a line replaced by a block
- * widget cannot answer — asking throws "No tile at position". Source mode has
- * no widgets and is where caret motion through mixed Persian/English text has
- * to be exact, so that is where the facet earns its cost. Live mode still sets
- * `dir="auto"` per line, so the text lays out correctly either way.
+ * `perLineTextDirection` belongs in both modes. Without it CodeMirror assumes
+ * one direction for the whole editor and measures every line against it, while
+ * `dir="auto"` lets the browser lay each line out on its own. On any line whose
+ * real direction differs from the editor's, the two models disagree, and
+ * everything derived from the bidi model — the drawn selection, caret motion,
+ * Home/End — is computed against text that is not where it is. A selected
+ * Persian sentence containing a Latin word came out as a few misplaced bands of
+ * highlight covering roughly three quarters of the characters.
+ *
+ * Live mode was left out because a line replaced by a block widget was thought
+ * to have no tile to measure. It resolves to the widget's own element, which
+ * answers a direction like any other, so the exclusion cost correctness for a
+ * risk that was not there.
  */
 export function editorModeExtension(mode, { resolveAsset } = {}) {
+  const perLineDirection = EditorView.perLineTextDirection.of(true);
   return normalizeEditorMode(mode) === "live"
-    ? [createBlockWidgetField(resolveAsset), livePreviewPlugin]
-    : [autoDirectionPlugin, EditorView.perLineTextDirection.of(true)];
+    ? [createBlockWidgetField(resolveAsset), livePreviewPlugin, perLineDirection]
+    : [autoDirectionPlugin, perLineDirection];
 }
