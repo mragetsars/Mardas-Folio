@@ -201,6 +201,27 @@ def test_chromium_sandbox_on_omits_no_sandbox(tmp_path):
     assert "--no-sandbox" not in _chromium_launch_args(options)
 
 
+def test_chromium_launch_skips_the_gpu_process_and_its_debug_log(tmp_path):
+    """A driverless machine must not pay for a GPU process it cannot start.
+
+    Chromium logs the failed ANGLE initialisation into a debug.log beside the
+    executable, which in a frozen build is the installation directory.
+    """
+
+    from mardas_folio.renderer import PdfOptions, _chromium_launch_args
+
+    options = PdfOptions(
+        input_path=tmp_path / "input.md",
+        output_path=tmp_path / "output.pdf",
+    )
+
+    args = _chromium_launch_args(options)
+
+    assert "--disable-gpu" in args
+    assert "--disable-logging" in args
+    assert "--log-level=3" in args
+
+
 def test_cli_exposes_chromium_sandbox_modes():
     from mardas_folio.cli import build_parser
 

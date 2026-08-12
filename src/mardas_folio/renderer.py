@@ -3005,6 +3005,17 @@ def _chromium_launch_args(options: PdfOptions) -> list[str]:
     args = [
         "--font-render-hinting=medium",
         "--disable-dev-shm-usage",
+        # Printing to PDF goes through Skia's vector backend, so the GPU process
+        # buys this renderer nothing. On machines without a usable Vulkan/ANGLE
+        # driver it also loses: Chromium starts a GPU process, fails to
+        # initialise a display, and exits it again on every launch.
+        "--disable-gpu",
+        # Chromium's default log sink is a debug.log next to the executable,
+        # which for a frozen build means writing into the installation
+        # directory. Nothing reads that file, and the engine reports its own
+        # failures over JSON-RPC.
+        "--disable-logging",
+        "--log-level=3",
     ]
     if _should_disable_chromium_sandbox(options.chromium_sandbox):
         args.append("--no-sandbox")
