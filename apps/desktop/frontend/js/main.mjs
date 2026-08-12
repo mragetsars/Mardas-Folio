@@ -49,6 +49,7 @@ import {
   projectContextCurrent,
 } from "./core/request-context.mjs";
 import { createSaveCoordinator } from "./core/save-coordinator.mjs";
+import { createSingleFlight } from "./core/single-flight.mjs";
 import { beginCancellationHandoff } from "./core/task-handoff.mjs";
 import { diagnosticLines, inlineDiagnosticsForDocument } from "./core/diagnostics.mjs";
 import { bookTaskBlocked, claimBookTask } from "./core/book-task-state.mjs";
@@ -1302,6 +1303,9 @@ function resetAdvancedOptions() {
 let exportPreviewTimer = null;
 let exportPreviewSequence = 0;
 let exportPreviewRequestId = null;
+// The engine takes one job at a time, so previews queue behind each other
+// rather than compete for it.
+const exportPreviewFlight = createSingleFlight(() => drawExportPreview());
 
 /**
  * Stand the preview down before a job the user actually asked for.
@@ -1309,6 +1313,12 @@ let exportPreviewRequestId = null;
  * The engine runs one job at a time and answers a second with SERVER_BUSY, so
  * a preview still rendering when "Create PDF" is pressed would fail the export.
  * The preview is speculative work; it yields.
+ *
+ * Cancelling it is a request, not a guarantee: composing the preview page is
+ * pure Markdown work that never receives the cancellation callback, so it runs
+ * to completion regardless. On a long document that is seconds during which
+ * the engine is still busy, which is exactly how an export used to fail. So
+ * after asking, wait for the engine to actually come free.
  */
 async function releaseEngineForJob() {
   if (exportPreviewTimer) {
@@ -1318,12 +1328,14 @@ async function releaseEngineForJob() {
   exportPreviewSequence += 1;
   const pending = exportPreviewRequestId;
   exportPreviewRequestId = null;
-  if (!pending) return;
-  try {
-    await invoke("sidecar_cancel", { request_id: pending });
-  } catch {
-    // Already finished, or never started; either way the engine is free.
+  if (pending) {
+    try {
+      await invoke("sidecar_cancel", { request_id: pending });
+    } catch {
+      // Already finished, or never started; either way the engine is free.
+    }
   }
+  await exportPreviewFlight.drain();
 }
 
 function setExportPreviewState(key) {
@@ -1442,7 +1454,22 @@ function pagePayloadFromBodyPreview(result) {
   };
 }
 
-async function renderExportPreview() {
+/**
+ * Draw the preview, one at a time.
+ *
+ * Composing the page is Markdown work the engine cannot interrupt, and on a
+ * long document it takes seconds. Sending the next preview while that one is
+ * still running earns SERVER_BUSY and puts "Preview unavailable" on screen over
+ * a document with nothing wrong with it — and the longer the document, the more
+ * reliably it happened. Only the newest options matter, so a request that
+ * arrives mid-render is remembered rather than sent, and runs once the engine
+ * is free.
+ */
+function renderExportPreview() {
+  return exportPreviewFlight.run();
+}
+
+async function drawExportPreview() {
   const deck = exportPreviewDeck();
   if (!deck) return;
   if (!state.sourcePath) {
@@ -3063,7 +3090,8 @@ function scheduleRecovery(model = activeDocument()) {
 }
 
 function schedulePreview(delay = 650) {
-  const sequence = ++state.previewSequence;
+  // Retire whatever is on screen or in flight: its result is already stale.
+  state.previewSequence += 1;
   clearTimeout(state.previewTimer);
   const model = activeDocument();
   if (!model || !isMarkdownModel(model) || !model.content.trim()) {
@@ -3073,7 +3101,7 @@ function schedulePreview(delay = 650) {
     return;
   }
   if (!$("#auto-preview")?.checked) return;
-  state.previewTimer = setTimeout(() => refreshPreview(sequence), delay);
+  state.previewTimer = setTimeout(() => void refreshPreview(), delay);
 }
 
 function previewOptions() {
@@ -3274,9 +3302,22 @@ function renderPreview(model) {
   syncPreviewToEditorLine(position.line);
 }
 
-async function refreshPreview(scheduledSequence = null) {
-  const sequence = scheduledSequence ?? ++state.previewSequence;
-  if (sequence !== state.previewSequence) return;
+/**
+ * Redraw the authoring preview, one at a time.
+ *
+ * Same engine, same single job slot as the export preview: a second preview
+ * sent while one is still composing is refused, and the refusal reached the
+ * reader as "Preview could not be generated" over a healthy document. Typing
+ * during a slow render is the ordinary way to hit that.
+ */
+const writePreviewFlight = createSingleFlight(() => drawWritePreview());
+
+function refreshPreview() {
+  return writePreviewFlight.run();
+}
+
+async function drawWritePreview() {
+  const sequence = ++state.previewSequence;
   const model = activeDocument();
   if (!model || !isMarkdownModel(model) || !model.content.trim()) {
     if (model) model.preview = null;
@@ -3889,7 +3930,10 @@ function bindEvents() {
     citationSearchTimer = setTimeout(refreshBibliography, 220);
   });
   $("#refresh-citations").addEventListener("click", refreshBibliography);
-  $("#refresh-preview").addEventListener("click", refreshPreview);
+  // Passing the handler directly gave the click event to the function's first
+  // parameter, which it compared against a sequence number and always found
+  // unequal — the button returned without ever rendering anything.
+  $("#refresh-preview").addEventListener("click", () => void refreshPreview());
   $("#auto-preview").addEventListener("change", () => {
     updatePreference({ autoPreview: $("#auto-preview").checked });
     if ($("#auto-preview").checked) refreshPreview();
