@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
+import { GFM, parser } from "@lezer/markdown";
 import {
   EDITOR_MODES,
+  LINKS_WITH_TEXT,
   editorModeExtension,
   normalizeEditorMode,
 } from "../editor-src/live-preview.mjs";
@@ -154,4 +156,32 @@ test("front matter collapses to a summary until the caret asks for it", () => {
   assert.match(widgets, /node\.name === "Frontmatter" && !spansActiveLine/);
   // The document is never rewritten to match what is drawn.
   assert.doesNotMatch(widgets, /FrontMatterWidget[\s\S]{0,600}dispatch\(/);
+});
+
+test("only a link that shows other text may have its address hidden", () => {
+  // `URL` is in the hidden set because `[text](url)` and `![alt](src)` display
+  // something else in its place. An autolink and a bare URL are their own text:
+  // hiding those removed the address from the document altogether, so a
+  // paragraph ending "and an autolink <https://example.com>." rendered as
+  // "and an autolink ." with the link simply gone.
+  const parentOfUrl = (markdown) => {
+    let found = null;
+    parser.configure(GFM).parse(markdown).iterate({
+      enter: (node) => {
+        if (node.name === "URL" && found === null) found = node.node.parent?.name ?? null;
+      },
+    });
+    return found;
+  };
+
+  assert.equal(parentOfUrl("A [text](https://example.com) link."), "Link");
+  assert.equal(parentOfUrl("![alt](image.png)"), "Image");
+  assert.equal(parentOfUrl("An <https://example.com> autolink."), "Autolink");
+  assert.equal(parentOfUrl("A <someone@example.com> address."), "Autolink");
+  assert.equal(parentOfUrl("A bare https://example.com URL."), "Paragraph");
+
+  assert.ok(LINKS_WITH_TEXT.has("Link"));
+  assert.ok(LINKS_WITH_TEXT.has("Image"));
+  assert.ok(!LINKS_WITH_TEXT.has("Autolink"), "an autolink is its own text");
+  assert.ok(!LINKS_WITH_TEXT.has("Paragraph"), "a bare URL is its own text");
 });

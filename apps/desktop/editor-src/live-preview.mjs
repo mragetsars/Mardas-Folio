@@ -35,6 +35,9 @@ const HIDDEN_MARKS = new Set([
   "QuoteMark",
 ]);
 
+/** The link forms whose target is hidden because their text is shown instead. */
+export const LINKS_WITH_TEXT = new Set(["Link", "Image"]);
+
 const hidden = Decoration.replace({});
 /* The language of a fenced block is worth reading; its backticks are not. */
 const codeInfoMark = Decoration.mark({ class: "cm-md-code-info" });
@@ -51,6 +54,27 @@ const codeInfoMark = Decoration.mark({ class: "cm-md-code-info" });
 const autoDirection = Decoration.line({ attributes: { dir: "auto" } });
 const codeLine = Decoration.line({ class: "cm-code-line" });
 const quoteLine = Decoration.line({ class: "cm-quote-line" });
+
+/**
+ * A quotation's bar belongs to the quotation, not to each of its lines.
+ *
+ * Every line carries `dir="auto"`, which is right for the text and wrong for
+ * the decoration: a Persian callout's marker line has no strong character left
+ * once `[!NOTE]` is hidden, so it resolved left-to-right while the body
+ * resolved right-to-left, and the block drew its accent bar down its left edge
+ * on one line and its right edge on the next. The block's own direction is
+ * decided once, from its whole text, and the bar follows that.
+ */
+const rtlBlock = Decoration.line({ class: "cm-md-block-rtl" });
+const FIRST_STRONG_RTL = /[֑-߿יִ-﷽ﹰ-ﻼ]/;
+const FIRST_STRONG_LTR = /[A-Za-zÀ-˿Ͱ-֏]/;
+
+function blockIsRtl(text) {
+  const rtl = FIRST_STRONG_RTL.exec(text);
+  if (!rtl) return false;
+  const ltr = FIRST_STRONG_LTR.exec(text);
+  return !ltr || rtl.index < ltr.index;
+}
 /* An item's own line, so a wrapped one can hang under its text rather than
    restart under its bullet, and the bullet itself can be told from the text. */
 const listLine = Decoration.line({ class: "cm-md-list-line" });
@@ -167,12 +191,22 @@ function buildDecorations(view) {
           const kind = marker && CALLOUT_KINDS.has(marker[3].toLowerCase())
             ? marker[3].toLowerCase()
             : null;
+          // One direction for the whole block, so its bar stays on one side.
+          // A callout's kind is always spelled in Latin — `[!NOTE]` — so the
+          // marker is skipped; otherwise every Persian callout would be read
+          // as a left-to-right block on the strength of its own label.
+          const bodyFrom = marker ? first.from + marker[0].length : node.from;
+          const rtl = blockIsRtl(state.doc.sliceString(bodyFrom, node.to));
           if (!kind) {
-            eachLine(state, node, (at) => lines.push({ at, deco: quoteLine }));
+            eachLine(state, node, (at) => {
+              lines.push({ at, deco: quoteLine });
+              if (rtl) lines.push({ at, deco: rtlBlock });
+            });
             return;
           }
           eachLine(state, node, (at) => {
             lines.push({ at, deco: calloutLine(kind, at === first.from) });
+            if (rtl) lines.push({ at, deco: rtlBlock });
           });
           if (!active.has(first.number)) {
             const from = first.from + marker[1].length;
@@ -198,6 +232,12 @@ function buildDecorations(view) {
         if (active.has(state.doc.lineAt(node.from).number)) return;
 
         if (HIDDEN_MARKS.has(node.name)) {
+          // A URL is only scaffolding when something else is standing in for
+          // it. `[text](url)` and `![alt](src)` show their text and keep the
+          // target out of the way, but an autolink and a bare URL *are* their
+          // own text — hiding those deleted the address from the page and left
+          // "and an autolink ." with a gap where the link had been.
+          if (node.name === "URL" && !LINKS_WITH_TEXT.has(node.node.parent?.name)) return;
           // `# ` and `> ` are a marker plus its separating space. Hiding only
           // the marker would leave the text indented by one stray column.
           const to = node.name === "HeaderMark" || node.name === "QuoteMark"

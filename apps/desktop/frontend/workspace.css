@@ -2910,9 +2910,16 @@ button:focus-visible,
 
 /* A quotation reads as a quotation. */
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-line {
-  border-inline-start: 3px solid var(--ui-accent);
+  border-left: 3px solid var(--ui-accent);
   background: var(--ui-panel-soft);
-  padding-inline-start: 14px;
+  padding-left: 14px;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-line.cm-md-block-rtl {
+  border-left: 0;
+  padding-left: 0;
+  border-right: 3px solid var(--ui-accent);
+  padding-right: 14px;
 }
 
 /* A list item reads as one item: its wrapped lines hang under its text rather
@@ -3912,10 +3919,21 @@ html[data-focus-mode="true"] .editor-status:hover {
  * The engine turns these into cards, a cover and a highlighted panel. Showing
  * them as raw markup while they are written means the writer only finds out
  * what they made after exporting. */
+/* Physical sides, not logical: each line resolves its own `dir="auto"`, so a
+ * logical border put the bar on whichever side that line's text happened to
+ * want. The block's direction is decided once and marked with
+ * `cm-md-block-rtl`. */
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout {
-  border-inline-start: 3px solid var(--callout-tint, var(--ui-accent));
+  border-left: 3px solid var(--callout-tint, var(--ui-accent));
   background: color-mix(in srgb, var(--callout-tint, var(--ui-accent)) 7%, transparent);
-  padding-inline-start: 12px;
+  padding-left: 12px;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout.cm-md-block-rtl {
+  border-left: 0;
+  padding-left: 0;
+  border-right: 3px solid var(--callout-tint, var(--ui-accent));
+  padding-right: 12px;
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout-head {
