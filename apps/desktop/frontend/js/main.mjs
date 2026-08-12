@@ -50,7 +50,7 @@ import {
 } from "./core/request-context.mjs";
 import { createSaveCoordinator } from "./core/save-coordinator.mjs";
 import { beginCancellationHandoff } from "./core/task-handoff.mjs";
-import { inlineDiagnosticsForDocument } from "./core/diagnostics.mjs";
+import { diagnosticLines, inlineDiagnosticsForDocument } from "./core/diagnostics.mjs";
 import { bookTaskBlocked, claimBookTask } from "./core/book-task-state.mjs";
 import {
   DEFAULT_PREFERENCES,
@@ -1472,7 +1472,7 @@ async function renderExportPreview() {
     setExportPreviewState("previewFailedShort");
     const payload = errorPayload(error);
     renderPreviewNote(null);
-    deck.showMessage(payload?.message || t("previewFailed"));
+    deck.showMessage(payload?.message || t("previewFailed"), diagnosticLines(payload));
   } finally {
     if (exportPreviewRequestId === id) exportPreviewRequestId = null;
   }

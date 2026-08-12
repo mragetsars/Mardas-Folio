@@ -233,10 +233,27 @@ body[data-guides="true"] .pv-page:not([data-kind="cover"]) .pv-guide { display: 
 }
 .pv-note {
   margin: 0;
-  padding: 40px 20px;
+  padding: 40px 20px 0;
   color: #f0f0f0;
   font: 12.5px/1.75 system-ui, sans-serif;
   text-align: center;
+}
+.pv-note-details {
+  margin: 16px auto 40px;
+  padding: 0;
+  max-width: 52ch;
+  list-style: none;
+  color: #c8c8c8;
+  font: 12px/1.6 system-ui, sans-serif;
+}
+.pv-note-details li {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-inline-start: 2px solid #f97316;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: start;
+  overflow-wrap: anywhere;
 }
 .md2pdf-cover-full-bleed .md2pdf-document,
 .md2pdf-cover-full-bleed .md2pdf-article,
@@ -290,6 +307,7 @@ export function createPageDeck(host, { onState } = {}) {
     // Kept so the deck can be restored if the frame's document is replaced.
     lastPayload: null,
     lastMessage: null,
+    lastDetails: [],
   };
 
   const view = () => frame.contentWindow;
@@ -460,6 +478,7 @@ export function createPageDeck(host, { onState } = {}) {
     if (!document_ || !window_) return;
     state.lastPayload = payload;
     state.lastMessage = null;
+    state.lastDetails = [];
 
     state.geometry = normalizePageGeometry(payload?.page);
     const geometry = state.geometry;
@@ -558,10 +577,12 @@ export function createPageDeck(host, { onState } = {}) {
     materialise();
   }
 
-  function showMessageNow(text) {
+  function showMessageNow(text, details) {
     const document_ = doc();
     if (!document_) return;
+    const lines = (Array.isArray(details) ? details : []).map(String).filter(Boolean);
     state.lastMessage = String(text || "");
+    state.lastDetails = lines;
     state.lastPayload = null;
     document_.getElementById("pv-engine").textContent = "";
     document_.getElementById("pv-deck").textContent = DECK_CSS;
@@ -573,7 +594,21 @@ export function createPageDeck(host, { onState } = {}) {
     const note = document_.createElement("p");
     note.className = "pv-note";
     note.textContent = String(text || "");
-    document_.body.replaceChildren(note);
+    const nodes = [note];
+    if (lines.length) {
+      const list = document_.createElement("ul");
+      list.className = "pv-note-details";
+      // `dir="auto"` because a diagnostic quotes the document, and a Persian
+      // document's citation keys and headings arrive mixed with Latin codes.
+      list.dir = "auto";
+      for (const line of lines) {
+        const item = document_.createElement("li");
+        item.textContent = line;
+        list.append(item);
+      }
+      nodes.push(list);
+    }
+    document_.body.replaceChildren(...nodes);
     publish();
   }
 
@@ -589,7 +624,7 @@ export function createPageDeck(host, { onState } = {}) {
     const pending = state.pending;
     state.pending = null;
     if (pending?.kind === "payload") draw(pending.value);
-    else if (pending?.kind === "message") showMessageNow(pending.value);
+    else if (pending?.kind === "message") showMessageNow(pending.value, pending.details);
   }
 
   /**
@@ -612,7 +647,7 @@ export function createPageDeck(host, { onState } = {}) {
     state.ready = false;
     attach();
     if (state.lastPayload) draw(state.lastPayload);
-    else if (state.lastMessage !== null) showMessageNow(state.lastMessage);
+    else if (state.lastMessage !== null) showMessageNow(state.lastMessage, state.lastDetails);
   }
 
   // A frame with no source is already an about:blank document by the time it is
@@ -630,13 +665,19 @@ export function createPageDeck(host, { onState } = {}) {
       draw(payload);
     },
 
-    /** Show a short message instead of a document. */
-    showMessage(text) {
+    /**
+     * Show a short message instead of a document.
+     *
+     * `details` carries the engine's own diagnostics — the lines that say which
+     * citation key or heading is at fault. Without them the panel can only
+     * report that something failed, which is not something a user can act on.
+     */
+    showMessage(text, details) {
       if (!state.ready) {
-        state.pending = { kind: "message", value: text };
+        state.pending = { kind: "message", value: text, details };
         return;
       }
-      showMessageNow(text);
+      showMessageNow(text, details);
     },
 
     zoomBy(direction) {
