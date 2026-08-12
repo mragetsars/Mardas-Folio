@@ -147,6 +147,23 @@ class ImageWidget extends WidgetType {
     image.src = this.url;
     image.alt = this.alt;
     image.loading = "lazy";
+    // A path that resolves is not a file that loads: a moved or misspelled
+    // image otherwise left the browser's own broken-image glyph sitting in the
+    // document, which says nothing about which image or why. Name it instead,
+    // in the same shape the exporter uses for an image it had to block.
+    image.addEventListener("error", () => {
+      const missing = document.createElement("span");
+      missing.className = "cm-md-image-missing";
+      const label = document.createElement("strong");
+      label.textContent = "Image not found";
+      missing.append(label);
+      if (this.alt) {
+        const caption = document.createElement("span");
+        caption.textContent = this.alt;
+        missing.append(caption);
+      }
+      figure.replaceChildren(missing);
+    });
     figure.append(image);
     return figure;
   }

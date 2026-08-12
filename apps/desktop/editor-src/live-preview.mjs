@@ -51,6 +51,10 @@ const codeInfoMark = Decoration.mark({ class: "cm-md-code-info" });
 const autoDirection = Decoration.line({ attributes: { dir: "auto" } });
 const codeLine = Decoration.line({ class: "cm-code-line" });
 const quoteLine = Decoration.line({ class: "cm-quote-line" });
+/* An item's own line, so a wrapped one can hang under its text rather than
+   restart under its bullet, and the bullet itself can be told from the text. */
+const listLine = Decoration.line({ class: "cm-md-list-line" });
+const listMark = Decoration.mark({ class: "cm-md-list-mark" });
 const codeOpenLine = Decoration.line({ class: "cm-code-line cm-code-open" });
 const codeCloseLine = Decoration.line({ class: "cm-code-line cm-code-close" });
 
@@ -176,6 +180,14 @@ function buildDecorations(view) {
           }
           return;
         }
+        // Applied whether or not the caret is on the line: an item that
+        // re-indented as the caret arrived would make the list jump while it
+        // is being edited.
+        if (node.name === "ListItem") {
+          eachLine(state, node, (at) => lines.push({ at, deco: listLine }));
+          // fall through: the ListMark inside still needs its own styling
+        }
+
         const heading = headingLines.get(node.name);
         if (heading) {
           lines.push({ at: state.doc.lineAt(node.from).from, deco: heading });
@@ -211,6 +223,8 @@ function buildDecorations(view) {
           const after = state.doc.sliceString(node.to, Math.min(node.to + 5, state.doc.length));
           if (/^\s*\[[ xX]\]/.test(after)) {
             marks.push([node.from, swallowSpace(state, node.to)]);
+          } else {
+            marks.push([node.from, node.to, listMark]);
           }
           return;
         }

@@ -2915,6 +2915,22 @@ button:focus-visible,
   padding-inline-start: 14px;
 }
 
+/* A list item reads as one item: its wrapped lines hang under its text rather
+ * than restarting under the bullet, and consecutive items are separated. Left
+ * flush and unspaced, a feature list arrived as a wall of prose with stray
+ * hyphens down the left edge. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-list-line {
+  padding-inline-start: 26px;
+  text-indent: -18px;
+  margin-block: 0.12em;
+}
+
+/* The marker is the one part of a list the accent belongs to. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-list-mark {
+  color: var(--ui-accent);
+  font-weight: 700;
+}
+
 /* Fenced code sits in a panel and keeps its monospace grid. A line too long
  * for the panel wraps rather than being cut off, and its continuation is
  * indented so the wrap reads as one line of code instead of two. */
@@ -3664,6 +3680,33 @@ button:focus-visible,
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-panel-soft);
+}
+
+/* An image the editor could not load says which one, rather than leaving the
+   browser's broken-image glyph to stand for it. */
+.codemirror-mount .cm-md-image-missing {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px dashed var(--ui-border-strong, var(--ui-border));
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel-soft);
+  color: var(--ui-text-muted, inherit);
+  font-size: 12px;
+}
+
+.codemirror-mount .cm-md-image-missing strong {
+  color: var(--ui-accent);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.codemirror-mount .cm-md-image-missing span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Wrapped prose still needs code to keep its own line structure, but a fenced

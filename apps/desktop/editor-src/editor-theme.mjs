@@ -60,7 +60,12 @@ export const mardasHighlightStyle = HighlightStyle.define([
   { tag: tags.url, color: token("url", "#6d665c") },
   { tag: tags.monospace, color: token("code", "#9c3b1b") },
   { tag: tags.quote, color: token("quote", "#63605a"), fontStyle: "italic" },
-  { tag: tags.list, color: token("list", "#10635b") },
+  // The grammar tags every descendant of a list with `tags.list`, not just the
+  // bullet, so colouring this painted whole paragraphs of prose in the accent
+  // and made a feature list unreadable next to the plain text above it. List
+  // text is text; the marker in front of it is what carries the accent, and it
+  // is tagged separately.
+  { tag: tags.list, color: token("text", "#24211d") },
   { tag: tags.contentSeparator, color: token("mark", "#7a736a"), fontWeight: "650" },
   // The marker characters: present, never shouting.
   { tag: tags.processingInstruction, color: token("mark", "#7a736a") },
