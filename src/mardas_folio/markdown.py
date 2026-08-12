@@ -1151,7 +1151,7 @@ def render_mermaid_placeholders(soup: BeautifulSoup) -> None:
         source = code_tag.get_text()
         svg = render_mermaid_to_svg(source)
         if not svg:
-            figure["class"] = list(set(figure.get("class", []) + ["mermaid-diagram--fallback"]))
+            _add_classes(figure, "mermaid-diagram--fallback")
             continue
         # Parse the generated SVG with the built-in HTML parser instead of
         # BeautifulSoup's ``xml`` feature. The ``xml`` feature requires lxml,
@@ -1665,6 +1665,24 @@ def append_footnotes(
         return body_html
 
     soup = BeautifulSoup(body_html, "html.parser")
+    append_footnotes_soup(soup, footnotes, md, lang=lang, text_hint=text_hint)
+    return str(soup)
+
+
+def append_footnotes_soup(
+    soup: BeautifulSoup,
+    footnotes: list[tuple[str, str]] | list[FootnoteEntry],
+    md: MarkdownIt,
+    *,
+    lang: str | None = None,
+    text_hint: str = "",
+) -> None:
+    """``append_footnotes`` against a tree the caller already parsed."""
+
+    entries = _normalize_footnotes(footnotes)
+    if not entries:
+        return
+
     entry_by_anchor = {entry.anchor: entry for entry in entries}
     label = ui_label("footnotes", lang=lang, text_hint=text_hint)
     footnote_family = language_family(lang, text_hint)
@@ -1709,7 +1727,6 @@ def append_footnotes(
             container.append(section)
         else:
             container.insert_after(section)
-    return str(soup)
 
 
 def slugify(value: str, used: set[str]) -> str:
@@ -2027,6 +2044,18 @@ def sanitize_html(body_html: str) -> str:
     before the HTML is handed to Chromium.
     """
     soup = BeautifulSoup(body_html, "html.parser")
+    sanitize_soup(soup)
+    return str(soup)
+
+
+def sanitize_soup(soup: BeautifulSoup) -> None:
+    """``sanitize_html`` against a tree the caller already parsed.
+
+    Each HTML pass used to parse the whole document and serialise it again for
+    the next one. On a 52,000-word document that round trip is most of the cost
+    of a preview, so the passes that run back to back share one tree.
+    """
+
     for tag in list(soup.find_all(True)):
         name = (tag.name or "").lower()
         if name in BLOCKED_RAW_HTML_TAGS:
@@ -2054,7 +2083,6 @@ def sanitize_html(body_html: str) -> str:
             rel = set(str(tag.get("rel") or "").split())
             rel.update({"noopener", "noreferrer"})
             tag["rel"] = " ".join(sorted(rel))
-    return str(soup)
 
 
 def block_local_file_links(body_html: str) -> str:
@@ -2066,6 +2094,13 @@ def block_local_file_links(body_html: str) -> str:
     inert; fragment links, web links, and mail links remain functional.
     """
     soup = BeautifulSoup(body_html, "html.parser")
+    block_local_file_links_soup(soup)
+    return str(soup)
+
+
+def block_local_file_links_soup(soup: BeautifulSoup) -> None:
+    """``block_local_file_links`` against a tree the caller already parsed."""
+
     for link in soup.find_all("a", href=True):
         href = str(link.get("href") or "").strip()
         if not href or href.startswith("#"):
@@ -2081,7 +2116,6 @@ def block_local_file_links(body_html: str) -> str:
         link["class"] = sorted(classes)
         link["title"] = "Local file link omitted from portable PDF output"
         link["data-md2pdf-source"] = href
-    return str(soup)
 
 
 def _is_local_image_reference(src: str) -> bool:
@@ -2133,11 +2167,17 @@ def block_remote_images(body_html: str) -> str:
     it still exposes the same privacy boundary for network images by default.
     """
     soup = BeautifulSoup(body_html, "html.parser")
+    block_remote_images_soup(soup)
+    return str(soup)
+
+
+def block_remote_images_soup(soup: BeautifulSoup) -> None:
+    """``block_remote_images`` against a tree the caller already parsed."""
+
     for img in soup.find_all("img"):
         src = str(img.get("src") or "").strip()
         if src and _is_remote_image_reference(src):
             _block_image_reference(soup, img, src, reason="remote")
-    return str(soup)
 
 
 def embed_local_images(
@@ -2179,7 +2219,7 @@ def embed_local_images(
                 continue
             img["src"] = data_uri
             img["data-md2pdf-source"] = src
-            img["class"] = list(set(img.get("class", []) + ["md2pdf-image"]))
+            _add_classes(img, "md2pdf-image")
             embedded = True
             break
         if not embedded and _is_local_image_reference(src):
@@ -2478,6 +2518,28 @@ def postprocess_html(
     source_path: Path | None = None,
 ) -> tuple[str, tuple[Diagnostic, ...]]:
     soup = BeautifulSoup(body_html, "html.parser")
+    diagnostics = postprocess_soup(
+        soup,
+        code_style=code_style,
+        lang=lang,
+        references_enabled=references_enabled,
+        citations_enabled=citations_enabled,
+        source_path=source_path,
+    )
+    return str(soup), diagnostics
+
+
+def postprocess_soup(
+    soup: BeautifulSoup,
+    *,
+    code_style: str = "github-dark",
+    lang: str | None = None,
+    references_enabled: bool = False,
+    citations_enabled: bool = False,
+    source_path: Path | None = None,
+) -> tuple[Diagnostic, ...]:
+    """``postprocess_html`` against a tree the caller already parsed."""
+
     reference_diagnostics: tuple[Diagnostic, ...] = ()
     citation_diagnostics: tuple[Diagnostic, ...] = ()
 
@@ -2489,23 +2551,18 @@ def postprocess_html(
     normalize_semantic_captions(soup)
     normalize_github_callouts(soup, lang=lang)
     if references_enabled:
-        from .references import annotate_reference_markup
+        from .references import annotate_reference_markup_soup
 
-        annotated_html, reference_diagnostics = annotate_reference_markup(
-            str(soup),
+        reference_diagnostics = annotate_reference_markup_soup(
+            soup,
             path=source_path,
             lang=lang,
         )
-        soup = BeautifulSoup(annotated_html, "html.parser")
         normalize_semantic_captions(soup)
     if citations_enabled:
-        from .citations import annotate_citation_markup
+        from .citations import annotate_citation_markup_soup
 
-        annotated_html, citation_diagnostics = annotate_citation_markup(
-            str(soup),
-            path=source_path,
-        )
-        soup = BeautifulSoup(annotated_html, "html.parser")
+        citation_diagnostics = annotate_citation_markup_soup(soup, path=source_path)
     isolate_ltr_runs_in_mixed_persian_text(soup)
 
     # Direction-aware blocks and inline content.
@@ -2718,24 +2775,24 @@ def postprocess_html(
             checkbox["checked"] = "checked"
         checkbox["disabled"] = "disabled"
         li.insert(0, checkbox)
-        li["class"] = list(set(li.get("class", []) + ["task-list-item"]))
+        _add_classes(li, "task-list-item")
         if li.parent and li.parent.name in {"ul", "ol"}:
-            li.parent["class"] = list(set(li.parent.get("class", []) + ["task-list"]))
+            _add_classes(li.parent, "task-list")
 
     # Explicit page break marker: <div class="page-break"></div> or ---page---
     for div in soup.find_all("div", class_=lambda c: c and "page-break" in c):
-        div["class"] = list(set(div.get("class", []) + ["md2pdf-page-break"]))
+        _add_classes(div, "md2pdf-page-break")
 
     # Render HTML details/summary as expanded PDF-friendly disclosure blocks.
     for details in soup.find_all("details"):
         details["open"] = "open"
-        details["class"] = list(set(details.get("class", []) + ["md2pdf-details"]))
+        _add_classes(details, "md2pdf-details")
         summary = details.find("summary")
         if summary is not None:
-            summary["class"] = list(set(summary.get("class", []) + ["md2pdf-summary"]))
+            _add_classes(summary, "md2pdf-summary")
 
     enhance_accessibility_semantics(soup)
-    return str(soup), reference_diagnostics + citation_diagnostics
+    return reference_diagnostics + citation_diagnostics
 
 
 PAGEBREAK_COMMENT_RE = re.compile(r"<!--\s*(?:pagebreak|page-break|newpage)\s*-->", re.I)
@@ -2994,13 +3051,15 @@ def render_markdown(
 
     md.renderer.rules["heading_open"] = render_heading_open
 
-    body_html = md.render(markdown_body)
-    body_html = append_footnotes(body_html, footnote_entries, md, lang=lang, text_hint=markdown_body)
+    # Three passes over one tree. Parsing and reserialising the whole document
+    # between them is the single largest cost in rendering a long one.
+    body_soup = BeautifulSoup(md.render(markdown_body), "html.parser")
+    append_footnotes_soup(body_soup, footnote_entries, md, lang=lang, text_hint=markdown_body)
     if not unsafe_html:
-        body_html = sanitize_html(body_html)
-    body_html = block_local_file_links(body_html)
+        sanitize_soup(body_soup)
+    block_local_file_links_soup(body_soup)
     body_html, toc_entries = add_heading_ids(
-        body_html,
+        str(body_soup),
         toc_depth=toc_depth,
     )
     text_hint = BeautifulSoup(body_html, "html.parser").get_text(" ", strip=True)
@@ -3049,8 +3108,9 @@ def render_markdown(
     else:
         resolved_citations_enabled = bool(citations_enabled)
 
-    body_html, reference_diagnostics = postprocess_html(
-        body_html,
+    post_soup = BeautifulSoup(body_html, "html.parser")
+    reference_diagnostics = postprocess_soup(
+        post_soup,
         code_style=code_style,
         lang=lang,
         references_enabled=resolved_references_enabled,
@@ -3060,7 +3120,8 @@ def render_markdown(
     if resolved_references_enabled and fence_reference_diagnostics:
         reference_diagnostics = tuple(fence_reference_diagnostics) + reference_diagnostics
     if not allow_remote_images:
-        body_html = block_remote_images(body_html)
+        block_remote_images_soup(post_soup)
+    body_html = str(post_soup)
 
     resolved_numbering_scope = str(
         numbering_scope
