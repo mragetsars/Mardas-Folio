@@ -162,16 +162,19 @@ body.pv-frame-body {
    paper the page is printed on. */
 .pv-canvas { position: relative; margin: 0 auto; direction: ltr; }
 .pv-stage { position: absolute; top: 0; left: 0; transform-origin: top left; }
+/* The sheet is whatever colour the engine says the paper is. It used to be
+   white, with one hard-coded slate for every dark document — so a style whose
+   dark page is near-black printed a navy border around its own text area,
+   because only the text area carried the document's real background. */
 .pv-page {
   position: absolute;
   left: 0;
   width: var(--pv-sheet-w);
   height: var(--pv-sheet-h);
-  background: #ffffff;
+  background: var(--pv-sheet-bg, #ffffff);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
   overflow: hidden;
 }
-body.md2pdf-mode-dark .pv-page { background: #0f172a; }
 .pv-window {
   position: absolute;
   overflow: hidden;
@@ -511,6 +514,7 @@ export function createPageDeck(host, { onState } = {}) {
       .join(" ")
       .trim();
     body.dataset.guides = String(state.guides);
+    body.style.setProperty("--pv-sheet-bg", geometry.background);
     body.style.setProperty("--pv-sheet-w", `${geometry.widthPx}px`);
     body.style.setProperty("--pv-sheet-h", `${geometry.heightPx}px`);
     body.style.setProperty("--pv-margin-top", `${geometry.marginTopPx}px`);

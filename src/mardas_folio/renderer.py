@@ -37,6 +37,7 @@ from .appearance import (
     appearance_from_metadata,
     footer_kind,
     math_scale_vars,
+    page_background,
     palette_css,
     resolve_appearance,
     style_css_file,
@@ -418,6 +419,16 @@ def page_geometry(options: PdfOptions) -> dict[str, Any]:
         "content_width_mm": round(content_width, 3),
         "content_height_mm": round(content_height, 3),
         "orientation": "landscape" if width_mm > height_mm else "portrait",
+        # The sheet's own colour. A preview draws paper that extends past the
+        # text area, so without this it has to guess, and a guess that is close
+        # but wrong reads as a coloured border around every page.
+        "background": page_background(
+            resolve_appearance(
+                style=options.style,
+                palette=options.palette,
+                mode=options.mode,
+            )
+        ),
     }
 
 

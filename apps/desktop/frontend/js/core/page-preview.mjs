@@ -42,6 +42,20 @@ export function mmToPx(millimetres) {
 }
 
 /**
+ * A colour safe to drop into a stylesheet.
+ *
+ * The value crosses a process boundary before it is written into a `style`
+ * attribute, so it is matched against the notations the engine actually emits
+ * rather than trusted; anything else falls back rather than being injected.
+ */
+const CSS_COLOUR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+function cssColour(value, fallback) {
+  const text = String(value ?? "").trim();
+  return CSS_COLOUR_RE.test(text) ? text : fallback;
+}
+
+/**
  * The sheet, in the two units the preview needs.
  *
  * The engine sends millimetres because that is what page sizes and margins are
@@ -73,6 +87,10 @@ export function normalizePageGeometry(value = {}) {
     marginXMm,
     contentWidthMm,
     contentHeightMm,
+    // The sheet's own colour, which only the engine knows: each dark style
+    // prints on its own near-black. An engine too old to report it was always
+    // previewing a light document, because the deck had no way to ask.
+    background: cssColour(value.background, "#ffffff"),
     orientation: widthMm > heightMm ? "landscape" : "portrait",
     widthPx: mmToPx(widthMm),
     heightPx: mmToPx(heightMm),

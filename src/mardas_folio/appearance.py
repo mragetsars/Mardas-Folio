@@ -262,6 +262,24 @@ def appearance_body_classes(appearance: Appearance) -> str:
     )
 
 
+# Light styles all print on white paper; dark ones each pick their own near-black.
+LIGHT_PAGE_BACKGROUND = "#ffffff"
+
+
+def page_background(appearance: Appearance) -> str:
+    """The colour the printed sheet itself is, edge to edge.
+
+    A preview that draws paper has to know this: the document's own background
+    only covers the text area, so anything drawing the sheet in a different
+    colour shows that colour as a border around the page.
+    """
+
+    if appearance.mode != "dark":
+        return LIGHT_PAGE_BACKGROUND
+    surface = DARK_STYLE_SURFACES.get(appearance.style, DARK_STYLE_SURFACES[DEFAULT_STYLE])
+    return surface["page"]
+
+
 DARK_STYLE_SURFACES: dict[str, dict[str, str]] = {
     "modern": {
         "page": "#0b1020",

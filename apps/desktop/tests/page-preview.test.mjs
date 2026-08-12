@@ -50,6 +50,39 @@ test("a payload without geometry still produces a usable page", () => {
   assert.ok(impossible.contentWidthPx > 0);
 });
 
+test("the sheet takes its colour from the engine, not from a guess", () => {
+  // Each dark style prints on its own near-black. The deck used to paint one
+  // slate for all of them, which showed as a coloured border around the text
+  // area of every document whose paper was a different colour.
+  assert.equal(normalizePageGeometry({ ...A4, background: "#050505" }).background, "#050505");
+  assert.equal(normalizePageGeometry({ ...A4, background: "#0B1020" }).background, "#0B1020");
+  assert.equal(normalizePageGeometry({ ...A4, background: "#fff" }).background, "#fff");
+  assert.equal(normalizePageGeometry({ ...A4, background: "#0d1117ff" }).background, "#0d1117ff");
+});
+
+test("a colour the deck cannot trust falls back to white paper", () => {
+  // The value is written into a style attribute, so anything that is not a
+  // plain hex colour is refused rather than injected.
+  for (const value of [
+    undefined,
+    null,
+    "",
+    "red",
+    "rgb(0,0,0)",
+    "#12345",
+    "url(evil)",
+    "#000; background-image: url(x)",
+    "var(--x)",
+    42,
+  ]) {
+    assert.equal(
+      normalizePageGeometry({ ...A4, background: value }).background,
+      "#ffffff",
+      `${String(value)} should not reach the stylesheet`,
+    );
+  }
+});
+
 test("fit-width makes one sheet fill the panel", () => {
   const geometry = normalizePageGeometry(A4);
   const zoom = fitWidthZoom(500, geometry.widthPx, 40);
