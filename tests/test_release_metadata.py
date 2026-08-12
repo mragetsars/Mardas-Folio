@@ -690,10 +690,45 @@ def test_desktop_sidecar_packaging_metadata_is_declared() -> None:
 
 
 def test_standalone_pyinstaller_chromium_uses_analysis_data_pair() -> None:
+    """Chromium reaches the bundle as `datas` pairs, never through `Tree()`.
+
+    PyInstaller 6.22 is the reason: `Tree()` in a spec no longer places the
+    browser where the runtime looks for it. The entries are now produced per
+    file so the payload's unused translations and GPU backends can be left
+    behind, but they are still (source, destination) pairs into the same
+    `runtime/chromium` root.
+    """
+
     spec = _read("packaging/pyinstaller/mardas-sidecar.spec")
 
-    assert 'datas.append((str(browser_root), "runtime/chromium"))' in spec
+    assert "datas.extend(chromium_datas(browser_root))" in spec
+    assert "from chromium_payload import" in spec
     assert "Tree(" not in spec
+
+    payload = _read("scripts/chromium_payload.py")
+    assert '"runtime/chromium"' in payload
+
+
+def test_the_frozen_sidecar_excludes_what_it_never_imports() -> None:
+    """Pillow is the expensive one: about 18 MB of every download.
+
+    It is not a dependency of this engine. pypdf offers optional image
+    extraction and that is what drags Pillow in, but the engine only ever reads
+    a finished PDF back for its outline and links — verified by rendering a
+    document whose PDF really does carry image XObjects with Pillow made
+    unimportable.
+    """
+
+    spec = _read("packaging/pyinstaller/mardas-sidecar.spec")
+
+    assert "excludes=[" in spec
+    for module in ("PIL", "tkinter", "test", "unittest", "pydoc_data", "idlelib"):
+        assert f'"{module}"' in spec, f"{module} should be excluded from the bundle"
+    # Pillow must not be reintroduced as a runtime dependency behind the
+    # exclusion, which would leave the engine importing a module that is gone.
+    pyproject = _read("pyproject.toml")
+    dependencies = pyproject.split("dependencies = [", 1)[1].split("]", 1)[0]
+    assert "illow" not in dependencies
 
 
 def test_release_gate_verifies_installed_sidecar_contract() -> None:

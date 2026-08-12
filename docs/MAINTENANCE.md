@@ -205,6 +205,23 @@ python scripts/verify_standalone_runtime.py \
 
 The schema-v2 verifier checks every regular-file digest and declared relative symlink target before launching the frozen sidecar. It rejects escapes, dangling links, cycles, traversal through links, and inventory mismatches; legacy schema-v1 manifests may contain regular files only. Release artifacts must include Chromium; `--allow-missing-chromium` is only for protocol/build diagnostics. Build each platform runtime on that platform because PyInstaller is not a cross-compiler.
 
+### What the bundled browser leaves out
+
+Chromium arrives from Playwright as a complete browser distribution and the engine uses a narrow slice of it, so `scripts/chromium_payload.py` decides what the bundler copies. It excludes two things, together about 62 MB of a 268 MB headless-shell payload:
+
+- **Translated interface strings** (`locales/*.pak`, all but `en-US.pak`). The engine hands Chromium HTML it generated and takes back a PDF; no browser interface is ever shown. A missing locale makes Chromium fall back rather than fail, verified by rendering a Persian document under a `fa_IR.UTF-8` system locale.
+- **The GL and Vulkan backends**, including the SwiftShader software emulator. The renderer launches with `--disable-gpu` and prints through Skia's vector backend, so none of them is loaded.
+
+The rule is an exclusion list, so a Chromium release that adds a file still ships it. A payload containing symlinks — a macOS `.app`, where the framework is held together by them — is copied whole and keeps everything, because enumerating it file by file would resolve each link into a duplicate and produce a bundle macOS will not launch.
+
+The frozen sidecar also excludes Pillow, roughly 18 MB. It is not a dependency of this engine; it arrives because pypdf offers optional image extraction, and the engine only reads a finished PDF back for its outline and links. Check the exclusion against a document whose PDF really carries image XObjects if pypdf's usage here ever widens.
+
+To see what a given payload would lose:
+
+```bash
+python scripts/chromium_payload.py ~/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-*
+```
+
 ## Patch set hygiene
 
 Keep generated patch sets easy to apply:
