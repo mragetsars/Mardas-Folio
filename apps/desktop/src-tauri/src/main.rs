@@ -1,3 +1,9 @@
+// A release build is a windowed program, so link it against the Windows GUI
+// subsystem. Without this the launcher also owns a console: a terminal opens
+// beside the window, and closing that terminal takes the application with it.
+// Debug builds keep the console so `cargo run` can still print.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod sidecar;
 mod updates;
 
