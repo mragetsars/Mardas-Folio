@@ -1015,7 +1015,7 @@ class EngineService:
             self._session = None
 
     def health(self) -> dict[str, Any]:
-        info = runtime_info()
+        info = runtime_info(resolve_browser=True)
         runtime_payload = info.to_dict()
         runtime_payload["resolved_chromium_path"] = (
             str(info.chromium_path) if info.chromium_path else None

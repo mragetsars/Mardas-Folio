@@ -57,7 +57,7 @@ def _runtime_manifest_summary() -> dict[str, Any] | None:
 
 
 def support_payload(*, engine_api_version: str) -> dict[str, Any]:
-    info = runtime_info()
+    info = runtime_info(resolve_browser=True)
     browser = info.chromium_path
     return {
         "schema_version": SUPPORT_BUNDLE_SCHEMA,

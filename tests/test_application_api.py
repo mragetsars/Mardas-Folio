@@ -244,7 +244,6 @@ def test_source_authoring_defers_cached_browser_resolution_until_pdf(
     monkeypatch.setattr(runtime, "bundled_chromium_path", probe_bundled_browser)
     try:
         service = EngineService()
-        assert service.health()["status"] == "ok"
         assert service.dispatch(
             "validate.document",
             {"input_path": str(source), "discover_config": False},
@@ -285,6 +284,49 @@ def test_source_authoring_defers_cached_browser_resolution_until_pdf(
         assert probe_calls == 1
     finally:
         runtime._clear_chromium_resolution_cache()
+
+
+def test_health_resolves_the_browser_instead_of_reporting_a_cold_cache(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Health is the question "can this install render?", so it must probe.
+
+    Reading the lazy cache made a freshly started engine report a browser it
+    ships and can launch as missing, which sent users hunting a packaging bug
+    that was never there.
+    """
+
+    browser = tmp_path / "runtime" / "chrome"
+    browser.parent.mkdir()
+    browser.write_bytes(b"browser")
+    monkeypatch.setattr(runtime, "bundled_chromium_path", lambda: browser)
+
+    runtime._clear_chromium_resolution_cache()
+    try:
+        payload = EngineService().health()
+    finally:
+        runtime._clear_chromium_resolution_cache()
+
+    assert payload["chromium_available"] is True
+    assert payload["runtime"]["chromium_path"] == str(browser)
+    assert payload["runtime"]["resolved_chromium_path"] == str(browser)
+
+
+def test_health_still_reports_a_genuinely_missing_browser(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(runtime, "bundled_chromium_path", lambda: None)
+    monkeypatch.setattr(runtime, "playwright_chromium_path", lambda: None)
+
+    runtime._clear_chromium_resolution_cache()
+    try:
+        payload = EngineService().health()
+    finally:
+        runtime._clear_chromium_resolution_cache()
+
+    assert payload["chromium_available"] is False
+    assert payload["runtime"]["resolved_chromium_path"] is None
 
 
 def test_render_document_returns_structured_result(

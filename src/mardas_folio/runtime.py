@@ -205,13 +205,22 @@ def _clear_chromium_resolution_cache() -> None:
         _resolved_chromium_cache = _UNRESOLVED_CHROMIUM
 
 
-def runtime_info() -> RuntimeInfo:
+def runtime_info(*, resolve_browser: bool = False) -> RuntimeInfo:
+    """Describe the running engine.
+
+    ``chromium_path`` defaults to whatever discovery has already cached, so
+    building this record stays free for callers that only want process facts.
+    Diagnostics answer a different question — "can this install render?" — and
+    a cache that is merely cold reads there as a missing browser, so they pass
+    ``resolve_browser`` and pay for the probe.
+    """
+
     return RuntimeInfo(
         frozen=is_frozen(),
         executable=executable_path(),
         bundle_root=bundle_root(),
         runtime_root=runtime_root(),
-        chromium_path=cached_chromium_path(),
+        chromium_path=resolved_chromium_path() if resolve_browser else cached_chromium_path(),
         platform=platform.system().lower() or sys.platform,
         architecture=platform.machine().lower() or "unknown",
         python_version=platform.python_version(),
