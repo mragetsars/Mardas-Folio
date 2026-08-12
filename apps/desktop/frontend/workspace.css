@@ -2915,14 +2915,17 @@ button:focus-visible,
   padding-inline-start: 14px;
 }
 
-/* Fenced code sits in a panel and keeps its monospace grid. */
+/* Fenced code sits in a panel and keeps its monospace grid. A line too long
+ * for the panel wraps rather than being cut off, and its continuation is
+ * indented so the wrap reads as one line of code instead of two. */
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line {
   font-family: ui-monospace, "Cascadia Mono", "JetBrains Mono", monospace;
   font-size: 13px;
   line-height: 1.6;
   background: var(--ui-panel-soft);
   border-inline: 1px solid var(--ui-border);
-  padding-inline: 14px;
+  padding-inline: 30px 14px;
+  text-indent: -16px;
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line:first-of-type {
@@ -3663,12 +3666,21 @@ button:focus-visible,
   background: var(--ui-panel-soft);
 }
 
-/* Wrapped prose still needs code to keep its own line structure: a fenced
- * block scrolls inside itself rather than forcing the whole document sideways. */
+/* Wrapped prose still needs code to keep its own line structure, but a fenced
+ * block is not one element here — every line of it is a separate `.cm-line`.
+ * Scrolling "the block" therefore gave each long line its own scrollbar and
+ * clipped the rest of it: the reader saw a scrollbar wedged between two lines
+ * of a code fence and a sentence cut off mid-word, with no way to read it but
+ * to drag that one line sideways.
+ *
+ * Nothing may be hidden in an editor, so a long code line wraps instead. The
+ * continuation is indented past the first column so the wrap is legible as a
+ * wrap rather than as a new line of code. */
 .codemirror-mount .cm-editor .cm-code-line {
   max-width: 100%;
-  overflow-x: auto;
-  white-space: pre;
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .codemirror-mount .cm-editor .cm-content {
