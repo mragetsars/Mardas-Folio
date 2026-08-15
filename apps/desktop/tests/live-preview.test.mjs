@@ -35,7 +35,11 @@ test("source mode renders the document verbatim but keeps bidi measurement", () 
   // Source mode adds no rendering, only the per-line direction support.
   const live = editorModeExtension("live");
   const source = editorModeExtension("source");
-  assert.equal(live.length, 3, "live mode is the block field, the preview plugin and direction");
+  assert.equal(
+    live.length,
+    4,
+    "live mode is the block field, the asset resolver, the preview plugin and direction",
+  );
   assert.equal(source.length, 2, "source mode is direction support only");
   assert.notDeepEqual(live, source);
 });
@@ -191,56 +195,54 @@ test("only a link that shows other text may have its address hidden", () => {
 });
 
 test("moving the caret inside one line does not rebuild the block widgets", () => {
-  // The field walks the whole document, because a state field has no viewport
-  // to narrow to. A selection only changes what is drawn when it changes which
+  // The field walks the document, because a state field has no viewport to
+  // narrow to. A selection only changes what it draws when it changes which
   // lines are being edited, so rebuilding on every selection spent that walk to
-  // move the caret one character: 17ms per arrow key on a 195,000-character
-  // document, for a result identical to the one it threw away.
-  //
-  // `resolveAsset` is consulted once per image per build, so counting its calls
-  // counts the builds.
-  let builds = 0;
-  const field = createBlockWidgetField(() => {
-    builds += 1;
-    return null;
-  });
-  const doc = "# Title\n\nSome prose with ![alt](image.png) in it.\n\nMore prose here.\n";
+  // move the caret one character and produced the decorations it already had.
+  // Identity is the check: an untouched field returns the very same range set.
+  const field = createBlockWidgetField();
+  const doc = "# Title\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nMore prose here.\n";
   let state = EditorState.create({
     doc,
     extensions: [markdown({ base: markdownLanguage, extensions: [frontmatter] }), field],
   });
-  assert.equal(builds, 1, "the initial build");
+  const initial = state.field(field);
 
-  // Line 3 holds the image, and a caret on it hands that line back as source —
-  // which would stop the widget being built and make this count meaningless.
-  // Every move below stays on lines 1 and 5.
-  const line = state.doc.line(5);
-  state = state.update({ selection: { anchor: line.from } }).state;
-  assert.equal(builds, 2, "a move to another line rebuilds");
+  const prose = state.doc.line(7);
+  state = state.update({ selection: { anchor: prose.from } }).state;
+  const afterMove = state.field(field);
+  assert.notEqual(afterMove, initial, "a move to another line rebuilds");
 
-  state = state.update({ selection: { anchor: line.from + 3 } }).state;
-  assert.equal(builds, 2, "a move within the same line changes nothing");
-  state = state.update({ selection: { anchor: line.from + 7 } }).state;
-  assert.equal(builds, 2, "and neither does the next one");
-
-  state = state.update({ selection: { anchor: state.doc.line(1).from } }).state;
-  assert.equal(builds, 3, "a move back to another line rebuilds again");
+  state = state.update({ selection: { anchor: prose.from + 3 } }).state;
+  assert.equal(state.field(field), afterMove, "a move within the same line changes nothing");
+  state = state.update({ selection: { anchor: prose.from + 7 } }).state;
+  assert.equal(state.field(field), afterMove, "and neither does the next one");
 
   // `.state` is a lazy getter: without reading it the field never runs at all.
-  state.update({ changes: { from: 0, insert: "x" } }).state;
-  assert.equal(builds, 4, "an edit always rebuilds");
+  const edited = state.update({ changes: { from: 0, insert: "x" } }).state;
+  assert.notEqual(edited.field(field), afterMove, "an edit always rebuilds");
 });
 
-test("the block scan covers the long Persian documents this application is for", () => {
-  // A 281,000-character technical document opened with no tables, no images,
-  // no front matter and no checkboxes, because the bound sat at 200,000 and
-  // nothing said so. Skipping subtrees that cannot contain a block widget
-  // bought the headroom to raise it.
+test("inline widgets are drawn over the viewport, not by the document-wide field", () => {
+  // The field must walk the whole buffer on every change. Images and task
+  // checkboxes replace inline text rather than a block, so nothing required
+  // them to be found that way — and looking for them forced the walk into
+  // every paragraph and list item in the document. Moving them to the
+  // viewport-scoped plugin left the field only blocks to find, which is what
+  // removed the size bound that used to switch live preview off entirely: a
+  // 281,000-character Persian document rendered nothing at all.
   const widgets = readFileSync(new URL("../editor-src/live-widgets.mjs", import.meta.url), "utf8");
-  const bound = /const MAX_SCANNED_CHARS = ([\d_]+);/.exec(widgets);
-  assert.ok(bound, "the scan bound should be declared");
-  assert.ok(Number(bound[1].replaceAll("_", "")) >= 300_000);
-  for (const name of ["Table", "Frontmatter", "FencedCode", "CodeBlock", "InlineCode"]) {
-    assert.match(widgets, new RegExp(`OPAQUE_SUBTREES[\\s\\S]*"${name}"`));
+
+  assert.doesNotMatch(widgets, /MAX_SCANNED_CHARS/, "no document is too long to render");
+  assert.doesNotMatch(widgets, /node\.name === "Image"/, "images belong to the viewport layer");
+  assert.doesNotMatch(widgets, /node\.name === "TaskMarker"/, "so do task checkboxes");
+  // The field still finds every block, including one nested in a quotation.
+  for (const name of ["Document", "Blockquote", "BulletList", "OrderedList", "ListItem"]) {
+    assert.match(widgets, new RegExp(`BLOCK_CONTAINERS[\\s\\S]*"${name}"`));
   }
+
+  assert.match(source, /node\.name === "Image"/);
+  assert.match(source, /node\.name === "TaskMarker"/);
+  assert.match(source, /state\.facet\(assetResolver\)/);
+  assert.match(source, /view\.visibleRanges/, "the plugin only looks at what is on screen");
 });

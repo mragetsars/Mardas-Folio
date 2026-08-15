@@ -13,10 +13,27 @@
  * the caret in it and the `[label](url)` scaffolding comes back.
  */
 import { syntaxTree } from "@codemirror/language";
-import { RangeSetBuilder } from "@codemirror/state";
+import { Facet, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin } from "@codemirror/view";
 
-import { blockWidgetRanges, createBlockWidgetField } from "./live-widgets.mjs";
+import {
+  ImageWidget,
+  TaskWidget,
+  blockWidgetRanges,
+  createBlockWidgetField,
+  parseImage,
+} from "./live-widgets.mjs";
+
+/**
+ * How a Markdown image path becomes a URL the webview may load.
+ *
+ * Only the host knows this, and only this plugin needs it. It travels as a
+ * facet rather than a closure because the plugin is created once for the
+ * module while the resolver belongs to a particular editor.
+ */
+export const assetResolver = Facet.define({
+  combine: (values) => (values.length ? values[0] : () => null),
+});
 
 /**
  * Marks that are safe to hide once their effect is rendered.
@@ -231,6 +248,31 @@ function buildDecorations(view) {
         if (node.from === node.to) return;
         if (active.has(state.doc.lineAt(node.from).number)) return;
 
+        // An image and a task checkbox replace inline text, not a block, so
+        // they are drawn here — over the viewport — rather than in the block
+        // field, which has to walk the whole document to find anything.
+        if (node.name === "Image") {
+          const parsed = parseImage(state.doc.sliceString(node.from, node.to));
+          const url = parsed ? state.facet(assetResolver)(parsed.src) : null;
+          if (url) {
+            marks.push([
+              node.from,
+              node.to,
+              Decoration.replace({ widget: new ImageWidget(url, parsed.alt) }),
+            ]);
+          }
+          return false;
+        }
+        if (node.name === "TaskMarker") {
+          const text = state.doc.sliceString(node.from, node.to);
+          marks.push([
+            node.from,
+            node.to,
+            Decoration.replace({ widget: new TaskWidget(/x/i.test(text), node.from, node.to) }),
+          ]);
+          return false;
+        }
+
         if (HIDDEN_MARKS.has(node.name)) {
           // A URL is only scaffolding when something else is standing in for
           // it. `[text](url)` and `![alt](src)` show their text and keep the
@@ -399,6 +441,11 @@ export function normalizeEditorMode(value) {
 export function editorModeExtension(mode, { resolveAsset } = {}) {
   const perLineDirection = EditorView.perLineTextDirection.of(true);
   return normalizeEditorMode(mode) === "live"
-    ? [createBlockWidgetField(resolveAsset), livePreviewPlugin, perLineDirection]
+    ? [
+        createBlockWidgetField(),
+        assetResolver.of(resolveAsset || (() => null)),
+        livePreviewPlugin,
+        perLineDirection,
+      ]
     : [autoDirectionPlugin, perLineDirection];
 }

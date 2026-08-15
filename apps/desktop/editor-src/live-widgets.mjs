@@ -6,10 +6,19 @@
  * widgets replace whole blocks with the thing they describe, which is the step
  * that makes the editor read as a document rather than as marked-up text.
  *
- * They are provided from a `StateField`, not a `ViewPlugin`: CodeMirror rejects
- * block decorations from plugins outright ("Block decorations may not be
+ * Block decorations must come from a `StateField`, not a `ViewPlugin`:
+ * CodeMirror rejects them from plugins outright ("Block decorations may not be
  * specified via plugins"). A field has no viewport to narrow the work to, so
- * the scan covers the whole document and is skipped past a size bound.
+ * this walk covers the whole document on every change — which is why only
+ * blocks live here. The image and the task checkbox replace inline text and
+ * are drawn by the viewport-scoped plugin in `live-preview.mjs`; their widget
+ * classes stay here, beside the ones they resemble.
+ *
+ * With only blocks left to find, the walk descends into the five node kinds a
+ * block can nest inside and treats everything else as a leaf. Its cost is then
+ * set by how many blocks a document has, not by how long it is, which is what
+ * removed the size bound that used to switch live preview off entirely on a
+ * long document.
  *
  * Every widget disappears the moment the caret enters its lines, handing the
  * raw Markdown back for editing. The document is never rewritten to match what
@@ -21,43 +30,15 @@ import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 
 /**
- * Documents past this size skip block rendering.
- *
- * A state field cannot limit itself to the viewport, so the cost is
- * proportional to the whole document on every edit, and past some size the
- * editor has to choose between drawing tables and staying typeable.
- *
- * Where that size falls is measured, not guessed. In Chromium, on a Persian
- * document of repeated sections with tables, fences and task items, the median
- * cost of a keystroke is roughly 26ms at 100,000 characters, 34ms at 195,000,
- * 45ms at 286,000, 49ms here, and 61ms at 400,000 — which is where it starts to
- * feel heavy. The bound was 200,000, chosen before the walk skipped subtrees it
- * cannot find anything in; a 281,000-character Persian technical document —
- * exactly what this application is for — therefore opened with no tables, no
- * images, no front matter and no checkboxes, and nothing said why. It now
- * renders, at a keystroke cost close to what 195,000 characters already cost
- * before.
+ * The only nodes that can hold another block, and so the only ones worth
+ * walking into: a table inside a list item, a rule inside a quotation.
  */
-const MAX_SCANNED_CHARS = 320_000;
-
-/**
- * Subtrees this field never finds anything in.
- *
- * `Table` and `Frontmatter` reach here only when the caret is inside them, in
- * which case the whole block stays as source and its contents are irrelevant.
- * The rest cannot contain an image or a task marker at all.
- */
-const OPAQUE_SUBTREES = new Set([
-  "Table",
-  "Frontmatter",
-  "FencedCode",
-  "CodeBlock",
-  "InlineCode",
-  "Comment",
-  "CommentBlock",
-  "HTMLBlock",
-  "URL",
-  "LinkLabel",
+const BLOCK_CONTAINERS = new Set([
+  "Document",
+  "Blockquote",
+  "BulletList",
+  "OrderedList",
+  "ListItem",
 ]);
 
 /** Split a table row into cells, honouring escaped pipes. */
@@ -160,7 +141,7 @@ class TableWidget extends WidgetType {
  * URL, or a path outside the document's own directory — the Markdown is left
  * as written rather than silently showing a broken image.
  */
-class ImageWidget extends WidgetType {
+export class ImageWidget extends WidgetType {
   constructor(url, alt) {
     super();
     this.url = url;
@@ -228,7 +209,7 @@ class RuleWidget extends WidgetType {
  * edit through a control, not the preview layer reconciling the document with
  * what it painted.
  */
-class TaskWidget extends WidgetType {
+export class TaskWidget extends WidgetType {
   constructor(checked, from, to) {
     super();
     this.checked = checked;
@@ -336,7 +317,7 @@ function spansActiveLine(state, active, node) {
 }
 
 /** Read `![alt](src)` out of the source text of an Image node. */
-function parseImage(markup) {
+export function parseImage(markup) {
   const match = /^!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?(?:\s+"[^"]*")?\s*\)$/.exec(markup.trim());
   return match ? { alt: match[1], src: match[2] } : null;
 }
@@ -344,8 +325,7 @@ function parseImage(markup) {
 /** Time budget for forcing the parse; beyond it, use whatever is ready. */
 const PARSE_BUDGET_MS = 100;
 
-function buildBlockDecorations(state, resolveAsset) {
-  if (state.doc.length > MAX_SCANNED_CHARS) return Decoration.none;
+function buildBlockDecorations(state) {
   const active = activeLines(state);
   const items = [];
 
@@ -384,37 +364,17 @@ function buildBlockDecorations(state, resolveAsset) {
         ]);
         return false;
       }
-      // Nothing drawn here can appear inside these, and the two above are
-      // already decided by the time this runs — a table being edited keeps its
-      // source, cells and all. Walking into them anyway was most of the cost
-      // of a keystroke on a long document, because the walk is over the whole
-      // buffer rather than the viewport.
-      if (OPAQUE_SUBTREES.has(node.name)) return false;
       if (node.name === "HorizontalRule" && !spansActiveLine(state, active, node)) {
         items.push([node.from, node.to, Decoration.replace({ widget: new RuleWidget(), block: true })]);
         return false;
       }
-      if (node.name === "Image" && !spansActiveLine(state, active, node)) {
-        const parsed = parseImage(state.doc.sliceString(node.from, node.to));
-        const url = parsed && resolveAsset ? resolveAsset(parsed.src) : null;
-        if (url) {
-          items.push([
-            node.from,
-            node.to,
-            Decoration.replace({ widget: new ImageWidget(url, parsed.alt) }),
-          ]);
-        }
-        return false;
-      }
-      if (node.name === "TaskMarker" && !active.has(state.doc.lineAt(node.from).number)) {
-        const text = state.doc.sliceString(node.from, node.to);
-        items.push([
-          node.from,
-          node.to,
-          Decoration.replace({ widget: new TaskWidget(/x/i.test(text), node.from, node.to) }),
-        ]);
-      }
-      return undefined;
+      // Everything this field draws is a block, and a block can only be nested
+      // inside another block. Anything else — a paragraph, a heading, the
+      // inside of a fence, the cells of a table already left as source — is a
+      // leaf as far as this walk is concerned. Descending into them anyway was
+      // the cost of a keystroke on a long document, because a state field has
+      // no viewport and walks the entire buffer every time.
+      return BLOCK_CONTAINERS.has(node.name) ? undefined : false;
     },
   });
 
@@ -429,15 +389,16 @@ let blockWidgetFieldInstance = null;
 /**
  * The block decoration field.
  *
- * `resolveAsset` is captured once when the editor is created; it maps a
- * Markdown image path to a URL the webview is allowed to load, or null.
+ * It walks only the containers a block can nest in, so its cost is set by how
+ * many blocks a document has rather than by how long it is. That is what let
+ * the old size bound go: a document is no longer too big to render.
  */
-export function createBlockWidgetField(resolveAsset) {
+export function createBlockWidgetField() {
   let renderedFor = "";
   blockWidgetFieldInstance = StateField.define({
     create(state) {
       renderedFor = activeLineKey(state);
-      return buildBlockDecorations(state, resolveAsset);
+      return buildBlockDecorations(state);
     },
     update(value, transaction) {
       // A selection only changes what is drawn when it changes *which lines*
@@ -452,7 +413,7 @@ export function createBlockWidgetField(resolveAsset) {
       } else {
         renderedFor = activeLineKey(transaction.state);
       }
-      return buildBlockDecorations(transaction.state, resolveAsset);
+      return buildBlockDecorations(transaction.state);
     },
     provide: (field) => EditorView.decorations.from(field),
   });
