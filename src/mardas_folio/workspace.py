@@ -1355,6 +1355,33 @@ def render_workspace_file_html(
 
 MAX_WORKSPACE_SEARCH_RESULTS = 500
 MAX_WORKSPACE_SEARCH_QUERY_CHARS = 512
+
+# One Persian letter, typed two ways.
+#
+# A Persian keyboard produces ی U+06CC and ک U+06A9. An Arabic layout, older
+# Windows keyboards, and most text pasted from the web produce ي U+064A and
+# ك U+0643 instead. The pairs are indistinguishable on screen, so a document
+# that mixes them looks uniform — and searching it for a word spelled the other
+# way returned nothing at all, which reads as "the text is not there" rather
+# than "you typed a different code point".
+#
+# Every mapping is one character to one character, so folding a line leaves
+# every offset in it exactly where it was and the reported column stays true.
+# Letters that merely look similar are left alone: آ and ا are different
+# letters in Persian, and Persian and Latin digits mean different things.
+_PERSIAN_LETTER_FOLD = str.maketrans(
+    {
+        "ي": "ی",  # ARABIC YEH        -> FARSI YEH
+        "ى": "ی",  # ALEF MAKSURA      -> FARSI YEH
+        "ك": "ک",  # ARABIC KAF        -> KEHEH
+    }
+)
+
+
+def fold_persian_letters(value: str) -> str:
+    """Spell the Persian/Arabic letter variants one way, preserving length."""
+
+    return value.translate(_PERSIAN_LETTER_FOLD)
 MAX_WORKSPACE_SEARCH_LINE_CHARS = 2_000
 _UNSAFE_REGEX_TOKENS = (
     "(?=",
@@ -1511,9 +1538,18 @@ def search_workspace(
     limit = max(1, min(int(max_results or 200), MAX_WORKSPACE_SEARCH_RESULTS))
     flags = 0 if case_sensitive else re.IGNORECASE
     pattern: re.Pattern[str] | None = None
+    # Both kinds of search run as a compiled pattern over the folded line, so a
+    # reported column is an offset into the line as it is stored. Case-folding
+    # the line instead would not be: `casefold` may return a longer string than
+    # it was given — ß becomes ss — and every column after such a character
+    # would be reported past where it is.
     if regex:
-        pattern = _compile_workspace_regex(query, flags)
-    needle = query if case_sensitive else query.casefold()
+        # Folding the pattern is safe: none of the letters involved is a regular
+        # expression metacharacter, and it keeps a regex answering the same way
+        # a literal search does.
+        pattern = _compile_workspace_regex(fold_persian_letters(query), flags)
+    else:
+        pattern = re.compile(re.escape(fold_persian_letters(query)), flags)
     matches: list[dict[str, object]] = []
     searched_files = 0
     truncated = False
@@ -1542,19 +1578,10 @@ def search_workspace(
                     status=499,
                 )
             clipped_line = line[:MAX_WORKSPACE_SEARCH_LINE_CHARS]
-            if pattern is not None:
-                found = list(pattern.finditer(clipped_line))
-                columns = [match.start() + 1 for match in found]
-            else:
-                haystack = clipped_line if case_sensitive else clipped_line.casefold()
-                columns = []
-                start = 0
-                while True:
-                    index = haystack.find(needle, start)
-                    if index < 0:
-                        break
-                    columns.append(index + 1)
-                    start = index + max(1, len(needle))
+            columns = [
+                match.start() + 1
+                for match in pattern.finditer(fold_persian_letters(clipped_line))
+            ]
             for column in columns:
                 matches.append(
                     {

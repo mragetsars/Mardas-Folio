@@ -545,3 +545,50 @@ def test_workspace_bibliography_indexes_searches_and_marks_cited_entries(tmp_pat
     assert result["entries"][0]["key"] == "a"
     assert result["entries"][0]["cited"] is True
     assert result["entries"][0]["source_path"] == "references.bib"
+
+
+def test_workspace_search_finds_a_persian_word_however_it_was_typed(tmp_path):
+    """ی/ي and ک/ك are one Persian letter reached by two keyboards.
+
+    A Persian layout produces ی U+06CC and ک U+06A9; an Arabic layout, older
+    Windows keyboards and most text pasted from the web produce ي U+064A and
+    ك U+0643. They are indistinguishable on screen, so a document mixing them
+    looks uniform — and searching it for the other spelling returned nothing,
+    which reads as "the text is not there" rather than "you typed a different
+    code point".
+    """
+
+    root = _project(tmp_path)
+    line = "متن فارسي با كلمه عربي."
+    (root / "notes.txt").write_text(line + "\n", encoding="utf-8")
+    workspace = load_workspace(root)
+
+    for query in ("فارسی", "فارسي"):
+        matches = search_workspace(workspace, query)["matches"]
+        assert [item["line"] for item in matches] == [1], query
+        # The fold is one character for one, so the column still points at the
+        # text as it is stored rather than at a shifted position.
+        column = matches[0]["column"]
+        assert line[column - 1 : column - 1 + 5] == "فارسي"
+
+    assert len(search_workspace(workspace, "کلمه")["matches"]) == 1
+    assert len(search_workspace(workspace, "كلمه")["matches"]) == 1
+    # A regular expression answers the same way a literal search does.
+    assert len(search_workspace(workspace, "فارس[یي]", regex=True)["matches"]) == 1
+
+
+def test_workspace_search_leaves_letters_that_only_look_alike_alone(tmp_path):
+    root = _project(tmp_path)
+    (root / "notes.txt").write_text("آب و ۱۲۳ و straße\n", encoding="utf-8")
+    workspace = load_workspace(root)
+
+    # آ and ا are different letters in Persian; Persian and Latin digits mean
+    # different things. Folding either would find words nobody searched for.
+    assert search_workspace(workspace, "اب")["matches"] == []
+    assert search_workspace(workspace, "123")["matches"] == []
+
+    # A column is an offset into the stored line. Case-folding the line to
+    # compare it would not preserve that: "ß".casefold() is two characters, so
+    # every column after one would be reported past where it is.
+    matches = search_workspace(workspace, "STRASSE")["matches"]
+    assert matches == [] or matches[0]["column"] == len("آب و ۱۲۳ و ") + 1
