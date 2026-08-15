@@ -4,6 +4,36 @@ All notable changes to Mardas Folio are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 2.0.1 - 2026-08-15
+
+Corrections to the first release under the product's own name, found by running
+it: a Windows install, the project's own README opened in the editor, and a
+52,000-word Persian document taken through the export screen.
+
+### Fixed
+- Stopped a console window opening beside the application on Windows. The release binary was linked against the console subsystem, so a terminal appeared next to the window on every launch and closing it — the obvious thing to do with a window nobody asked for — terminated the application.
+- Gave the Windows installer the application's own icon. With none set, NSIS shipped the setup executable wearing its stock graphic.
+- Stopped the "Academic paper" preset refusing to render an ordinary document. The preset turns citations on, and an empty bibliography was treated as an error before anything looked at the document, so a file that cites nothing could not be previewed or exported. An empty bibliography now only matters to a document that actually cites something, and the error names the key, the place and the fix instead of saying "Document validation failed."
+- Made the export preview show why it failed. A validation error carries the engine's diagnostics; the panel displayed the summary alone and dropped them.
+- Fixed text selection in the writing view. CodeMirror assumed one direction for the whole editor while each line lays itself out, so on any line running the other way the highlight was drawn against text that was not where the model thought it was: a selected Persian sentence containing one Latin word was painted 231px wide over text occupying 307px.
+- Stopped code blocks hiding the ends of their own lines. Every line of a fence is a separate element, so "the block scrolls inside itself" gave each long line its own scrollbar and cut off the rest of it.
+- Stopped autolinks and bare URLs disappearing as they were typed. The link target is hidden only for the forms that show text in its place.
+- Gave a quotation one accent bar. Drawn per line against each line's own direction, a Persian callout put its bar down the left edge of its first line and the right edge of the rest.
+- Made lists read as lists: only the marker carries the accent, wrapped items hang under their text, and consecutive items are separated.
+- Replaced the browser's broken-image glyph with a placeholder naming the image that could not be loaded.
+- Printed the preview sheet in the colour the paper actually is. Each dark style prints on its own near-black, and the preview drew one slate for all of them, framing every page in a border that was not there.
+- Stopped previews competing for an engine that takes one job. Composing a preview cannot be interrupted, so on a long document anything sent during it was refused — and the refusal appeared as a document error. Changing a second export option, typing during a render, and pressing "Create PDF" all failed this way.
+- Repaired the authoring preview's Refresh button, which was registered so that the click event arrived where a sequence number was expected and returned before rendering anything.
+- Made the engine report the browser it can actually launch. Discovery is lazy, and health read the cache directly, so a frozen build reported `chromium_available: false` while carrying a working Chromium.
+- Stopped Chromium writing a `debug.log` of GPU failures into the installation directory. Printing to PDF uses no GPU, so the GPU process is no longer started.
+
+### Changed
+- The same document now renders to the same bytes every time. Class attributes were assembled from set iteration order, which Python randomises per process, so five renders of the same file produced five different PDFs and no output could be checksummed or reproduced.
+- Downloads are about 80 MB smaller. Chromium's translated interface — never shown, since the engine hands it HTML and takes back a PDF — and its GPU backends are no longer shipped, and neither is Pillow, which is not a dependency of this engine.
+- The engine composes a document in one HTML tree instead of twelve. Preview of a 52,000-word Persian document falls from 14.0s to 8.9s, with every one of 96 test renders byte-identical.
+- No document is too long for live preview. The block scan gave up past 200,000 characters, so a 281,000-character Persian document opened with no tables, images, front matter or checkboxes and nothing said why. Inline widgets moved to the viewport-scoped layer, leaving the document-wide scan only blocks to find: a keystroke costs 12ms at 100,000 characters and 29ms at 400,000, against 33ms and "renders nothing" before.
+- Engine API 1.6.0 adds `page.background` to `preview.document_page`, the colour of the printed sheet itself. The addition is backward compatible.
+
 ## 2.0.0 - 2026-08-10
 
 First release of the product under its own name. The desktop application is now

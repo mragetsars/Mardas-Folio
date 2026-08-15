@@ -2,7 +2,7 @@
 
 > Desktop Markdown authoring and publishing for Persian, English, and mixed RTL/LTR technical documents
 
-![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-orange) ![Version](https://img.shields.io/badge/Version-v2.0.0-success) ![License](https://img.shields.io/badge/License-MIT-informational)
+![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-orange) ![Version](https://img.shields.io/badge/Version-v2.0.1-success) ![License](https://img.shields.io/badge/License-MIT-informational)
 
 ## Overview
 
@@ -184,7 +184,7 @@ python -m pip install -e '.[desktop]'
 python -m playwright install chromium --only-shell
 python scripts/build_standalone_runtime.py --clean
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-Folio-2.0.0-runtime-linux-x86_64 \
+  build/standalone-runtime/Mardas-Folio-2.0.1-runtime-linux-x86_64 \
   --render
 ```
 

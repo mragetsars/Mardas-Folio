@@ -61,7 +61,10 @@ from .workspace import (
 
 ProgressCallback = Callable[[str, float], None]
 CancellationCallback = Callable[[], bool]
-ENGINE_API_VERSION = "1.5.0"
+# 1.6.0 adds `page.background` to the `preview.document_page` result: the colour
+# the printed sheet itself is, which a client drawing paper cannot derive. It is
+# additive, so an older client keeps working against a newer engine.
+ENGINE_API_VERSION = "1.6.0"
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_IMPORTED_ASSET_BYTES = 64 * 1024 * 1024
 _MARKDOWN_DOCUMENT_EXTENSIONS = frozenset({".md", ".markdown"})

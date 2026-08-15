@@ -1,6 +1,6 @@
 [package]
 name = "mardas-folio"
-version = "2.0.0"
+version = "2.0.1"
 description = "Native desktop shell for the Mardas Folio publishing engine"
 authors = ["mragetsars <mragetsars@gmail.com>"]
 license = "MIT"
