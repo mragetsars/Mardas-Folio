@@ -24,10 +24,41 @@ import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
  * Documents past this size skip block rendering.
  *
  * A state field cannot limit itself to the viewport, so the cost is
- * proportional to the whole document on every edit. Prose documents are far
- * below this; a generated file that is not really being read stays responsive.
+ * proportional to the whole document on every edit, and past some size the
+ * editor has to choose between drawing tables and staying typeable.
+ *
+ * Where that size falls is measured, not guessed. In Chromium, on a Persian
+ * document of repeated sections with tables, fences and task items, the median
+ * cost of a keystroke is roughly 26ms at 100,000 characters, 34ms at 195,000,
+ * 45ms at 286,000, 49ms here, and 61ms at 400,000 — which is where it starts to
+ * feel heavy. The bound was 200,000, chosen before the walk skipped subtrees it
+ * cannot find anything in; a 281,000-character Persian technical document —
+ * exactly what this application is for — therefore opened with no tables, no
+ * images, no front matter and no checkboxes, and nothing said why. It now
+ * renders, at a keystroke cost close to what 195,000 characters already cost
+ * before.
  */
-const MAX_SCANNED_CHARS = 200_000;
+const MAX_SCANNED_CHARS = 320_000;
+
+/**
+ * Subtrees this field never finds anything in.
+ *
+ * `Table` and `Frontmatter` reach here only when the caret is inside them, in
+ * which case the whole block stays as source and its contents are irrelevant.
+ * The rest cannot contain an image or a task marker at all.
+ */
+const OPAQUE_SUBTREES = new Set([
+  "Table",
+  "Frontmatter",
+  "FencedCode",
+  "CodeBlock",
+  "InlineCode",
+  "Comment",
+  "CommentBlock",
+  "HTMLBlock",
+  "URL",
+  "LinkLabel",
+]);
 
 /** Split a table row into cells, honouring escaped pipes. */
 function splitRow(line) {
@@ -353,6 +384,12 @@ function buildBlockDecorations(state, resolveAsset) {
         ]);
         return false;
       }
+      // Nothing drawn here can appear inside these, and the two above are
+      // already decided by the time this runs — a table being edited keeps its
+      // source, cells and all. Walking into them anyway was most of the cost
+      // of a keystroke on a long document, because the walk is over the whole
+      // buffer rather than the viewport.
+      if (OPAQUE_SUBTREES.has(node.name)) return false;
       if (node.name === "HorizontalRule" && !spansActiveLine(state, active, node)) {
         items.push([node.from, node.to, Decoration.replace({ widget: new RuleWidget(), block: true })]);
         return false;
@@ -396,15 +433,39 @@ let blockWidgetFieldInstance = null;
  * Markdown image path to a URL the webview is allowed to load, or null.
  */
 export function createBlockWidgetField(resolveAsset) {
+  let renderedFor = "";
   blockWidgetFieldInstance = StateField.define({
-    create: (state) => buildBlockDecorations(state, resolveAsset),
+    create(state) {
+      renderedFor = activeLineKey(state);
+      return buildBlockDecorations(state, resolveAsset);
+    },
     update(value, transaction) {
-      if (!transaction.docChanged && !transaction.selection) return value;
+      // A selection only changes what is drawn when it changes *which lines*
+      // are being edited: those show their source, the rest stay rendered.
+      // Rebuilding on every selection meant walking the whole syntax tree to
+      // move the caret one character — 17ms per arrow key on a 195,000
+      // character document, for a result identical to the one discarded.
+      if (!transaction.docChanged) {
+        const key = activeLineKey(transaction.state);
+        if (key === renderedFor) return value;
+        renderedFor = key;
+      } else {
+        renderedFor = activeLineKey(transaction.state);
+      }
       return buildBlockDecorations(transaction.state, resolveAsset);
     },
     provide: (field) => EditorView.decorations.from(field),
   });
   return blockWidgetFieldInstance;
+}
+
+/** The set of lines showing their source, as a value cheap to compare. */
+function activeLineKey(state) {
+  const parts = [];
+  for (const range of state.selection.ranges) {
+    parts.push(state.doc.lineAt(range.from).number, state.doc.lineAt(range.to).number);
+  }
+  return parts.join(",");
 }
 
 /** Ranges a block widget covers, so the inline layer can skip them. */

@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import { GFM, parser } from "@lezer/markdown";
+import { EditorState } from "@codemirror/state";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { createBlockWidgetField } from "../editor-src/live-widgets.mjs";
+import { frontmatter } from "../editor-src/markdown-frontmatter.mjs";
 import {
   EDITOR_MODES,
   LINKS_WITH_TEXT,
@@ -184,4 +188,59 @@ test("only a link that shows other text may have its address hidden", () => {
   assert.ok(LINKS_WITH_TEXT.has("Image"));
   assert.ok(!LINKS_WITH_TEXT.has("Autolink"), "an autolink is its own text");
   assert.ok(!LINKS_WITH_TEXT.has("Paragraph"), "a bare URL is its own text");
+});
+
+test("moving the caret inside one line does not rebuild the block widgets", () => {
+  // The field walks the whole document, because a state field has no viewport
+  // to narrow to. A selection only changes what is drawn when it changes which
+  // lines are being edited, so rebuilding on every selection spent that walk to
+  // move the caret one character: 17ms per arrow key on a 195,000-character
+  // document, for a result identical to the one it threw away.
+  //
+  // `resolveAsset` is consulted once per image per build, so counting its calls
+  // counts the builds.
+  let builds = 0;
+  const field = createBlockWidgetField(() => {
+    builds += 1;
+    return null;
+  });
+  const doc = "# Title\n\nSome prose with ![alt](image.png) in it.\n\nMore prose here.\n";
+  let state = EditorState.create({
+    doc,
+    extensions: [markdown({ base: markdownLanguage, extensions: [frontmatter] }), field],
+  });
+  assert.equal(builds, 1, "the initial build");
+
+  // Line 3 holds the image, and a caret on it hands that line back as source —
+  // which would stop the widget being built and make this count meaningless.
+  // Every move below stays on lines 1 and 5.
+  const line = state.doc.line(5);
+  state = state.update({ selection: { anchor: line.from } }).state;
+  assert.equal(builds, 2, "a move to another line rebuilds");
+
+  state = state.update({ selection: { anchor: line.from + 3 } }).state;
+  assert.equal(builds, 2, "a move within the same line changes nothing");
+  state = state.update({ selection: { anchor: line.from + 7 } }).state;
+  assert.equal(builds, 2, "and neither does the next one");
+
+  state = state.update({ selection: { anchor: state.doc.line(1).from } }).state;
+  assert.equal(builds, 3, "a move back to another line rebuilds again");
+
+  // `.state` is a lazy getter: without reading it the field never runs at all.
+  state.update({ changes: { from: 0, insert: "x" } }).state;
+  assert.equal(builds, 4, "an edit always rebuilds");
+});
+
+test("the block scan covers the long Persian documents this application is for", () => {
+  // A 281,000-character technical document opened with no tables, no images,
+  // no front matter and no checkboxes, because the bound sat at 200,000 and
+  // nothing said so. Skipping subtrees that cannot contain a block widget
+  // bought the headroom to raise it.
+  const widgets = readFileSync(new URL("../editor-src/live-widgets.mjs", import.meta.url), "utf8");
+  const bound = /const MAX_SCANNED_CHARS = ([\d_]+);/.exec(widgets);
+  assert.ok(bound, "the scan bound should be declared");
+  assert.ok(Number(bound[1].replaceAll("_", "")) >= 300_000);
+  for (const name of ["Table", "Frontmatter", "FencedCode", "CodeBlock", "InlineCode"]) {
+    assert.match(widgets, new RegExp(`OPAQUE_SUBTREES[\\s\\S]*"${name}"`));
+  }
 });
