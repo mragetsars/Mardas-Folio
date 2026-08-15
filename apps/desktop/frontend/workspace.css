@@ -3942,6 +3942,19 @@ html[data-focus-mode="true"] .editor-status:hover {
   font-weight: 700;
 }
 
+/* The kind chip sits at the line's inline start, and a head line carrying no
+ * title has no text left to resolve `dir="auto"` from — so a Persian callout
+ * put its chip on the left while its body sat on the right. The block already
+ * knows its direction; the head line follows it. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout-head.cm-md-block-rtl {
+  direction: rtl;
+  /* `.cm-line` carries `unicode-bidi: plaintext`, which derives the paragraph
+     direction from the content and ignores `direction` entirely — and a head
+     line with no title has no content to derive it from. Isolating the line
+     lets the direction above actually decide where the chip goes. */
+  unicode-bidi: isolate;
+}
+
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout-head::before {
   content: var(--callout-label, "NOTE");
   display: inline-block;
