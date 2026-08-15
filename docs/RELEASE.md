@@ -24,6 +24,17 @@ Then update the documentation:
 `tests/test_desktop_app.py` and `tests/test_documentation_integrity.py` hold the
 declared versions against `__version__`, so a partial bump fails the suite.
 
+Then rebuild the desktop frontend:
+
+```bash
+python scripts/build_desktop_frontend.py
+```
+
+`apps/desktop/dist/frontend-manifest.json` carries the version too, and it is
+generated rather than declared — so it is not in the list above, and
+`verify_desktop_frontend.py` fails with "Desktop frontend manifest version is
+incorrect" until the bundle is rebuilt.
+
 ## Quality gates
 
 Run the local checks before tagging. The check helper keeps pytest isolated from unrelated third-party plugins unless `MARDAS_ALLOW_PYTEST_PLUGINS=1` is explicitly set:
@@ -184,6 +195,27 @@ git push origin master --tags
 
 The `Release Artifacts` workflow runs on `v*` tags and uploads the Python distributions and regenerated guide PDFs. Create the GitHub Release from the tag, copy the matching `docs/CHANGELOG.md` entry into the release notes, and attach the workflow artifacts.
 
+### Verify a draft before publishing it
+
+The workflow stages a **draft** and never publishes. Check that its assets came
+from the commit the tag names — not that the tag name looks right:
+
+```bash
+gh release download vX.Y.Z --pattern RELEASE-MANIFEST.json --output - | python -c "import json,sys; print(json.load(sys.stdin)['source_revision'])"
+```
+
+This matters whenever a tag has been moved. `publish-draft` refuses to touch a
+release that is already published, but on a draft it runs `gh release edit`
+followed by `gh release upload --clobber` — so until the newer run reaches that
+job, the draft still holds the previous run's artifacts, and the tag name gives
+no hint of it. For the same reason, only move a tag while no `Release
+Artifacts` run is in flight: two overlapping runs can interleave assets into one
+draft.
+
+Publishing a draft that was built from the wrong commit is not recoverable by
+re-running the workflow, because the job will then refuse to overwrite a
+published release.
+
 
 ## Maintenance docs
 
@@ -240,6 +272,8 @@ Before a tag workflow can build signed updater artifacts, configure the external
 ```bash
 python scripts/release_preflight.py --mode draft
 ```
+
+Run on a workstation this reports `BLOCKED updater_private_key` and `BLOCKED updater_public_key`, and that is the expected result rather than a fault: both come from `secrets.TAURI_SIGNING_PRIVATE_KEY` and `vars.MARDAS_UPDATER_PUBKEY` inside the workflow and are deliberately absent from a local shell. Only the remaining checks are meaningful locally.
 
 Platform jobs call `scripts/build_native_desktop.py --create-updater-artifacts`, and the finalization job verifies those payloads before assembling the multi-platform `latest.json` with `scripts/assemble_signed_updates.py`.
 
