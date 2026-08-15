@@ -3731,6 +3731,17 @@ button:focus-visible,
   overflow-x: hidden;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+  /* Code is code in either language. Every line carries `dir="auto"`, so a line
+   * holding only a Persian comment resolved right-to-left and right-aligned
+   * itself in the middle of a left-aligned Python block, taking its
+   * indentation with it. The exporter already forces `dir="ltr"` on `pre` and
+   * `code`; this is the same rule for the line being written. `isolate`
+   * overrides the `plaintext` on `.cm-line`, which would otherwise take the
+   * direction from the content and ignore this. Bidirectional runs *within*
+   * the line still lay out correctly — a Persian comment reads right-to-left
+   * inside a left-to-right line, exactly as it prints. */
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .codemirror-mount .cm-editor .cm-content {
