@@ -26,6 +26,8 @@ it: a Windows install, the project's own README opened in the editor, and a
 - Repaired the authoring preview's Refresh button, which was registered so that the click event arrived where a sequence number was expected and returned before rendering anything.
 - Made the engine report the browser it can actually launch. Discovery is lazy, and health read the cache directly, so a frozen build reported `chromium_available: false` while carrying a working Chromium.
 - Stopped Chromium writing a `debug.log` of GPU failures into the installation directory. Printing to PDF uses no GPU, so the GPU process is no longer started.
+- Made search find a Persian word however its letters were typed. ی and ک come from a Persian keyboard; ي and ك come from an Arabic layout, older Windows keyboards, and most text pasted off the web. They are the same letters and are indistinguishable on screen, so a document mixing them looks uniform — and searching it for the other spelling returned nothing, in the editor's find and in project search alike. Letters that merely resemble each other are still kept apart: آ and ا are different letters, and Persian and Latin digits mean different things.
+- Corrected the column project search reports for a line containing a character whose case-folded form is longer than itself, such as ß. Every match after one was reported past where it is.
 
 ### Changed
 - The same document now renders to the same bytes every time. Class attributes were assembled from set iteration order, which Python randomises per process, so five renders of the same file produced five different PDFs and no output could be checksummed or reproduced.
