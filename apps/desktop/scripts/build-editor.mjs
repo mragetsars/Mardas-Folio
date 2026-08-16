@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
 
+import { codeMirrorBidiSelectionPatch } from "./codemirror-bidi-selection-patch.mjs";
+
 const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const entryPoint = resolve(desktopRoot, "editor-src/codemirror-editor.mjs");
 const outputPath = resolve(
@@ -25,6 +27,7 @@ const result = await build({
   legalComments: "eof",
   minify: true,
   platform: "browser",
+  plugins: [codeMirrorBidiSelectionPatch()],
   sourcemap: false,
   target: ["es2020"],
   treeShaking: true,
