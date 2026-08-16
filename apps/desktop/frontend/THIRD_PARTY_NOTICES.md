@@ -11,9 +11,10 @@ Exact direct and transitive versions are recorded in `apps/desktop/package-lock.
 The generated runtime bundle is `frontend/js/vendor/codemirror-editor.bundle.mjs`.
 
 CodeMirror is bundled with one modification. `@codemirror/view` is patched as the bundle is
-built, by `apps/desktop/scripts/codemirror-bidi-selection-patch.mjs`, to correct the drawing of
-a selection on a line that changes writing direction. The patch replaces a single internal
-function and is documented in full at that path.
+built, by `apps/desktop/scripts/codemirror-bidi-patch.mjs`, to correct two behaviours on a line
+that changes writing direction: the drawing of a selection over it, and where the Home and End
+keys place the caret on it. The patch replaces two internal functions and is documented in full
+at that path.
 
 ## MIT License
 
