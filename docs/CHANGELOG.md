@@ -4,6 +4,26 @@ All notable changes to Mardas Folio are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 2.0.2 - 2026-08-16
+
+Two corrections to the writing view, both found by measuring the editor in a
+browser rather than reading its source, and both traced to one mistake: to find
+where a line begins and ends on screen, CodeMirror hit-tests the editor's far
+left and far right edges. On a line running one way throughout, those pixels do
+belong to its first and last characters. On a line whose direction changes they
+do not — the rightmost glyph of `value = مقدار` starts the Persian run rather
+than ending the line — so the line was treated as ending in its own middle, at
+the boundary between the two runs.
+
+### Fixed
+- Finished the text-selection repair 2.0.1 began. Each line was by then measured in its own direction, so the highlight was drawn over the right text, but not over all of it: on a line whose direction changes exactly once — a Persian sentence closing with an English term, or an English one closing with a Persian term — one of the two runs was painted as a rectangle of zero width. Selecting `- [x] یک کار انجام‌شده` highlighted 34px of the 135px it had selected. What was selected was always correct; only the painting of it was wrong.
+- Put the caret at the end of the line when End is pressed on a line that changes direction. The same lookup decides where Home and End land, so End stopped at the boundary between the two runs instead of the line's end: on `متن فارسی with English inside it` it landed on offset 10 of 32. Unlike the selection, this one moved the caret for real, so the next thing typed went into the middle of the line. It was also inconsistent with itself — the same line with wrapping switched off landed correctly, and the writing view always wraps.
+
+Both now locate a wrapped row by vertical position, which reordering cannot
+move text between. Home and End return the same offsets as before on lines that
+genuinely wrap, and drawing a selection became faster, since two searches of the
+document were replaced by two lookups.
+
 ## 2.0.1 - 2026-08-15
 
 Corrections to the first release under the product's own name, found by running
