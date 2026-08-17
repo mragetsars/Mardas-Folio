@@ -3393,22 +3393,44 @@ button:focus-visible,
   color: var(--ui-warning);
 }
 
+/*
+ * The dot that returns one option to what it inherits. It reads as an 18px
+ * affordance and was an 18px target, under the 24px floor WCAG 2.5.8 sets, in
+ * a dense list where the rows either side do something else entirely.
+ *
+ * The button grows to 24px and the fill is clipped back to an 18px content
+ * box, so it is painted exactly as small as before — a 50% radius on the outer
+ * box leaves the inner box a circle too. Negative margins hand the extra width
+ * back, so no option row moves.
+ */
 .option-reset {
-  width: 18px;
-  height: 18px;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  margin: -3px;
+  padding: 3px;
   display: grid;
   place-items: center;
   border: 0;
   border-radius: 50%;
-  background: var(--ui-panel-muted);
+  background: var(--ui-panel-muted) content-box;
   color: var(--ui-muted);
   font: 700 12px/1 inherit;
   cursor: pointer;
 }
 
 .option-reset:hover {
-  background: var(--ui-accent-soft);
+  background: var(--ui-accent-soft) content-box;
   color: var(--ui-accent);
+}
+
+/*
+ * A switch is clicked by its label, not by the box it hides, so the label is
+ * the target that has to clear 24px. These sat at 22.
+ */
+.toggle,
+.compact-toggle {
+  min-height: 24px;
 }
 
 .option-help {
@@ -3481,9 +3503,12 @@ button:focus-visible,
   margin-top: 4px;
 }
 
+/* 24px is the floor WCAG 2.5.8 sets, and these sat 2px under it. A colour
+ * chip has to be seen as well as hit, so the circle simply grows rather than
+ * hiding a larger target behind a smaller paint. */
 .swatch {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border: 1px solid var(--ui-border);
   border-radius: 50%;
   background: var(--swatch);
