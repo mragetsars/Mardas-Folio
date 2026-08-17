@@ -1,28 +1,17 @@
+import { foldPersianLetters } from "./persian.mjs";
+
 function escapeRegularExpression(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
- * One Persian letter, typed two ways.
+ * Re-exported so document search keeps one import.
  *
- * A Persian keyboard produces ی U+06CC and ک U+06A9; an Arabic layout, older
- * Windows keyboards, and most text pasted from the web produce ي U+064A and
- * ك U+0643. The pairs are indistinguishable on screen, so a document mixing
- * them looks uniform — and searching it for a word spelled the other way found
- * nothing, which reads as "the text is not there" rather than "you typed a
- * different code point".
- *
- * Each mapping is one character to one character, so folding leaves every
- * offset where it was and the match positions stay valid selection ranges.
- * Letters that merely look similar are left alone: آ and ا are different
- * letters in Persian, and Persian and Latin digits mean different things.
+ * The rule itself lives in `persian.mjs` because the command palette and the
+ * settings search need the same reading of a Persian word, and a second copy
+ * would be a second answer to "are these the same letter".
  */
-const PERSIAN_LETTER_FOLD = /[يىك]/g;
-const PERSIAN_FOLDED = { "ي": "ی", "ى": "ی", "ك": "ک" };
-
-export function foldPersianLetters(value) {
-  return String(value ?? "").replace(PERSIAN_LETTER_FOLD, (ch) => PERSIAN_FOLDED[ch]);
-}
+export { foldPersianLetters };
 
 export function findLiteralMatches(text, query, { limit = 10_000 } = {}) {
   const source = String(text ?? "");

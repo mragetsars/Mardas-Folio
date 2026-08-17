@@ -1,6 +1,7 @@
 import { basename, buildDocumentParams, defaultOutputPath, validateExportSelection } from "./core/export-request.mjs";
 import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
 import { onboardingIntentPresentation, onboardingPrimaryActionKey, normalizeOnboardingIntent } from "./core/onboarding.mjs";
+import { foldForFilter } from "./core/persian.mjs";
 import { PRESETS, presetById } from "./core/presets.mjs";
 import {
   OPTION_FIELDS,
@@ -464,10 +465,14 @@ function closeSettings() {
 }
 
 function filterSettings(query = $("#settings-search")?.value || "") {
-  const needle = String(query).trim().toLocaleLowerCase();
+  // Read both sides as the same Persian, so a setting is found however its
+  // yeh, kaf and joiners were typed.
+  const needle = foldForFilter(query);
   let visible = 0;
   $$(".settings-section").forEach((section) => {
-    const haystack = `${section.dataset.settingsTerms || ""} ${section.textContent || ""}`.toLocaleLowerCase();
+    const haystack = foldForFilter(
+      `${section.dataset.settingsTerms || ""} ${section.textContent || ""}`,
+    );
     const show = !needle || haystack.includes(needle);
     section.classList.toggle("hidden", !show);
     if (show) visible += 1;

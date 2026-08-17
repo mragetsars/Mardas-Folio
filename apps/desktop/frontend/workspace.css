@@ -1297,12 +1297,29 @@ html[dir="ltr"] .sidebar-panel {
 }
 
 /* Keyboard and pointer-accessible splitters. */
+/*
+ * A divider is painted thin on purpose and then has to be caught with a mouse.
+ * At its drawn width that is a 7px target — under the 24px floor WCAG 2.5.8
+ * sets — and missing it clicks whichever pane lies behind.
+ *
+ * The element is widened to reach past the seam while the colour is clipped
+ * back to the content box, so the divider looks exactly as thin as before and
+ * only the pointer target grows. Negative inline margins give the extra width
+ * back to the layout, leaving the grid track the same 7px it was; both
+ * pseudo-elements centre on `left: 50%`, which is still the middle. It has to
+ * sit above the panes it separates, or they paint over the widened part.
+ */
 .pane-resizer {
   position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+  width: 17px;
+  margin-inline: -5px;
+  padding-inline: 5px;
   min-width: 0;
   min-height: 0;
   border: 0;
-  background: var(--ui-border);
+  background: var(--ui-border) content-box;
   cursor: col-resize;
   touch-action: none;
   outline: 0;
@@ -3599,7 +3616,9 @@ button:focus-visible,
 }
 
 .view-mode {
-  min-height: 22px;
+  /* 24px is the smallest target WCAG 2.5.8 accepts; the type stays 11.5px, so
+   * only the hit area grows and the toolbar keeps its density. */
+  min-height: 24px;
   padding: 0 10px;
   border: 0;
   border-radius: 3px;

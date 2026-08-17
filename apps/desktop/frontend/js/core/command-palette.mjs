@@ -1,5 +1,11 @@
+import { foldForFilter } from "./persian.mjs";
+
+/**
+ * Both sides of the comparison are read the same way, so a command spelled
+ * with ی and a joiner is found by someone typing ي and a space.
+ */
 function normalize(value) {
-  return String(value || "").trim().toLocaleLowerCase();
+  return foldForFilter(value);
 }
 
 export function filterCommands(commands, query, limit = 12) {
