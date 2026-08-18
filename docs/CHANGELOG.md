@@ -4,6 +4,17 @@ All notable changes to Mardas Folio are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 2.0.3 - 2026-08-18
+
+Interface corrections found by measuring the built frontend in a browser rather
+than reading it, in the two places nobody had audited: how the interface reads
+a Persian word, and how small its targets are.
+
+### Fixed
+- Made the settings search and the command palette read a Persian word the way document search learned to in 2.0.1. Both compared raw code points, so a writer whose keyboard produces the Arabic forms of ی and ک — an Arabic layout, an older Windows install, or almost any text pasted from the web — was told a setting did not exist while looking straight at it. Measured before the fix: `بازنشانی` matched one settings section and its Arabic-yeh spelling matched none; `تنظیمات` and `کتاب` found their commands and their Arabic spellings found nothing. The zero-width non-joiner had the same effect without a keyboard to blame — 165 interface strings carry one, and a reader cannot see whether to type it, a space, or nothing.
+- Raised every interface target that sat under the 24px minimum. The switches were the widest case, because a switch is clicked by its label and never by the input it hides: the automatic-preview toggle, the expert-options toggle, and every toggle in Settings share a class that was 22px. The view-mode buttons were 22px, the palette swatches 22px, and the dot that returns an export option to its inherited value was 18px. Where a control has to stay visually small, it now hides a larger target behind the same paint rather than growing.
+- Made the pane dividers catchable. They were 7px of grabbable width, so missing one clicked whichever pane lay behind it; the grab area is now 17px while the seam is painted exactly as thin as before and no pane moved.
+
 ## 2.0.2 - 2026-08-16
 
 Two corrections to the writing view, both found by measuring the editor in a

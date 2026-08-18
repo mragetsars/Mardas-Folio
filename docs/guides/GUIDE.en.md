@@ -12,7 +12,7 @@ summary: |
   This document also acts as a live rendering sample for cover pages, tables of contents, mixed RTL/LTR text, formulas, code, Mermaid flowcharts, images, tables, footnotes, page breaks, and safe HTML.
 institution: "Mardas Lab"
 course: "Markdown Publishing"
-version: "2.0.2"
+version: "2.0.3"
 status: "Stable"
 keywords:
   - Markdown
@@ -152,7 +152,7 @@ The package exposes three process interfaces:
 
 ## Standalone runtime for desktop packaging
 
-Release engineering can build a portable sidecar runtime that includes Python, the Mardas engine, Playwright resources, and pinned Chromium. The target computer does not need Python, pip, Node.js, Git, or Chrome. Version 2.0.2 can embed this verified runtime in the native Mardas Folio packages produced by target-platform release jobs.
+Release engineering can build a portable sidecar runtime that includes Python, the Mardas engine, Playwright resources, and pinned Chromium. The target computer does not need Python, pip, Node.js, Git, or Chrome. Version 2.0.3 can embed this verified runtime in the native Mardas Folio packages produced by target-platform release jobs.
 
 ```bash
 python -m pip install -e '.[desktop]'
@@ -164,7 +164,7 @@ Verify the runtime manifest, protocol lifecycle, bundled browser, and a real Uni
 
 ```bash
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-Folio-2.0.2-runtime-windows-x86_64 \
+  build/standalone-runtime/Mardas-Folio-2.0.3-runtime-windows-x86_64 \
   --render
 ```
 
@@ -178,11 +178,11 @@ Release engineering treats Mardas Folio as an installable desktop application ra
 
 From **Help → Save Support Bundle**, users can create a troubleshooting ZIP that records the Mardas/runtime versions and renderer availability. The bundle deliberately excludes document contents, document paths, environment variables, and the home-directory path.
 
-Credentialed release builds in version 2.0.2 can expose **Settings → Software Updates** when the maintainer public key is embedded. Update checks are user-initiated, run through the native Rust boundary, use an HTTPS metadata endpoint, and install only Tauri-signed payloads. Development/source builds without that key show updates as unavailable rather than contacting the network. A version tag can stage a GitHub Draft Release only after the required Windows, macOS, Linux, checksum, SBOM, updater-metadata, and attestation jobs succeed; it never publishes automatically. Windows code signing and macOS Developer ID signing/notarization are not guaranteed by repository tests and require evidence from the actual credentialed release run. The updater private key must never be stored in a document, project, support bundle, or repository.
+Credentialed release builds in version 2.0.3 can expose **Settings → Software Updates** when the maintainer public key is embedded. Update checks are user-initiated, run through the native Rust boundary, use an HTTPS metadata endpoint, and install only Tauri-signed payloads. Development/source builds without that key show updates as unavailable rather than contacting the network. A version tag can stage a GitHub Draft Release only after the required Windows, macOS, Linux, checksum, SBOM, updater-metadata, and attestation jobs succeed; it never publishes automatically. Windows code signing and macOS Developer ID signing/notarization are not guaranteed by repository tests and require evidence from the actual credentialed release run. The updater private key must never be stored in a document, project, support bundle, or repository.
 
 ## Native Mardas Folio authoring preview
 
-Mardas Folio opens in a native Tauri window instead of a browser tab. Its Start Center provides native file selection, recent documents, Quick Export, and a project-directory picker. Version 2.0.2 includes an intelligent project sidebar that restores the last project, lists supported files below the `mardas.toml` root, searches Unicode content with bounded literal or restricted-regex queries, and opens each result at its exact line.
+Mardas Folio opens in a native Tauri window instead of a browser tab. Its Start Center provides native file selection, recent documents, Quick Export, and a project-directory picker. Version 2.0.3 includes an intelligent project sidebar that restores the last project, lists supported files below the `mardas.toml` root, searches Unicode content with bounded literal or restricted-regex queries, and opens each result at its exact line.
 
 The bibliography panel indexes the project's configured local BibTeX and CSL JSON sources, supports title/author/year/key search, marks cited entries, reports malformed sources, and inserts a selected citation at the editor cursor. Preview headings now contain trusted source-line metadata produced by the Python Markdown engine, so duplicate headings navigate reliably between preview, outline, and editor.
 
@@ -292,7 +292,7 @@ department: "Department name"
 course: "Course or project title"
 supervisor: "Supervisor name"
 date: "2026-05-20"
-version: "2.0.2"
+version: "2.0.3"
 status: "Draft"
 keywords: [Markdown, PDF, RTL, MathJax]
 cover_label: "Technical Report"
@@ -392,12 +392,12 @@ Inline code remains stable: `folio input.md -o output.pdf --toc`.
 
 This compact sample is intentionally part of the guide because the guide is both user documentation and a live renderer test case.[^rtl-smoke] It keeps Persian punctuation, Latin package names, Persian digits, semantic table captions, and mixed-direction cells in the official PDF examples.
 
-آیا خروجی PDF برای `version 2.0.2` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید RTL، mixed-script، و mixed-number hooks را فعال کند.
+آیا خروجی PDF برای `version 2.0.3` و شماره ۱۴۰۵ پایدار است؟ پاسخ: بله؛ جدول زیر باید RTL، mixed-script، و mixed-number hooks را فعال کند.
 
 | بخش نمونه | مقدار | انتظار در PDF |
 | :--- | :--- | :--- |
 | شماره فارسی | ۱۴۰۵ | عدد فارسی با متن RTL پایدار بماند. |
-| نسخه فنی | version 2.0.2 و ۱.۹.۹ | Latin/Persian numerals در یک سلول خوانا بمانند. |
+| نسخه فنی | version 2.0.3 و ۱.۹.۹ | Latin/Persian numerals در یک سلول خوانا بمانند. |
 | شناسه انگلیسی | `PDF`, `TOC`, `MathJax` | identifierهای English داخل جدول فارسی جابه‌جا نشوند. |
 
 جدول ۱۲. نمونه جدول فارسی/RTL با عددهای ترکیبی.
