@@ -889,13 +889,17 @@ html[data-theme="dark"] .hero .button.primary {
 }
 
 .workspace-view.active {
-  grid-template-rows: 56px 40px minmax(0, 1fr);
+  /* The authoring bar and the tab strip are grid tracks, so their heights
+     are set here and not on the elements — sizing those instead leaves a
+     strip of empty track behind them. The tallest control in the bar is
+     34px and a tab is 30px, so this is what they need and no more. */
+  grid-template-rows: 44px 34px minmax(0, 1fr);
   background: var(--ui-bg);
 }
 
 .author-toolbar {
   min-width: 0;
-  min-height: 56px;
+  min-height: 40px;
   display: grid;
   /* Two groups since the formatting tools moved down to the document: file
    * actions take the free space, publish actions stay pinned to the end. The
@@ -983,7 +987,7 @@ html[data-theme="dark"] .hero .button.primary {
 
 .document-tabs {
   min-width: 0;
-  height: 40px;
+  height: 100%;
   display: flex;
   align-items: end;
   gap: 2px;
@@ -1629,6 +1633,10 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
 /* X10.2: final visual polish after native desktop review. */
 .author-toolbar {
   gap: 14px;
+  /* The tallest thing in this bar is a 34px segmented control, so eight
+     pixels of padding either side made it half again as tall as its
+     contents needed. */
+  padding-block: 5px;
   padding-inline: 14px;
 }
 
@@ -2437,7 +2445,11 @@ main {
 
 /* ---- Title bar ---------------------------------------------------------- */
 .shell {
-  grid-template-rows: 44px minmax(0, 1fr) 24px;
+  /* Title bar, document, status. The three bands of chrome above the
+     editor came to 140px of a 900px window before the pane header even
+     started — a fifth of the screen spent on frames. The controls inside
+     them are 26-30px, so the bars are sized to their contents now. */
+  grid-template-rows: 38px minmax(0, 1fr) 24px;
 }
 
 .topbar {
