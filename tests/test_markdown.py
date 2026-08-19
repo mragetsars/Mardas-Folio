@@ -745,3 +745,67 @@ def test_source_map_does_not_assign_markdown_lines_to_raw_html_headings():
     soup = BeautifulSoup(result.body_html, "html.parser")
     raw_heading = next(item for item in soup.find_all("h2") if "Raw HTML" in item.get_text())
     assert raw_heading.get("data-source-line") is None
+
+
+def test_blocked_raw_html_tag_containing_children_does_not_abort_the_render():
+    """A `<form>` used to take the whole render down with it.
+
+    The sanitiser walks a list of tags collected before anything is removed,
+    and a blocked tag is destroyed together with everything inside it. The
+    `<input>` was reached a second time as a node belonging to no tree, where
+    unwrapping raised `ValueError` — in the sidecar that is the engine dying
+    mid-render rather than a diagnostic the writer can act on.
+    """
+    nested = [
+        "<form action=x><input name=p></form>",
+        "<form><fieldset><legend>a</legend><input></fieldset></form>",
+        '<iframe src="https://example.invalid"><p>inner</p></iframe>',
+        "<object data=x><param name=a></object>",
+        "<form>text <b>bold</b><select><option>o</option></select></form>",
+    ]
+    for source in nested:
+        for options in ({}, {"toc": True}, {"references_enabled": True}):
+            result = render_markdown(source, **options)
+            assert "<form" not in result.body_html
+            assert "<iframe" not in result.body_html
+            assert "<input" not in result.body_html
+
+
+def test_remote_images_stay_blocked_when_written_as_raw_html():
+    """The privacy gate has to cover an `<img>` the author wrote by hand."""
+    result = render_markdown('<img src="https://example.invalid/tracker.png">')
+
+    assert "md2pdf-image--blocked" in result.body_html
+    # Asserted against the parsed tree rather than the text: the diagnostic
+    # attribute `data-md2pdf-blocked-src` ends in `src="..."`, so a substring
+    # check for a loadable source matches the very thing that proves it is not
+    # loadable.
+    blocked = BeautifulSoup(result.body_html, "html.parser")
+    assert blocked.find_all("img") == []
+    placeholder = blocked.find(attrs={"data-md2pdf-blocked-src": True})
+    assert placeholder is not None
+    assert placeholder["data-md2pdf-blocked-src"] == "https://example.invalid/tracker.png"
+    assert placeholder["data-md2pdf-blocked-reason"] == "remote"
+
+    allowed = BeautifulSoup(
+        render_markdown(
+            '<img src="https://example.invalid/tracker.png">', allow_remote_images=True
+        ).body_html,
+        "html.parser",
+    )
+    images = allowed.find_all("img")
+    assert [img["src"] for img in images] == ["https://example.invalid/tracker.png"]
+
+
+def test_dangerous_url_schemes_never_become_links():
+    """`javascript:` and friends are not link targets, however they are written."""
+    for source in (
+        "[click](javascript:alert(1))",
+        "<javascript:alert(1)>",
+        "[a][r]\n\n[r]: javascript:alert(1)",
+        '<a href="javascript:alert(1)">x</a>',
+        '<a href="vbscript:msgbox(1)">x</a>',
+    ):
+        html = render_markdown(source).body_html
+        assert "href=\"javascript:" not in html
+        assert "href=\"vbscript:" not in html

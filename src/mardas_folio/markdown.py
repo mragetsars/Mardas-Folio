@@ -2057,6 +2057,13 @@ def sanitize_soup(soup: BeautifulSoup) -> None:
     """
 
     for tag in list(soup.find_all(True)):
+        # The walk is over a list taken before anything is removed, and a
+        # blocked tag is destroyed together with everything inside it. A
+        # `<form>` holding an `<input>` therefore reaches this loop twice: once
+        # to be decomposed, and once as a child that no longer belongs to any
+        # tree, where unwrapping it raised and took the whole render down.
+        if tag.decomposed or tag.parent is None:
+            continue
         name = (tag.name or "").lower()
         if name in BLOCKED_RAW_HTML_TAGS:
             tag.decompose()
