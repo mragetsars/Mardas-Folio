@@ -1126,7 +1126,9 @@ html[dir="ltr"] .document-tab {
 
 .author-sidebar {
   display: grid;
-  grid-template-columns: 70px minmax(0, 1fr);
+  /* An activity bar, not a list of buttons with captions: 48px of icons
+     with their names in tooltips, the way an editor of this shape does it. */
+  grid-template-columns: 48px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
   direction: ltr;
@@ -1139,8 +1141,8 @@ html[dir="ltr"] .document-tab {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 8px 6px;
+  gap: 0;
+  padding: 4px 0;
   overflow-y: auto;
   border: 0;
   border-inline-end: 1px solid var(--ui-border);
@@ -1151,14 +1153,13 @@ html[dir="ltr"] .document-tab {
 
 .sidebar-tabs button {
   position: relative;
-  min-height: 54px;
+  min-height: 48px;
+  height: 48px;
   display: grid;
-  grid-template-rows: 23px auto;
   place-items: center;
-  gap: 2px;
-  padding: 5px 3px;
-  border: 1px solid transparent;
-  border-radius: var(--ui-radius);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   background: transparent;
   color: var(--ui-muted);
   cursor: pointer;
@@ -1173,25 +1174,51 @@ html[dir="ltr"] .document-tab {
 
 .sidebar-tabs button.active,
 .sidebar-tabs button[aria-selected="true"] {
-  border-color: color-mix(in srgb, var(--ui-accent) 20%, var(--ui-border));
-  background: var(--ui-accent-soft);
-  color: var(--ui-accent);
-  font-weight: 800;
+  background: transparent;
+  color: var(--ui-text);
+}
+
+/* A 2px rule down the outer edge marks the open panel. A filled tile in the
+ * accent read as a pressed button rather than a place you are already in, and
+ * put the strongest colour on screen next to the quietest column. */
+.sidebar-tabs button.active::before,
+.sidebar-tabs button[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2px;
+  background: var(--ui-accent);
 }
 
 .sidebar-tab-icon {
   display: grid;
   place-items: center;
   min-width: 24px;
-  height: 23px;
-  border-radius: var(--ui-radius-sm);
+  height: 24px;
   color: currentColor;
+  opacity: 0.72;
+  transition: opacity 120ms ease;
 }
 
+.sidebar-tabs button:hover .sidebar-tab-icon,
+.sidebar-tabs button:focus-visible .sidebar-tab-icon,
+.sidebar-tabs button.active .sidebar-tab-icon,
+.sidebar-tabs button[aria-selected="true"] .sidebar-tab-icon {
+  opacity: 1;
+}
+
+/* The name moved into the tooltip and the accessible name; it is kept in the
+ * markup so a screen reader still announces it, and taken out of the picture
+ * rather than removed from the tree. */
 .sidebar-tab-label {
-  max-width: 62px;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -1676,24 +1703,11 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
   font-weight: 780;
 }
 
+/* The activity bar's items run edge to edge; side padding here would inset
+ * them from the rail and leave the selection rule floating off the edge. */
 .sidebar-tabs {
-  gap: 5px;
-  padding: 10px 7px;
-}
-
-.sidebar-tabs button {
-  min-height: 56px;
-  gap: 4px;
-}
-
-.sidebar-tab-label {
-  letter-spacing: 0.01em;
-}
-
-.sidebar-tabs button.active .sidebar-tab-icon,
-.sidebar-tabs button[aria-selected="true"] .sidebar-tab-icon {
-  background: color-mix(in srgb, var(--ui-accent-soft) 80%, var(--ui-panel));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 22%, transparent);
+  gap: 0;
+  padding: 4px 0;
 }
 
 .hero {
@@ -1949,12 +1963,9 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
     grid-template-columns: var(--sidebar-track) 0 minmax(240px, 1fr) var(--preview-divider) var(--preview-track);
   }
 
-  .sidebar-tabs {
-    padding-inline: 5px;
-  }
-
   .sidebar-tabs button {
-    min-height: 50px;
+    min-height: 44px;
+    height: 44px;
   }
 }
 
