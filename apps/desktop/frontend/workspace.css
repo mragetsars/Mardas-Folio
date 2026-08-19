@@ -4101,3 +4101,27 @@ html[data-focus-mode="true"] .editor-status:hover {
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-open {
   min-height: 18px;
 }
+
+/*
+ * A notice and, when the same one arrives again, how many times.
+ * The count sits inside the card rather than stacking another one behind it.
+ */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast .toast-text {
+  min-width: 0;
+}
+
+.toast .toast-count {
+  flex: none;
+  border-radius: var(--ui-radius-pill);
+  padding: 1px 7px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
