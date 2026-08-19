@@ -1084,7 +1084,7 @@ def test_gui_export_button_keeps_contrast_on_hover_and_active():
     # per-theme ink instead of a fixed colour.
     assert '.btn-primary:hover{color:var(--on-accent)' in html
     assert '.btn-primary:active{color:var(--on-accent)' in html
-    assert '--on-accent:#1a1005' in html
+    assert '--on-accent:#451a03' in html
     assert '--on-accent:#ffffff' in html
     assert '.btn-primary:focus-visible' in html
 

@@ -301,10 +301,10 @@ def test_studio_uses_monochromatic_accent_controls() -> None:
 
     dark_root = _css_rule(html, ":root")
     light_root = _css_rule(html, "body.light-mode")
-    assert "--accent-2:#f97316" in dark_root
-    assert "--accent-3:#fdba74" in dark_root
-    assert "--accent-2:#9a3412" in light_root
-    assert "--accent-3:#ea580c" in light_root
+    assert "--accent-2:#f59e0b" in dark_root
+    assert "--accent-3:#fcd34d" in dark_root
+    assert "--accent-2:#92400e" in light_root
+    assert "--accent-3:#f59e0b" in light_root
 
     primary_rule = _css_rule(html, ".btn-primary")
     assert "background:var(--accent)" in primary_rule

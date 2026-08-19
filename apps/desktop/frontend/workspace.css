@@ -27,13 +27,16 @@
   --ui-muted: #6b6b6b;
 
   /* ---- Accent ---------------------------------------------------------
-   * Orange for a writing and documentation tool. #c2410c is the deepest
-   * value that still reads as orange while carrying white text at 5.18:1;
-   * the brighter #ea580c is for fills and marks that hold no text. */
-  --ui-accent: #c2410c;
-  --ui-accent-hover: #9a3412;
-  --ui-accent-bright: #ea580c;
-  --ui-accent-soft: #fdf1e9;
+   * The amber palette the guides are published with, so the application wears
+   * the colours of the documents it makes: `appearance.PALETTES["amber"]`, the
+   * same values `--palette amber` puts in a PDF. #b45309 carries white text at
+   * 5.0:1; #f59e0b is the palette's rule colour, for fills and marks that hold
+   * no text. The dark theme takes the palette's own dark variant, #fbbf24,
+   * which needs dark ink rather than white — see --ui-on-accent below. */
+  --ui-accent: #b45309;
+  --ui-accent-hover: #92400e;
+  --ui-accent-bright: #f59e0b;
+  --ui-accent-soft: #fffbeb;
   --ui-on-accent: #ffffff;
 
   /* ---- Semantic ------------------------------------------------------- */
@@ -70,8 +73,8 @@
   --cm-mark: #6f6f6f;
   --cm-meta: #757575;
   --cm-comment: #6b6b6b;
-  --cm-heading: #c2410c;
-  --cm-list: #c2410c;
+  --cm-heading: #b45309;
+  --cm-list: #b45309;
   --cm-link: #0369a1;
   --cm-url: #5f5f5f;
   --cm-quote: #5f5f5f;
@@ -85,9 +88,9 @@
   --cm-variable: #141414;
   --cm-invalid: #b91c1c;
 
-  --cm-cursor: #c2410c;
-  --cm-selection: rgba(194, 65, 12, 0.16);
-  --cm-selection-match: rgba(194, 65, 12, 0.12);
+  --cm-cursor: #b45309;
+  --cm-selection: rgba(180, 83, 9, 0.16);
+  --cm-selection-match: rgba(180, 83, 9, 0.12);
   --cm-active-line: rgba(20, 20, 20, 0.035);
   --cm-gutter-text: #767676;
   --cm-gutter-active: #141414;
@@ -117,11 +120,11 @@ html[data-theme="dark"] {
   --ui-muted: #8f8f8f;
 
   /* The dark accent is a light orange, so anything drawn on it takes ink. */
-  --ui-accent: #fb923c;
-  --ui-accent-hover: #fdba74;
-  --ui-accent-bright: #f97316;
-  --ui-accent-soft: rgba(251, 146, 60, 0.14);
-  --ui-on-accent: #1a1005;
+  --ui-accent: #fbbf24;
+  --ui-accent-hover: #fcd34d;
+  --ui-accent-bright: #f59e0b;
+  --ui-accent-soft: rgba(251, 191, 36, 0.14);
+  --ui-on-accent: #451a03;
 
   --ui-danger: #fca5a5;
   --ui-warning: #fcd34d;
@@ -136,8 +139,8 @@ html[data-theme="dark"] {
   --cm-mark: #8f8f8f;
   --cm-meta: #8f8f8f;
   --cm-comment: #8f8f8f;
-  --cm-heading: #fb923c;
-  --cm-list: #fb923c;
+  --cm-heading: #fbbf24;
+  --cm-list: #fbbf24;
   --cm-link: #7dd3fc;
   --cm-url: #9e9e9e;
   --cm-quote: #a3a3a3;
@@ -151,9 +154,9 @@ html[data-theme="dark"] {
   --cm-variable: #ededed;
   --cm-invalid: #fca5a5;
 
-  --cm-cursor: #fb923c;
-  --cm-selection: rgba(251, 146, 60, 0.24);
-  --cm-selection-match: rgba(251, 146, 60, 0.18);
+  --cm-cursor: #fbbf24;
+  --cm-selection: rgba(251, 191, 36, 0.24);
+  --cm-selection-match: rgba(251, 191, 36, 0.18);
   --cm-active-line: rgba(255, 255, 255, 0.045);
   --cm-gutter-text: #8a8a8a;
   --cm-gutter-active: #ededed;
