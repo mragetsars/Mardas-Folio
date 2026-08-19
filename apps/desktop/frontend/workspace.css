@@ -46,8 +46,15 @@
    * Shadows are reserved for surfaces that genuinely float. */
   --ui-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   --ui-shadow-float: 0 8px 28px rgba(0, 0, 0, 0.14);
-  --ui-radius: 6px;
-  --ui-radius-sm: 4px;
+  /* A radius scale rather than a pixel per component. Fifteen distinct
+     values were in use, several of them a pixel apart and indistinguishable;
+     these five plus the pill cover every surface the interface draws. */
+  --ui-radius-xs: 4px;
+  --ui-radius-sm: 6px;
+  --ui-radius: 10px;
+  --ui-radius-lg: 14px;
+  --ui-radius-xl: 20px;
+  --ui-radius-pill: 999px;
   --sidebar-width: 260px;
   --preview-width: 460px;
 
@@ -60,7 +67,7 @@
   --cm-text: #141414;
   --cm-strong: #000000;
   --cm-emphasis: #141414;
-  --cm-mark: #757575;
+  --cm-mark: #6f6f6f;
   --cm-meta: #757575;
   --cm-comment: #6b6b6b;
   --cm-heading: #c2410c;
@@ -212,7 +219,7 @@ body {
 .brand img {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--ui-radius-sm);
   box-shadow: none;
 }
 
@@ -236,7 +243,7 @@ body {
   gap: 8px;
   padding: 0 10px;
   border: 1px solid var(--ui-border);
-  border-radius: 999px;
+  border-radius: var(--ui-radius-pill);
   background: var(--ui-panel-soft);
   color: var(--ui-muted);
   font-size: 10px;
@@ -259,7 +266,7 @@ body {
   min-height: 34px;
   padding: 0;
   border: 1px solid var(--ui-border);
-  border-radius: 9px;
+  border-radius: var(--ui-radius);
   background: var(--ui-panel-soft);
   color: var(--ui-text-soft);
   font: 750 12px/1 inherit;
@@ -347,7 +354,7 @@ body[data-view="workspace"] .view {
 
 /* Shared controls: quieter surfaces, stronger hierarchy. */
 .button {
-  border-radius: 9px;
+  border-radius: var(--ui-radius);
   min-height: 40px;
   padding-inline: 15px;
   box-shadow: none;
@@ -386,7 +393,7 @@ body[data-view="workspace"] .view {
 .button.compact {
   min-height: 34px;
   padding-inline: 11px;
-  border-radius: 8px;
+  border-radius: var(--ui-radius-sm);
   font-size: 11px;
 }
 
@@ -524,7 +531,7 @@ input[readonly] {
   align-content: start;
   padding: 14px 14px 13px;
   border: 1px solid var(--ui-border);
-  border-radius: 12px;
+  border-radius: var(--ui-radius-lg);
   background: var(--ui-panel-soft);
   color: var(--ui-text);
   text-align: start;
@@ -552,7 +559,7 @@ input[readonly] {
 #export-view .preset-card small {
   display: block;
   color: var(--ui-muted);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.55;
 }
@@ -566,7 +573,7 @@ input[readonly] {
   display: grid;
   place-items: center;
   border: 1px solid var(--ui-border-strong);
-  border-radius: 999px;
+  border-radius: var(--ui-radius-pill);
   background: var(--ui-panel);
   color: transparent;
   font: 850 10px/1 system-ui, sans-serif;
@@ -653,7 +660,7 @@ input[readonly] {
 
 #start-view .recent-copy small {
   color: var(--ui-muted);
-  font-size: 9.5px;
+  font-size: 10px;
 }
 
 #start-view .recent-arrow {
@@ -752,7 +759,7 @@ html[dir="rtl"] .settings-card .settings-sections {
 .hero {
   min-height: 0;
   border: 1px solid var(--ui-border);
-  border-radius: 14px;
+  border-radius: var(--ui-radius-lg);
   background: var(--ui-panel);
   box-shadow: none;
 }
@@ -760,7 +767,7 @@ html[dir="rtl"] .settings-card .settings-sections {
 .panel,
 .template-section {
   border-color: var(--ui-border);
-  border-radius: 16px;
+  border-radius: var(--ui-radius-lg);
   background: var(--ui-panel);
   box-shadow: 0 8px 26px rgba(41, 41, 41, 0.06);
 }
@@ -929,7 +936,7 @@ html[data-theme="dark"] .hero .button.primary {
   gap: 4px;
   padding: 2px;
   border: 1px solid var(--ui-border);
-  border-radius: 10px;
+  border-radius: var(--ui-radius);
   background: var(--ui-panel-soft);
 }
 
@@ -938,7 +945,7 @@ html[data-theme="dark"] .hero .button.primary {
   height: 28px;
   min-height: 28px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--ui-radius-sm);
   background: transparent;
 }
 
@@ -947,7 +954,7 @@ html[data-theme="dark"] .hero .button.primary {
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--ui-border);
-  border-radius: 10px;
+  border-radius: var(--ui-radius);
   background: var(--ui-panel-soft);
 }
 
@@ -955,7 +962,7 @@ html[data-theme="dark"] .hero .button.primary {
   width: 31px;
   height: 29px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--ui-radius-sm);
   background: transparent;
   color: var(--ui-text-soft);
   font-weight: 750;
@@ -1004,7 +1011,7 @@ html[dir="ltr"] .document-tab {
   padding-inline: 4px;
   border: 1px solid transparent;
   border-bottom: 0;
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--ui-radius-sm) 8px 0 0;
   background: transparent;
   color: var(--ui-muted);
 }
@@ -1144,7 +1151,7 @@ html[dir="ltr"] .document-tab {
   gap: 2px;
   padding: 5px 3px;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: var(--ui-radius);
   background: transparent;
   color: var(--ui-muted);
   cursor: pointer;
@@ -1170,7 +1177,7 @@ html[dir="ltr"] .document-tab {
   place-items: center;
   min-width: 24px;
   height: 23px;
-  border-radius: 6px;
+  border-radius: var(--ui-radius-sm);
   color: currentColor;
 }
 
@@ -1190,7 +1197,7 @@ html[dir="ltr"] .document-tab {
   display: grid;
   place-items: center;
   padding-inline: 4px;
-  border-radius: 999px;
+  border-radius: var(--ui-radius-pill);
   background: var(--ui-danger);
   color: #ffffff;
   font: 800 8px/1 system-ui, sans-serif;
@@ -1238,7 +1245,7 @@ html[dir="ltr"] .sidebar-panel {
 
 .sidebar-panel > header span {
   min-width: 23px;
-  border-radius: 999px;
+  border-radius: var(--ui-radius-pill);
   background: var(--ui-panel-muted);
   color: var(--ui-muted);
 }
@@ -1277,7 +1284,7 @@ html[dir="ltr"] .sidebar-panel {
 
 .tool-item {
   min-height: 34px;
-  border-radius: 7px;
+  border-radius: var(--ui-radius-sm);
   padding: 7px 8px;
   color: var(--ui-text-soft);
 }
@@ -1346,7 +1353,7 @@ html[dir="ltr"] .sidebar-panel {
   width: 3px;
   height: 54px;
   transform: translate(-50%, -50%);
-  border-radius: 999px;
+  border-radius: var(--ui-radius-pill);
   background: var(--ui-border-strong);
   opacity: 0;
   transition: height 120ms ease, opacity 120ms ease, background-color 120ms ease;
@@ -1509,7 +1516,7 @@ html[dir="ltr"] .sidebar-panel {
 .preview-document code:not(pre code) {
   padding: 0.12em 0.34em;
   border: 1px solid var(--ui-border);
-  border-radius: 5px;
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-panel-soft);
   color: var(--ui-text-soft);
 }
@@ -1715,7 +1722,7 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
   gap: 10px;
   min-height: 392px;
   padding: 24px;
-  border-radius: 18px;
+  border-radius: var(--ui-radius-xl);
 }
 
 #export-view .status-visual {
@@ -1975,7 +1982,7 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
   margin-top: 14px;
   padding: 13px;
   border: 1px solid color-mix(in srgb, var(--ui-accent) 28%, var(--ui-border));
-  border-radius: 12px;
+  border-radius: var(--ui-radius-lg);
   background: color-mix(in srgb, var(--ui-accent-soft) 56%, var(--ui-panel));
   text-align: start;
 }
@@ -2043,13 +2050,13 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
   gap: 2px;
   padding: 8px 9px;
   border: 1px solid var(--ui-border);
-  border-radius: 9px;
+  border-radius: var(--ui-radius);
   background: var(--ui-panel);
 }
 
 .book-metrics small {
   color: var(--ui-muted);
-  font-size: 8.5px;
+  font-size: 9px;
 }
 
 .book-metrics strong {
@@ -2079,7 +2086,7 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
   gap: 4px;
   padding: 10px 11px;
   border: 1px solid color-mix(in srgb, var(--ui-accent) 24%, var(--ui-border));
-  border-radius: 10px;
+  border-radius: var(--ui-radius);
   background: color-mix(in srgb, var(--ui-accent-soft) 45%, var(--ui-panel));
 }
 
@@ -2184,7 +2191,7 @@ html[dir="rtl"] .book-chapter-row.active {
   margin: 4px auto 18px;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--ui-accent) 28%, var(--ui-border));
-  border-radius: 13px;
+  border-radius: var(--ui-radius-lg);
   background: color-mix(in srgb, var(--ui-accent-soft) 55%, var(--ui-panel));
   text-align: start;
 }
@@ -2194,7 +2201,7 @@ html[dir="rtl"] .book-chapter-row.active {
   height: 42px;
   display: grid;
   place-items: center;
-  border-radius: 11px;
+  border-radius: var(--ui-radius);
   background: var(--ui-accent);
   color: #ffffff;
   font-size: 11px;
@@ -2208,7 +2215,7 @@ html[dir="rtl"] .book-chapter-row.active {
 
 .onboarding-intent-summary small {
   color: var(--ui-accent);
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 850;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -2272,7 +2279,7 @@ html[data-theme="light"] .hero {
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--ui-border);
-  border-radius: 9px;
+  border-radius: var(--ui-radius);
   background: color-mix(in srgb, var(--ui-panel) 96%, transparent);
   box-shadow: 0 8px 20px rgba(24, 24, 24, 0.12);
   opacity: 0;
@@ -2440,7 +2447,7 @@ main {
 .brand {
   gap: 8px;
   padding: 4px 6px;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
 }
 
 .brand:hover {
@@ -2455,7 +2462,7 @@ main {
 }
 
 .brand strong {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 650;
   letter-spacing: 0;
 }
@@ -2472,7 +2479,7 @@ main {
 .engine {
   min-height: var(--control-h-sm);
   padding: 0 8px;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   font-size: 11px;
   font-weight: 500;
 }
@@ -2482,7 +2489,7 @@ main {
   width: var(--control-h);
   height: var(--control-h);
   min-height: var(--control-h);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   font-weight: 600;
 }
 
@@ -2490,7 +2497,7 @@ main {
   padding: 0 12px;
   background: var(--ui-panel-soft);
   border-top: 1px solid var(--ui-border);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 /* ---- Controls ----------------------------------------------------------- */
@@ -2499,8 +2506,8 @@ main {
 .text-button {
   min-height: var(--control-h);
   padding: 0 12px;
-  border-radius: var(--ui-radius-sm);
-  font-size: 12.5px;
+  border-radius: var(--ui-radius-xs);
+  font-size: 12px;
   font-weight: 600;
   transition: background-color 90ms ease, border-color 90ms ease;
 }
@@ -2533,7 +2540,7 @@ main {
 
 .text-button {
   min-height: var(--control-h-sm);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 550;
 }
 
@@ -2544,10 +2551,10 @@ select,
   min-height: var(--control-h);
   padding: 0 9px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-panel);
   color: var(--ui-text);
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 input:focus-visible,
@@ -2567,7 +2574,7 @@ button:focus-visible,
 .settings-section,
 .help-grid section,
 .support-panel {
-  border-radius: var(--ui-radius);
+  border-radius: var(--ui-radius-sm);
   box-shadow: none;
 }
 
@@ -2626,7 +2633,7 @@ button:focus-visible,
   display: grid;
   gap: 1px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
+  border-radius: var(--ui-radius-sm);
   background: var(--ui-border);
   overflow: hidden;
 }
@@ -2659,10 +2666,10 @@ button:focus-visible,
   place-items: center;
   width: 26px;
   height: 26px;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-accent-soft);
   color: var(--ui-accent);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   direction: ltr;
 }
@@ -2674,7 +2681,7 @@ button:focus-visible,
 }
 
 .action-copy strong {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -2689,7 +2696,7 @@ button:focus-visible,
   display: grid;
   gap: 1px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
+  border-radius: var(--ui-radius-sm);
   background: var(--ui-border);
   overflow: hidden;
 }
@@ -2713,27 +2720,27 @@ button:focus-visible,
 .recent-item > span:first-child {
   width: 26px;
   height: 26px;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   border-color: var(--ui-border);
   background: var(--ui-panel-soft);
   color: var(--ui-muted);
-  font-size: 9.5px;
+  font-size: 10px;
 }
 
 .recent-copy strong {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .empty {
   padding: 20px 12px;
   border: 1px dashed var(--ui-border);
-  border-radius: var(--ui-radius);
+  border-radius: var(--ui-radius-sm);
   color: var(--ui-muted);
 }
 
 .empty strong {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--ui-text-soft);
 }
 
@@ -2758,7 +2765,7 @@ button:focus-visible,
 .template-card {
   padding: 10px 11px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
+  border-radius: var(--ui-radius-sm);
   background: var(--ui-panel);
   box-shadow: none;
 }
@@ -2795,7 +2802,7 @@ button:focus-visible,
   width: var(--control-h);
   min-height: var(--control-h);
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-panel);
   color: var(--ui-text-soft);
   font-size: 14px;
@@ -2813,10 +2820,10 @@ button:focus-visible,
 .step > header > span {
   width: 20px;
   height: 20px;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-accent-soft);
   color: var(--ui-accent);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -2826,7 +2833,7 @@ button:focus-visible,
 }
 
 .step p {
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .step + .step {
@@ -2865,7 +2872,7 @@ button:focus-visible,
 }
 
 .status-panel > p:not(.section-label) {
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.6;
 }
 
@@ -2983,7 +2990,7 @@ button:focus-visible,
 /* The caret line is the one showing raw Markdown; mark it quietly. */
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-activeLine {
   background: color-mix(in srgb, var(--ui-accent) 6%, transparent);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
 }
 
 /* Source mode: a code buffer again. */
@@ -3002,7 +3009,7 @@ button:focus-visible,
 .codemirror-mount .cm-md-table table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 13.5px;
+  font-size: 13px;
 }
 
 .codemirror-mount .cm-md-table th,
@@ -3078,7 +3085,7 @@ button:focus-visible,
 
 .export-preview-state {
   color: var(--ui-muted);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .export-preview-toolbar {
@@ -3098,7 +3105,7 @@ button:focus-visible,
   place-items: center;
   padding: 0 6px;
   border: 0;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: transparent;
   color: var(--ui-text-soft);
   font: 650 12px/1 inherit;
@@ -3168,7 +3175,7 @@ button:focus-visible,
   border-top: 1px solid var(--ui-border);
   background: var(--ui-panel-soft);
   color: var(--ui-muted);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.6;
 }
 
@@ -3230,7 +3237,7 @@ button:focus-visible,
 
 .expert-toggle {
   flex: none;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--ui-muted);
 }
 
@@ -3240,7 +3247,7 @@ button:focus-visible,
   gap: 10px;
   align-items: start;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
+  border-radius: var(--ui-radius-sm);
   background: var(--ui-panel-soft);
   padding: 8px;
 }
@@ -3259,7 +3266,7 @@ button:focus-visible,
   min-height: 30px;
   padding: 0 8px;
   border: 0;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: transparent;
   color: var(--ui-text-soft);
   font: 600 12px/1.2 inherit;
@@ -3297,7 +3304,7 @@ button:focus-visible,
 .option-rail-badge {
   min-width: 16px;
   padding: 1px 5px;
-  border-radius: 999px;
+  border-radius: var(--ui-radius-pill);
   background: var(--ui-accent);
   color: var(--ui-on-accent);
   font: 700 9.5px/1.5 ui-monospace, monospace;
@@ -3326,7 +3333,7 @@ button:focus-visible,
 
 .option-pane-head strong {
   display: block;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -3351,7 +3358,7 @@ button:focus-visible,
   display: grid;
   gap: 3px;
   padding: 8px 9px;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   border-inline-start: 2px solid transparent;
   background: var(--ui-panel);
 }
@@ -3382,7 +3389,7 @@ button:focus-visible,
 
 .option-badge {
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--ui-radius-pill);
   font: 700 9px/1.6 inherit;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -3443,7 +3450,7 @@ button:focus-visible,
 .option-inactive {
   margin: 2px 0 0;
   color: var(--ui-warning);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .option-problem:empty { display: none; }
@@ -3451,7 +3458,7 @@ button:focus-visible,
 .option-problem {
   grid-column: 1 / -1;
   color: var(--ui-danger);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .option-empty {
@@ -3470,7 +3477,7 @@ button:focus-visible,
   margin-top: 3px;
   padding: 2px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-panel-muted);
 }
 
@@ -3479,7 +3486,7 @@ button:focus-visible,
   min-height: 22px;
   padding: 0 9px;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--ui-radius-xs);
   background: transparent;
   color: var(--ui-muted);
   font: 600 11px/1 inherit;
@@ -3598,7 +3605,7 @@ button:focus-visible,
   border-radius: var(--ui-radius) var(--ui-radius) 0 0;
   padding-top: 5px;
   color: var(--ui-muted);
-  font-size: 10.5px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -3636,7 +3643,7 @@ button:focus-visible,
   display: inline-flex;
   padding: 2px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-panel-muted);
 }
 
@@ -3646,7 +3653,7 @@ button:focus-visible,
   min-height: 24px;
   padding: 0 10px;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--ui-radius-xs);
   background: transparent;
   color: var(--ui-muted);
   font: 600 11.5px/1 inherit;
@@ -3685,7 +3692,7 @@ button:focus-visible,
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: transparent;
   color: var(--ui-text-soft);
   font: 650 12px/1 inherit;
@@ -3729,7 +3736,7 @@ button:focus-visible,
   max-width: 100%;
   max-height: 420px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-panel-soft);
 }
 
@@ -3742,7 +3749,7 @@ button:focus-visible,
   max-width: 100%;
   padding: 8px 12px;
   border: 1px dashed var(--ui-border-strong, var(--ui-border));
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-panel-soft);
   color: var(--ui-text-muted, inherit);
   font-size: 12px;
@@ -3829,7 +3836,7 @@ button:focus-visible,
   max-width: min(300px, calc(100vw - 16px));
   padding: 4px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
+  border-radius: var(--ui-radius-sm);
   background: var(--ui-panel);
   box-shadow: var(--ui-shadow-float);
 }
@@ -3847,7 +3854,7 @@ button:focus-visible,
   min-height: 26px;
   padding: 3px 10px;
   border: 0;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   background: transparent;
   color: var(--ui-text);
   font: 600 12px/1.5 inherit;
@@ -3864,9 +3871,9 @@ button:focus-visible,
 .heading-choice-1 { font-size: 20px; font-weight: 750; }
 .heading-choice-2 { font-size: 17px; font-weight: 700; }
 .heading-choice-3 { font-size: 15px; font-weight: 680; }
-.heading-choice-4 { font-size: 13.5px; font-weight: 660; }
-.heading-choice-5 { font-size: 12.5px; font-weight: 640; }
-.heading-choice-6 { font-size: 11.5px; font-weight: 620; }
+.heading-choice-4 { font-size: 13px; font-weight: 660; }
+.heading-choice-5 { font-size: 12px; font-weight: 640; }
+.heading-choice-6 { font-size: 12px; font-weight: 620; }
 
 /* Density of a native desktop menu, not of a touch surface. */
 .context-menu {
@@ -3876,7 +3883,7 @@ button:focus-visible,
   max-width: min(320px, calc(100vw - 8px));
   padding: 4px;
   border: 1px solid var(--ui-border);
-  border-radius: 5px;
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-panel);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
@@ -3889,7 +3896,7 @@ button:focus-visible,
   min-height: 26px;
   padding: 2px 12px 2px 8px;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--ui-radius-xs);
   background: transparent;
   color: var(--ui-text);
   font: 400 13px/22px inherit;
@@ -4015,7 +4022,7 @@ html[data-focus-mode="true"] .editor-status:hover {
   display: inline-block;
   margin-inline-end: 8px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--ui-radius-pill);
   background: var(--callout-tint, var(--ui-accent));
   color: var(--ui-on-accent);
   font: 700 9.5px/1.8 ui-monospace, monospace;
@@ -4047,7 +4054,7 @@ html[data-focus-mode="true"] .editor-status:hover {
   margin: 2px 0 14px;
   padding: 7px 11px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
+  border-radius: var(--ui-radius-sm);
   background: var(--ui-panel-soft);
   cursor: text;
 }
@@ -4065,7 +4072,7 @@ html[data-focus-mode="true"] .editor-status:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ui-text-soft);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .codemirror-mount .cm-md-frontmatter-value + .cm-md-frontmatter-value::before {
@@ -4078,7 +4085,7 @@ html[data-focus-mode="true"] .editor-status:hover {
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-code-info {
   display: inline-block;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--ui-radius-pill);
   background: var(--ui-panel-muted);
   color: var(--ui-muted);
   font: 700 9.5px/1.9 ui-monospace, monospace;
