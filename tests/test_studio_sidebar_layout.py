@@ -70,13 +70,13 @@ def test_studio_light_mode_uses_layered_surface_colors() -> None:
     html = _gui_html()
 
     light_mode_rule = _css_rule(html, "body.light-mode")
-    assert "--bg:#f1f5f9" in light_mode_rule
-    assert "--bg-soft:#e2e8f0" in light_mode_rule
+    assert "--bg:#f2f2f2" in light_mode_rule
+    assert "--bg-soft:#ececec" in light_mode_rule
     assert "--panel:#ffffff" in light_mode_rule
     assert "--editor:#ffffff" in light_mode_rule
     assert "--preview:#ffffff" in light_mode_rule
-    assert "--border-strong:#94a3b8" in light_mode_rule
-    assert "--border:#cbd5e1" in light_mode_rule
+    assert "--border-strong:#c9c9c9" in light_mode_rule
+    assert "--border:#e2e2e2" in light_mode_rule
 
     light_brand_rule = _css_rule(html, "body.light-mode .brand-mark")
     assert "background:transparent" in light_brand_rule
@@ -147,8 +147,8 @@ def test_studio_footer_and_light_switches_have_clear_boundaries() -> None:
     assert "background:#ffffff" in checked_knob_rule
 
     light_switch_rule = _css_rule(html, "body.light-mode .switch input")
-    assert "background:#e2e8f0" in light_switch_rule
-    assert "border-color:#94a3b8" in light_switch_rule
+    assert "background:var(--panel-3)" in light_switch_rule
+    assert "border-color:var(--border-strong)" in light_switch_rule
     assert "box-shadow:" in light_switch_rule
 
     light_switch_knob_rule = _css_rule(html, "body.light-mode .switch input::after")
@@ -256,9 +256,9 @@ def test_studio_select_controls_reserve_arrow_space() -> None:
     root_rule = _css_rule(html, ":root")
     light_root_rule = _css_rule(html, "body.light-mode")
     assert "--select-chevron:url" in root_rule
-    assert "stroke='%23b3b3b3'" in root_rule
+    assert "stroke='%23c9c9c9'" in root_rule
     assert "--select-chevron:url" in light_root_rule
-    assert "stroke='%23475569'" in light_root_rule
+    assert "stroke='%233d3d3d'" in light_root_rule
 
     light_select_rule = _css_rule(html, "body.light-mode select")
     assert "background-image:var(--select-chevron)" in light_select_rule
@@ -301,10 +301,10 @@ def test_studio_uses_monochromatic_accent_controls() -> None:
 
     dark_root = _css_rule(html, ":root")
     light_root = _css_rule(html, "body.light-mode")
-    assert "--accent-2:#0f766e" in dark_root
-    assert "--accent-3:#14b8a6" in dark_root
-    assert "--accent-2:#0f766e" in light_root
-    assert "--accent-3:#14b8a6" in light_root
+    assert "--accent-2:#f97316" in dark_root
+    assert "--accent-3:#fdba74" in dark_root
+    assert "--accent-2:#9a3412" in light_root
+    assert "--accent-3:#ea580c" in light_root
 
     primary_rule = _css_rule(html, ".btn-primary")
     assert "background:var(--accent)" in primary_rule

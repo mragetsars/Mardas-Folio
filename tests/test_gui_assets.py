@@ -73,7 +73,7 @@ def test_studio_html_preview_styles_scrollbars_for_dark_pdf_like_frames():
         }
     )
 
-    assert "scrollbar-color: #4a4a4a transparent" in html
+    assert "scrollbar-color: #454545 transparent" in html
     assert "*::-webkit-scrollbar-thumb" in html
     assert "md2pdf-preview-dark" in html
     assert "syncPreviewShellTheme" in html
@@ -1057,21 +1057,21 @@ def test_gui_microinteractions_use_stable_numeric_and_soft_cards():
 
     assert 'font-variant-numeric:tabular-nums' in html
     assert '.choice-copy{color:color-mix' in html
-    assert 'body:not(.light-mode) .choice-copy{color:#d0d0d0}' in html
+    assert 'body:not(.light-mode) .choice-copy{color:var(--muted)}' in html
     assert '.format-btn{height:30px' in html
-    assert '--muted:#b3b3b3' in html
+    assert '--muted:#c9c9c9' in html
     assert '--faint:#9a9a9a' in html
     assert '.editor-formatbar{gap:6px' in html
     assert 'border-color:transparent;background:transparent' in html
 
-def test_gui_uses_chatgpt_like_scrollbars_and_pure_interface_surfaces():
+def test_gui_uses_thin_scrollbars_and_brand_interface_surfaces():
     html = GUI_HTML.read_text(encoding="utf-8")
 
     assert '*::-webkit-scrollbar' in html
-    assert '--scroll-thumb:#4a4a4a' in html
-    assert '--scroll-thumb:#cbd5e1' in html
-    assert '--bg:#000000' in html
-    assert '--panel-2:#212121' in html
+    assert '--scroll-thumb:#454545' in html
+    assert '--scroll-thumb:#c9c9c9' in html
+    assert '--bg:#0d0d0d' in html
+    assert '--panel-2:#1c1c1c' in html
     assert '--panel:#ffffff' in html
     assert '--preview:#ffffff' in html
 
@@ -1079,8 +1079,13 @@ def test_gui_uses_chatgpt_like_scrollbars_and_pure_interface_surfaces():
 def test_gui_export_button_keeps_contrast_on_hover_and_active():
     html = GUI_HTML.read_text(encoding="utf-8")
 
-    assert '.btn-primary:hover{color:#ffffff' in html
-    assert '.btn-primary:active{color:#ffffff' in html
+    # White ink is only safe on the light theme's dark accent; the dark theme
+    # lightens the accent, where white falls to about 2:1. Both states carry the
+    # per-theme ink instead of a fixed colour.
+    assert '.btn-primary:hover{color:var(--on-accent)' in html
+    assert '.btn-primary:active{color:var(--on-accent)' in html
+    assert '--on-accent:#1a1005' in html
+    assert '--on-accent:#ffffff' in html
     assert '.btn-primary:focus-visible' in html
 
 

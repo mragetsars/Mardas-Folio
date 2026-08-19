@@ -821,7 +821,7 @@ def _studio_pdf_like_preview_css(page_size: str | None) -> str:
       html.md2pdf-preview-dark,
       html:has(body.md2pdf-mode-dark) {{
         color-scheme: dark;
-        scrollbar-color: #4a4a4a transparent;
+        scrollbar-color: #454545 transparent;
       }}
       * {{
         scrollbar-width: thin;
@@ -829,7 +829,7 @@ def _studio_pdf_like_preview_css(page_size: str | None) -> str:
       }}
       html.md2pdf-preview-dark *,
       html:has(body.md2pdf-mode-dark) * {{
-        scrollbar-color: #4a4a4a transparent;
+        scrollbar-color: #454545 transparent;
       }}
       *::-webkit-scrollbar {{
         width: 10px;
@@ -846,7 +846,7 @@ def _studio_pdf_like_preview_css(page_size: str | None) -> str:
       }}
       html.md2pdf-preview-dark *::-webkit-scrollbar-thumb,
       html:has(body.md2pdf-mode-dark) *::-webkit-scrollbar-thumb {{
-        background: #4a4a4a;
+        background: #454545;
         background-clip: padding-box;
       }}
       *::-webkit-scrollbar-thumb:hover {{
