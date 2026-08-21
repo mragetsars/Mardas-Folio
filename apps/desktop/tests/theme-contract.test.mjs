@@ -124,7 +124,17 @@ test("onboarding and light theme use the same native surface tokens", () => {
   const index = readFileSync(new URL("../frontend/index.html", import.meta.url), "utf8");
   assert.match(index, /id="onboarding-intent-summary"/);
   assert.match(workspaceStyles, /\.onboarding-intent-summary \{/);
-  assert.match(workspaceStyles, /html\[data-theme="light"\] \.panel,/);
+  // These surfaces used to be lifted by an `html[data-theme="light"]` rule
+  // that restated a colour at a specificity no component rule could reach,
+  // which is how the title bar kept reverting after the palette moved under
+  // it. Elevation is the one thing that genuinely differs by theme, and it
+  // lives on --ui-shadow, which switches with the theme on its own.
+  assert.match(workspaceStyles, /\.panel,\n\.template-section,/);
+  assert.doesNotMatch(
+    workspaceStyles,
+    /html\[data-theme="light"\][^{]*\{[^}]*(?:#fff|#ffffff)/i,
+    "a theme-scoped rule is hard-coding a colour the tokens already switch",
+  );
   assert.match(workspaceStyles, /\.choice-card,[\s\S]*?\.shortcut-hints span \{/);
 });
 

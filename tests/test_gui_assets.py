@@ -73,7 +73,7 @@ def test_studio_html_preview_styles_scrollbars_for_dark_pdf_like_frames():
         }
     )
 
-    assert "scrollbar-color: #454545 transparent" in html
+    assert "scrollbar-color: #645c50 transparent" in html
     assert "*::-webkit-scrollbar-thumb" in html
     assert "md2pdf-preview-dark" in html
     assert "syncPreviewShellTheme" in html
@@ -1035,10 +1035,11 @@ def test_gui_uses_inline_svg_icons_and_project_vector_brand_mark():
     assert 'href="#icon-file-down"' in html
     assert 'href="#icon-bold"' in html
     assert 'href="#icon-table"' in html
-    assert '<span class="brand-mark" aria-hidden="true"></span>' in html
-    assert '/assets/mardas-folio-mark-gui-mask.svg' in html
-    assert 'background:currentColor' in html
-    assert '-webkit-mask:url("/assets/mardas-folio-mark-gui-mask.svg") center/contain no-repeat' in html
+    # The brand mark is the project's own vector, inlined so it inherits the
+    # header's colour and needs no request to render.
+    assert '<span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 512 512"' in html
+    assert html.count('d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"') >= 4, "the Studio mark is not the four-fold F"
+    assert 'fill="currentColor"' in html
     assert 'stroke-width:1.8' in html
 
 
@@ -1059,8 +1060,8 @@ def test_gui_microinteractions_use_stable_numeric_and_soft_cards():
     assert '.choice-copy{color:color-mix' in html
     assert 'body:not(.light-mode) .choice-copy{color:var(--muted)}' in html
     assert '.format-btn{height:30px' in html
-    assert '--muted:#c9c9c9' in html
-    assert '--faint:#9a9a9a' in html
+    assert '--muted:#dcd3c4' in html
+    assert '--faint:#b3a996' in html
     assert '.editor-formatbar{gap:6px' in html
     assert 'border-color:transparent;background:transparent' in html
 
@@ -1068,12 +1069,12 @@ def test_gui_uses_thin_scrollbars_and_brand_interface_surfaces():
     html = GUI_HTML.read_text(encoding="utf-8")
 
     assert '*::-webkit-scrollbar' in html
-    assert '--scroll-thumb:#454545' in html
-    assert '--scroll-thumb:#c9c9c9' in html
-    assert '--bg:#0d0d0d' in html
-    assert '--panel-2:#1c1c1c' in html
-    assert '--panel:#ffffff' in html
-    assert '--preview:#ffffff' in html
+    assert '--scroll-thumb:#645c50' in html
+    assert '--scroll-thumb:#c0b6a5' in html
+    assert '--bg:#201e1d' in html
+    assert '--panel-2:#333029' in html
+    assert '--panel:#f5ead8' in html
+    assert '--preview:#f5ead8' in html
 
 
 def test_gui_export_button_keeps_contrast_on_hover_and_active():
@@ -1084,8 +1085,8 @@ def test_gui_export_button_keeps_contrast_on_hover_and_active():
     # per-theme ink instead of a fixed colour.
     assert '.btn-primary:hover{color:var(--on-accent)' in html
     assert '.btn-primary:active{color:var(--on-accent)' in html
-    assert '--on-accent:#451a03' in html
-    assert '--on-accent:#ffffff' in html
+    assert '--on-accent:#402310' in html
+    assert '--on-accent:#f5ead8' in html
     assert '.btn-primary:focus-visible' in html
 
 
@@ -1159,8 +1160,8 @@ def test_gui_logo_uses_contain_fit_with_breathing_room():
     html = GUI_HTML.read_text(encoding="utf-8")
 
     assert '.brand-mark{overflow:visible;background:transparent' in html
-    assert '.brand-mark::before{content:"";width:100%;height:100%;display:block;background:currentColor' in html
-    assert 'mask:url("/assets/mardas-folio-mark-gui-mask.svg") center/contain no-repeat' in html
+    assert '.brand-mark svg{width:100%;height:100%;display:block;color:inherit}' in html
+    assert '.brand-mark svg g{fill:currentColor}' in html
     assert 'body.light-mode .brand-mark{background:transparent;border:0;box-shadow:none}' in html
 
 

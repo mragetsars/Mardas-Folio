@@ -70,13 +70,13 @@ def test_studio_light_mode_uses_layered_surface_colors() -> None:
     html = _gui_html()
 
     light_mode_rule = _css_rule(html, "body.light-mode")
-    assert "--bg:#f2f2f2" in light_mode_rule
-    assert "--bg-soft:#ececec" in light_mode_rule
-    assert "--panel:#ffffff" in light_mode_rule
-    assert "--editor:#ffffff" in light_mode_rule
-    assert "--preview:#ffffff" in light_mode_rule
-    assert "--border-strong:#c9c9c9" in light_mode_rule
-    assert "--border:#e2e2e2" in light_mode_rule
+    assert "--bg:#e6d9c0" in light_mode_rule
+    assert "--bg-soft:#ebddc5" in light_mode_rule
+    assert "--panel:#f5ead8" in light_mode_rule
+    assert "--editor:#f5ead8" in light_mode_rule
+    assert "--preview:#f5ead8" in light_mode_rule
+    assert "--border-strong:#a19786" in light_mode_rule
+    assert "--border:#d5cab5" in light_mode_rule
 
     light_brand_rule = _css_rule(html, "body.light-mode .brand-mark")
     assert "background:transparent" in light_brand_rule
@@ -169,9 +169,16 @@ def test_studio_logo_and_toolbar_icons_are_minimal_and_centered() -> None:
         assert "box-shadow:none" in rule
         assert "linear-gradient" not in rule
 
-    brand_mask_rule = _css_rule(html, ".brand-mark::before")
-    assert "background:currentColor" in brand_mask_rule
-    assert 'mask:url("/assets/mardas-folio-mark-gui-mask.svg") center/contain no-repeat' in brand_mask_rule
+    # The mark is inlined, not pulled in as a CSS mask. As a mask it painted
+    # nothing at all: the `mask` shorthand leaves mask-mode at match-source,
+    # Chromium resolves that to luminance for an SVG referenced as an image,
+    # and the silhouette was black -- so the Studio shipped with an empty
+    # brand corner. Inline, it takes currentColor and cannot fail to load.
+    brand_svg_rule = _css_rule(html, ".brand-mark svg")
+    assert "width:100%" in brand_svg_rule
+    assert "height:100%" in brand_svg_rule
+    assert "fill:currentColor" in _css_rule(html, ".brand-mark svg g")
+    assert "mask:url(" not in html
 
     header_title_rule = _css_rule(html, ".sidebar-head strong,.pane-head strong")
     assert "font-size:11px" in header_title_rule
@@ -256,9 +263,9 @@ def test_studio_select_controls_reserve_arrow_space() -> None:
     root_rule = _css_rule(html, ":root")
     light_root_rule = _css_rule(html, "body.light-mode")
     assert "--select-chevron:url" in root_rule
-    assert "stroke='%23c9c9c9'" in root_rule
+    assert "stroke='%23dcd3c4'" in root_rule
     assert "--select-chevron:url" in light_root_rule
-    assert "stroke='%233d3d3d'" in light_root_rule
+    assert "stroke='%23474238'" in light_root_rule
 
     light_select_rule = _css_rule(html, "body.light-mode select")
     assert "background-image:var(--select-chevron)" in light_select_rule
@@ -301,10 +308,10 @@ def test_studio_uses_monochromatic_accent_controls() -> None:
 
     dark_root = _css_rule(html, ":root")
     light_root = _css_rule(html, "body.light-mode")
-    assert "--accent-2:#f59e0b" in dark_root
-    assert "--accent-3:#fcd34d" in dark_root
-    assert "--accent-2:#92400e" in light_root
-    assert "--accent-3:#f59e0b" in light_root
+    assert "--accent-2:#d67f48" in dark_root
+    assert "--accent-3:#ffc6a5" in dark_root
+    assert "--accent-2:#643312" in light_root
+    assert "--accent-3:#b2622d" in light_root
 
     primary_rule = _css_rule(html, ".btn-primary")
     assert "background:var(--accent)" in primary_rule

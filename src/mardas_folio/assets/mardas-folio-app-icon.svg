@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Mardas Folio">
   <title>Mardas Folio</title>
-  <rect width="512" height="512" rx="112" fill="#161616"/>
-  <g transform="translate(256 256) scale(2.72)" fill="#f97316">
+  <rect width="512" height="512" rx="112" fill="#2E2B25"/>
+  <g transform="translate(256 256) scale(2.72)" fill="#C67139">
     <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
     <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
     <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>

@@ -55,6 +55,12 @@ def _png_dimensions(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", data[16:24])
 
 
+#: The identity's two load-bearing values. Terracotta is the accent every
+#: surface shares; ink is the dark anchor behind it.
+BRAND_TERRACOTTA = "#C67139"
+BRAND_INK = "#2E2B25"
+
+
 def test_project_logo_assets_are_packaged_and_documented():
     logo = ROOT / "src/mardas_folio/assets/mardas-folio-logo.png"
     logo_white = ROOT / "src/mardas_folio/assets/mardas-folio-logo-white.png"
@@ -72,33 +78,51 @@ def test_project_logo_assets_are_packaged_and_documented():
         assert _png_dimensions(asset) == (768, 768)
 
     assert readme_png.exists()
-    assert _png_dimensions(readme_png) == (1916, 821)
+    # 1200 x 400 is the size the identity specifies for the repository
+    # banner; the social card is the same artwork at 1200 x 630.
+    assert _png_dimensions(readme_png) == (1200, 400)
 
     for asset in (mark, mark_white, app_icon, gui_mark_mask):
         assert asset.exists(), f"missing logo asset: {asset}"
         svg_text = asset.read_text(encoding="utf-8")
         assert svg_text.startswith("<svg")
-        if asset == mark:
-            assert "#088A83" in svg_text
-            assert "#123664" in svg_text
-        # The application icon carries the Folio palette rather than the
-        # document mark's teal and navy: it is the icon the desktop packages
-        # actually ship, and the one the icon generator rasterizes.
+        # Every mark the project ships is drawn in the one palette. The mark
+        # and the application icon used to carry two different ones -- teal
+        # and navy on the documents, orange on the taskbar -- so the guard is
+        # now that they agree, not merely that each has some colour.
+        if asset in (mark, app_icon):
+            assert BRAND_TERRACOTTA in svg_text
+            assert "#088A83" not in svg_text, "the retired teal is back"
+            assert "#f97316" not in svg_text, "the retired orange is back"
+        # Only the packaged icon has a tile behind the glyph, so ink appears
+        # there and nowhere else.
         if asset == app_icon:
-            assert "#f97316" in svg_text
-            assert "#161616" in svg_text
+            assert BRAND_INK in svg_text
         if asset == gui_mark_mask:
+            # A CSS `mask` shorthand leaves mask-mode at match-source, which
+            # Chromium resolves to luminance for an SVG referenced as an
+            # image: a black silhouette has luminance 0 and masks away to
+            # nothing, leaving the Studio's brand corner empty. White is
+            # fully opaque under luminance and under alpha both.
             assert "mask" in svg_text
-            assert "#000000" in svg_text
+            assert "#FFFFFF" in svg_text
+            assert "#000000" not in svg_text
 
     # The generated desktop icons drifted from their source once already, so
     # the generator has to name the canonical icon rather than any other SVG.
     icon_generator = (ROOT / "scripts/generate_desktop_icons.py").read_text(encoding="utf-8")
     assert f'"{app_icon.name}"' in icon_generator
 
+    # Every variant is the same drawing: one F glyph in four-fold rotational
+    # symmetry. The reversed mark differs from the colour mark only in its
+    # fill, so the two can never drift into being different logos.
     mark_white_text = mark_white.read_text(encoding="utf-8")
-    assert "mask" in mark_white_text
+    mark_text = mark.read_text(encoding="utf-8")
     assert "#FFFFFF" in mark_white_text
+    glyph = 'd="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"'
+    for svg_text in (mark_text, mark_white_text, app_icon.read_text(encoding="utf-8"),
+                     gui_mark_mask.read_text(encoding="utf-8")):
+        assert svg_text.count(glyph) == 4, "the mark is no longer the four-fold F"
     assert not (ROOT / "docs/guides/images/logo.svg").exists()
     architecture = ROOT / "docs/guides/images/architecture.png"
     assert architecture.exists()

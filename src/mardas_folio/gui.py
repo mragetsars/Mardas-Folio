@@ -806,9 +806,9 @@ def _studio_pdf_like_preview_css(page_size: str | None) -> str:
         --md2pdf-preview-page-height: {page_height};
         --md2pdf-preview-page-gap: 30px;
         --md2pdf-preview-scale: 1;
-        --md2pdf-preview-shell-bg: #d8dde6;
-        --md2pdf-preview-shell-bg-dark: #050505;
-        --md2pdf-preview-label-bg: #eef3fb;
+        --md2pdf-preview-shell-bg: #dcd3c4;
+        --md2pdf-preview-shell-bg-dark: #201e1d;
+        --md2pdf-preview-label-bg: #f5ead8;
       }}
       html {{
         min-height: 100%;
@@ -816,20 +816,20 @@ def _studio_pdf_like_preview_css(page_size: str | None) -> str:
         overflow-x: hidden;
         color-scheme: light;
         scrollbar-width: thin;
-        scrollbar-color: #aab3c1 transparent;
+        scrollbar-color: #c0b6a5 transparent;
       }}
       html.md2pdf-preview-dark,
       html:has(body.md2pdf-mode-dark) {{
         color-scheme: dark;
-        scrollbar-color: #454545 transparent;
+        scrollbar-color: #645c50 transparent;
       }}
       * {{
         scrollbar-width: thin;
-        scrollbar-color: #aab3c1 transparent;
+        scrollbar-color: #c0b6a5 transparent;
       }}
       html.md2pdf-preview-dark *,
       html:has(body.md2pdf-mode-dark) * {{
-        scrollbar-color: #454545 transparent;
+        scrollbar-color: #645c50 transparent;
       }}
       *::-webkit-scrollbar {{
         width: 10px;

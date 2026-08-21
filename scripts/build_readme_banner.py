@@ -16,8 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT / "assets" / "readme" / "mardas-folio.svg"
 DEFAULT_OUTPUT = ROOT / "assets" / "readme" / "mardas-folio.png"
-WIDTH = 1916
-HEIGHT = 821
+WIDTH = 1200
+HEIGHT = 400
 
 
 def build_banner(source: Path = DEFAULT_SOURCE, output: Path = DEFAULT_OUTPUT) -> Path:
@@ -30,7 +30,7 @@ def build_banner(source: Path = DEFAULT_SOURCE, output: Path = DEFAULT_OUTPUT) -
     output = output.expanduser().resolve(strict=False)
     output.parent.mkdir(parents=True, exist_ok=True)
     svg = source.read_text(encoding="utf-8")
-    html = f'<html><body style="margin:0;padding:0;background:#0d0d0d">{svg}</body></html>'
+    html = f'<html><body style="margin:0;padding:0;background:#f5ead8">{svg}</body></html>'
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()

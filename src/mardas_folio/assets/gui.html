@@ -6,30 +6,30 @@
   <title>Mardas Folio</title>
   <style>
     :root{
-      --bg:#0d0d0d;
-      --bg-soft:#141414;
-      --shell:rgba(13,13,13,.82);
-      --panel:#161616;
-      --panel-2:#1c1c1c;
-      --panel-3:#242424;
-      --editor:#0d0d0d;
-      --preview:#161616;
-      --text:#ededed;
-      --muted:#c9c9c9;
+      --bg:#201e1d;
+      --bg-soft:#262320;
+      --shell:rgba(32,30,29,.86);
+      --panel:#2a2723;
+      --panel-2:#333029;
+      --panel-3:#3b372f;
+      --editor:#201e1d;
+      --preview:#2a2723;
+      --text:#f5ead8;
+      --muted:#dcd3c4;
       /* Slightly lighter than the desktop's muted grey: Studio layers its
          panels higher than the app's background, so the same value lands at
          4.3:1 on the topmost card instead of clearing 4.5:1. */
-      --faint:#9a9a9a;
-      --border:#2e2e2e;
-      --border-strong:#454545;
-      --accent:#fbbf24;
-      --accent-2:#f59e0b;
-      --accent-3:#fcd34d;
-      --on-accent:#451a03;
-      --ok:#86efac;
-      --danger:#fca5a5;
-      --warning:#fcd34d;
-      --info:#93c5fd;
+      --faint:#b3a996;
+      --border:#474238;
+      --border-strong:#645c50;
+      --accent:#f6a06b;
+      --accent-2:#d67f48;
+      --accent-3:#ffc6a5;
+      --on-accent:#402310;
+      --ok:#aebf92;
+      --danger:#f2a49a;
+      --warning:#e8c68a;
+      --info:#a9c8ee;
       --shadow:0 8px 28px rgba(0,0,0,.5);
       --radius-xs:4px;
       --radius-sm:6px;
@@ -39,42 +39,42 @@
       --radius-pill:999px;
       --sidebar-width:318px;
       --editor-width:50%;
-      --font:'Segoe UI Variable','Vazirmatn','Noto Sans Arabic','Inter',system-ui,sans-serif;
-      --code:'JetBrains Mono','SFMono-Regular','Consolas','Monaco',monospace;
-      --scroll-thumb:#454545;
-      --scroll-thumb-hover:#5f5f5f;
+      --font:'Figtree','Segoe UI Variable','Vazirmatn','Noto Sans Arabic',system-ui,sans-serif;
+      --code:'IBM Plex Mono','JetBrains Mono','SFMono-Regular','Consolas',monospace;
+      --scroll-thumb:#645c50;
+      --scroll-thumb-hover:#82796a;
       --scroll-track:transparent;
-      --select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23c9c9c9' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      --select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23dcd3c4' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
       --gutter-width:10px;
       interpolate-size:allow-keywords;
     }
     body.light-mode{
-      --bg:#f2f2f2;
-      --bg-soft:#ececec;
-      --shell:rgba(255,255,255,.88);
-      --panel:#ffffff;
-      --panel-2:#fafafa;
-      --panel-3:#f0f0f0;
-      --editor:#ffffff;
-      --preview:#ffffff;
-      --text:#141414;
-      --muted:#3d3d3d;
-      --faint:#6b6b6b;
-      --border:#e2e2e2;
-      --border-strong:#c9c9c9;
-      --accent:#b45309;
-      --accent-2:#92400e;
-      --accent-3:#f59e0b;
-      --on-accent:#ffffff;
-      --ok:#15803d;
-      --danger:#b91c1c;
-      --warning:#a16207;
-      --info:#1d4ed8;
-      --shadow:0 8px 28px rgba(0,0,0,.14);
-      --scroll-thumb:#c9c9c9;
-      --scroll-thumb-hover:#a5a5a5;
+      --bg:#e6d9c0;
+      --bg-soft:#ebddc5;
+      --shell:rgba(245,234,216,.9);
+      --panel:#f5ead8;
+      --panel-2:#ebddc5;
+      --panel-3:#dcd3c4;
+      --editor:#f5ead8;
+      --preview:#f5ead8;
+      --text:#201e1d;
+      --muted:#474238;
+      --faint:#5c5449;
+      --border:#d5cab5;
+      --border-strong:#a19786;
+      --accent:#8c491a;
+      --accent-2:#643312;
+      --accent-3:#b2622d;
+      --on-accent:#f5ead8;
+      --ok:#4a5636;
+      --danger:#96301f;
+      --warning:#7a5312;
+      --info:#1f4f96;
+      --shadow:0 8px 28px rgba(46,43,37,.18);
+      --scroll-thumb:#c0b6a5;
+      --scroll-thumb-hover:#a19786;
       --scroll-track:transparent;
-      --select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d3d3d' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      --select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23474238' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -100,7 +100,13 @@
     .brand-mark{width:36px;height:36px;border-radius:0;display:grid;place-items:center;background:transparent;border:0;box-shadow:none;color:var(--text);font-weight:900;letter-spacing:-.05em;padding:0;flex:0 0 36px}
     .brand-copy strong{display:block;font-size:15px;font-weight:900;letter-spacing:.02em;color:var(--text)}
     .brand-copy span{display:block;margin-top:2px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
-    .brand-mark::before{content:"";width:100%;height:100%;display:block;background:currentColor;-webkit-mask:url("/assets/mardas-folio-mark-gui-mask.svg") center/contain no-repeat;mask:url("/assets/mardas-folio-mark-gui-mask.svg") center/contain no-repeat}
+    /* The mark is inlined rather than pulled in as a CSS mask. As a mask it
+       rendered as nothing: the `mask` shorthand leaves mask-mode at
+       match-source, Chromium resolves that to luminance for an SVG referenced
+       as an image, and the silhouette was black. Inline, it takes
+       currentColor directly, needs no request, and cannot 404. */
+    .brand-mark svg{width:100%;height:100%;display:block;color:inherit}
+    .brand-mark svg g{fill:currentColor}
     .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .btn,.seg button,select,input[type=text],input[type=number]{
       height:36px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--panel);color:var(--text);
@@ -110,7 +116,7 @@
     select{-webkit-appearance:none;appearance:none;padding-left:12px;padding-right:44px;text-overflow:ellipsis;background-color:var(--panel);background-image:var(--select-chevron);background-repeat:no-repeat;background-position:right 14px center;background-size:16px 16px;background-clip:padding-box}
     select::-ms-expand{display:none}
     body.light-mode select,body.light-mode input[type=text],body.light-mode input[type=number]{border-color:var(--border-strong)}
-    body.light-mode select{background-color:#fff;background-image:var(--select-chevron);background-repeat:no-repeat;background-position:right 14px center;background-size:16px 16px}
+    body.light-mode select{background-color:var(--panel);background-image:var(--select-chevron);background-repeat:no-repeat;background-position:right 14px center;background-size:16px 16px}
     .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;white-space:nowrap}
     .btn:hover,.seg button:hover{border-color:color-mix(in srgb, var(--accent) 58%, var(--border));background:var(--panel-2);transform:translateY(-1px)}
     .btn-primary{border:0;color:var(--on-accent);background:var(--accent);box-shadow:0 12px 30px color-mix(in srgb, var(--accent) 24%, transparent)}
@@ -138,7 +144,7 @@
     body.settings-collapsed .sidebar,body.settings-collapsed .settings-gutter{opacity:0;pointer-events:none;transform:translateX(-12px)}
     .settings-restore{position:fixed;z-index:70;top:76px;left:16px;width:42px;height:42px;border:1px solid var(--border);border-radius:var(--radius-lg);background:color-mix(in srgb, var(--panel) 90%, transparent);color:var(--text);box-shadow:var(--shadow);display:none;place-items:center;cursor:pointer;backdrop-filter:blur(14px)}
     .settings-restore:hover{border-color:var(--accent);background:var(--panel-2)}
-    body.light-mode .settings-restore{background:rgba(255,255,255,.94);border-color:var(--border-strong);box-shadow:0 12px 28px rgba(0,0,0,.14)}
+    body.light-mode .settings-restore{background:var(--panel);border-color:var(--border-strong);box-shadow:0 12px 28px rgba(0,0,0,.14)}
     body.settings-collapsed .settings-restore{display:grid}
     .sidebar-head,.pane-head{height:46px;min-height:46px;flex:0 0 46px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);background:color-mix(in srgb, var(--panel-2) 88%, var(--bg-soft));direction:ltr}
     .sidebar-head strong,.pane-head strong{font-size:11px;font-weight:900;letter-spacing:.11em;line-height:1;text-transform:uppercase;color:var(--muted);text-rendering:geometricPrecision}
@@ -281,8 +287,8 @@
       min-height:38px;border-color:var(--border-strong);background-color:color-mix(in srgb, var(--panel-2) 84%, #000 16%);
       box-shadow:inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
     }
-    body.light-mode .field input{background-color:#fff;box-shadow:inset 0 1px 0 rgba(0,0,0,.04)}
-    body.light-mode .field select{background-color:#fff;box-shadow:inset 0 1px 0 rgba(0,0,0,.04);background-image:var(--select-chevron);background-repeat:no-repeat;background-position:right 14px center;background-size:16px 16px}
+    body.light-mode .field input{background-color:var(--panel);box-shadow:inset 0 1px 0 rgba(0,0,0,.04)}
+    body.light-mode .field select{background-color:var(--panel);box-shadow:inset 0 1px 0 rgba(0,0,0,.04);background-image:var(--select-chevron);background-repeat:no-repeat;background-position:right 14px center;background-size:16px 16px}
     .switch{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0;user-select:none;cursor:pointer;color:var(--muted);font-size:11px;font-weight:850;line-height:1.35}
     .switch span{min-width:0}
     .switch input{appearance:none;width:46px;height:26px;border-radius:var(--radius-pill);border:1px solid color-mix(in srgb, var(--border-strong) 78%, transparent);background:color-mix(in srgb, var(--panel-3) 74%, #000 26%);position:relative;cursor:pointer;flex:0 0 auto;box-shadow:inset 0 1px 1px rgba(255,255,255,.05),inset 0 -1px 2px rgba(0,0,0,.28);transition:background .24s cubic-bezier(.2,.8,.2,1),border-color .2s ease,box-shadow .2s ease}
@@ -442,7 +448,7 @@
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 512 512" focusable="false"><g transform="translate(256 256) scale(2.72)" fill="currentColor"><g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g><g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g><g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g><g transform="rotate(270) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g></g></svg></span>
         <span class="brand-copy"><strong>Mardas Folio</strong><span>Markdown to PDF Engine · v__MARDAS_VERSION__</span></span>
       </div>
       <div class="toolbar" role="toolbar" aria-label="Studio toolbar">
