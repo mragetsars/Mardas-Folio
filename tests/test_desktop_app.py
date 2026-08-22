@@ -657,7 +657,15 @@ def test_editor_parses_front_matter_and_owns_its_syntax_palette() -> None:
 
     live = (DESKTOP / "editor-src" / "live-preview.mjs").read_text(encoding="utf-8")
 
-    assert "extensions: [frontmatter]" in editor
+    # The engine accepts more than CommonMark and GFM: `$x$` and `$$…$$`
+    # become MathJax and `[^id]` becomes a numbered footnote. Without a rule
+    # for each, the editor showed them as literal punctuation in the middle of
+    # a sentence, and a footnote reference rendered as a bare `^1` because the
+    # brackets around it were hidden as link marks.
+    assert "extensions: [frontmatter, mathAndFootnotes]" in editor
+    extras = (DESKTOP / "editor-src" / "markdown-extras.mjs").read_text(encoding="utf-8")
+    for node in ("InlineMath", "BlockMath", "FootnoteReference"):
+        assert f'"{node}"' in extras or f"name: \"{node}\"" in extras
     assert "codeLanguages: CODE_LANGUAGES" in editor
     # The app publishes GitHub-flavoured Markdown, so the editor has to parse
     # the same dialect; `markdown()` alone is CommonMark and drops tables,

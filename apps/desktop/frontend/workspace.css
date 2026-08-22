@@ -3774,15 +3774,17 @@ button:focus-visible,
 }
 
 /* A fenced block reads as one panel: the opener carries the rounded top and
- * the language chip, the closer the rounded bottom. */
+ * the language chip, the closer the rounded bottom.
+ *
+ * Geometry only. The chip's own appearance — small, upper case, letterspaced —
+ * belongs to `.cm-md-code-info`, and setting it on the whole opener line broke
+ * indented code blocks, whose "opener" is not a fence but the first line of
+ * the code itself: `Indented code block` was printed as
+ * `INDENTED CODE BLOCK`, in 11px, letterspaced, in the muted colour. */
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-open {
   border-top: 1px solid var(--ui-border);
   border-radius: var(--ui-radius) var(--ui-radius) 0 0;
   padding-top: 5px;
-  color: var(--ui-muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-close {
@@ -5131,4 +5133,114 @@ body[data-view="workspace"] main {
   margin-inline-start: auto;
   padding-inline-start: var(--ui-space-1);
   background: var(--ui-panel);
+}
+
+/* ==========================================================================
+   Live preview: constructs the decoration layer added
+   ========================================================================== */
+
+/* A fence's attributes are configuration, not part of its label. */
+.codemirror-mount .cm-md-code-attrs {
+  color: var(--cm-meta);
+  font-size: 0.85em;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* A character reference stands in for one character, so it inherits
+   everything around it and marks itself only on hover. */
+.codemirror-mount .cm-md-entity {
+  border-bottom: 1px dotted var(--ui-border-strong);
+}
+
+/* A link reference definition is metadata the author still has to edit: it is
+   quieted, not hidden, because nothing on the page stands in for it. */
+.codemirror-mount .cm-md-link-reference {
+  color: var(--cm-meta);
+  font-size: 0.92em;
+}
+
+/* ---- Math ---------------------------------------------------------------
+   A formula is set in the mono face because that is what the engine hands to
+   MathJax and what the author is actually editing: the editor does not
+   typeset it, it makes it legible as mathematics rather than as punctuation. */
+.codemirror-mount .cm-md-math {
+  padding: 0 2px;
+  border-radius: var(--ui-radius-xs);
+  background: var(--ui-accent-wash);
+  color: var(--cm-type);
+  font-family: var(--app-mono);
+  font-size: 0.94em;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-math-block {
+  padding-inline: var(--ui-space-4);
+  background: var(--ui-accent-wash);
+  text-align: center;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-math-block:first-of-type {
+  border-radius: var(--ui-radius) var(--ui-radius) 0 0;
+  padding-top: var(--ui-space-2);
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-math-block:last-of-type {
+  border-radius: 0 0 var(--ui-radius) var(--ui-radius);
+  padding-bottom: var(--ui-space-2);
+}
+
+/* ---- Footnotes ----------------------------------------------------------
+   A reference is a superscript marker in the published document, so it is one
+   here too. `vertical-align` rather than <sup>: the line's height has to stay
+   what CodeMirror measured, or the caret lands a line away from the click. */
+.codemirror-mount .cm-md-footnote {
+  color: var(--cm-link);
+  font-size: 0.78em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-footnote-def {
+  color: var(--cm-meta);
+  font-size: 0.94em;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-footnote-def .cm-md-footnote {
+  vertical-align: baseline;
+  font-size: 0.9em;
+}
+
+/* Inline code is a chip. The backticks are hidden, so without a ground of its
+   own the span was told from prose by colour alone — which is exactly the cue
+   that disappears for a reader who cannot rely on colour. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-inline-code {
+  padding: 0.1em 0.34em;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-xs);
+  background: var(--ui-panel-soft);
+  font-family: var(--app-mono);
+  font-size: 0.9em;
+}
+
+/* A quotation inside a quotation is nested in the published document, so it is
+   nested here. Each level adds its own rule and its own step of indent; the
+   depth comes from the line's own `>` markers. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-depth-2 {
+  padding-inline-start: calc(var(--ui-space-6) + var(--ui-space-3));
+  box-shadow: inset 3px 0 0 var(--ui-accent-line);
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-depth-3 {
+  padding-inline-start: calc(var(--ui-space-6) + var(--ui-space-6));
+  box-shadow: inset 3px 0 0 var(--ui-border-strong);
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-depth-4 {
+  padding-inline-start: calc(var(--ui-space-6) + var(--ui-space-8));
+  box-shadow: inset 3px 0 0 var(--ui-border-strong);
+}
+
+html[dir="rtl"] .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-depth-2,
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-block-rtl.cm-quote-depth-2 {
+  box-shadow: inset -3px 0 0 var(--ui-accent-line);
 }

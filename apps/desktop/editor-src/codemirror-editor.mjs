@@ -19,6 +19,7 @@ import { basicSetup } from "codemirror";
 import { mardasEditorAppearance } from "./editor-theme.mjs";
 import { editorModeExtension, normalizeEditorMode } from "./live-preview.mjs";
 import { markdownCommandKeymap, runMarkdownCommand } from "./markdown-commands.mjs";
+import { mathAndFootnotes } from "./markdown-extras.mjs";
 import { frontmatter } from "./markdown-frontmatter.mjs";
 import { typewriterExtension } from "./typewriter.mjs";
 
@@ -217,7 +218,7 @@ export function createCodeMirrorEditorAdapter(
         markdown({
           base: markdownLanguage,
           codeLanguages: CODE_LANGUAGES,
-          extensions: [frontmatter],
+          extensions: [frontmatter, mathAndFootnotes],
         }),
         // Prose has to wrap. A horizontal scrollbar under a paragraph forces
         // the reader to pan back and forth for every line, which is unusable

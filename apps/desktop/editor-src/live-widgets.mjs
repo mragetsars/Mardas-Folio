@@ -209,6 +209,36 @@ class RuleWidget extends WidgetType {
  * edit through a control, not the preview layer reconciling the document with
  * what it painted.
  */
+/**
+ * A character reference, shown as the character it references.
+ *
+ * `&mdash;` is an em dash in every rendering of the document except the one
+ * the author is looking at while they write it. The widget is inert — no
+ * events, no interaction — because it stands in for a single character; put
+ * the caret on the line and the source comes back like every other mark.
+ */
+export class EntityWidget extends WidgetType {
+  constructor(character) {
+    super();
+    this.character = character;
+  }
+
+  eq(other) {
+    return other.character === this.character;
+  }
+
+  toDOM() {
+    const span = document.createElement("span");
+    span.className = "cm-md-entity";
+    span.textContent = this.character;
+    return span;
+  }
+
+  ignoreEvent() {
+    return true;
+  }
+}
+
 export class TaskWidget extends WidgetType {
   constructor(checked, from, to) {
     super();
@@ -323,6 +353,9 @@ export function parseImage(markup) {
 }
 
 /** Time budget for forcing the parse; beyond it, use whatever is ready. */
+/** Setext headings: a title line plus a `===` or `---` rule under it. */
+const SETEXT_HEADINGS = new Set(["SetextHeading1", "SetextHeading2"]);
+
 const PARSE_BUDGET_MS = 100;
 
 function buildBlockDecorations(state) {
@@ -362,6 +395,20 @@ function buildBlockDecorations(state) {
             block: true,
           }),
         ]);
+        return false;
+      }
+      // `Title` over `=====` is one heading occupying two lines. The rule
+      // underneath is scaffolding, and hiding only its characters leaves an
+      // empty line holding the height of one. Replacing from the end of the
+      // title through the end of the rule takes the line break with it — which
+      // only a state field may do; attempted from the view plugin CodeMirror
+      // rejects it with "decorations that replace line breaks may not be
+      // specified via plugins" and drops every decoration in the batch.
+      if (SETEXT_HEADINGS.has(node.name) && !spansActiveLine(state, active, node)) {
+        const titleLine = state.doc.lineAt(node.from);
+        if (titleLine.to < node.to) {
+          items.push([titleLine.to, node.to, Decoration.replace({})]);
+        }
         return false;
       }
       if (node.name === "HorizontalRule" && !spansActiveLine(state, active, node)) {
