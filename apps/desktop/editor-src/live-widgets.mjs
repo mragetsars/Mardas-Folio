@@ -239,6 +239,41 @@ export class EntityWidget extends WidgetType {
   }
 }
 
+/**
+ * An unordered list's marker, as the reader will see it.
+ *
+ * `-`, `*` and `+` are three spellings of one bullet: the engine emits a plain
+ * `<ul>`, and every stylesheet it ships leaves the browser default in place,
+ * so a published list steps through disc, circle and square as it nests. The
+ * editor showed the literal hyphen instead, which read as a stray dash down
+ * the left edge of the document rather than as a list.
+ *
+ * The marker stays *visible* — it is content, not scaffolding, which is why
+ * `ListMark` is not simply hidden — it is only spelled the way it prints.
+ */
+export class BulletWidget extends WidgetType {
+  constructor(depth) {
+    super();
+    this.depth = depth;
+  }
+
+  eq(other) {
+    return other.depth === this.depth;
+  }
+
+  toDOM() {
+    const span = document.createElement("span");
+    span.className = "cm-md-bullet";
+    // disc, circle, square — the sequence a browser walks as `<ul>` nests.
+    span.textContent = ["\u2022", "\u25e6", "\u25aa"][this.depth % 3];
+    return span;
+  }
+
+  ignoreEvent() {
+    return true;
+  }
+}
+
 export class TaskWidget extends WidgetType {
   constructor(checked, from, to) {
     super();

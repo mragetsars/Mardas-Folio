@@ -81,7 +81,10 @@ EXPECTATIONS: list[tuple[str, str, int]] = [
     ("h1", ".cm-md-h1", 1),
     ("h6", ".cm-md-h6", 1),
     ("list line", ".cm-md-list-line", 12),
-    ("list marker", ".cm-md-list-mark", 8),
+    # Ordered markers keep their number and stay marks; unordered ones are
+    # replaced by the bullet glyph the engine prints.
+    ("ordered marker", ".cm-md-list-mark", 3),
+    ("bullet glyph", ".cm-md-bullet", 5),
     ("task checkbox", ".cm-md-task", 3),
     ("quote line", ".cm-quote-line", 3),
     ("callout", ".cm-md-callout", 5),
@@ -120,6 +123,120 @@ MEASURE_JS = """(selectors) => {
   // than the one the caret is on.
   return out;
 }"""
+
+
+#: (label, text as it renders once decorated, mark that must come back)
+REVEAL_CASES = [
+    ("heading", "Heading one", "#"),
+    # KNOWN FAILURE. Clicking this line in live mode does not put the caret on
+    # it: the active line comes back empty, and the `$` never return. The same
+    # click at the same coordinates works in `--mode source`, so it is the live
+    # decorations rather than the harness's hit-testing, and it is not the
+    # `.cm-md-math` styling — stripping that rule to a bare `color` changes
+    # nothing. Left in the table on purpose: it is the one construct whose
+    # source cannot be reached by clicking, and deleting the check would hide
+    # that. See [[open-lead-live-math-caret]].
+    ("inline math", "Inline math", "$"),
+    ("bullet", "Unordered item", "-"),
+    ("inline code", "inline code", "`"),
+    ("link", "and a", "]("),
+]
+
+
+def check_caret_reveals_source(page: Any, _text: str) -> list[dict[str, Any]]:
+    """Put the caret on each construct and confirm its source comes back.
+
+    The line is reached by clicking the rendered text, not by counting
+    ArrowDown presses: live preview collapses ranges and replaces others with
+    block widgets, so vertical movement and document line numbers are
+    deliberately not the same thing.
+    """
+    results: list[dict[str, Any]] = []
+    for label, rendered, mark in REVEAL_CASES:
+        # CodeMirror only keeps the viewport in the DOM, so the line has to be
+        # scrolled to before it can be clicked. Stepping down from the top
+        # finds it; centring it then guarantees the click lands on the line
+        # rather than on whichever one happens to straddle the viewport edge.
+        page.evaluate("() => { document.querySelector('.cm-scroller').scrollTop = 0; }")
+        page.wait_for_timeout(220)
+        target = None
+        for _ in range(40):
+            target = page.evaluate(
+                """(rendered) => {
+                    for (const line of document.querySelectorAll('.cm-line')) {
+                        if (!line.textContent.includes(rendered)) continue;
+                        line.scrollIntoView({block: "center"});
+                        const box = line.getBoundingClientRect();
+                        return {x: box.left + 6, y: box.top + Math.min(box.height / 2, 10)};
+                    }
+                    return null;
+                }""",
+                rendered,
+            )
+            if isinstance(target, dict):
+                page.wait_for_timeout(200)
+                target = page.evaluate(
+                    """(rendered) => {
+                        for (const line of document.querySelectorAll('.cm-line')) {
+                            if (!line.textContent.includes(rendered)) continue;
+                            const box = line.getBoundingClientRect();
+                            return {x: box.left + 6, y: box.top + Math.min(box.height / 2, 10)};
+                        }
+                        return null;
+                    }""",
+                    rendered,
+                )
+                break
+            moved = page.evaluate(
+                """() => {
+                    const s = document.querySelector('.cm-scroller');
+                    const before = s.scrollTop;
+                    s.scrollTop = before + 260;
+                    return s.scrollTop - before;
+                }"""
+            )
+            page.wait_for_timeout(180)
+            if moved < 5:
+                target = None
+                break
+        if not isinstance(target, dict):
+            results.append({"case": label, "ok": False, "why": "not rendered"})
+            continue
+        page.mouse.click(target["x"], target["y"])
+        page.wait_for_timeout(200)
+        # Confirm the caret actually landed on the construct's line before
+        # judging what that line shows. Hit-testing a virtualized, decorated
+        # editor is not reliable enough to assume it: a click that lands one
+        # line off reports an empty active line and looks exactly like the
+        # decoration failing to yield.
+        for _ in range(4):
+            on_line = page.evaluate(
+                """(rendered) => {
+                    const active = document.querySelector('.cm-activeLine');
+                    if (!active) return false;
+                    return active.textContent.includes(rendered)
+                        || active.textContent.includes(rendered.replace(/\s+/g, " "));
+                }""",
+                rendered,
+            )
+            if on_line:
+                break
+            page.keyboard.press("ArrowDown")
+            page.wait_for_timeout(140)
+        seen = page.evaluate(
+            """(mark) => {
+                const active = document.querySelector('.cm-activeLine');
+                if (!active) return {ok: false, text: null};
+                const text = active.textContent;
+                return {ok: text.includes(mark), text: text.slice(0, 90)};
+            }""",
+            mark,
+        )
+        entry = {"case": label, "ok": bool(seen["ok"])}
+        if not seen["ok"]:
+            entry["why"] = f"active line reads {seen['text']!r}"
+        results.append(entry)
+    return results
 
 
 def run(dist: Path, corpus: Path, output: Path, *, mode: str, theme: str) -> dict[str, Any]:
@@ -222,6 +339,15 @@ def run(dist: Path, corpus: Path, output: Path, *, mode: str, theme: str) -> dic
                 break
         report["counts"] = totals
         report["shots"] = shots
+
+        # The premise of live preview is that it is still an editor: the line
+        # the caret is on shows its raw marks, so a link's target or a
+        # formula's source can be reached by clicking into it. A decoration
+        # that forgets to check the active line turns the mode into a preview
+        # you cannot edit, and nothing else in this audit would notice.
+        report["editable"] = (
+            check_caret_reveals_source(page, text) if mode == "write" else []
+        )
         report["page_errors"] = errors
         browser.close()
 
@@ -257,6 +383,13 @@ def main(argv: list[str] | None = None) -> int:
         if found < minimum:
             missing.append(label)
         print(f"{flag} {found:4}/{minimum:<4} {label:32} {selector}")
+    editable = report.get("editable") or []
+    if editable:
+        print()
+        for item in editable:
+            flag = "ok " if item.get("ok") else "GAP"
+            note = f"  ({item['why']})" if item.get("why") else ""
+            print(f"{flag} caret reveals source: {item['case']}{note}")
     if report["page_errors"]:
         print("\npage errors:")
         for error in report["page_errors"][:5]:

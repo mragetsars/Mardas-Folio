@@ -5193,11 +5193,13 @@ body[data-view="workspace"] main {
    A reference is a superscript marker in the published document, so it is one
    here too. `vertical-align` rather than <sup>: the line's height has to stay
    what CodeMirror measured, or the caret lands a line away from the click. */
+/* `vertical-align: super` without touching line-height: CodeMirror measures
+   every line to map a click to a document position, and a zero line-height on
+   an inline span changes the line box it already measured. */
 .codemirror-mount .cm-md-footnote {
   color: var(--cm-link);
   font-size: 0.78em;
   vertical-align: super;
-  line-height: 0;
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-footnote-def {
@@ -5243,4 +5245,13 @@ body[data-view="workspace"] main {
 html[dir="rtl"] .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-depth-2,
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-block-rtl.cm-quote-depth-2 {
   box-shadow: inset -3px 0 0 var(--ui-accent-line);
+}
+
+/* The bullet glyph stands in for `-`, `*` or `+`. It occupies the width of the
+   marker it replaces so the text beside it does not shift as the caret enters
+   the line and the source comes back. */
+.codemirror-mount .cm-md-bullet {
+  display: inline-block;
+  min-width: 1ch;
+  color: var(--cm-list);
 }

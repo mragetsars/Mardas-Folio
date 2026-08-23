@@ -17,6 +17,7 @@ import { Facet, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin } from "@codemirror/view";
 
 import {
+  BulletWidget,
   EntityWidget,
   ImageWidget,
   TaskWidget,
@@ -173,6 +174,18 @@ function blockIsRtl(text) {
    restart under its bullet, and the bullet itself can be told from the text. */
 const listLine = Decoration.line({ class: "cm-md-list-line" });
 const listMark = Decoration.mark({ class: "cm-md-list-mark" });
+
+/** The three spellings of one bullet. An ordered marker keeps its number. */
+const BULLET_SPELLINGS = new Set(["-", "*", "+"]);
+
+/** How deeply an item nests, which is what chooses its bullet glyph. */
+function bulletDepth(node) {
+  let depth = -1;
+  for (let at = node.node; at; at = at.parent) {
+    if (at.name === "BulletList") depth += 1;
+  }
+  return Math.max(depth, 0);
+}
 const codeOpenLine = Decoration.line({ class: "cm-code-line cm-code-open" });
 const codeCloseLine = Decoration.line({ class: "cm-code-line cm-code-close" });
 
@@ -463,9 +476,18 @@ function buildDecorations(view) {
           const after = state.doc.sliceString(node.to, Math.min(node.to + 5, state.doc.length));
           if (/^\s*\[[ xX]\]/.test(after)) {
             marks.push([node.from, swallowSpace(state, node.to)]);
-          } else {
-            marks.push([node.from, node.to, listMark]);
+            return;
           }
+          const spelling = state.doc.sliceString(node.from, node.to);
+          if (BULLET_SPELLINGS.has(spelling)) {
+            marks.push([
+              node.from,
+              node.to,
+              Decoration.replace({ widget: new BulletWidget(bulletDepth(node)) }),
+            ]);
+            return;
+          }
+          marks.push([node.from, node.to, listMark]);
           return;
         }
         // Only the backticks of an inline span; a fence keeps its marker.
