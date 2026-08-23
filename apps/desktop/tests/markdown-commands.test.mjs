@@ -150,7 +150,7 @@ test("formatting keys are bound inside the editor, above everything else", () =>
     new URL("../editor-src/codemirror-editor.mjs", import.meta.url),
     "utf8",
   );
-  assert.match(editor, /Prec\.highest\(keymap\.of\(\[\.\.\.markdownCommandKeymap\(\)/);
+  assert.match(editor, /Prec\.highest\(keymap\.of\(\[\s*\.\.\.markdownCommandKeymap\(\)/);
   assert.match(editor, /runCommand\(name\)/);
 });
 
@@ -177,7 +177,7 @@ test("the editor does not open a second search panel", () => {
   const block = editor.split("const APPLICATION_OWNED_KEYS = [", 1)[1] ?? "";
   const claimed = [...editor.matchAll(/key:\s*"(Mod-[fh])"/g)].map((m) => m[1]);
   assert.deepEqual(claimed.sort(), ["Mod-f", "Mod-h"]);
-  assert.match(editor, /markdownCommandKeymap\(\), \.\.\.APPLICATION_OWNED_KEYS/);
+  assert.match(editor, /\.\.\.markdownCommandKeymap\(\),\s*\.\.\.APPLICATION_OWNED_KEYS/);
 });
 
 test("focus mode restates the workspace rows it empties", () => {

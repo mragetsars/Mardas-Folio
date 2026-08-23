@@ -239,6 +239,49 @@ def check_caret_reveals_source(page: Any, _text: str) -> list[dict[str, Any]]:
     return results
 
 
+# Typing behaviours every Markdown editor is expected to have. Each case types
+# `seed`, presses `keys`, and asserts the buffer afterwards.
+TYPING_CASES = [
+    ("bullet continues", "- first", ["Enter"], "- first\n- "),
+    # Enter on an empty item clears the marker and leaves the caret on the
+    # blank line: you are out of the list, with no stray line to delete.
+    ("bullet ends on empty", "- first", ["Enter", "Enter"], "- first\n"),
+    ("task ends on empty", "- [ ] a", ["Enter", "Enter"], "- [ ] a\n"),
+    ("quote ends on empty", "> a", ["Enter", "Enter"], "> a\n"),
+    ("nested bullet outdents", "  - deep", ["Enter", "Enter"], "  - deep\n"),
+    ("ordered continues", "1. first", ["Enter"], "1. first\n2. "),
+    ("task continues", "- [x] done", ["Enter"], "- [x] done\n- [ ] "),
+    ("quote continues", "> quoted", ["Enter"], "> quoted\n> "),
+    ("backspace clears markup", "- ", ["Backspace"], ""),
+]
+
+
+def check_typing_behaviour(page: Any) -> list[dict[str, Any]]:
+    """Type into the real editor and read the buffer back.
+
+    These are the behaviours that make a Markdown editor feel like one, and
+    none of them show up in a screenshot: pressing Enter in a list either
+    continues it or it does not.
+    """
+    results: list[dict[str, Any]] = []
+    for label, seed, keys, expect in TYPING_CASES:
+        page.locator(".cm-content").click()
+        page.keyboard.press("Control+a")
+        page.keyboard.press("Delete")
+        page.wait_for_timeout(80)
+        page.keyboard.insert_text(seed)
+        page.wait_for_timeout(120)
+        for key in keys:
+            page.keyboard.press(key)
+            page.wait_for_timeout(260)
+        got = page.evaluate("() => document.querySelector('#markdown-editor').value")
+        entry: dict[str, Any] = {"case": label, "ok": got == expect}
+        if not entry["ok"]:
+            entry["why"] = f"buffer is {got!r}, expected {expect!r}"
+        results.append(entry)
+    return results
+
+
 def run(dist: Path, corpus: Path, output: Path, *, mode: str, theme: str) -> dict[str, Any]:
     from playwright.sync_api import sync_playwright
 
@@ -348,6 +391,9 @@ def run(dist: Path, corpus: Path, output: Path, *, mode: str, theme: str) -> dic
         report["editable"] = (
             check_caret_reveals_source(page, text) if mode == "write" else []
         )
+        # Typing is checked last: it rewrites the buffer, so everything that
+        # reads the corpus has to have run already.
+        report["typing"] = check_typing_behaviour(page) if mode == "write" else []
         report["page_errors"] = errors
         browser.close()
 
@@ -390,6 +436,13 @@ def main(argv: list[str] | None = None) -> int:
             flag = "ok " if item.get("ok") else "GAP"
             note = f"  ({item['why']})" if item.get("why") else ""
             print(f"{flag} caret reveals source: {item['case']}{note}")
+    typing = report.get("typing") or []
+    if typing:
+        print()
+        for item in typing:
+            flag = "ok " if item.get("ok") else "GAP"
+            note = f"  ({item['why']})" if item.get("why") else ""
+            print(f"{flag} typing: {item['case']}{note}")
     if report["page_errors"]:
         print("\npage errors:")
         for error in report["page_errors"][:5]:

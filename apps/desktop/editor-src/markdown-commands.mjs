@@ -336,6 +336,48 @@ export const MARKDOWN_KEY_BINDINGS = Object.freeze([
   { key: "Mod-Alt-6", command: "heading-6" },
 ]);
 
+/**
+ * An empty list item or quote line, and nothing else on it.
+ *
+ * `- `, `* `, `1. `, `1) `, `- [ ] `, `> ` — with any leading indent. The
+ * task marker is optional so an empty checkbox is dismissed the same way an
+ * empty bullet is.
+ */
+const EMPTY_BLOCK_LINE = /^(\s*)(?:[-*+]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]*)?$|^(\s*)>[ \t]*$/;
+
+/**
+ * Pressing Enter on an empty list item leaves the list.
+ *
+ * CodeMirror's own `insertNewlineContinueMarkup` pushes the empty item down a
+ * line instead, so `- one`, Enter, Enter leaves the caret in a third bullet
+ * with a blank line above it and no way out but Backspace. Every Markdown
+ * editor people actually write in — Typora, Obsidian, the CodeMirror-based
+ * ones that followed them — treats the second Enter as "I am done with this
+ * list" and clears the marker.
+ *
+ * Returns false for anything that is not an empty construct, so the language
+ * package's continuation keeps handling the ordinary case.
+ */
+export function exitEmptyBlock(view) {
+  const { state } = view;
+  const { main } = state.selection;
+  if (!main.empty) return false;
+  const line = state.doc.lineAt(main.head);
+  const match = EMPTY_BLOCK_LINE.exec(line.text);
+  if (!match) return false;
+  // Keep the indent: an empty item nested inside another list should fall
+  // back to the enclosing level rather than all the way to the margin.
+  const indent = match[1] ?? match[2] ?? "";
+  const outdented = indent.length >= 2 ? indent.slice(0, -2) : "";
+  view.dispatch({
+    changes: { from: line.from, to: line.to, insert: outdented },
+    selection: { anchor: line.from + outdented.length },
+    scrollIntoView: true,
+    userEvent: "input",
+  });
+  return true;
+}
+
 /** The bindings as CodeMirror expects them. */
 export function markdownCommandKeymap() {
   return MARKDOWN_KEY_BINDINGS.map(({ key, command }) => ({

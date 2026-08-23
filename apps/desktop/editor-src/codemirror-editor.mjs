@@ -3,7 +3,12 @@ import { indentWithTab, redo, undo } from "@codemirror/commands";
 import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
 import { javascript } from "@codemirror/lang-javascript";
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import {
+  markdown,
+  markdownKeymap,
+  markdownLanguage,
+  pasteURLAsLink,
+} from "@codemirror/lang-markdown";
 import { LanguageDescription } from "@codemirror/language";
 import { setDiagnostics } from "@codemirror/lint";
 import {
@@ -18,7 +23,11 @@ import { basicSetup } from "codemirror";
 
 import { mardasEditorAppearance } from "./editor-theme.mjs";
 import { editorModeExtension, normalizeEditorMode } from "./live-preview.mjs";
-import { markdownCommandKeymap, runMarkdownCommand } from "./markdown-commands.mjs";
+import {
+  exitEmptyBlock,
+  markdownCommandKeymap,
+  runMarkdownCommand,
+} from "./markdown-commands.mjs";
 import { mathAndFootnotes } from "./markdown-extras.mjs";
 import { frontmatter } from "./markdown-frontmatter.mjs";
 import { typewriterExtension } from "./typewriter.mjs";
@@ -232,7 +241,31 @@ export function createCodeMirrorEditorAdapter(
         // instead, they could not see that CodeMirror had already acted on the
         // same key — which is how Ctrl+I came to expand the selection to its
         // parent syntax node *and* wrap the result in underscores.
-        Prec.highest(keymap.of([...markdownCommandKeymap(), ...APPLICATION_OWNED_KEYS])),
+        Prec.highest(keymap.of([
+          ...markdownCommandKeymap(),
+          ...APPLICATION_OWNED_KEYS,
+          // Ahead of the continuation rule: an empty item is a request to
+          // leave the list, not to carry it further down the page. It has to
+          // sit in this keymap rather than beside `markdownKeymap` — a second
+          // binding for the same key in the same keymap never got a turn.
+          { key: "Enter", run: exitEmptyBlock },
+        ])),
+        // Enter continues the construct the caret is in, and Backspace at the
+        // head of one removes its markup. Without this the editor had no
+        // Enter binding at all: pressing it inside a list produced a bare
+        // line, so every bullet after the first had to be typed by hand, and
+        // an empty bullet had to be deleted character by character instead of
+        // being dismissed by pressing Enter again. It is the one editing
+        // behaviour every Markdown editor is expected to have, and it ships
+        // with the language package.
+        // Above `basicSetup`'s own Enter binding. At default precedence both
+        // ran: pressing Enter on an empty bullet removed the marker *and*
+        // then inserted a fresh one, so a list could not be left by pressing
+        // Enter twice — it grew a blank line and another bullet.
+        Prec.high(keymap.of(markdownKeymap)),
+        // Pasting a URL over selected text makes a link out of it rather than
+        // replacing the text with the address.
+        pasteURLAsLink,
         keymap.of([indentWithTab]),
         autocompletion({
           activateOnTyping: true,
