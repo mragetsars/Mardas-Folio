@@ -357,6 +357,94 @@ def contrast(dist: Path) -> dict[str, Any]:
     return report
 
 
+# The window sizes the product claims to support. 720x620 is the shell's own
+# declared minimum (`min-width`/`min-height` in styles.css).
+VIEWPORTS = [(720, 620), (1024, 768), (1280, 900), (1440, 900), (1920, 1080)]
+
+RESPONSIVE_JS = """() => {
+  const doc = document.documentElement;
+  const problems = [];
+
+  if (doc.scrollWidth > doc.clientWidth + 1) {
+    problems.push(`page scrolls horizontally by ${doc.scrollWidth - doc.clientWidth}px`);
+  }
+
+  // Every control the user needs to keep working must be on screen and big
+  // enough to hit. 24px is the floor WCAG 2.2 AA sets for a pointer target.
+  const required = {
+    "#workspace-save": "save",
+    "#workspace-export": "create PDF",
+    "#workspace-validate": "check document",
+    "#settings-button": "settings",
+    "#command-button": "command palette",
+    "#workspace-toggle-sidebar": "sidebar toggle",
+  };
+  for (const [selector, label] of Object.entries(required)) {
+    const el = document.querySelector(selector);
+    if (!el) { problems.push(`${label} is missing`); continue; }
+    const box = el.getBoundingClientRect();
+    if (box.width < 1 || box.height < 1) { problems.push(`${label} is not rendered`); continue; }
+    if (box.right < 1 || box.left > doc.clientWidth - 1
+        || box.bottom < 1 || box.top > doc.clientHeight - 1) {
+      problems.push(`${label} is off screen`);
+      continue;
+    }
+    if (box.height < 24 || box.width < 24) {
+      problems.push(`${label} is ${Math.round(box.width)}x${Math.round(box.height)}, under the 24px floor`);
+    }
+  }
+
+  // A pane track that has collapsed to nothing takes the document with it.
+  const editor = document.querySelector(".editor-pane");
+  if (editor) {
+    const box = editor.getBoundingClientRect();
+    if (box.width < 240) problems.push(`editor pane is only ${Math.round(box.width)}px wide`);
+  }
+
+  // Anything painted past the right edge is clipped rather than reflowed.
+  for (const el of document.querySelectorAll(".shell *")) {
+    if (el.offsetParent === null) continue;
+    const box = el.getBoundingClientRect();
+    if (box.width < 4 || box.height < 4) continue;
+    if (box.left >= doc.clientWidth) {
+      const name = el.id ? "#" + el.id : (el.className || el.tagName).toString().slice(0, 40);
+      problems.push(`${name} starts past the right edge`);
+      break;
+    }
+  }
+  return problems;
+}"""
+
+
+def responsive(dist: Path, *, locale: str = "en", theme: str = "light") -> dict[str, Any]:
+    """Check that nothing the user needs is clipped, shrunk away or unreachable.
+
+    Desktop software still has to survive a small window. The failure this
+    catches is not cosmetic: a control that has scrolled off the edge or
+    collapsed under the pointer-target floor cannot be used at all.
+    """
+    from playwright.sync_api import sync_playwright
+
+    findings: dict[str, Any] = {}
+    with _serve(dist) as url, sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        for width, height in VIEWPORTS:
+            page = browser.new_context(viewport={"width": width, "height": height}).new_page()
+            page.set_default_timeout(30_000)
+            page.add_init_script(INIT_SCRIPT)
+            page.goto(url, wait_until="networkidle")
+            _dismiss_onboarding(page)
+            if theme != "light" or locale != "en":
+                _apply(page, theme, locale)
+            page.locator("[data-template-id='report']").click()
+            page.locator(".codemirror-mount .cm-editor").wait_for(state="visible")
+            page.wait_for_timeout(500)
+            findings[f"{width}x{height}"] = page.evaluate(RESPONSIVE_JS)
+            page.close()
+        browser.close()
+    return findings
+
+
 def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
     from playwright.sync_api import sync_playwright
 
@@ -426,12 +514,14 @@ def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("mode", choices=("measure", "shoot", "contrast"))
+    parser.add_argument("mode", choices=("measure", "shoot", "contrast", "responsive"))
     parser.add_argument("--dist", type=Path, default=DEFAULT_DIST)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--only", default=None, help="one of light-en, dark-en, light-fa, dark-fa")
     parser.add_argument("--view-mode", default="split", choices=("write", "source", "split"))
     parser.add_argument("--label", default="")
+    parser.add_argument("--locale", default="en", choices=("en", "fa"))
+    parser.add_argument("--theme", default="light", choices=("light", "dark"))
     args = parser.parse_args(argv)
 
     dist = args.dist.resolve(strict=True)
@@ -441,6 +531,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"--- {args.label}")
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         return 0
+
+    if args.mode == "responsive":
+        findings = responsive(dist, locale=args.locale, theme=args.theme)
+        total = 0
+        for size, problems in findings.items():
+            if not problems:
+                print(f"ok   {size}")
+                continue
+            for problem in problems:
+                total += 1
+                print(f"FAIL {size:10} {problem}")
+        print(f"\n{total} problem(s) across {len(findings)} window sizes")
+        return 1 if total else 0
 
     if args.mode == "contrast":
         report = contrast(dist)
