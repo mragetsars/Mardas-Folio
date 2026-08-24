@@ -76,6 +76,25 @@ const isAlignmentRow = (cells) => cells.every((cell) => /^:?-{1,}:?$/.test(cell.
  * tooltip or panel over the cell — rather than an editable inside it. Clicking
  * the table still opens its Markdown for editing.
  */
+/**
+ * Why every block widget below declares `estimatedHeight`.
+ *
+ * CodeMirror only draws the viewport. For everything outside it, the height
+ * map is built from estimates, and a widget that does not declare one is
+ * assumed to be a single line. A table replacing five lines with a widget
+ * nine lines tall therefore left the map wrong by the difference for every
+ * position after it — so a click below a table landed on a different line
+ * than the one under the pointer, and the caret could not be put on it at
+ * all. It only reproduced in documents long enough to scroll, because once a
+ * widget has been drawn its real height replaces the estimate.
+ *
+ * The numbers are approximations on purpose: they only have to be close
+ * enough that the map is not badly wrong before the widget is measured.
+ */
+
+/** Roughly one line of the editor's own type, in pixels. */
+const LINE_HEIGHT = 26;
+
 class TableWidget extends WidgetType {
   constructor(markup, from, to) {
     super();
@@ -90,6 +109,13 @@ class TableWidget extends WidgetType {
 
   rows() {
     return this.markup.split("\n").filter((line) => line.trim()).map(splitRow);
+  }
+
+  /** Header, body rows, cell padding and the wrapper's own border. */
+  get estimatedHeight() {
+    const rows = this.markup.split("\n").filter((line) => line.trim()).length;
+    // The delimiter row (`| --- |`) is markup, not a row that gets drawn.
+    return Math.max(1, rows - 1) * (LINE_HEIGHT + 8) + 16;
   }
 
   toDOM() {
@@ -188,6 +214,10 @@ export class ImageWidget extends WidgetType {
 class RuleWidget extends WidgetType {
   eq() {
     return true;
+  }
+
+  get estimatedHeight() {
+    return LINE_HEIGHT;
   }
 
   toDOM() {
@@ -323,6 +353,11 @@ class FrontMatterWidget extends WidgetType {
 
   eq(other) {
     return other.markup === this.markup;
+  }
+
+  /** Collapsed to one summary row whatever the metadata's length. */
+  get estimatedHeight() {
+    return LINE_HEIGHT + 18;
   }
 
   /** The handful of keys worth showing without opening the block. */

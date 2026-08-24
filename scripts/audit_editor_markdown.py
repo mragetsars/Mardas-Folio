@@ -128,14 +128,16 @@ MEASURE_JS = """(selectors) => {
 #: (label, text as it renders once decorated, mark that must come back)
 REVEAL_CASES = [
     ("heading", "Heading one", "#"),
-    # KNOWN FAILURE. Clicking this line in live mode does not put the caret on
-    # it: the active line comes back empty, and the `$` never return. The same
-    # click at the same coordinates works in `--mode source`, so it is the live
-    # decorations rather than the harness's hit-testing, and it is not the
-    # `.cm-md-math` styling — stripping that rule to a bare `color` changes
-    # nothing. Left in the table on purpose: it is the one construct whose
-    # source cannot be reached by clicking, and deleting the check would hide
-    # that. See [[open-lead-live-math-caret]].
+    # KNOWN FAILURE, and wider than it looks. Clicking this line does not put
+    # the caret on it: the active line comes back empty and the `$` never
+    # return. Bisecting the corpus puts the boundary at document *length*, not
+    # at this construct — 36 lines above the target works, 38 fails, which is
+    # where the document starts to scroll. Math is simply the case this table
+    # happens to click. Ruled out: the harness (source mode works), the
+    # construct (math works in a short document after every other block),
+    # atomicRanges, the `.cm-md-math` styling, replace-versus-shrink marks,
+    # widget height estimation, and a measurement race. Left here on purpose:
+    # a line that cannot be clicked into is not previewed, it is locked.
     ("inline math", "Inline math", "$"),
     ("bullet", "Unordered item", "-"),
     ("inline code", "inline code", "`"),
@@ -174,18 +176,31 @@ def check_caret_reveals_source(page: Any, _text: str) -> list[dict[str, Any]]:
                 rendered,
             )
             if isinstance(target, dict):
-                page.wait_for_timeout(200)
-                target = page.evaluate(
-                    """(rendered) => {
-                        for (const line of document.querySelectorAll('.cm-line')) {
-                            if (!line.textContent.includes(rendered)) continue;
-                            const box = line.getBoundingClientRect();
-                            return {x: box.left + 6, y: box.top + Math.min(box.height / 2, 10)};
-                        }
-                        return null;
-                    }""",
-                    rendered,
-                )
+                # CodeMirror estimates the height of lines it has not measured
+                # yet, so immediately after scrolling into a long document the
+                # painted position of a line still moves. Clicking on the first
+                # measurement lands wherever the line used to be. Wait for the
+                # box to stop moving before trusting it.
+                previous = None
+                for _ in range(20):
+                    page.wait_for_timeout(120)
+                    target = page.evaluate(
+                        """(rendered) => {
+                            for (const line of document.querySelectorAll('.cm-line')) {
+                                if (!line.textContent.includes(rendered)) continue;
+                                const box = line.getBoundingClientRect();
+                                return {x: box.left + 30, y: box.top + box.height / 2,
+                                        top: Math.round(box.top)};
+                            }
+                            return null;
+                        }""",
+                        rendered,
+                    )
+                    if not isinstance(target, dict):
+                        break
+                    if previous is not None and abs(target["top"] - previous) < 2:
+                        break
+                    previous = target["top"]
                 break
             moved = page.evaluate(
                 """() => {
