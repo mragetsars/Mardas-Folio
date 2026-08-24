@@ -145,11 +145,11 @@ function blockMetrics(view, element, flowTop) {
 const DECK_CSS = `
 html.pv-frame {
   height: 100%;
-  background: #6f6f6f !important;
+  background: #dcd3c4 !important;
   overflow: auto;
   scrollbar-width: thin;
 }
-html.pv-frame.pv-dark { background: #2a2a2a !important; }
+html.pv-frame.pv-dark { background: #201e1d !important; }
 body.pv-frame-body {
   margin: 0 !important;
   min-height: 100%;
@@ -206,7 +206,7 @@ body.pv-frame-body {
   bottom: var(--pv-margin-bottom);
   left: var(--pv-margin-x);
   right: var(--pv-margin-x);
-  border: 1px dashed rgba(140, 140, 140, 0.55);
+  border: 1px dashed rgba(161, 151, 134, 0.7);
   pointer-events: none;
   display: none;
 }
@@ -217,7 +217,7 @@ body[data-guides="true"] .pv-page:not([data-kind="cover"]) .pv-guide { display: 
   top: 8px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: rgba(20, 20, 20, 0.55);
+  background: rgba(32, 30, 29, 0.62);
   color: #ffffff;
   font: 600 9.5px/1.7 system-ui, sans-serif;
   direction: ltr;
@@ -234,10 +234,14 @@ body[data-guides="true"] .pv-page:not([data-kind="cover"]) .pv-guide { display: 
   pointer-events: none;
   width: var(--pv-content-w);
 }
+/* The notes sit on the desk, not on a page, so they take the desk's ink.
+   They used to be paper-coloured unconditionally, which was legible only
+   because the desk was a dark grey; on the light desk the same text washed
+   out to roughly 1.4:1. */
 .pv-note {
   margin: 0;
   padding: 40px 20px 0;
-  color: #f0f0f0;
+  color: #201e1d;
   font: 12.5px/1.75 system-ui, sans-serif;
   text-align: center;
 }
@@ -246,15 +250,18 @@ body[data-guides="true"] .pv-page:not([data-kind="cover"]) .pv-guide { display: 
   padding: 0;
   max-width: 52ch;
   list-style: none;
-  color: #c8c8c8;
+  color: #5c5449;
   font: 12px/1.6 system-ui, sans-serif;
 }
+.pv-frame.pv-dark .pv-note { color: #f5ead8; }
+.pv-frame.pv-dark .pv-note-details { color: #c0b6a5; }
+.pv-frame.pv-dark .pv-note-details li { background: rgba(245, 234, 216, 0.06); }
 .pv-note-details li {
   margin-top: 8px;
   padding: 8px 12px;
-  border-inline-start: 2px solid #f97316;
+  border-inline-start: 2px solid #c67139;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(32, 30, 29, 0.05);
   text-align: start;
   overflow-wrap: anywhere;
 }
