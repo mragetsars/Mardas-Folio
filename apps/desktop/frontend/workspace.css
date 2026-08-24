@@ -3333,7 +3333,11 @@ button:focus-visible,
 .export-preview-page {
   min-height: 0;
   overflow: hidden;
-  background: #6f6f6f;
+  /* The desk the sheet lies on, not a slab of foreign grey. This was the last
+   * hard-coded colour in the interface, and at this size — most of the export
+   * view's right-hand column — it was the one thing on screen that did not
+   * belong to the palette. */
+  background: var(--ui-panel-muted);
 }
 
 .export-preview-page iframe {
@@ -5254,4 +5258,19 @@ html[dir="rtl"] .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-
   display: inline-block;
   min-width: 1ch;
   color: var(--cm-list);
+}
+
+
+/* The settings rail draws the same stroked icons as the activity rail, at the
+   size its rows are built for. */
+.codemirror-mount ~ * .option-rail-icon,
+.option-rail-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.option-rail-icon .ui-icon {
+  width: 16px;
+  height: 16px;
 }

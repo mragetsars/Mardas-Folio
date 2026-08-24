@@ -970,6 +970,23 @@ const PALETTE_ACCENTS = Object.freeze({
   neutral: "#404040",
 });
 
+/**
+ * An icon from the sprite in `index.html`.
+ *
+ * `<use>` rather than an inline copy of the path: the sprite is already in the
+ * document, and duplicating a symbol per button is how two drawings of the
+ * same idea drift apart.
+ */
+function spriteIcon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "ui-icon");
+  svg.setAttribute("aria-hidden", "true");
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", `#icon-${name}`);
+  svg.append(use);
+  return svg;
+}
+
 function advancedControlId(key) {
   return `adv-${key.replaceAll("_", "-")}`;
 }
@@ -1241,7 +1258,7 @@ function renderOptionRail() {
     const icon = document.createElement("span");
     icon.className = "option-rail-icon";
     icon.setAttribute("aria-hidden", "true");
-    icon.textContent = group.icon || "•";
+    icon.append(spriteIcon(group.icon));
     const name = document.createElement("span");
     name.className = "option-rail-name";
     name.textContent = t(group.labelKey);

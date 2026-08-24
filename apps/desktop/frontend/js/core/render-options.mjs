@@ -25,12 +25,22 @@
  * flipped on the way out.
  */
 
+/**
+ * `icon` names a symbol in the sprite in `index.html`, not a character.
+ *
+ * These categories were labelled with whatever Unicode glyph looked closest —
+ * a half circle for Appearance, a sigma for Mathematics, a shield for
+ * Security. Which of them actually rendered, and at what weight, depended on
+ * the fonts installed: on a machine without a symbol face several of them
+ * came out as the missing-glyph box, and none of them matched the stroked
+ * icons the activity rail draws two panels away.
+ */
 export const OPTION_GROUPS = Object.freeze([
   {
     id: "appearance",
     labelKey: "optAppearance",
     descriptionKey: "optAppearanceHelp",
-    icon: "◐",
+    icon: "appearance",
     fields: [
       { key: "style", kind: "select", helpKey: "help.style", preview: true,
         choices: ["modern", "github", "textbook", "academic"] },
@@ -43,7 +53,7 @@ export const OPTION_GROUPS = Object.freeze([
     id: "page",
     labelKey: "optPage",
     descriptionKey: "optPageHelp",
-    icon: "▭",
+    icon: "page",
     fields: [
       { key: "page_size", kind: "select", helpKey: "help.page_size", preview: true,
         choices: ["A4", "Letter", "Legal", "A3", "A5"] },
@@ -62,7 +72,7 @@ export const OPTION_GROUPS = Object.freeze([
     id: "document",
     labelKey: "optDocument",
     descriptionKey: "optDocumentHelp",
-    icon: "▤",
+    icon: "metadata",
     fields: [
       { key: "title", kind: "text", helpKey: "help.title", preview: true },
       { key: "author", kind: "text", helpKey: "help.author", preview: true },
@@ -78,7 +88,7 @@ export const OPTION_GROUPS = Object.freeze([
     id: "contents",
     labelKey: "optContents",
     descriptionKey: "optContentsHelp",
-    icon: "≡",
+    icon: "contents",
     fields: [
       { key: "toc", kind: "toggle", helpKey: "help.toc", preview: true },
       { key: "toc_depth", kind: "number", min: 1, max: 6, helpKey: "help.toc_depth",
@@ -102,7 +112,7 @@ export const OPTION_GROUPS = Object.freeze([
     id: "citations",
     labelKey: "optCitations",
     descriptionKey: "optCitationsHelp",
-    icon: "❝",
+    icon: "citation",
     fields: [
       { key: "citations_enabled", kind: "toggle", helpKey: "help.citations_enabled", preview: true },
       { key: "citation_style", kind: "select", choices: ["author-date", "numeric"],
@@ -119,7 +129,7 @@ export const OPTION_GROUPS = Object.freeze([
     id: "branding",
     labelKey: "optBranding",
     descriptionKey: "optBrandingHelp",
-    icon: "◆",
+    icon: "branding",
     fields: [
       { key: "branding", kind: "select", choices: ["subtle", "full", "off"],
         helpKey: "help.branding", preview: true },
@@ -136,7 +146,7 @@ export const OPTION_GROUPS = Object.freeze([
     id: "watermark",
     labelKey: "optWatermark",
     descriptionKey: "optWatermarkHelp",
-    icon: "⧉",
+    icon: "watermark",
     fields: [
       { key: "watermark_text", kind: "text", placeholder: "DRAFT", helpKey: "help.watermark_text",
         preview: true },
@@ -151,7 +161,7 @@ export const OPTION_GROUPS = Object.freeze([
     id: "maths",
     labelKey: "optMaths",
     descriptionKey: "optMathsHelp",
-    icon: "∑",
+    icon: "maths",
     fields: [
       { key: "no_mathjax", kind: "toggle", invert: true, helpKey: "help.no_mathjax" },
       { key: "math_error_policy", kind: "select", choices: ["warn", "error", "ignore"],
@@ -162,7 +172,7 @@ export const OPTION_GROUPS = Object.freeze([
     id: "quality",
     labelKey: "optQuality",
     descriptionKey: "optQualityHelp",
-    icon: "✓",
+    icon: "quality",
     fields: [
       { key: "quality_profile", kind: "select", choices: ["standard", "strict-publication"],
         helpKey: "help.quality_profile" },
@@ -180,7 +190,7 @@ export const OPTION_GROUPS = Object.freeze([
     id: "security",
     labelKey: "optSecurity",
     descriptionKey: "optSecurityHelp",
-    icon: "⛨",
+    icon: "security",
     fields: [
       { key: "unsafe_html", kind: "toggle", helpKey: "help.unsafe_html", risky: true, preview: true },
       { key: "allow_remote_assets", kind: "toggle", helpKey: "help.allow_remote_assets",
@@ -191,7 +201,7 @@ export const OPTION_GROUPS = Object.freeze([
     id: "engine",
     labelKey: "optEngine",
     descriptionKey: "optEngineHelp",
-    icon: "⚙",
+    icon: "engine",
     expert: true,
     fields: [
       { key: "font_dir", kind: "path", widget: "directory", helpKey: "help.font_dir",
