@@ -190,6 +190,14 @@ def run_audit(
         page.locator("#workspace-home").click()
         page.locator("#workflow-quick").click()
         page.wait_for_timeout(900)
+        # The two buttons the screen exists for have to be on screen without
+        # scrolling past eleven categories of publishing options to find them.
+        checks["export_actions_in_view"] = page.evaluate(
+            """() => ['#validate-button', '#export-button'].every((selector) => {
+                const box = document.querySelector(selector)?.getBoundingClientRect();
+                return !!box && box.top >= 0 && box.bottom <= window.innerHeight;
+            })"""
+        )
         checks["preview_note_localised"] = page.evaluate(
             """() => {
                 const frame = document.querySelector('#export-preview iframe');

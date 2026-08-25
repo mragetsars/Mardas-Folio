@@ -3033,9 +3033,35 @@ button:focus-visible,
   padding-top: 17px;
 }
 
+/* The two buttons this screen exists for.
+ *
+ * They sat at the foot of a 1128px form in a 950px window, so "Check
+ * document" and "Create PDF" were 240px below the fold on a first visit: a
+ * new user reading down the screen met eleven categories of publishing
+ * options and no way to publish. The footer stays against the bottom of the
+ * window while the form is on screen instead. The negative inline margins
+ * take it to the panel's edges so the row reads as the panel's own floor
+ * rather than as a strip floating inside it. */
 .form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
   margin-top: 18px;
-  padding-top: 16px;
+  margin-inline: -20px;
+  margin-bottom: -18px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--ui-border);
+  border-radius: 0 0 var(--ui-radius-lg) var(--ui-radius-lg);
+  background: var(--ui-panel);
+  /* Enough to say the settings are passing underneath, not enough to make the
+     row float above the panel it belongs to. */
+  box-shadow: 0 -8px 16px -12px rgba(41, 41, 41, 0.5);
+}
+
+/* Publishing is the primary action on this screen and gets the taller
+   target the density here can afford. */
+.form-actions .button {
+  min-height: 34px;
 }
 
 .status-panel {
