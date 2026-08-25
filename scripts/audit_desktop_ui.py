@@ -171,7 +171,33 @@ def run_audit(
         page.locator("#setting-locale").select_option("fa")
         page.locator("#settings-form button[type='submit']").click()
         checks["rtl_locale"] = page.locator("html").get_attribute("dir") == "rtl"
+        checks["workbench_mirrors"] = page.evaluate(
+            """() => {
+                const rail = document.querySelector('.sidebar-tabs');
+                const editor = document.querySelector('.editor-pane');
+                if (!rail || !editor) return false;
+                // Mirrored, the activity rail is on the trailing edge, which
+                // in a right-to-left interface is the right of the window.
+                return rail.getBoundingClientRect().left
+                    > editor.getBoundingClientRect().left;
+            }"""
+        )
         page.screenshot(path=str(output_dir / "desktop-fa-dark.png"), full_page=True)
+
+        # The export preview draws into an iframe from code, so the sweep that
+        # retranslates elements carrying `data-i18n` cannot reach it. It kept
+        # whatever language it was first drawn in until it was made to redraw.
+        page.locator("#workspace-home").click()
+        page.locator("#workflow-quick").click()
+        page.wait_for_timeout(900)
+        checks["preview_note_localised"] = page.evaluate(
+            """() => {
+                const frame = document.querySelector('#export-preview iframe');
+                const note = frame?.contentDocument?.querySelector('.pv-note');
+                const text = note ? note.textContent.trim() : '';
+                return text.length > 0 && !/[A-Za-z]{4}/.test(text);
+            }"""
+        )
 
         checks["page_errors"] = page_errors
         checks["console_issues"] = console_issues

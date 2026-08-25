@@ -241,6 +241,7 @@ function setLocale(value) {
   renderAdvancedOptions();
   renderSummary();
   renderTemplateGallery();
+  retranslateExportPreview();
   if (modalManager?.isOpen($("#command-modal"))) renderCommandPalette();
 }
 
@@ -1439,9 +1440,32 @@ async function releaseEngineForJob() {
   await exportPreviewFlight.drain();
 }
 
+/* The export preview is the one surface the language sweep cannot reach.
+ *
+ * `setLocale` retranslates everything carrying `data-i18n`, but the deck draws
+ * into an iframe and the status chip and the note under it are plain text set
+ * from code. None of the three were ever redrawn, so a Persian user who opened
+ * Quick Export was told "Choose a source file to see a preview." in English
+ * for the rest of the session. Remembering what was drawn is what makes
+ * redrawing it possible. */
+let exportPreviewStateKey = "";
+let exportPreviewNotePayload = null;
+
 function setExportPreviewState(key) {
+  exportPreviewStateKey = key || "";
   const label = $("#export-preview-state");
   if (label) label.textContent = key ? t(key) : "";
+}
+
+/** Put the export preview back into the interface language. */
+function retranslateExportPreview() {
+  setExportPreviewState(exportPreviewStateKey);
+  renderPreviewNote(exportPreviewNotePayload);
+  if (!pageDeck) return;
+  // With no source there is nothing to ask the engine for; with one, the
+  // sheet itself carries translated furniture and has to be drawn again.
+  if (!state.sourcePath) pageDeck.showMessage(t("previewChooseSource"));
+  else schedulePdfPreview(0);
 }
 
 function schedulePdfPreview(delay = 450) {
@@ -1506,6 +1530,7 @@ function movePreviewPage(delta) {
  * rather than measured.
  */
 function renderPreviewNote(payload) {
+  exportPreviewNotePayload = payload || null;
   const note = $("#export-preview-note");
   if (!note) return;
   const lines = [];
@@ -4053,7 +4078,10 @@ function bindEvents() {
   $("#preview-guides").addEventListener("click", () => exportPreviewDeck()?.toggleGuides());
   $("#preview-prev-page").addEventListener("click", () => movePreviewPage(-1));
   $("#preview-next-page").addEventListener("click", () => movePreviewPage(1));
-  $("#workflow-quick").addEventListener("click", () => showView("export"));
+  $("#workflow-quick").addEventListener("click", () => {
+    showView("export");
+    schedulePdfPreview(0);
+  });
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
   $("#workflow-project").addEventListener("click", chooseProjectDirectory);
   $("#workflow-book").addEventListener("click", openNewBookModal);
