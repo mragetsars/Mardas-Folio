@@ -1,7 +1,7 @@
 const templates = {
   blank: {
     id: "blank",
-    icon: "＋",
+    symbol: "plus",
     titleKey: "templateBlank",
     descriptionKey: "templateBlankHelp",
     content: {
@@ -11,7 +11,7 @@ const templates = {
   },
   report: {
     id: "report",
-    icon: "R",
+    symbol: "metadata",
     titleKey: "templateReport",
     descriptionKey: "templateReportHelp",
     content: {
@@ -21,7 +21,7 @@ const templates = {
   },
   academic: {
     id: "academic",
-    icon: "A",
+    symbol: "citation",
     titleKey: "templateAcademic",
     descriptionKey: "templateAcademicHelp",
     content: {
@@ -31,7 +31,7 @@ const templates = {
   },
   technical: {
     id: "technical",
-    icon: "</>",
+    symbol: "source",
     titleKey: "templateTechnical",
     descriptionKey: "templateTechnicalHelp",
     content: {

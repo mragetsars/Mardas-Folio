@@ -3252,7 +3252,6 @@ button:focus-visible,
   padding: 5px 8px;
   border-bottom: 1px solid var(--ui-border);
   background: var(--ui-panel-soft);
-  direction: ltr;
 }
 
 .preview-tool {
@@ -5094,6 +5093,97 @@ body[data-view="workspace"] main {
 .editor-pane,
 .author-sidebar {
   min-width: 0;
+}
+
+/* A chevron that means "back" or "forward" points the other way when the
+   reading order does. Marked rather than duplicated: the same symbol, turned
+   round, instead of two drawings of one arrow. */
+html[dir="rtl"] .ui-icon-directional {
+  transform: scaleX(-1);
+}
+
+/* ---- One icon set, sized to the box it sits in ---------------------------
+   Every control that used to be labelled with a Unicode symbol now draws from
+   the sprite the app ships. The symbols were 16px by default, which is right
+   on a toolbar and wrong inside a 38px template tile or a 34px status badge,
+   so each host states the size it wants. */
+.command-item > i,
+.command-search > span,
+.template-card > i,
+.action-glyph,
+.book-chapter-handle,
+.status-visual > span,
+.preset-card i,
+#export-view .preset-card i,
+.recent-arrow,
+.book-chapter-actions button {
+  display: grid;
+  place-items: center;
+}
+
+.command-item > i .ui-icon,
+.command-search > span .ui-icon {
+  width: 17px;
+  height: 17px;
+}
+
+.template-card > i .ui-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.action-glyph .ui-icon,
+.book-chapter-handle .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.status-visual > span .ui-icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+
+.preset-card i .ui-icon,
+#export-view .preset-card i .ui-icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.4;
+}
+
+.recent-arrow .ui-icon,
+.book-chapter-actions button .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Close marks: small, and the stroke thickened so they still read at 11px. */
+.document-tab .tab-close,
+.option-reset,
+.find-bar #close-find {
+  display: grid;
+  place-items: center;
+}
+
+.document-tab .tab-close .ui-icon,
+.option-reset .ui-icon {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2.2;
+}
+
+.find-bar button .ui-icon,
+.preview-tool .ui-icon,
+.icon-button .ui-icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* The heading button keeps its "H" and takes a chevron beside it. */
+.format-caret {
+  width: 11px;
+  height: 11px;
+  opacity: 0.7;
 }
 
 /* The formatting strip never spills past the sheet's edge, and nothing it

@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 if sys.version_info >= (3, 11):
@@ -36,6 +37,22 @@ def _sha256(path: Path) -> str:
 
 
 _RULE = re.compile(r"([^{}]+)\{([^{}]*)\}")
+
+# Letters, digits and ASCII punctuation are notation the interface font always
+# has. Everything in a symbol category outside ASCII is a picture, and whether
+# it draws at all depends on the symbol fonts the machine happens to carry.
+_ALLOWED_SYMBOLS = "\u200c\u200f\u2014\u2026"
+
+
+def _pictographs(text: str) -> list[str]:
+    return [
+        character
+        for character in text
+        if ord(character) > 0x7F
+        and character not in _ALLOWED_SYMBOLS
+        and not ("\u0600" <= character <= "\u06FF")
+        and unicodedata.category(character) in {"So", "Sm", "Sk", "Po"}
+    ]
 
 
 def _rule_blocks(sheet: str, selector: str) -> list[str]:
@@ -453,6 +470,85 @@ def test_workbench_takes_its_direction_from_the_interface_language() -> None:
     # direction from the text rather than inheriting the locale's.
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="preview-document" dir="auto"' in index
+
+
+def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
+    """No control is labelled with a symbol the interface font may not have.
+
+    The interface used to name its actions with whatever character looked
+    closest: a hatched square for "insert image", a shaded block for "table",
+    an anticlockwise arrow for undo, a gear for settings. Which of those
+    render, at what weight and on what baseline, depends on the symbol fonts
+    installed on the machine — several have no coverage in the interface font
+    and fall back to whatever the system substitutes, up to the missing-glyph
+    box. Letterforms that *are* the notation stay: B, I, S, H1-H6, MD, BIB.
+    """
+    index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    templates = (DESKTOP / "frontend" / "js" / "core" / "templates.mjs").read_text(
+        encoding="utf-8"
+    )
+
+    sprite = re.search(
+        r'<svg class="ui-icon-sprite".*?</svg>', index, re.S
+    )
+    assert sprite is not None, "the sprite is missing"
+    symbols = set(re.findall(r'<symbol id="icon-([a-z0-9-]+)"', sprite.group(0)))
+    assert len(symbols) >= 40
+
+    # Every reference resolves. A `<use href="#icon-x">` with no symbol behind
+    # it renders as nothing at all, which looks like a blank button.
+    for source in (index, main, templates):
+        for name in re.findall(r'href="#icon-([a-z0-9-]+)"', source):
+            assert name in symbols, f"#icon-{name} has no symbol"
+    for name in re.findall(r'spriteIcon\("([a-z0-9-]+)"\)', main):
+        assert name in symbols, f"spriteIcon({name!r}) has no symbol"
+    for name in re.findall(r'symbol: "([a-z0-9-]+)"', main + templates):
+        assert name in symbols, f"symbol {name!r} has no drawing"
+
+    # The same idea drawn twice is how an icon set stops being one.
+    drawings: dict[str, str] = {}
+    for name, body in re.findall(
+        r'<symbol id="icon-([a-z0-9-]+)"[^>]*>(.*?)</symbol>', sprite.group(0), re.S
+    ):
+        normalized = re.sub(r"\s+", " ", body).strip()
+        assert normalized not in drawings, (
+            f"icon-{name} repeats the drawing of icon-{drawings[normalized]}"
+        )
+        drawings[normalized] = name
+
+    # No control keeps a pictographic label. Latin letters, digits and ASCII
+    # notation are allowed; anything above U+00FF that is not Arabic script is
+    # a symbol pretending to be an icon.
+    for match in re.finditer(r"<button\b[^>]*>(.*?)</button>", index, re.S):
+        body = re.sub(r"<[^>]+>", "", match.group(1)).strip()
+        stray = _pictographs(body)
+        assert not stray, f"a button is labelled {body!r} ({stray!r})"
+
+    # ...and none is generated from JS either. `textContent = "\u00d7"` and a
+    # `>\u00d7</button>` inside a template string both count: a multiplication
+    # sign standing in for a close button is the same defect as a shaded block
+    # standing in for a table.
+    for source, label in ((main, "main.mjs"), (templates, "templates.mjs")):
+        for body in re.findall(r'(?:icon|textContent) *[:=] *"([^"]{1,4})"', source):
+            assert not _pictographs(body), f"{label} still writes the glyph {body!r}"
+        for body in re.findall(r">([^<>{}`\n]{1,4})</button>", source):
+            assert not _pictographs(body), f"{label} still writes the glyph {body!r}"
+
+
+def test_export_status_badge_does_not_rely_on_colour_alone() -> None:
+    """A failed export used to show a tick, recoloured.
+
+    ``.status-visual`` painted the same check mark for every state and changed
+    only its hue, so "PDF was not created" and "PDF created successfully" were
+    the same picture to anyone who does not separate red from green.
+    """
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'id="status-symbol"' in index
+    assert "STATUS_SYMBOLS" in main
+    for state in ("idle", "working", "success", "error"):
+        assert re.search(rf"{state}: \"[a-z-]+\"", main), f"no symbol for {state}"
 
 
 def test_professional_editor_is_locked_bundled_and_offline() -> None:

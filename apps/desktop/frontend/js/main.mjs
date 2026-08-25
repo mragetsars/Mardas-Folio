@@ -437,7 +437,7 @@ function renderTemplateGallery() {
     button.className = "template-card";
     button.dataset.templateId = template.id;
     button.innerHTML = "<i></i><span><strong></strong><small></small></span>";
-    button.querySelector("i").textContent = template.icon;
+    button.querySelector("i").replaceChildren(spriteIcon(template.symbol));
     button.querySelector("strong").textContent = t(template.titleKey);
     button.querySelector("small").textContent = t(template.descriptionKey);
     button.addEventListener("click", () => createDocumentFromTemplate(template.id));
@@ -717,25 +717,25 @@ function onboardingBack() {
 function commandDefinitions() {
   const hasDocument = Boolean(activeDocument());
   return [
-    { id: "new", icon: "＋", label: t("commandNewDocument"), keywords: "new document markdown", shortcut: "Ctrl N", priority: 100, run: () => createUntitledDocument() },
-    { id: "open", icon: "↗", label: t("commandOpenDocument"), keywords: "open file markdown", shortcut: "Ctrl O", priority: 95, run: () => chooseAuthoringFiles() },
-    { id: "project", icon: "P", label: t("commandOpenProject"), keywords: "open folder workspace project", priority: 80, run: () => chooseProjectDirectory() },
-    { id: "book", icon: "B", label: t("commandNewBook"), keywords: "book thesis chapters project", priority: 75, run: () => openNewBookModal() },
-    { id: "save", icon: "✓", label: t("commandSave"), keywords: "save write", shortcut: "Ctrl S", priority: 90, enabled: hasDocument, run: () => saveActiveDocument() },
-    { id: "save-as", icon: "⇩", label: t("commandSaveAs"), keywords: "save as copy", shortcut: "Ctrl Shift S", priority: 70, enabled: hasDocument, run: () => saveActiveDocument({ saveAs: true }) },
-    { id: "validate", icon: "⌁", label: t("commandValidate"), keywords: "check problems diagnostics", priority: 65, enabled: hasDocument, run: () => validateActiveDocument() },
-    { id: "export", icon: "PDF", label: t("commandExport"), keywords: "pdf publish render", priority: 85, enabled: hasDocument, run: () => exportActiveDocument() },
-    { id: "find", icon: "⌕", label: t("commandFind"), keywords: "find replace search", shortcut: "Ctrl F", priority: 60, enabled: hasDocument, run: () => openFind({ replace: false }) },
-    { id: "settings", icon: "⚙", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
-    { id: "support-bundle", icon: "ZIP", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
-    { id: "updates", icon: "↑", label: t("commandCheckUpdates"), keywords: "update upgrade release version", priority: 37, run: () => { openSettings(); setTimeout(() => checkUpdates(), 0); } },
-    { id: "view-write", icon: "\u270e", label: t("viewWrite"), keywords: "write live formatted wysiwyg نوشتن", priority: 42, run: () => setViewMode("write") },
-    { id: "view-source", icon: "</>", label: t("viewSource"), keywords: "source raw markdown سورس", priority: 41, run: () => setViewMode("source") },
-    { id: "view-split", icon: "\u25eb", label: t("viewSplit"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, run: () => setViewMode("split") },
-    { id: "typewriter", icon: "≡", label: t("typewriterMode"), keywords: "typewriter scroll centre writing ماشین تحریر", priority: 39, run: () => updatePreference({ typewriter: !state.preferences.typewriter }) },
-    { id: "focus-mode", icon: "□", label: t("focusMode"), keywords: "focus distraction free zen تمرکز", priority: 39, run: () => updatePreference({ focusMode: !state.preferences.focusMode }) },
-    { id: "help", icon: "?", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
-    { id: "home", icon: "⌂", label: t("commandHome"), keywords: "start home center", priority: 20, run: () => showView("start") },
+    { id: "new", symbol: "plus", label: t("commandNewDocument"), keywords: "new document markdown", shortcut: "Ctrl N", priority: 100, run: () => createUntitledDocument() },
+    { id: "open", symbol: "file", label: t("commandOpenDocument"), keywords: "open file markdown", shortcut: "Ctrl O", priority: 95, run: () => chooseAuthoringFiles() },
+    { id: "project", symbol: "folder", label: t("commandOpenProject"), keywords: "open folder workspace project", priority: 80, run: () => chooseProjectDirectory() },
+    { id: "book", symbol: "book", label: t("commandNewBook"), keywords: "book thesis chapters project", priority: 75, run: () => openNewBookModal() },
+    { id: "save", symbol: "save", label: t("commandSave"), keywords: "save write", shortcut: "Ctrl S", priority: 90, enabled: hasDocument, run: () => saveActiveDocument() },
+    { id: "save-as", symbol: "save-as", label: t("commandSaveAs"), keywords: "save as copy", shortcut: "Ctrl Shift S", priority: 70, enabled: hasDocument, run: () => saveActiveDocument({ saveAs: true }) },
+    { id: "validate", symbol: "quality", label: t("commandValidate"), keywords: "check problems diagnostics", priority: 65, enabled: hasDocument, run: () => validateActiveDocument() },
+    { id: "export", symbol: "export", label: t("commandExport"), keywords: "pdf publish render", priority: 85, enabled: hasDocument, run: () => exportActiveDocument() },
+    { id: "find", symbol: "search", label: t("commandFind"), keywords: "find replace search", shortcut: "Ctrl F", priority: 60, enabled: hasDocument, run: () => openFind({ replace: false }) },
+    { id: "settings", symbol: "settings", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
+    { id: "support-bundle", symbol: "archive", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
+    { id: "updates", symbol: "update", label: t("commandCheckUpdates"), keywords: "update upgrade release version", priority: 37, run: () => { openSettings(); setTimeout(() => checkUpdates(), 0); } },
+    { id: "view-write", symbol: "pencil", label: t("viewWrite"), keywords: "write live formatted wysiwyg نوشتن", priority: 42, run: () => setViewMode("write") },
+    { id: "view-source", symbol: "source", label: t("viewSource"), keywords: "source raw markdown سورس", priority: 41, run: () => setViewMode("source") },
+    { id: "view-split", symbol: "panel-right", label: t("viewSplit"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, run: () => setViewMode("split") },
+    { id: "typewriter", symbol: "typewriter", label: t("typewriterMode"), keywords: "typewriter scroll centre writing ماشین تحریر", priority: 39, run: () => updatePreference({ typewriter: !state.preferences.typewriter }) },
+    { id: "focus-mode", symbol: "focus", label: t("focusMode"), keywords: "focus distraction free zen تمرکز", priority: 39, run: () => updatePreference({ focusMode: !state.preferences.focusMode }) },
+    { id: "help", symbol: "help", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
+    { id: "home", symbol: "home", label: t("commandHome"), keywords: "start home center", priority: 20, run: () => showView("start") },
   ];
 }
 
@@ -780,7 +780,7 @@ function renderCommandPalette() {
     button.setAttribute("role", "option");
     button.setAttribute("aria-selected", String(index === state.commandIndex));
     button.innerHTML = "<i></i><span><strong></strong></span><kbd></kbd>";
-    button.querySelector("i").textContent = command.icon || "•";
+    button.querySelector("i").replaceChildren(spriteIcon(command.symbol || "file"));
     button.querySelector("strong").textContent = command.label;
     const shortcut = button.querySelector("kbd");
     shortcut.textContent = command.shortcut || "";
@@ -924,9 +924,20 @@ function errorText(error) {
 // ---------------------------------------------------------------------------
 // Start Center and Quick Export
 // ---------------------------------------------------------------------------
+/** What the export badge draws, per state. */
+const STATUS_SYMBOLS = {
+  idle: "file",
+  working: "refresh",
+  success: "check",
+  error: "alert",
+};
+
 function setExportStatus(kind, titleKey, message, diagnostics = []) {
   const visual = $("#status-visual");
   visual.dataset.state = kind;
+  // Colour alone cannot carry this: a failed export used to show a tick in
+  // red, which reads as success to anyone who does not separate the two hues.
+  $("#status-symbol")?.replaceChildren(spriteIcon(STATUS_SYMBOLS[kind] || "file"));
   $("#status-title").textContent = titleKey ? t(titleKey) : "";
   $("#status-message").textContent = message || "";
   const container = $("#diagnostics");
@@ -1224,7 +1235,7 @@ function buildOptionRow(field, group) {
     reset.className = "option-reset";
     reset.title = t("resetOption");
     reset.setAttribute("aria-label", `${t("resetOption")}: ${t(`opt.${field.key}`)}`);
-    reset.textContent = "×";
+    reset.append(spriteIcon("close"));
     reset.addEventListener("click", () => setOptionValue(field.key, undefined));
     head.append(reset);
   }
@@ -1618,7 +1629,8 @@ function renderPresets() {
     button.dataset.preset = preset.id;
     button.setAttribute("role", "radio");
     button.setAttribute("aria-checked", String(preset.id === state.presetId));
-    button.innerHTML = `<strong></strong><small></small><i aria-hidden="true">✓</i>`;
+    button.innerHTML = `<strong></strong><small></small><i aria-hidden="true"></i>`;
+    button.querySelector("i").append(spriteIcon("check"));
     button.querySelector("strong").textContent = t(preset.titleKey);
     button.querySelector("small").textContent = t(preset.descriptionKey);
     button.addEventListener("click", () => selectPreset(preset.id));
@@ -1687,7 +1699,8 @@ function renderRecents() {
     const button = document.createElement("button");
     button.className = "recent-item";
     button.type = "button";
-    button.innerHTML = `<span>MD</span><div class="recent-copy"><strong></strong><small></small></div><b class="recent-arrow" aria-hidden="true">←</b>`;
+    button.innerHTML = `<span>MD</span><div class="recent-copy"><strong></strong><small></small></div><b class="recent-arrow" aria-hidden="true"></b>`;
+    button.querySelector(".recent-arrow").append(spriteIcon("chevron-left"));
     button.querySelector("strong").textContent = basename(recent.path);
     button.querySelector("small").textContent = recent.path;
     button.addEventListener("click", () => openAuthoringPaths([recent.path]));
@@ -1839,7 +1852,8 @@ function tabElement(model) {
   const tab = window.document.createElement("div");
   tab.className = `document-tab${model.id === state.activeDocumentId ? " active" : ""}${documentDirty(model) ? " dirty" : ""}`;
   tab.dataset.documentId = model.id;
-  tab.innerHTML = `<button class="tab-activate" type="button" role="tab"><i class="dirty-dot"></i><span class="tab-name"></span></button><button class="tab-close" type="button" aria-label="${t("close")}">×</button>`;
+  tab.innerHTML = `<button class="tab-activate" type="button" role="tab"><i class="dirty-dot"></i><span class="tab-name"></span></button><button class="tab-close" type="button" aria-label="${t("close")}"></button>`;
+  tab.querySelector(".tab-close").append(spriteIcon("close"));
   tab.querySelector(".tab-name").textContent = model.title;
   const activate = tab.querySelector(".tab-activate");
   activate.tabIndex = model.id === state.activeDocumentId ? 0 : -1;
@@ -2764,14 +2778,20 @@ function bookChapterRow(chapter, index, chapters) {
   row.draggable = true;
   row.dataset.path = chapter.path;
   row.innerHTML = `
-    <span class="book-chapter-handle" aria-hidden="true">⋮⋮</span>
+    <span class="book-chapter-handle" aria-hidden="true"></span>
     <button class="book-chapter-main" type="button"><strong></strong><small></small></button>
     <span class="book-chapter-actions">
-      <button type="button" data-action="up">↑</button>
-      <button type="button" data-action="down">↓</button>
-      <button type="button" data-action="duplicate">⧉</button>
-      <button class="danger" type="button" data-action="remove">×</button>
+      <button type="button" data-action="up"></button>
+      <button type="button" data-action="down"></button>
+      <button type="button" data-action="duplicate"></button>
+      <button class="danger" type="button" data-action="remove"></button>
     </span>`;
+  row.querySelector(".book-chapter-handle").append(spriteIcon("grip"));
+  for (const [action, symbol] of Object.entries({
+    up: "chevron-up", down: "chevron-down", duplicate: "duplicate", remove: "close",
+  })) {
+    row.querySelector(`[data-action="${action}"]`).append(spriteIcon(symbol));
+  }
   const chapterLabel = `${index + 1}. ${chapter.title || chapter.path}`;
   row.querySelector("strong").textContent = chapterLabel;
   row.querySelector("small").textContent = chapter.path;
