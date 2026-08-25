@@ -134,6 +134,39 @@ def run_audit(
         checks["professional_editor_input"] = (
             "متن فارسی and English" in editor.input_value()
         )
+        # Tab indents inside the editor, which makes it a keyboard trap unless
+        # something releases it. Escape arms the next Tab to move focus; the
+        # press after that has to land somewhere that is not the editor.
+        before = editor.input_value()
+        page.keyboard.press("Home")
+        page.keyboard.press("Tab")
+        page.wait_for_timeout(150)
+        indented = editor.input_value()
+        checks["tab_indents_in_editor"] = indented != before
+        page.keyboard.press("Escape")
+        page.keyboard.press("Tab")
+        page.wait_for_timeout(200)
+        checks["escape_then_tab_leaves_editor"] = page.evaluate(
+            "() => !document.activeElement?.closest?.('.cm-editor')"
+        )
+        checks["escape_then_tab_keeps_the_buffer"] = editor.input_value() == indented
+
+        # The case the browser's own release does not cover: with a selection
+        # live, CodeMirror claims the Escape, the webview never arms, and the
+        # Tab after it indented the document and stayed put.
+        page.locator(".cm-content").click()
+        page.keyboard.press("End")
+        page.keyboard.press("Shift+Home")
+        page.wait_for_timeout(120)
+        selected = editor.input_value()
+        page.keyboard.press("Escape")
+        page.keyboard.press("Tab")
+        page.wait_for_timeout(250)
+        checks["escape_then_tab_leaves_a_selection_alone"] = (
+            page.evaluate("() => !document.activeElement?.closest?.('.cm-editor')")
+            and editor.input_value() == selected
+        )
+
         # The engine preview is one half of Split view now, not an always-on
         # pane; "show source" and "show preview" used to be separate toggles.
         page.locator('[data-view-mode="split"]').click()

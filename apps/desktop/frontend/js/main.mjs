@@ -71,7 +71,7 @@ import {
 } from "./core/workspace-layout.mjs";
 import { filterCommands } from "./core/command-palette.mjs";
 import { fitToolbarGroups } from "./core/toolbar-overflow.mjs";
-import { createModalManager } from "./core/modal-manager.mjs";
+import { createModalManager, focusableElements } from "./core/modal-manager.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
 import { updaterStatus, checkForUpdates, installUpdate } from "./core/updater-api.mjs";
 import {
@@ -3853,6 +3853,35 @@ function syncFormatBarOverflow() {
   if (!parked.length) toggleFormatOverflowMenu(false);
 }
 
+/**
+ * Move focus to the control before or after the editor.
+ *
+ * Tab indents inside the document, so Escape arms the next Tab to leave
+ * instead. Where it lands is the workbench's business rather than the
+ * editor's: deciding it here means the workbench's own focus order, in both
+ * directions, on every webview — the browsers' contenteditable release only
+ * goes forwards and only when nothing else claimed the Escape first.
+ */
+function moveFocusOutOfEditor(backwards = false) {
+  const surface = $(".editor-surface");
+  if (!surface) return;
+  const candidates = focusableElements(document.body)
+    .filter((element) => !surface.contains(element) && element.offsetParent !== null);
+  if (!candidates.length) return;
+  const before = [];
+  const after = [];
+  for (const element of candidates) {
+    const where = surface.compareDocumentPosition(element);
+    if (where & Node.DOCUMENT_POSITION_PRECEDING) before.push(element);
+    else if (where & Node.DOCUMENT_POSITION_FOLLOWING) after.push(element);
+  }
+  // Wrapping matches what the browser does at either end of the document.
+  const target = backwards
+    ? (before.at(-1) || after.at(-1))
+    : (after[0] || before[0]);
+  target?.focus();
+}
+
 /** Plain text of the current selection, or the whole document. */
 function selectionOrDocument() {
   const editor = currentEditor();
@@ -4374,6 +4403,7 @@ async function boot() {
     mode: editorModeForView(state.preferences.viewMode),
     typewriter: state.preferences.typewriter,
     onContextMenu: openEditorContextMenu,
+    onLeaveEditor: moveFocusOutOfEditor,
     resolveAsset: resolveEditorAsset,
     getCompletions: () => activeDocument()?.projectPath === state.project?.path
       ? state.bibliographyEntries

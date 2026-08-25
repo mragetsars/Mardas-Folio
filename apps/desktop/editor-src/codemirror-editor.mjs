@@ -1,5 +1,5 @@
 import { autocompletion, snippetCompletion } from "@codemirror/autocomplete";
-import { indentWithTab, redo, undo } from "@codemirror/commands";
+import { indentLess, indentMore, redo, undo } from "@codemirror/commands";
 import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
 import { javascript } from "@codemirror/lang-javascript";
@@ -169,6 +169,74 @@ const APPLICATION_OWNED_KEYS = [
   { key: "Mod-h", run: () => true },
 ];
 
+/**
+ * A keyboard way out of the editor.
+ *
+ * Tab indents, which is what a document editor should do with it and is also
+ * a keyboard trap. Chromium releases contenteditable on Escape-then-Tab, so
+ * in the audits this looked handled, but the release is the browser's and not
+ * this application's: it only ever goes forwards, it is not the same on the
+ * three webviews the product ships against, and it never arms at all when
+ * CodeMirror has already consumed the Escape. With a selection live —
+ * `simplifySelection` claims Escape — the following Tab indented the document
+ * instead of leaving it. The trap was still there and it edited the buffer on
+ * the way past.
+ *
+ * Escape arms the next Tab to leave the editor. Where focus lands is the
+ * application's business rather than the editor's, so the gesture is reported
+ * to `onLeave` and answered in the workbench's own focus order. Any key that
+ * is not Escape, Tab or Shift disarms it, so Escape followed by anything else
+ * leaves Tab indenting as before.
+ */
+function tabEscapeHatch(onLeave) {
+  let armed = false;
+  const disarm = () => {
+    armed = false;
+    return false;
+  };
+  const leave = (backwards) => {
+    armed = false;
+    onLeave?.(backwards);
+    return true;
+  };
+  // Arming and releasing both happen in one DOM handler at the highest
+  // precedence, and neither goes through a keymap. Two reasons, both found by
+  // measuring rather than by reading:
+  //
+  //   - A keymap binding for Escape is not reliably reached. Escape belongs to
+  //     whichever of `closeCompletion` and `simplifySelection` has something
+  //     to do with it, and the hatch armed only when neither did — which is
+  //     why it appeared to work with a selection live and not without one.
+  //   - A DOM handler below the keymap never sees the keys CodeMirror binds,
+  //     because handlers stop at the first that returns true. An arrow key or
+  //     a Home would have left the hatch armed, and the Tab after it would
+  //     have left the editor when the user meant to indent.
+  //
+  // `preventDefault` on the armed Tab matters as much as the focus move: the
+  // webview has a contenteditable release of its own that lands focus on the
+  // document, and this is what stops that happening instead of the
+  // workbench's focus order.
+  return Prec.highest([
+    EditorView.domEventHandlers({
+      keydown: (event) => {
+        if (event.key === "Tab" && armed) {
+          event.preventDefault();
+          return leave(event.shiftKey);
+        }
+        if (event.key === "Escape") {
+          armed = true;
+          // Unhandled on purpose: a completion popup still closes on this
+          // press and a selection still collapses.
+          return false;
+        }
+        return event.key === "Tab" || event.key === "Shift" ? false : disarm();
+      },
+      mousedown: disarm,
+    }),
+    keymap.of([{ key: "Tab", run: indentMore, shift: indentLess }]),
+  ]);
+}
+
 /** Read the interface theme the workspace is currently showing. */
 function documentTheme() {
   try {
@@ -184,6 +252,7 @@ export function createCodeMirrorEditorAdapter(
     getCompletions,
     onChange,
     onContextMenu,
+    onLeaveEditor,
     onScroll,
     onSelectionChange,
     resolveAsset,
@@ -266,7 +335,7 @@ export function createCodeMirrorEditorAdapter(
         // Pasting a URL over selected text makes a link out of it rather than
         // replacing the text with the address.
         pasteURLAsLink,
-        keymap.of([indentWithTab]),
+        tabEscapeHatch(onLeaveEditor),
         autocompletion({
           activateOnTyping: true,
           maxRenderedOptions: 80,
