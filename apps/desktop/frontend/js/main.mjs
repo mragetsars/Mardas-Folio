@@ -527,7 +527,9 @@ function resetSettings() {
 }
 
 function openHelp() {
-  modalManager.open($("#help-modal"), { initialFocus: "#help-done" });
+  // The first control is the close button in the heading, which is where a
+  // dialog should open. Naming the one at the far end scrolled past the title.
+  modalManager.open($("#help-modal"));
 }
 
 function closeHelp() {

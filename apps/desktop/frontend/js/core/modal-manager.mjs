@@ -33,12 +33,37 @@ export function createModalManager(documentRef = globalThis.document) {
     else background.removeAttribute?.("aria-hidden");
   }
 
+  /**
+   * Focus the dialog without scrolling it away from its own beginning.
+   *
+   * Focusing a control scrolls its scrollable ancestors to reveal it, and a
+   * dialog taller than the window is such an ancestor. The help dialog opened
+   * 273px down its own card — past its title and its first two sections —
+   * because the control it focused was the button at the far end of it.
+   *
+   * So: focus without scrolling, put the card back at the top, and only then
+   * bring the focused control into view if it is genuinely out of it. A
+   * dialog whose first control is in its heading, which is all of them, ends
+   * up exactly where it should.
+   */
   function focusInitial(modal, initialFocus) {
     const candidate = typeof initialFocus === "string"
       ? modal.querySelector?.(initialFocus)
       : initialFocus;
     const target = candidate || focusableElements(modal)[0] || modal;
-    if (target && typeof target.focus === "function") target.focus();
+    if (!target || typeof target.focus !== "function") return;
+    target.focus({ preventScroll: true });
+    for (const region of [modal, modal.querySelector?.(".modal-card")]) {
+      if (region && typeof region.scrollTop === "number") region.scrollTop = 0;
+    }
+    if (target !== modal && typeof target.scrollIntoView === "function") {
+      const card = modal.querySelector?.(".modal-card");
+      const box = target.getBoundingClientRect?.();
+      const frame = card?.getBoundingClientRect?.();
+      if (box && frame && (box.top < frame.top || box.bottom > frame.bottom)) {
+        target.scrollIntoView({ block: "nearest" });
+      }
+    }
   }
 
   function open(modal, { initialFocus = null, escape = true, onClose = null } = {}) {
