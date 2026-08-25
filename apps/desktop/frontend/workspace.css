@@ -3847,7 +3847,8 @@ button:focus-visible,
   flex: 0 0 auto;
 }
 
-.format-bar button {
+.format-bar button,
+.format-overflow-menu button {
   width: 27px;
   height: 25px;
   display: grid;
@@ -3860,12 +3861,14 @@ button:focus-visible,
   cursor: pointer;
 }
 
-.format-bar button:hover {
+.format-bar button:hover,
+.format-overflow-menu button:hover {
   background: var(--ui-panel-muted);
   color: var(--ui-accent);
 }
 
-.format-bar button:focus-visible {
+.format-bar button:focus-visible,
+.format-overflow-menu button:focus-visible {
   outline: 2px solid var(--ui-accent);
   outline-offset: -1px;
 }
@@ -4836,7 +4839,8 @@ html[data-theme="dark"] {
   background: var(--ui-panel);
 }
 
-.format-bar button {
+.format-bar button,
+.format-overflow-menu button {
   border-radius: var(--ui-radius-xs);
 }
 
@@ -5092,9 +5096,40 @@ body[data-view="workspace"] main {
   min-width: 0;
 }
 
-/* The formatting strip scrolls rather than spilling past the sheet's edge. */
+/* The formatting strip never spills past the sheet's edge, and nothing it
+   cannot fit is left past that edge either: groups that do not fit move into
+   the overflow menu, which stacks them as the same rows of the same buttons. */
 .format-bar {
   max-width: 100%;
+}
+
+.format-overflow-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+  min-width: 0;
+  width: max-content;
+}
+
+.format-overflow-menu .format-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* A vertical hairline between two rows would be a stray dot. The gap between
+   the rows already carries the grouping. */
+.format-overflow-menu .formatting-divider {
+  display: none;
+}
+
+.format-group-overflow {
+  flex: 0 0 auto;
+}
+
+#format-overflow-button[aria-expanded="true"] {
+  background: var(--ui-panel-muted);
+  color: var(--ui-accent);
 }
 
 /* The engine chip sits on the ink title bar, so it takes an ink-tinted pill

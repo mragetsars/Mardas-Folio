@@ -69,6 +69,7 @@ import {
   writeWorkspaceLayout,
 } from "./core/workspace-layout.mjs";
 import { filterCommands } from "./core/command-palette.mjs";
+import { planToolbarOverflow } from "./core/toolbar-overflow.mjs";
 import { createModalManager } from "./core/modal-manager.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
 import { updaterStatus, checkForUpdates, installUpdate } from "./core/updater-api.mjs";
@@ -3711,6 +3712,101 @@ function toggleHeadingMenu(force) {
   menu.querySelector("button")?.focus();
 }
 
+/* ---- The format bar keeps every control reachable -------------------------
+ *
+ * Nineteen controls in seven groups do not fit a narrow editor sheet. The bar
+ * used to scroll them, with the scrollbar suppressed, so at 1280x900 in split
+ * view five of them — quote, callout, table, code block, rule — were simply
+ * not on screen and nothing said so. Groups that do not fit move into a menu
+ * instead: the buttons are the same elements, so a command behaves the same
+ * whether it is clicked on the bar, in the menu, from the palette or from its
+ * shortcut.
+ */
+
+/** The bar, its trigger, its menu, and the groups allowed to move. */
+function formatBarParts() {
+  const bar = document.querySelector(".format-bar");
+  const menu = $("#format-overflow-menu");
+  const group = $("#format-overflow-group");
+  if (!bar || !menu || !group) return null;
+  return { bar, menu, group, trigger: $("#format-overflow-button") };
+}
+
+function toggleFormatOverflowMenu(force) {
+  const parts = formatBarParts();
+  if (!parts) return;
+  const open = force === undefined ? parts.menu.classList.contains("hidden") : force;
+  parts.menu.classList.toggle("hidden", !open);
+  parts.trigger?.setAttribute("aria-expanded", String(open));
+  if (!open) return;
+  const box = parts.trigger.getBoundingClientRect();
+  parts.menu.style.top = `${box.bottom + 4}px`;
+  parts.menu.style.insetInlineStart = `${document.documentElement.dir === "rtl"
+    ? Math.max(8, window.innerWidth - box.right)
+    : Math.max(8, box.left)}px`;
+  parts.menu.querySelector("button")?.focus();
+}
+
+/**
+ * Decide what fits and move the rest, after every change to the bar's width.
+ *
+ * Everything is returned to the bar first: a group's natural width cannot be
+ * measured while it is sitting in a menu, and the plan has to be recomputed
+ * from scratch or the bar only ever loses groups.
+ */
+function syncFormatBarOverflow() {
+  const parts = formatBarParts();
+  if (!parts) return;
+  const movable = [...parts.bar.querySelectorAll("[data-format-movable]"),
+                   ...parts.menu.querySelectorAll("[data-format-movable]")];
+  if (!movable.length) return;
+
+  for (const node of movable) parts.bar.insertBefore(node, parts.group);
+  parts.group.classList.remove("hidden");
+
+  const style = getComputedStyle(parts.bar);
+  const gap = Number.parseFloat(style.columnGap) || 0;
+  const groups = movable.filter((node) => node.classList.contains("format-group"));
+  const widths = groups.map((node) => {
+    const divider = node.previousElementSibling;
+    const lead = divider?.classList.contains("formatting-divider")
+      ? divider.offsetWidth + gap
+      : 0;
+    return node.offsetWidth + lead;
+  });
+
+  let fixed = 0;
+  for (const child of parts.bar.children) {
+    if (child === parts.group || child.dataset.formatMovable !== undefined) continue;
+    fixed += child.offsetWidth + gap;
+  }
+  const room = parts.bar.clientWidth
+    - (Number.parseFloat(style.paddingInlineStart) || 0)
+    - (Number.parseFloat(style.paddingInlineEnd) || 0)
+    - fixed;
+
+  const plan = planToolbarOverflow(widths, room, {
+    gap,
+    triggerWidth: parts.group.offsetWidth + gap,
+  });
+
+  // Focus would be lost with the button it is on, so it moves to the trigger
+  // before the button leaves the bar.
+  const focused = document.activeElement;
+  for (const index of plan.overflow) {
+    const node = groups[index];
+    const divider = node.previousElementSibling;
+    if (divider?.classList.contains("formatting-divider")) parts.menu.append(divider);
+    parts.menu.append(node);
+  }
+  if (plan.overflow.length === 0) {
+    parts.group.classList.add("hidden");
+    toggleFormatOverflowMenu(false);
+  } else if (focused instanceof HTMLElement && parts.menu.contains(focused)) {
+    parts.trigger?.focus();
+  }
+}
+
 /** Plain text of the current selection, or the whole document. */
 function selectionOrDocument() {
   const editor = currentEditor();
@@ -4043,6 +4139,22 @@ function bindEvents() {
     event.stopPropagation();
     toggleHeadingMenu();
   });
+  $("#format-overflow-button").addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleFormatOverflowMenu();
+  });
+  $("#format-overflow-menu").addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    toggleFormatOverflowMenu(false);
+    $("#format-overflow-button").focus();
+  });
+  // A command run from the menu has done what the user opened it for.
+  $("#format-overflow-menu").addEventListener("click", (event) => {
+    if (event.target instanceof Element && event.target.closest("button")) {
+      toggleFormatOverflowMenu(false);
+    }
+  });
   $("#format-find").addEventListener("click", () => openFind({ replace: false }));
   $("#heading-menu").addEventListener("keydown", (event) => {
     const items = [...$("#heading-menu").querySelectorAll("button")];
@@ -4063,6 +4175,9 @@ function bindEvents() {
   document.addEventListener("pointerdown", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.closest("#heading-menu, #heading-menu-button")) toggleHeadingMenu(false);
+    if (!target?.closest("#format-overflow-menu, #format-overflow-button")) {
+      toggleFormatOverflowMenu(false);
+    }
     if (!target?.closest("#editor-context-menu")) closeEditorContextMenu();
   });
   const sidebarButtons = $$('[data-sidebar]');
@@ -4173,6 +4288,19 @@ function bindEvents() {
   window.addEventListener("beforeunload", () => {
     for (const model of state.documents) if (documentDirty(model)) saveRecovery(model);
   });
+
+  // Every way the format bar can change width — the window, a pane toggle, a
+  // resize drag, the view mode, focus mode — arrives here as one signal.
+  const formatBar = document.querySelector(".format-bar");
+  if (formatBar && typeof ResizeObserver === "function") {
+    let pending = 0;
+    new ResizeObserver(() => {
+      cancelAnimationFrame(pending);
+      pending = requestAnimationFrame(syncFormatBarOverflow);
+    }).observe(formatBar);
+  } else {
+    window.addEventListener("resize", syncFormatBarOverflow);
+  }
 }
 
 async function boot() {

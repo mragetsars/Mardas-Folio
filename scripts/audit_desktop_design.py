@@ -394,6 +394,23 @@ RESPONSIVE_JS = """() => {
     }
   }
 
+  // The formatting strip is one row inside the editor sheet and holds
+  // nineteen controls. When the sheet is narrow they do not fit, and the
+  // failure this catches is a control painted past the strip's own edge with
+  // no scrollbar and no menu to reach it by.
+  const bar = document.querySelector(".format-bar");
+  if (bar) {
+    const strip = bar.getBoundingClientRect();
+    for (const button of bar.querySelectorAll("button")) {
+      const box = button.getBoundingClientRect();
+      if (box.width < 1 || box.height < 1) continue;
+      if (box.right > strip.right + 0.5 || box.left < strip.left - 0.5) {
+        const name = button.id || button.dataset.editorCommand || "a format control";
+        problems.push(`${name} is clipped out of the format bar`);
+      }
+    }
+  }
+
   // A pane track that has collapsed to nothing takes the document with it.
   const editor = document.querySelector(".editor-pane");
   if (editor) {
@@ -439,7 +456,14 @@ def responsive(dist: Path, *, locale: str = "en", theme: str = "light") -> dict[
             page.locator("[data-template-id='report']").click()
             page.locator(".codemirror-mount .cm-editor").wait_for(state="visible")
             page.wait_for_timeout(500)
-            findings[f"{width}x{height}"] = page.evaluate(RESPONSIVE_JS)
+            # Split view is where the workbench is tightest: the editor sheet
+            # gives half its width to the preview, and a strip that fits in
+            # write view no longer does.
+            for view in ("write", "split"):
+                page.locator(f'button.view-mode[data-view-mode="{view}"]').click()
+                page.wait_for_timeout(500)
+                key = f"{width}x{height}" if view == "write" else f"{width}x{height} split"
+                findings[key] = page.evaluate(RESPONSIVE_JS)
             page.close()
         browser.close()
     return findings

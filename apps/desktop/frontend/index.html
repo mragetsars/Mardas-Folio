@@ -31,6 +31,7 @@
   <symbol id="icon-quality" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="m8.2 12.2 2.6 2.8 5-6"/></symbol>
   <symbol id="icon-security" viewBox="0 0 24 24"><path d="M12 3.2 19 6v6c0 4.1-2.9 7-7 8.8C7.9 19 5 16.1 5 12V6Z"/><path d="m9.4 12.2 1.9 2 3.4-4"/></symbol>
   <symbol id="icon-engine" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.6v2.3M12 18.1v2.3M20.4 12h-2.3M5.9 12H3.6M18 6l-1.6 1.6M7.6 16.4 6 18M18 18l-1.6-1.6M7.6 7.6 6 6"/></symbol>
+  <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/></symbol>
   <symbol id="icon-panel-left" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M9 4v16M6.2 8h.1M6.2 12h.1M6.2 16h.1"/></symbol>
   <symbol id="icon-panel-right" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M15 4v16M17.8 8h.1M17.8 12h.1M17.8 16h.1"/></symbol>
 </svg>
@@ -287,42 +288,46 @@
               <div class="format-group">
                 <button type="button" id="heading-menu-button" class="format-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="heading-menu" data-i18n-title="heading" title="عنوان">H<span class="format-caret" aria-hidden="true">▾</span></button>
               </div>
-              <span class="formatting-divider" aria-hidden="true"></span>
-              <div class="format-group">
+              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
+              <div class="format-group" data-format-movable>
                 <button type="button" data-editor-command="bold" data-i18n-title="bold" title="پررنگ"><b>B</b></button>
                 <button type="button" data-editor-command="italic" data-i18n-title="italic" title="مورب"><i>I</i></button>
                 <button type="button" data-editor-command="strike" data-i18n-title="strikethrough" title="خط‌خورده"><s>S</s></button>
                 <button type="button" data-editor-command="code" data-i18n-title="code" title="کد">&lt;/&gt;</button>
               </div>
-              <span class="formatting-divider" aria-hidden="true"></span>
-              <div class="format-group">
+              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
+              <div class="format-group" data-format-movable>
                 <button type="button" data-editor-command="link" data-i18n-title="link" title="پیوند">↗</button>
                 <button type="button" id="workspace-import-asset" data-i18n-title="importAsset" title="افزودن فایل">▧</button>
                 <button type="button" data-editor-command="citation" data-i18n-title="insertCitation" title="درج ارجاع">@</button>
               </div>
-              <span class="formatting-divider" aria-hidden="true"></span>
-              <div class="format-group">
+              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
+              <div class="format-group" data-format-movable>
                 <button type="button" data-editor-command="bullet-list" data-i18n-title="bulletList" title="فهرست نقطه‌ای">&#8226;&#8801;</button>
                 <button type="button" data-editor-command="ordered-list" data-i18n-title="orderedList" title="فهرست شماره‌دار">1&#8801;</button>
                 <button type="button" data-editor-command="task-list" data-i18n-title="taskList" title="فهرست کارها">&#9745;</button>
               </div>
-              <span class="formatting-divider" aria-hidden="true"></span>
-              <div class="format-group">
+              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
+              <div class="format-group" data-format-movable>
                 <button type="button" data-editor-command="quote" data-i18n-title="blockQuote" title="نقل‌قول">&#8220;</button>
                 <button type="button" data-editor-command="callout" data-i18n-title="insertCallout" title="کادر یادداشت">&#9873;</button>
                 <button type="button" data-editor-command="table" data-i18n-title="insertTable" title="جدول">&#9638;</button>
                 <button type="button" data-editor-command="code-block" data-i18n-title="codeBlock" title="بلوک کد">&#123;&#125;</button>
                 <button type="button" data-editor-command="rule" data-i18n-title="horizontalRule" title="خط جداکننده">&#8213;</button>
               </div>
-              <span class="formatting-divider" aria-hidden="true"></span>
-              <div class="format-group">
+              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
+              <div class="format-group" data-format-movable>
                 <button type="button" data-editor-command="undo" data-i18n-title="undo" title="واگرد">&#8630;</button>
                 <button type="button" data-editor-command="redo" data-i18n-title="redo" title="ازنو">&#8631;</button>
+              </div>
+              <div class="format-group format-group-overflow hidden" id="format-overflow-group">
+                <button type="button" id="format-overflow-button" aria-haspopup="true" aria-expanded="false" aria-controls="format-overflow-menu" data-i18n-title="moreTools" title="ابزارهای بیشتر" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more"></use></svg></button>
               </div>
               <div class="format-group format-group-end">
                 <button type="button" id="format-find" data-i18n-title="find" title="جست‌وجو">&#8981;</button>
               </div>
               </div>
+        <div class="popover-menu format-overflow-menu hidden" id="format-overflow-menu" role="group" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"></div>
         <div class="popover-menu hidden" id="heading-menu" role="menu" aria-labelledby="heading-menu-button">
           <button type="button" role="menuitem" data-editor-command="heading-1" class="heading-choice heading-choice-1">H1</button>
           <button type="button" role="menuitem" data-editor-command="heading-2" class="heading-choice heading-choice-2">H2</button>
