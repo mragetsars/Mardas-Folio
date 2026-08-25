@@ -2581,6 +2581,12 @@ body {
   margin-inline: auto;
 }
 
+/* The launcher uses the window's height now, so it can use more of its width
+   without either column becoming a stretched-out line of text. */
+#start-view {
+  max-width: 1180px;
+}
+
 main {
   padding: 22px 24px 32px;
 }
@@ -2775,6 +2781,25 @@ button:focus-visible,
 }
 
 /* ---- Launcher ----------------------------------------------------------- */
+/* The Start Centre is a launcher, and a launcher is allowed to be small.
+ *
+ * Its three blocks come to about 410px, and they used to sit at the top of a
+ * 950px window with 482px of bare canvas under them — at 1920x1080, 612px.
+ * Stretching them to fill it is worse, not better: the one block that can
+ * grow is the recent-documents list, and on a first run that list is empty,
+ * so filling the height turns a modest void into a 1100px dashed rectangle
+ * with two lines of text at the top of it.
+ *
+ * The block is centred in whatever room there is instead. With a long list of
+ * recent documents it grows past the window and centring degrades to the
+ * top-anchored layout on its own; `safe` keeps the first row reachable when
+ * it does. */
+#start-view.active {
+  display: grid;
+  align-content: safe center;
+  min-height: 100%;
+}
+
 .launcher {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -2785,6 +2810,16 @@ button:focus-visible,
 .launcher-col {
   min-width: 0;
 }
+
+/* A long history scrolls inside its own column rather than pushing the
+   template gallery off the bottom of the window. */
+.launcher-col-recent > .recent-list {
+  max-height: 46vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+
 
 .action-list {
   display: grid;

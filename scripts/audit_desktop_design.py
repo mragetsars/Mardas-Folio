@@ -304,6 +304,32 @@ def _apply(page: Any, theme: str, locale: str) -> None:
     page.wait_for_timeout(400)
 
 
+LAUNCHER_JS = """() => {
+  const view = document.querySelector('#start-view');
+  if (!view || view.offsetParent === null) return null;
+  const visible = [...view.querySelectorAll('*')].filter((el) => el.offsetParent !== null);
+  const top = Math.min(...visible.map((el) => el.getBoundingClientRect().top));
+  const bottom = Math.max(...visible.map((el) => el.getBoundingClientRect().bottom));
+  // How much of a card is below the last thing written in it. A card with a
+  // floor set by something other than its own content carries dead space.
+  const cards = [...document.querySelectorAll('.template-card')].map((card) => {
+    const box = card.getBoundingClientRect();
+    const last = card.querySelector('small');
+    return {
+      width: Math.round(box.width),
+      dead: last ? Math.round(box.bottom - last.getBoundingClientRect().bottom) : null,
+    };
+  });
+  return {
+    window_px: window.innerHeight,
+    block_px: Math.round(bottom - top),
+    above_px: Math.round(top),
+    below_px: Math.round(window.innerHeight - bottom),
+    cards,
+  };
+}"""
+
+
 def measure(dist: Path, *, view_mode: str = "split") -> dict[str, Any]:
     from playwright.sync_api import sync_playwright
 
@@ -313,10 +339,18 @@ def measure(dist: Path, *, view_mode: str = "split") -> dict[str, Any]:
         page.set_default_timeout(30_000)
         page.add_init_script(INIT_SCRIPT)
         page.goto(url, wait_until="networkidle")
+        _dismiss_onboarding(page)
+        page.wait_for_timeout(300)
+        # The launcher, before anything is opened. It is a small block in a
+        # large window, and the numbers that matter are how the room left over
+        # is distributed and whether any card has a floor its content does not
+        # reach.
+        launcher = page.evaluate(LAUNCHER_JS)
         _open_workspace(page)
-        page.locator(f'[data-view-mode="{view_mode}"]').click()
+        page.locator(f'button.view-mode[data-view-mode="{view_mode}"]').click()
         page.wait_for_timeout(500)
         result = page.evaluate(MEASURE_JS)
+        result["launcher"] = launcher
         browser.close()
     return result
 
