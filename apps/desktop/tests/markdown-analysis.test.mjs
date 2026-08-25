@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  bodyStartOffset,
   extractCitationKeys,
   extractOutline,
   parseFrontMatter,
@@ -62,4 +63,31 @@ test("outline accepts longer closers and rejects non-closing trailing content", 
 test("citation and cursor metrics are deterministic", () => {
   assert.deepEqual(extractCitationKeys("See [@doe2024; @smith]. mail@example.com"), ["doe2024", "smith"]);
   assert.deepEqual(textMetrics("one two\nthree", 10), { line: 2, column: 3, words: 3, characters: 13 });
+});
+
+test("the body of a document starts past its front matter", () => {
+  const document = '---\ntitle: "Report"\nlang: en\n---\n\n# Executive Summary\n';
+  assert.equal(document.slice(bodyStartOffset(document)), "# Executive Summary\n");
+});
+
+test("a document with no front matter starts at its first character", () => {
+  assert.equal(bodyStartOffset("# Title\n\nBody.\n"), 0);
+  assert.equal(bodyStartOffset(""), 0);
+});
+
+test("CRLF endings land in the same place as LF ones", () => {
+  const crlf = '---\r\ntitle: "Report"\r\n---\r\n\r\n# Heading\r\n';
+  assert.equal(crlf.slice(bodyStartOffset(crlf)), "# Heading\r\n");
+});
+
+test("an unterminated front matter block is not front matter", () => {
+  // No closing delimiter: the whole file is body, and the caret must not be
+  // sent past the end of it.
+  const broken = '---\ntitle: "Report"\n\n# Heading\n';
+  assert.equal(bodyStartOffset(broken), 0);
+});
+
+test("front matter with nothing after it puts the caret at the end", () => {
+  const only = '---\ntitle: "Report"\n---\n';
+  assert.equal(bodyStartOffset(only), only.length);
 });

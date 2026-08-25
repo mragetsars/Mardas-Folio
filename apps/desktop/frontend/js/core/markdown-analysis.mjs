@@ -40,6 +40,35 @@ export function frontMatterRange(text) {
   return null;
 }
 
+/**
+ * Where a document's body starts, past any front matter.
+ *
+ * Live preview reveals the raw source of whatever block the caret is in, and
+ * the caret defaults to offset 0 — which, in every document this application
+ * creates, is inside the metadata. Write mode therefore opened on seven lines
+ * of YAML where the document's title should have been.
+ *
+ * Counted by walking line endings in the original string rather than by
+ * summing split lengths, so a file with CRLF endings lands in the same place
+ * as one without.
+ */
+export function bodyStartOffset(text) {
+  const source = String(text ?? "");
+  const range = frontMatterRange(source);
+  if (!range) return 0;
+  let offset = 0;
+  for (let consumed = 0; consumed <= range.end; consumed += 1) {
+    const next = source.indexOf("\n", offset);
+    if (next < 0) return source.length;
+    offset = next + 1;
+  }
+  // Templates leave a blank line between the metadata and the first heading.
+  while (offset < source.length && (source[offset] === "\n" || source[offset] === "\r")) {
+    offset += 1;
+  }
+  return Math.min(offset, source.length);
+}
+
 function parseScalar(raw) {
   const value = raw.trim();
   if (value === "true") return true;

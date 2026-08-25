@@ -117,6 +117,17 @@ def run_audit(
         checks["editor_line_numbers"] = page.locator(".cm-lineNumbers .cm-gutterElement").count() > 0
         editor = page.locator("#markdown-editor")
         checks["template_content"] = "# Executive Summary" in editor.input_value()
+        # Write mode opens on the document. The caret used to start at offset
+        # 0, which is inside the front matter, and live preview reveals the
+        # block the caret is in — so the first thing a new document showed was
+        # its YAML rather than its title.
+        checks["front_matter_collapsed_on_open"] = page.evaluate(
+            """() => {
+                const active = document.querySelector('.cm-activeLine');
+                return !!document.querySelector('.cm-md-frontmatter')
+                    && !!active && active.textContent.trim().startsWith('#');
+            }"""
+        )
         page.locator(".codemirror-mount .cm-content").click()
         page.keyboard.press("Control+End")
         page.keyboard.insert_text("\n\nمتن فارسی and English")

@@ -34,6 +34,7 @@ import {
 } from "./core/recovery.mjs";
 import { readSession, writeSession } from "./core/session.mjs";
 import {
+  bodyStartOffset,
   extractCitationKeys,
   extractOutline,
   parseFrontMatter,
@@ -2084,6 +2085,9 @@ function updateAuthoringMode(model) {
   $("#workspace-view")?.classList.toggle("plain-text-mode", hasDocument && !markdown);
 }
 
+/** The document the caret was last placed for. */
+let lastCaretDocumentId = null;
+
 function renderWorkspace() {
   const model = activeDocument();
   renderDocumentTabs();
@@ -2104,6 +2108,16 @@ function renderWorkspace() {
   editor.disabled = model.readOnly;
   updateAuthoringMode(model);
   if (editor.value !== model.content) editor.value = model.content;
+  // Write mode opens on the document, not on its metadata. The caret starts at
+  // offset 0, live preview reveals the raw source of the block the caret is in,
+  // and offset 0 is inside the front matter of everything this application
+  // creates — so the first thing a new document showed was seven lines of YAML.
+  // Once per document, so switching tabs is not a reason to move it again.
+  if (lastCaretDocumentId !== model.id) {
+    lastCaretDocumentId = model.id;
+    const offset = bodyStartOffset(model.content);
+    if (offset > 0) editor.setSelectionRange?.(offset, offset);
+  }
   $("#editor-title").textContent = model.title;
   $("#editor-path").textContent = model.path || t("untitled");
   setSaveState(documentDirty(model) ? "dirty" : "saved");
