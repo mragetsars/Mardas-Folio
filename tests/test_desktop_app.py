@@ -35,6 +35,28 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+_RULE = re.compile(r"([^{}]+)\{([^{}]*)\}")
+
+
+def _rule_blocks(sheet: str, selector: str) -> list[str]:
+    """Every declaration block whose selector list names *selector* itself.
+
+    Only the element's own rules, not rules for its descendants: a
+    ``direction`` on ``.editor-pane`` pins the pane, one on
+    ``.editor-pane small`` pins a path inside it and is fine. Prefixes that
+    only raise specificity (``html[dir="ltr"] .x``) are stripped so those
+    count as the element's own rule too.
+    """
+    blocks: list[str] = []
+    for selectors, body in _RULE.findall(sheet):
+        for one in selectors.split(","):
+            trimmed = re.sub(r"^\s*html(\[[^\]]*\])*\s+", "", one).strip()
+            if trimmed == selector:
+                blocks.append(body)
+                break
+    return blocks
+
+
 def _symlink_or_skip(link: Path, target: Path, *, directory: bool = False) -> None:
     try:
         link.symlink_to(target, target_is_directory=directory)
@@ -382,8 +404,55 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     assert '.author-sidebar:focus-within .sidebar-panel.active' in workspace_css
     assert '@media (max-width: 980px)' in workspace_css
     assert '@media (max-width: 900px)' in workspace_css
-    assert 'padding-left: calc(var(--tab-sidebar-offset) + 10px)' in workspace_css
-    assert 'padding-right: calc(var(--tab-preview-offset) + 10px)' in workspace_css
+    assert 'padding-inline-start: calc(var(--tab-sidebar-offset) + 10px)' in workspace_css
+    assert 'padding-inline-end: calc(var(--tab-preview-offset) + 10px)' in workspace_css
+
+
+def test_workbench_takes_its_direction_from_the_interface_language() -> None:
+    """The workspace mirrors with the locale instead of being pinned left-to-right.
+
+    Every region of the workbench used to declare its own ``direction``, and
+    the declarations cancelled out to left-to-right whatever the language was:
+    a Persian user got the activity rail, the side bar, the tab strip and the
+    format bar on the same edges as an English one, under a title bar that had
+    mirrored. Nothing here may re-pin a region; the direction comes from
+    ``<html dir>`` and reaches the panes by inheritance.
+    """
+    styles = (DESKTOP / "frontend" / "styles.css").read_text(encoding="utf-8")
+    workspace_css = (DESKTOP / "frontend" / "workspace.css").read_text(encoding="utf-8")
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+
+    pinned = (
+        ".authoring-grid",
+        ".author-sidebar",
+        ".editor-pane",
+        ".preview-pane",
+        ".sidebar-panel",
+        ".sidebar-tabs",
+        ".format-bar",
+        ".editor-status",
+        ".find-bar",
+        ".codemirror-mount",
+        ".document-tabs",
+    )
+    declares_direction = re.compile(r"(?:^|;|\s)direction\s*:")
+    for sheet in (styles, workspace_css):
+        for selector in pinned:
+            for block in _rule_blocks(sheet, selector):
+                assert not declares_direction.search(block), (
+                    f"{selector} still pins a direction"
+                )
+
+    # The panes swap edges when the layout mirrors, so a drag that widened one
+    # has to narrow it. Without a sign taken from the document the handle runs
+    # away from the pointer in Persian.
+    assert "paneResizeSign" in main
+    assert 'document.documentElement.dir === "rtl" ? -1 : 1' in main
+
+    # The preview shows the document, not the interface, so it resolves its own
+    # direction from the text rather than inheriting the locale's.
+    index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'id="preview-document" dir="auto"' in index
 
 
 def test_professional_editor_is_locked_bundled_and_offline() -> None:

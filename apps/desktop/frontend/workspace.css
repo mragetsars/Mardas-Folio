@@ -1091,23 +1091,14 @@ html[data-theme="dark"] .hero .button.primary {
   align-items: end;
   gap: 2px;
   padding-top: 5px;
-  padding-right: calc(var(--tab-preview-offset) + 10px);
+  padding-inline-end: calc(var(--tab-preview-offset) + 10px);
   padding-bottom: 0;
-  padding-left: calc(var(--tab-sidebar-offset) + 10px);
+  padding-inline-start: calc(var(--tab-sidebar-offset) + 10px);
   overflow-x: auto;
   overflow-y: hidden;
   border-bottom: 1px solid var(--ui-border);
   background: var(--ui-panel-soft);
-  direction: ltr;
   scrollbar-width: thin;
-}
-
-.document-tab {
-  direction: rtl;
-}
-
-html[dir="ltr"] .document-tab {
-  direction: ltr;
 }
 
 .document-tab {
@@ -1166,7 +1157,6 @@ html[dir="ltr"] .document-tab {
   min-height: 0;
   display: grid;
   grid-template-columns: var(--sidebar-track) var(--sidebar-divider) minmax(360px, 1fr) var(--preview-divider) var(--preview-track);
-  direction: ltr;
   overflow: hidden;
   background: var(--ui-border);
 }
@@ -1230,7 +1220,6 @@ html[dir="ltr"] .document-tab {
   grid-template-columns: 48px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
-  direction: ltr;
 }
 
 .sidebar-tabs {
@@ -1246,7 +1235,6 @@ html[dir="ltr"] .document-tab {
   border: 0;
   border-inline-end: 1px solid var(--ui-border);
   background: var(--ui-panel-soft);
-  direction: inherit;
   scrollbar-width: thin;
 }
 
@@ -1346,12 +1334,7 @@ html[dir="ltr"] .document-tab {
   padding: 14px;
   background: var(--ui-panel);
   color: var(--ui-text);
-  direction: rtl;
   scrollbar-width: thin;
-}
-
-html[dir="ltr"] .sidebar-panel {
-  direction: ltr;
 }
 
 .sidebar-panel.active {
@@ -1584,7 +1567,6 @@ html[dir="ltr"] .sidebar-panel {
   background: var(--ui-panel-soft);
   color: var(--ui-muted);
   font-size: 11px;
-  direction: ltr;
 }
 
 .editor-status .editor-status-spacer {
@@ -1821,8 +1803,8 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
 
 .document-tabs {
   gap: 4px;
-  padding-right: calc(var(--tab-preview-offset) + 12px);
-  padding-left: calc(var(--tab-sidebar-offset) + 12px);
+  padding-inline-end: calc(var(--tab-preview-offset) + 12px);
+  padding-inline-start: calc(var(--tab-sidebar-offset) + 12px);
   background: linear-gradient(180deg, color-mix(in srgb, var(--ui-panel-soft) 92%, transparent), var(--ui-panel-soft));
 }
 
@@ -2018,7 +2000,7 @@ html[data-theme="dark"] .preview-document code:not(pre code) {
     grid-row: auto;
     top: 0;
     bottom: 0;
-    left: 70px;
+    inset-inline-start: 70px;
     width: min(320px, calc(100vw - 100px));
     display: none;
     border-inline-end: 1px solid var(--ui-border);
@@ -3852,7 +3834,6 @@ button:focus-visible,
   padding: 4px 10px;
   border-bottom: 1px solid var(--ui-border);
   background: var(--ui-panel-soft);
-  direction: ltr;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -4328,7 +4309,7 @@ html[data-focus-mode="true"] .editor-status:hover {
   flex: 1;
   border-bottom: 0;
   background: transparent;
-  padding-right: var(--ui-space-2);
+  padding-inline-end: var(--ui-space-2);
 }
 
 .tab-bar-tools {
@@ -4423,14 +4404,15 @@ html[data-focus-mode="true"] .editor-status:hover {
 }
 
 .codemirror-mount .cm-gutters {
-  border-right: 0;
+  border-inline-end: 0;
   background: transparent;
 }
 
 /* The numbers were 47px from the lines they number, which reads as two
    columns rather than as a margin. */
 .codemirror-mount .cm-lineNumbers .cm-gutterElement {
-  padding: 0 var(--ui-space-3) 0 var(--ui-space-4);
+  padding-block: 0;
+  padding-inline: var(--ui-space-4) var(--ui-space-3);
   min-width: 0;
 }
 

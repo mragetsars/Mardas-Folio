@@ -370,11 +370,26 @@ function setWorkspacePaneWidth(name, value, { persist = false } = {}) {
   applyWorkspaceLayout({ persist });
 }
 
+/**
+ * Which way a pane grows when the pointer moves right.
+ *
+ * The side bar sits on the inline start of the workbench and the preview on
+ * the inline end, so in a right-to-left interface both are on the opposite
+ * physical edge and a drag that widened a pane now has to narrow it. Reading
+ * the sign from the document's direction keeps the handle following the
+ * pointer in either language instead of running away from it.
+ */
+function paneResizeSign(name) {
+  const mirrored = document.documentElement.dir === "rtl" ? -1 : 1;
+  return (name === "sidebar" ? 1 : -1) * mirrored;
+}
+
 function beginPaneResize(event, name) {
   if (event.button !== 0 || matchMedia("(max-width: 1120px)").matches) return;
   event.preventDefault();
   const handle = event.currentTarget;
   const startX = event.clientX;
+  const sign = paneResizeSign(name);
   const startWidth = name === "sidebar"
     ? state.workspaceLayout.sidebarWidth
     : state.workspaceLayout.previewWidth;
@@ -382,7 +397,7 @@ function beginPaneResize(event, name) {
   handle.setPointerCapture?.(event.pointerId);
   const move = (moveEvent) => {
     const delta = moveEvent.clientX - startX;
-    setWorkspacePaneWidth(name, name === "sidebar" ? startWidth + delta : startWidth - delta);
+    setWorkspacePaneWidth(name, startWidth + sign * delta);
   };
   const end = () => {
     handle.classList.remove("is-dragging");
@@ -402,9 +417,10 @@ function resizePaneWithKeyboard(event, name) {
   const current = name === "sidebar"
     ? state.workspaceLayout.sidebarWidth
     : state.workspaceLayout.previewWidth;
+  const sign = paneResizeSign(name);
   let next = current;
-  if (event.key === "ArrowLeft") next += name === "sidebar" ? -16 : 16;
-  if (event.key === "ArrowRight") next += name === "sidebar" ? 16 : -16;
+  if (event.key === "ArrowLeft") next -= sign * 16;
+  if (event.key === "ArrowRight") next += sign * 16;
   if (event.key === "Home") next = name === "sidebar" ? 248 : 340;
   if (event.key === "End") next = name === "sidebar" ? 420 : 760;
   setWorkspacePaneWidth(name, next, { persist: true });

@@ -14,6 +14,12 @@ editing surface in overlapping slices.
 ``--mode write`` is the live preview; ``--mode source`` is the raw buffer, and
 comparing the two is how you tell "the decoration is wrong" from "the parse is
 wrong".
+
+``--locale fa`` runs the same corpus with the interface mirrored. The editor
+then sits in a right-to-left container, so CodeMirror's own base direction
+flips: the gutter moves, and every line with no strong character of its own
+lays out the other way. The corpus does not change, so any difference between
+the two runs is the mirroring.
 """
 from __future__ import annotations
 
@@ -297,12 +303,21 @@ def check_typing_behaviour(page: Any) -> list[dict[str, Any]]:
     return results
 
 
-def run(dist: Path, corpus: Path, output: Path, *, mode: str, theme: str) -> dict[str, Any]:
+def run(
+    dist: Path,
+    corpus: Path,
+    output: Path,
+    *,
+    mode: str,
+    theme: str,
+    locale: str = "en",
+) -> dict[str, Any]:
     from playwright.sync_api import sync_playwright
 
     output.mkdir(parents=True, exist_ok=True)
     text = corpus.read_text(encoding="utf-8")
-    report: dict[str, Any] = {"mode": mode, "theme": theme}
+    report: dict[str, Any] = {"mode": mode, "theme": theme, "locale": locale}
+    tag = f"{theme}-{mode}" if locale == "en" else f"{theme}-{locale}-{mode}"
 
     with _serve(dist) as url, sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -331,10 +346,12 @@ def run(dist: Path, corpus: Path, output: Path, *, mode: str, theme: str) -> dic
             skip.click()
         page.wait_for_timeout(200)
 
-        if theme != "light":
+        if theme != "light" or locale != "en":
             page.locator("#settings-button").click()
             page.wait_for_timeout(200)
             page.locator("#setting-theme").select_option(theme)
+            if locale != "en":
+                page.locator("#setting-locale").select_option(locale)
             page.locator("#settings-form button[type='submit']").click()
             page.wait_for_timeout(300)
 
@@ -381,7 +398,7 @@ def run(dist: Path, corpus: Path, output: Path, *, mode: str, theme: str) -> dic
                     totals[key] = max(totals.get(key, 0), value)
                 else:
                     totals.setdefault(key, value)
-            path = output / f"{theme}-{mode}-{index:02d}.png"
+            path = output / f"{tag}-{index:02d}.png"
             pane.screenshot(path=str(path))
             shots.append(path.name)
             moved = page.evaluate(
@@ -412,7 +429,7 @@ def run(dist: Path, corpus: Path, output: Path, *, mode: str, theme: str) -> dic
         report["page_errors"] = errors
         browser.close()
 
-    (output / f"report-{theme}-{mode}.json").write_text(
+    (output / f"report-{tag}.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     return report
@@ -426,6 +443,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--mode", default="write", choices=("write", "source", "split"))
     parser.add_argument("--theme", default="light", choices=("light", "dark"))
+    parser.add_argument("--locale", default="en", choices=("en", "fa"))
     args = parser.parse_args(argv)
 
     report = run(
@@ -434,9 +452,13 @@ def main(argv: list[str] | None = None) -> int:
         args.out.resolve(strict=False),
         mode=args.mode,
         theme=args.theme,
+        locale=args.locale,
     )
     counts = report["counts"]
-    print(f"editor mode: {counts.get('__mode')}   slices: {len(report['shots'])}")
+    print(
+        f"editor mode: {counts.get('__mode')}   locale: {args.locale}"
+        f"   slices: {len(report['shots'])}"
+    )
     missing = []
     for label, selector, minimum in EXPECTATIONS:
         found = counts.get(label, 0)
