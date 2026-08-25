@@ -9,46 +9,44 @@
  * 1280x900 — quote, callout, table, code block, rule, undo and redo among
  * them.
  *
- * The fix is to move what does not fit into a menu rather than off the edge,
- * and this is the part of that worth testing on its own: given the widths of
- * the groups and the room available, which groups stay.
+ * Groups that do not fit are moved into a menu instead. Deciding how many fit
+ * is measured rather than computed: the strip carries its own padding, a
+ * sticky group pinned to its trailing edge and a trigger that exists only
+ * when it is needed, and an arithmetic model of those widths is a second
+ * source of truth. When that model disagreed with the browser by 33px the
+ * last control was left sitting underneath the sticky group — inside the
+ * strip's box, so not clipped, and painted over, so not visible either.
  */
 
 /**
- * Plan a toolbar's overflow.
+ * Park trailing groups until the strip stops overflowing.
  *
- * @param {number[]} widths  natural width of each movable group, in order.
- * @param {number} available room the movable groups may use, in px.
- * @param {object} [options]
- * @param {number} [options.gap] space between two adjacent groups.
- * @param {number} [options.triggerWidth] width of the overflow trigger, only
- *   charged when something actually overflows — a bar that fits exactly must
- *   not grow a menu it does not need.
- * @returns {{visible: number, overflow: number[]}} how many leading groups
- *   stay, and the indices of those that move.
+ * Every group goes back first. A plan computed from the current layout only
+ * ever loses groups: the bar would ratchet down and never recover when the
+ * window grew again.
+ *
+ * @param {object} io
+ * @param {() => void} io.restore put every group back on the strip.
+ * @param {() => boolean} io.overflows does the strip overflow right now?
+ * @param {() => void} [io.onOverflow] called once, before the first move, so
+ *   the caller can reveal the trigger — which takes room of its own.
+ * @param {(index: number) => void} io.park move group `index` off the strip.
+ * @param {number} io.count how many groups are allowed to move.
+ * @returns {number[]} the parked group indices, in strip order.
  */
-export function planToolbarOverflow(widths, available, options = {}) {
-  const gap = Number(options.gap) || 0;
-  const triggerWidth = Number(options.triggerWidth) || 0;
-  const sizes = widths.map((width) => Math.max(0, Number(width) || 0));
-  const room = Math.max(0, Number(available) || 0);
+export function fitToolbarGroups(io) {
+  const count = Math.max(0, Number(io?.count) || 0);
+  io.restore();
+  if (!count || !io.overflows()) return [];
+  io.onOverflow?.();
 
-  const natural = sizes.reduce((total, width) => total + width, 0)
-    + gap * Math.max(0, sizes.length - 1);
-  if (natural <= room) return { visible: sizes.length, overflow: [] };
-
-  // Groups are kept in order and never split: half a group reads as a bug,
-  // and the groups are the units the user already sees on the bar.
-  let used = triggerWidth;
-  let visible = 0;
-  for (const width of sizes) {
-    const next = used + width + (visible > 0 ? gap : 0);
-    if (next > room) break;
-    used = next;
-    visible += 1;
+  // Groups move from the end and never split: half a group reads as a
+  // rendering fault, and the groups are the units already drawn on the bar.
+  const parked = [];
+  for (let index = count - 1; index >= 0; index -= 1) {
+    if (!io.overflows()) break;
+    io.park(index);
+    parked.unshift(index);
   }
-  return {
-    visible,
-    overflow: sizes.map((_, index) => index).slice(visible),
-  };
+  return parked;
 }

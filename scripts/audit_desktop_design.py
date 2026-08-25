@@ -395,18 +395,29 @@ RESPONSIVE_JS = """() => {
   }
 
   // The formatting strip is one row inside the editor sheet and holds
-  // nineteen controls. When the sheet is narrow they do not fit, and the
-  // failure this catches is a control painted past the strip's own edge with
-  // no scrollbar and no menu to reach it by.
+  // nineteen controls. When the sheet is narrow they do not fit, and what a
+  // user loses is not always something a box measurement can see: the strip's
+  // trailing group is sticky and paints its own background, so a control it
+  // covers is still inside the strip's box, still the right size, and still
+  // impossible to click. The question is therefore asked the way a pointer
+  // would ask it — what is actually at the middle of this control?
   const bar = document.querySelector(".format-bar");
   if (bar) {
     const strip = bar.getBoundingClientRect();
     for (const button of bar.querySelectorAll("button")) {
       const box = button.getBoundingClientRect();
       if (box.width < 1 || box.height < 1) continue;
+      const name = button.id || button.dataset.editorCommand || "a format control";
       if (box.right > strip.right + 0.5 || box.left < strip.left - 0.5) {
-        const name = button.id || button.dataset.editorCommand || "a format control";
         problems.push(`${name} is clipped out of the format bar`);
+        continue;
+      }
+      const at = document.elementFromPoint(
+        Math.round(box.left + box.width / 2),
+        Math.round(box.top + box.height / 2),
+      );
+      if (!at || (at !== button && !button.contains(at))) {
+        problems.push(`${name} is covered in the format bar`);
       }
     }
   }

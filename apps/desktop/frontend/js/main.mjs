@@ -69,7 +69,7 @@ import {
   writeWorkspaceLayout,
 } from "./core/workspace-layout.mjs";
 import { filterCommands } from "./core/command-palette.mjs";
-import { planToolbarOverflow } from "./core/toolbar-overflow.mjs";
+import { fitToolbarGroups } from "./core/toolbar-overflow.mjs";
 import { createModalManager } from "./core/modal-manager.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
 import { updaterStatus, checkForUpdates, installUpdate } from "./core/updater-api.mjs";
@@ -3750,61 +3750,46 @@ function toggleFormatOverflowMenu(force) {
 /**
  * Decide what fits and move the rest, after every change to the bar's width.
  *
- * Everything is returned to the bar first: a group's natural width cannot be
- * measured while it is sitting in a menu, and the plan has to be recomputed
- * from scratch or the bar only ever loses groups.
+ * The strip is measured rather than modelled. `.format-group-end` is sticky
+ * and paints its own background, so a control it covers is still inside the
+ * strip's box: not clipped, not visible, and not something a geometry check
+ * can see. Asking the browser whether the strip overflows after each move
+ * cannot disagree with the browser.
  */
 function syncFormatBarOverflow() {
   const parts = formatBarParts();
   if (!parts) return;
   const movable = [...parts.bar.querySelectorAll("[data-format-movable]"),
                    ...parts.menu.querySelectorAll("[data-format-movable]")];
-  if (!movable.length) return;
-
-  for (const node of movable) parts.bar.insertBefore(node, parts.group);
-  parts.group.classList.remove("hidden");
-
-  const style = getComputedStyle(parts.bar);
-  const gap = Number.parseFloat(style.columnGap) || 0;
   const groups = movable.filter((node) => node.classList.contains("format-group"));
-  const widths = groups.map((node) => {
-    const divider = node.previousElementSibling;
-    const lead = divider?.classList.contains("formatting-divider")
-      ? divider.offsetWidth + gap
-      : 0;
-    return node.offsetWidth + lead;
-  });
-
-  let fixed = 0;
-  for (const child of parts.bar.children) {
-    if (child === parts.group || child.dataset.formatMovable !== undefined) continue;
-    fixed += child.offsetWidth + gap;
-  }
-  const room = parts.bar.clientWidth
-    - (Number.parseFloat(style.paddingInlineStart) || 0)
-    - (Number.parseFloat(style.paddingInlineEnd) || 0)
-    - fixed;
-
-  const plan = planToolbarOverflow(widths, room, {
-    gap,
-    triggerWidth: parts.group.offsetWidth + gap,
-  });
+  if (!groups.length) return;
 
   // Focus would be lost with the button it is on, so it moves to the trigger
-  // before the button leaves the bar.
+  // before any button can leave the bar.
   const focused = document.activeElement;
-  for (const index of plan.overflow) {
-    const node = groups[index];
-    const divider = node.previousElementSibling;
-    if (divider?.classList.contains("formatting-divider")) parts.menu.append(divider);
-    parts.menu.append(node);
+  if (focused instanceof HTMLElement && groups.some((node) => node.contains(focused))) {
+    parts.trigger?.focus({ preventScroll: true });
   }
-  if (plan.overflow.length === 0) {
-    parts.group.classList.add("hidden");
-    toggleFormatOverflowMenu(false);
-  } else if (focused instanceof HTMLElement && parts.menu.contains(focused)) {
-    parts.trigger?.focus();
-  }
+
+  const parked = fitToolbarGroups({
+    count: groups.length,
+    restore: () => {
+      for (const node of movable) parts.bar.insertBefore(node, parts.group);
+      parts.group.classList.add("hidden");
+    },
+    overflows: () => parts.bar.scrollWidth > parts.bar.clientWidth + 1,
+    onOverflow: () => parts.group.classList.remove("hidden"),
+    // Parked from the end backwards and prepended, so the menu reads in the
+    // same order the strip did.
+    park: (index) => {
+      const node = groups[index];
+      const previous = node.previousElementSibling;
+      const divider = previous?.classList.contains("formatting-divider") ? previous : null;
+      parts.menu.prepend(node);
+      if (divider) parts.menu.insertBefore(divider, node);
+    },
+  });
+  if (!parked.length) toggleFormatOverflowMenu(false);
 }
 
 /** Plain text of the current selection, or the whole document. */
