@@ -251,6 +251,46 @@ const TABLE_TEMPLATE = "| Column | Column |\n| --- | --- |\n|  |  |";
  * Names are the vocabulary shared by the toolbar's `data-editor-command`, the
  * keymap below, the command palette and the context menu.
  */
+/**
+ * A footnote is two edits, not one.
+ *
+ * The engine reports a reference with no definition as a problem, so a command
+ * that inserts only `[^1]` hands the user a diagnostic rather than a footnote.
+ * Both go in together and the caret lands in the body, which is the half that
+ * still has to be written.
+ */
+const FOOTNOTE_LABEL = /\[\^(\d+)\]/g;
+
+function nextFootnoteLabel(text) {
+  let highest = 0;
+  for (const match of String(text).matchAll(FOOTNOTE_LABEL)) {
+    highest = Math.max(highest, Number(match[1]) || 0);
+  }
+  return highest + 1;
+}
+
+function insertFootnote(state) {
+  const label = nextFootnoteLabel(state.doc.toString());
+  const range = state.selection.main;
+  const reference = `[^${label}]`;
+  const end = state.doc.length;
+  const tail = state.doc.sliceString(Math.max(0, end - 2), end);
+  const lead = end === 0 || tail.endsWith("\n\n") ? "" : tail.endsWith("\n") ? "\n" : "\n\n";
+  const definition = `${lead}[^${label}]: `;
+  return {
+    changes: [
+      { from: range.from, to: range.to, insert: reference },
+      { from: end, to: end, insert: definition },
+    ],
+    // Both inserts are described against the old document, so the definition's
+    // end in the new one is the old length plus everything inserted before it.
+    selection: EditorSelection.cursor(
+      end - (range.to - range.from) + reference.length + definition.length,
+    ),
+    scrollIntoView: true,
+  };
+}
+
 export const MARKDOWN_COMMANDS = Object.freeze({
   bold: inlineCommand("**", "**", "bold text"),
   italic: inlineCommand("_", "_", "italic text"),
@@ -280,6 +320,14 @@ export const MARKDOWN_COMMANDS = Object.freeze({
   table: insertBlock(TABLE_TEMPLATE),
   "code-block": insertBlock("```\n\n```", { caretOffset: 4 }),
   callout: insertBlock("> [!NOTE]\n> ", { caretOffset: 12 }),
+
+  // Constructs the engine publishes that had no way in from the interface.
+  // Each inserts what the engine actually accepts, so what appears in the
+  // document is what comes out of the PDF.
+  footnote: insertFootnote,
+  "math-inline": inlineCommand("$", "$", "E = mc^2"),
+  "math-block": insertBlock("$$\n\n$$", { caretOffset: 3 }),
+  mermaid: insertBlock("```mermaid\ngraph TD\n  A[Start] --> B[End]\n```", { caretOffset: 11 }),
 });
 
 export function markdownCommandNames() {

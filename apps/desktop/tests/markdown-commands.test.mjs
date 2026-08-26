@@ -191,3 +191,43 @@ test("focus mode restates the workspace rows it empties", () => {
     /html\[data-focus-mode="true"\] \.workspace-view\.active \{\s*grid-template-rows/,
   );
 });
+
+test("a footnote inserts its reference and its definition together", () => {
+  // A reference with no definition is a document the engine reports a problem
+  // for, so inserting only `[^1]` would hand the user a diagnostic.
+  const state = EditorState.create({ doc: "Body text.", selection: { anchor: 10 } });
+  const next = state.update(MARKDOWN_COMMANDS.footnote(state)).state;
+  assert.equal(next.doc.toString(), "Body text.[^1]\n\n[^1]: ");
+  assert.equal(next.selection.main.head, next.doc.length, "the caret is in the body");
+});
+
+test("footnote labels continue from the highest one already used", () => {
+  const state = EditorState.create({
+    doc: "First[^1] and second[^7].\n\n[^1]: one\n[^7]: seven\n",
+    selection: { anchor: 5 },
+  });
+  const next = state.update(MARKDOWN_COMMANDS.footnote(state)).state;
+  assert.match(next.doc.toString(), /First\[\^8\]/);
+  assert.match(next.doc.toString(), /\[\^8\]: $/);
+});
+
+test("a footnote replaces the selection with its reference", () => {
+  const state = EditorState.create({ doc: "keep drop", selection: { anchor: 5, head: 9 } });
+  const next = state.update(MARKDOWN_COMMANDS.footnote(state)).state;
+  assert.equal(next.doc.toString(), "keep [^1]\n\n[^1]: ");
+  assert.equal(next.selection.main.head, next.doc.length);
+});
+
+test("inline maths wraps the selection in the delimiters the engine parses", () => {
+  const state = EditorState.create({ doc: "a + b", selection: { anchor: 0, head: 5 } });
+  const next = state.update(MARKDOWN_COMMANDS["math-inline"](state)).state;
+  assert.equal(next.doc.toString(), "$a + b$");
+});
+
+test("block maths and a mermaid diagram open on their own lines", () => {
+  const state = EditorState.create({ doc: "Paragraph." });
+  const maths = state.update(MARKDOWN_COMMANDS["math-block"](state)).state;
+  assert.equal(maths.doc.toString(), "Paragraph.\n\n$$\n\n$$");
+  const diagram = state.update(MARKDOWN_COMMANDS.mermaid(state)).state;
+  assert.match(diagram.doc.toString(), /\n\n```mermaid\ngraph TD\n {2}A\[Start\] --> B\[End\]\n```$/);
+});

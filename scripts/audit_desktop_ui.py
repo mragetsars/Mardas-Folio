@@ -145,6 +145,29 @@ def run_audit(
                 })"""
         )
 
+        # Five constructs the engine publishes — footnotes, inline and display
+        # maths, a Mermaid diagram, a highlight — had no way in from the
+        # interface at all. They are behind one pinned menu, and the same
+        # commands answer to the palette by name.
+        page.locator("#insert-menu-button").click()
+        page.wait_for_timeout(300)
+        checks["insert_menu_opens"] = page.evaluate(
+            """() => {
+                const menu = document.querySelector('#insert-menu');
+                return !!menu && !menu.classList.contains('hidden')
+                    && menu.querySelectorAll('button').length >= 6;
+            }"""
+        )
+        before_footnote = editor.input_value()
+        page.locator('#insert-menu [data-editor-command="footnote"]').click()
+        page.wait_for_timeout(400)
+        after_footnote = editor.input_value()
+        checks["footnote_inserts_reference_and_definition"] = (
+            "[^1]" in after_footnote
+            and "[^1]: " in after_footnote
+            and after_footnote != before_footnote
+        )
+
         # Tab indents inside the editor, which makes it a keyboard trap unless
         # something releases it. Escape arms the next Tab to move focus; the
         # press after that has to land somewhere that is not the editor.

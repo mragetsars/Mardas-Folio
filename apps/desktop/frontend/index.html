@@ -69,6 +69,11 @@
   <symbol id="icon-duplicate" viewBox="0 0 24 24"><path d="M8.6 8.6h9.8a1.8 1.8 0 0 1 1.8 1.8v9.8H8.6z"/><path d="M15.4 8.6V5.6a1.8 1.8 0 0 0-1.8-1.8H5.6a1.8 1.8 0 0 0-1.8 1.8V14a1.8 1.8 0 0 0 1.8 1.8h3"/></symbol>
   <symbol id="icon-grip" viewBox="0 0 24 24"><path d="M9.4 6.6h.1M9.4 12h.1M9.4 17.4h.1M14.6 6.6h.1M14.6 12h.1M14.6 17.4h.1"/></symbol>
   <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5.4 12.6 4.4 4.6 8.8-10.4"/></symbol>
+  <symbol id="icon-insert" viewBox="0 0 24 24"><path d="M12 6.4v11.2M6.4 12h11.2"/><circle cx="12" cy="12" r="8.4"/></symbol>
+  <symbol id="icon-footnote" viewBox="0 0 24 24"><path d="M4.6 6.4h9.4M4.6 11h9.4M4.6 15.6h6"/><path d="M16.4 5.4h3.4l-3.4 4.2h3.4"/></symbol>
+  <symbol id="icon-maths-block" viewBox="0 0 24 24"><rect x="3.6" y="4.8" width="16.8" height="14.4" rx="2"/><path d="M15.6 9H9.4l3.6 3-3.6 3h6.2"/></symbol>
+  <symbol id="icon-diagram" viewBox="0 0 24 24"><rect x="8.6" y="3.4" width="6.8" height="4.4" rx="1"/><rect x="3.4" y="16.2" width="6.8" height="4.4" rx="1"/><rect x="13.8" y="16.2" width="6.8" height="4.4" rx="1"/><path d="M12 7.8v4.4M6.8 16.2v-4h10.4v4"/></symbol>
+  <symbol id="icon-highlight" viewBox="0 0 24 24"><path d="M4.6 19.4h14.8"/><path d="m7.4 15.8 8-8a1.9 1.9 0 0 1 2.7 0l.7.7a1.9 1.9 0 0 1 0 2.7l-8 8H7.4z"/></symbol>
   <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/></symbol>
   <symbol id="icon-panel-left" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M9 4v16M6.2 8h.1M6.2 12h.1M6.2 16h.1"/></symbol>
   <symbol id="icon-panel-right" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M15 4v16M17.8 8h.1M17.8 12h.1M17.8 16h.1"/></symbol>
@@ -358,6 +363,12 @@
                 <button type="button" data-editor-command="undo" data-i18n-title="undo" title="واگرد"><svg class="ui-icon" aria-hidden="true"><use href="#icon-undo"></use></svg></button>
                 <button type="button" data-editor-command="redo" data-i18n-title="redo" title="ازنو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-redo"></use></svg></button>
               </div>
+              <span class="formatting-divider" aria-hidden="true"></span>
+              <!-- Pinned. It is the only route to five constructs, so it is not
+                   one of the groups that may move into the overflow menu. -->
+              <div class="format-group">
+                <button type="button" id="insert-menu-button" class="format-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="insert-menu" data-i18n-title="insertMenu" title="درج" data-i18n-aria-label="insertMenu" aria-label="درج"><svg class="ui-icon" aria-hidden="true"><use href="#icon-insert"></use></svg><svg class="ui-icon format-caret" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
+              </div>
               <div class="format-group format-group-overflow hidden" id="format-overflow-group">
                 <button type="button" id="format-overflow-button" aria-haspopup="true" aria-expanded="false" aria-controls="format-overflow-menu" data-i18n-title="moreTools" title="ابزارهای بیشتر" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more"></use></svg></button>
               </div>
@@ -366,6 +377,19 @@
               </div>
               </div>
         <div class="popover-menu format-overflow-menu hidden" id="format-overflow-menu" role="group" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"></div>
+        <!-- The constructs the engine publishes that do not earn a button of
+             their own. Each inserts the syntax the engine actually parses, so
+             the document stays Markdown and the user can see what was added. -->
+        <div class="popover-menu insert-menu hidden" id="insert-menu" role="menu" aria-labelledby="insert-menu-button">
+          <button type="button" role="menuitem" id="insert-image" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-image"></use></svg><span data-i18n="insertImage">تصویر</span><code>![]()</code></button>
+          <button type="button" role="menuitem" data-editor-command="footnote" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-footnote"></use></svg><span data-i18n="insertFootnote">پانویس</span><code>[^1]</code></button>
+          <span class="popover-divider" role="separator"></span>
+          <button type="button" role="menuitem" data-editor-command="math-inline" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-maths"></use></svg><span data-i18n="insertMathInline">فرمول در متن</span><code>$…$</code></button>
+          <button type="button" role="menuitem" data-editor-command="math-block" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-maths-block"></use></svg><span data-i18n="insertMathBlock">فرمول مستقل</span><code>$$…$$</code></button>
+          <button type="button" role="menuitem" data-editor-command="mermaid" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-diagram"></use></svg><span data-i18n="insertDiagram">نمودار Mermaid</span><code>mermaid</code></button>
+          <span class="popover-divider" role="separator"></span>
+          <button type="button" role="menuitem" data-editor-command="highlight" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-highlight"></use></svg><span data-i18n="insertHighlight">هایلایت</span><code>==…==</code></button>
+        </div>
         <div class="popover-menu hidden" id="heading-menu" role="menu" aria-labelledby="heading-menu-button">
           <button type="button" role="menuitem" data-editor-command="heading-1" class="heading-choice heading-choice-1">H1</button>
           <button type="button" role="menuitem" data-editor-command="heading-2" class="heading-choice heading-choice-2">H2</button>

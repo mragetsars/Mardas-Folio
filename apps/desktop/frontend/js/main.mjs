@@ -733,6 +733,13 @@ function commandDefinitions() {
     { id: "settings", symbol: "settings", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
     { id: "support-bundle", symbol: "archive", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
     { id: "updates", symbol: "update", label: t("commandCheckUpdates"), keywords: "update upgrade release version", priority: 37, run: () => { openSettings(); setTimeout(() => checkUpdates(), 0); } },
+    // The constructs with no button of their own, so the palette can reach
+    // them by name as well as the Insert menu by picture.
+    { id: "insert-footnote", symbol: "footnote", label: t("insertFootnote"), keywords: "footnote note reference پانویس", priority: 46, enabled: hasDocument, run: () => editorCommand("footnote") },
+    { id: "insert-math-inline", symbol: "maths", label: t("insertMathInline"), keywords: "math formula equation latex فرمول ریاضی", priority: 45, enabled: hasDocument, run: () => editorCommand("math-inline") },
+    { id: "insert-math-block", symbol: "maths-block", label: t("insertMathBlock"), keywords: "math display block equation فرمول", priority: 44, enabled: hasDocument, run: () => editorCommand("math-block") },
+    { id: "insert-diagram", symbol: "diagram", label: t("insertDiagram"), keywords: "mermaid diagram graph chart نمودار", priority: 43, enabled: hasDocument, run: () => editorCommand("mermaid") },
+    { id: "insert-highlight", symbol: "highlight", label: t("insertHighlight"), keywords: "highlight mark هایلایت", priority: 43, enabled: hasDocument, run: () => editorCommand("highlight") },
     { id: "view-write", symbol: "pencil", label: t("viewWrite"), keywords: "write live formatted wysiwyg نوشتن", priority: 42, run: () => setViewMode("write") },
     { id: "view-source", symbol: "source", label: t("viewSource"), keywords: "source raw markdown سورس", priority: 41, run: () => setViewMode("source") },
     { id: "view-split", symbol: "panel-right", label: t("viewSplit"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, run: () => setViewMode("split") },
@@ -3869,9 +3876,9 @@ function editorCommand(command) {
  * had to be typed by hand. The menu shows each level at its own weight, because
  * the decision being made is about size, not about a number.
  */
-function toggleHeadingMenu(force) {
-  const menu = $("#heading-menu");
-  const button = $("#heading-menu-button");
+function togglePopoverMenu(menuSelector, buttonSelector, force) {
+  const menu = $(menuSelector);
+  const button = $(buttonSelector);
   if (!menu || !button) return;
   const open = force === undefined ? menu.classList.contains("hidden") : force;
   menu.classList.toggle("hidden", !open);
@@ -3879,10 +3886,22 @@ function toggleHeadingMenu(force) {
   if (!open) return;
   const box = button.getBoundingClientRect();
   menu.style.top = `${box.bottom + 4}px`;
-  menu.style.insetInlineStart = `${document.documentElement.dir === "rtl"
+  // Anchored to the button's leading edge, and kept inside the window: the
+  // strip mirrors, so the same menu opens from the other side in Persian.
+  const start = document.documentElement.dir === "rtl"
     ? window.innerWidth - box.right
-    : box.left}px`;
+    : box.left;
+  const room = window.innerWidth - menu.offsetWidth - 8;
+  menu.style.insetInlineStart = `${Math.max(8, Math.min(start, room))}px`;
   menu.querySelector("button")?.focus();
+}
+
+function toggleHeadingMenu(force) {
+  togglePopoverMenu("#heading-menu", "#heading-menu-button", force);
+}
+
+function toggleInsertMenu(force) {
+  togglePopoverMenu("#insert-menu", "#insert-menu-button", force);
 }
 
 /* ---- The format bar keeps every control reachable -------------------------
@@ -4322,12 +4341,37 @@ function bindEvents() {
   $("#replace-all").addEventListener("click", replaceAllMatches);
   $("#close-find").addEventListener("click", closeFind);
   $$('[data-editor-command]').forEach((button) => button.addEventListener("click", () => {
-    if (button.closest(".popover-menu")) toggleHeadingMenu(false);
+    if (button.closest("#heading-menu")) toggleHeadingMenu(false);
+    if (button.closest("#insert-menu")) toggleInsertMenu(false);
     editorCommand(button.dataset.editorCommand);
   }));
   $("#heading-menu-button").addEventListener("click", (event) => {
     event.stopPropagation();
     toggleHeadingMenu();
+  });
+  $("#insert-menu-button").addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleInsertMenu();
+  });
+  $("#insert-image").addEventListener("click", () => {
+    toggleInsertMenu(false);
+    void importAsset();
+  });
+  $("#insert-menu").addEventListener("keydown", (event) => {
+    const items = [...$("#insert-menu").querySelectorAll("button")];
+    const index = items.indexOf(document.activeElement);
+    if (event.key === "Escape") {
+      event.preventDefault();
+      toggleInsertMenu(false);
+      $("#insert-menu-button").focus();
+      return;
+    }
+    if (!["ArrowUp", "ArrowDown"].includes(event.key) || index < 0) return;
+    event.preventDefault();
+    const next = event.key === "ArrowDown"
+      ? (index + 1) % items.length
+      : (index - 1 + items.length) % items.length;
+    items[next].focus();
   });
   $("#format-overflow-button").addEventListener("click", (event) => {
     event.stopPropagation();
@@ -4365,6 +4409,7 @@ function bindEvents() {
   document.addEventListener("pointerdown", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.closest("#heading-menu, #heading-menu-button")) toggleHeadingMenu(false);
+    if (!target?.closest("#insert-menu, #insert-menu-button")) toggleInsertMenu(false);
     if (!target?.closest("#format-overflow-menu, #format-overflow-button")) {
       toggleFormatOverflowMenu(false);
     }
@@ -4420,6 +4465,7 @@ function bindEvents() {
     if (event.key === "Escape") {
       closeEditorContextMenu();
       toggleHeadingMenu(false);
+      toggleInsertMenu(false);
       // A mode that hides the way out has to have one.
       if (state.preferences.focusMode && !modalManager.hasOpenModal()) {
         updatePreference({ focusMode: false });

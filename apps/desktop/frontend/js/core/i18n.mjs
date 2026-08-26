@@ -372,3 +372,22 @@ Object.assign(en, {
   closeWithoutSaving: "Close without saving",
   closeUnsavedHelp: "The unsaved changes in this document will be lost.",
 });
+
+// The Insert menu: constructs the engine publishes that do not earn a
+// button of their own on the formatting strip.
+Object.assign(fa, {
+  insertMenu: "درج",
+  insertFootnote: "پانویس",
+  insertMathInline: "فرمول در متن",
+  insertMathBlock: "فرمول مستقل",
+  insertDiagram: "نمودار Mermaid",
+  insertHighlight: "هایلایت",
+});
+Object.assign(en, {
+  insertMenu: "Insert",
+  insertFootnote: "Footnote",
+  insertMathInline: "Inline formula",
+  insertMathBlock: "Display formula",
+  insertDiagram: "Mermaid diagram",
+  insertHighlight: "Highlight",
+});

@@ -4105,6 +4105,48 @@ button:focus-visible,
   color: var(--ui-accent);
 }
 
+/* The Insert menu: what it makes, and the Markdown it makes it out of. The
+   syntax is shown because that is the point — nothing here hides the source,
+   and a user who sees `[^1]` once can type it the next time. */
+.insert-menu {
+  min-width: 232px;
+}
+
+.insert-choice {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ui-space-2);
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--ui-radius-xs);
+  background: transparent;
+  color: var(--ui-text);
+  font: 600 12px/1.5 inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.insert-choice:hover,
+.insert-choice:focus-visible {
+  background: var(--ui-panel-muted);
+  color: var(--ui-accent);
+}
+
+.insert-choice code {
+  color: var(--ui-muted);
+  font: 500 10px/1.5 ui-monospace, "Cascadia Mono", monospace;
+  direction: ltr;
+}
+
+.insert-choice:hover code,
+.insert-choice:focus-visible code {
+  color: inherit;
+  opacity: 0.75;
+}
+
 .heading-choice-1 { font-size: 20px; font-weight: 750; }
 .heading-choice-2 { font-size: 17px; font-weight: 700; }
 .heading-choice-3 { font-size: 15px; font-weight: 680; }
