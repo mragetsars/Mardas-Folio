@@ -311,6 +311,16 @@ Object.assign(en, { leaveEditor: "Move focus out of the editor" });
 // A value the preset supplied is not a value the user overrode.
 Object.assign(fa, { fromPreset: "از preset", resetToPreset: "بازگرداندن به مقدار preset" });
 Object.assign(en, { fromPreset: "preset", resetToPreset: "Back to the preset value" });
+// This pane shows the document's content; the printed page is what Create
+// PDF produces, and the export screen previews.
+Object.assign(fa, {
+  previewHelp: "فقط محتوا",
+  previewScope: "صفحه\u200cبندی، جلد، سرصفحه و واترمارک هنگام ساخت PDF اعمال می\u200cشوند.",
+});
+Object.assign(en, {
+  previewHelp: "content only",
+  previewScope: "Pagination, cover, running headers and watermark are applied when the PDF is created.",
+});
 
 // Persian is the primary interface language; these keys had only ever been
 // added to the English table, so the Persian interface silently fell back to

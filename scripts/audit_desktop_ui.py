@@ -184,6 +184,17 @@ def run_audit(
         page.locator("#preview-preview-heading").wait_for(state="visible")
         checks["split_view_shows_preview"] = page.locator("#preview-pane").is_visible()
         checks["preview_contract"] = page.locator("#preview-preview-heading").inner_text() == "Preview"
+        # This pane is the document's content, not its printed pages, and it
+        # has to say so on screen rather than only in the markup.
+        checks["preview_says_what_it_shows"] = page.evaluate(
+            """() => {
+                const detail = document.querySelector('#preview-detail');
+                const header = document.querySelector('.preview-pane .pane-header');
+                return !!detail && detail.offsetParent !== null
+                    && detail.textContent.trim().length > 0
+                    && !!header?.title;
+            }"""
+        )
         checks["preview_sanitized"] = page.evaluate(
             """() => {
               const preview = document.querySelector('#preview-document');
