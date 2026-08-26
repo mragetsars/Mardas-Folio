@@ -159,3 +159,23 @@ test("every stylesheet is brace-balanced", () => {
     assert.equal(depth, 0, `${name} leaves ${depth} block(s) open`);
   }
 });
+
+test("type is a scale of tokens, not two hundred literals", () => {
+  // Surfaces, borders, accents, spacing, radii, control heights and pane
+  // widths were all tokens; type was 207 literals in nineteen sizes, four of
+  // them half a pixel off any other and three of them 8px, which is under any
+  // size a badge can be read at.
+  const sheets = [styles, workspaceStyles].join("\n");
+  for (const token of [
+    "--ui-text-3xs", "--ui-text-2xs", "--ui-text-xs", "--ui-text-sm",
+    "--ui-text-md", "--ui-text-base", "--ui-text-lg", "--ui-text-xl",
+    "--ui-text-2xl", "--ui-text-3xl",
+  ]) {
+    assert.match(workspaceStyles, new RegExp(`${token}:\\s*\\d+px`), `${token} is declared`);
+    assert.ok(sheets.includes(`var(${token})`), `${token} is used`);
+  }
+  // Nothing sets a size outside the scale.
+  const literals = [...sheets.matchAll(/font(?:-size)?:\s*(?:[\w-]+\s+)*?([0-9.]+)px/g)]
+    .map((match) => match[1]);
+  assert.deepEqual(literals, [], `font sizes are still written as literals: ${literals}`);
+});
