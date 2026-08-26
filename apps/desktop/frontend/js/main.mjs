@@ -1213,8 +1213,26 @@ function buildOptionRow(field, group) {
   const row = document.createElement("div");
   row.className = "option-row";
   row.dataset.optionKey = field.key;
-  const isSet = advancedValues.has(field.key);
+  // Three states, not two.
+  //
+  // Choosing a preset copies its options into the working set, so every one of
+  // them read as "set by you": the accent rule down the row, the reset dot,
+  // the group's changed-count badge. A value the preset supplied looked
+  // exactly like one the user had overridden, and the summary's "N changed"
+  // — which compares against the preset — disagreed with both.
+  //
+  // Worse, the dot on such a row did not do what it looked like. It deleted
+  // the value, so the engine fell back to `mardas.toml` or its own default
+  // rather than to the preset the user had picked: pressing "reset" on
+  // Style: Modern quietly changed the output away from Modern.
+  const presetOptions = presetById(state.presetId).options;
+  const hasValue = advancedValues.has(field.key);
+  const fromPreset = hasValue
+    && field.key in presetOptions
+    && String(advancedValues.get(field.key)) === String(presetOptions[field.key]);
+  const isSet = hasValue && !fromPreset;
   row.dataset.modified = String(isSet);
+  row.dataset.source = isSet ? "override" : hasValue ? "preset" : "inherited";
 
   const head = document.createElement("div");
   head.className = "option-head";
@@ -1233,14 +1251,25 @@ function buildOptionRow(field, group) {
     badge.textContent = t("riskyBadge");
     head.append(badge);
   }
+  if (fromPreset) {
+    const badge = document.createElement("span");
+    badge.className = "option-badge from-preset";
+    badge.textContent = t("fromPreset");
+    head.append(badge);
+  }
   if (isSet) {
+    // Back to the preset's value where it has one, and to inherited where it
+    // does not — which is what "reset" has to mean on a screen whose second
+    // step is choosing a preset.
+    const restores = field.key in presetOptions;
+    const label = t(restores ? "resetToPreset" : "resetOption");
     const reset = document.createElement("button");
     reset.type = "button";
     reset.className = "option-reset";
-    reset.title = t("resetOption");
-    reset.setAttribute("aria-label", `${t("resetOption")}: ${t(`opt.${field.key}`)}`);
+    reset.title = label;
+    reset.setAttribute("aria-label", `${label}: ${t(`opt.${field.key}`)}`);
     reset.append(spriteIcon("close"));
-    reset.addEventListener("click", () => setOptionValue(field.key, undefined));
+    reset.addEventListener("click", () => setOptionValue(field.key, presetOptions[field.key]));
     head.append(reset);
   }
 

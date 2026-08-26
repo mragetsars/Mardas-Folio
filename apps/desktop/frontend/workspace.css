@@ -3621,6 +3621,19 @@ button:focus-visible,
   color: var(--ui-warning);
 }
 
+/* Quiet: it says where a value came from, and there is one on most rows at
+   once. A pill with a ground of its own would out-shout the label it sits
+   beside nine times over. */
+.option-badge.from-preset {
+  padding: 0;
+  background: none;
+  color: var(--ui-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  font: 500 10px/1.6 inherit;
+  opacity: 0.8;
+}
+
 /*
  * The dot that returns one option to what it inherits. It reads as an 18px
  * affordance and was an 18px target, under the 24px floor WCAG 2.5.8 sets, in

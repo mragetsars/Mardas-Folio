@@ -308,6 +308,9 @@ Object.assign(en, { moveLine: "Move line" });
 // Tab indents inside the editor, so it needs a stated way out.
 Object.assign(fa, { leaveEditor: "خروج از ویرایشگر با صفحه‌کلید" });
 Object.assign(en, { leaveEditor: "Move focus out of the editor" });
+// A value the preset supplied is not a value the user overrode.
+Object.assign(fa, { fromPreset: "از preset", resetToPreset: "بازگرداندن به مقدار preset" });
+Object.assign(en, { fromPreset: "preset", resetToPreset: "Back to the preset value" });
 
 // Persian is the primary interface language; these keys had only ever been
 // added to the English table, so the Persian interface silently fell back to

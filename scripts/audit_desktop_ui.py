@@ -245,6 +245,25 @@ def run_audit(
         page.locator("#workspace-home").click()
         page.locator("#workflow-quick").click()
         page.wait_for_timeout(900)
+        # A value the preset supplied is not a value the user overrode, and
+        # "reset" on this screen has to mean "back to the preset" — deleting
+        # it sends the engine to its own default instead, which is a different
+        # PDF from the one the chosen preset describes.
+        style_row = '.option-row[data-option-key="style"]'
+        checks["preset_value_is_not_marked_as_an_override"] = page.evaluate(
+            f"""() => document.querySelector('{style_row}')?.dataset.source === 'preset'"""
+        )
+        page.select_option("#adv-style", "academic")
+        page.wait_for_timeout(400)
+        checks["changing_a_value_marks_it_an_override"] = page.evaluate(
+            f"""() => document.querySelector('{style_row}')?.dataset.source === 'override'"""
+        )
+        page.locator(f"{style_row} .option-reset").click()
+        page.wait_for_timeout(400)
+        checks["reset_returns_the_preset_value"] = page.evaluate(
+            """() => document.querySelector('#adv-style')?.value === 'modern'"""
+        )
+
         # The two buttons the screen exists for have to be on screen without
         # scrolling past eleven categories of publishing options to find them.
         checks["export_actions_in_view"] = page.evaluate(
