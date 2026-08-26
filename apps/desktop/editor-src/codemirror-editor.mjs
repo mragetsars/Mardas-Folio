@@ -345,9 +345,18 @@ export function createCodeMirrorEditorAdapter(
           EditorState.readOnly.of(disabled),
           EditorView.editable.of(!disabled),
         ]),
+        // No `dir` on the content element.
+        //
+        // It carried `dir="auto"`, which cannot work here: every line inside
+        // it declares a direction of its own, so the automatic resolution sees
+        // a run of isolated objects with no strong character among them and
+        // falls back to left-to-right. The content element was therefore
+        // always left-to-right, whatever the workbench around it was doing,
+        // and any line with nothing strong in it inherited that. Without the
+        // attribute it inherits the editor's direction, which is the answer
+        // the fallback was reaching for.
         EditorView.contentAttributes.of({
           "aria-label": textarea.getAttribute("aria-label") || "Markdown editor",
-          dir: "auto",
           spellcheck: textarea.spellcheck ? "true" : "false",
         }),
         EditorView.updateListener.of((update) => {
@@ -486,7 +495,7 @@ export function createCodeMirrorEditorAdapter(
     },
     setLocale(locale) {
       view.contentDOM.lang = locale === "fa" ? "fa" : "en";
-      view.contentDOM.dir = "auto";
+      view.contentDOM.removeAttribute("dir");
     },
     get mode() {
       return editorMode;

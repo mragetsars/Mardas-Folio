@@ -130,6 +130,36 @@ function decodeEntity(source) {
  * direction throws.
  */
 const autoDirection = Decoration.line({ attributes: { dir: "auto" } });
+/**
+ * A line with no strong character has no direction of its own.
+ *
+ * `dir="auto"` resolves from the first strong character and falls back to
+ * left-to-right when there is none — whatever the editor around it is doing.
+ * In a mirrored workbench that puts a front matter fence, a horizontal rule
+ * and a table's `| --- | --- |` separator on the opposite edge from every
+ * line they belong with, which is how the Persian workspace came to show
+ * `---` hard against the left margin above a right-aligned heading.
+ *
+ * Only those lines are given a direction; anything with a strong character
+ * keeps `plaintext` and resolves itself, which is what makes a Persian
+ * sentence containing `src/main.py` lay out correctly.
+ */
+const neutralDirection = Decoration.line({ class: "cm-line-neutral" });
+const HAS_STRONG_CHARACTER = /[A-Za-zÀ-˿Ͱ-֏֑-߿יִ-﷽ﹰ-ﻼ]/;
+
+/**
+ * No `dir` attribute at all, so the line inherits the editor's direction.
+ *
+ * Asking `view.textDirection` and writing `dir="rtl"` looks equivalent and is
+ * not: the editor's direction is read from a measurement, and the plugin
+ * builds its decorations before the first one has been taken, so every
+ * neutral line was decided against a direction of left-to-right and never
+ * revisited — the plugin only rebuilds when the document or the viewport
+ * changes.
+ */
+function lineDirection(text) {
+  return HAS_STRONG_CHARACTER.test(text) ? autoDirection : neutralDirection;
+}
 const codeLine = Decoration.line({ class: "cm-code-line" });
 const quoteLine = Decoration.line({ class: "cm-quote-line" });
 
@@ -550,7 +580,7 @@ function buildDecorations(view) {
   for (const { from, to } of view.visibleRanges) {
     for (let pos = from; pos <= to; ) {
       const line = state.doc.lineAt(pos);
-      lines.push({ at: line.from, deco: autoDirection });
+      lines.push({ at: line.from, deco: lineDirection(line.text) });
       pos = line.to + 1;
     }
   }
@@ -643,7 +673,7 @@ const autoDirectionPlugin = ViewPlugin.fromClass(
       for (const { from, to } of view.visibleRanges) {
         for (let pos = from; pos <= to; ) {
           const line = view.state.doc.lineAt(pos);
-          builder.add(line.from, line.from, autoDirection);
+          builder.add(line.from, line.from, lineDirection(line.text));
           pos = line.to + 1;
         }
       }

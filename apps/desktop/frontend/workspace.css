@@ -4484,6 +4484,16 @@ html[data-focus-mode="true"] .editor-status:hover {
   background: transparent;
 }
 
+/* A line with nothing strong in it — a front matter fence, a horizontal rule,
+   a table's `| --- | --- |` — carries no `dir` and so takes the editor's own
+   direction. `dir="auto"` would have given it left-to-right whatever the
+   workbench was doing, and in Persian that put those lines hard against the
+   opposite margin from every line they belong with. Isolated all the same, so
+   it is still its own bidi paragraph. */
+.codemirror-mount .cm-line.cm-line-neutral {
+  unicode-bidi: isolate;
+}
+
 /* The numbers were 47px from the lines they number, which reads as two
    columns rather than as a margin. */
 .codemirror-mount .cm-lineNumbers .cm-gutterElement {

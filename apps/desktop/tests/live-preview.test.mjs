@@ -246,3 +246,35 @@ test("inline widgets are drawn over the viewport, not by the document-wide field
   assert.match(source, /state\.facet\(assetResolver\)/);
   assert.match(source, /view\.visibleRanges/, "the plugin only looks at what is on screen");
 });
+
+test("a line with nothing strong in it takes the editor's direction, not left-to-right", () => {
+  // `dir="auto"` resolves from the first strong character and falls back to
+  // left-to-right when a line has none. A front matter fence, a horizontal
+  // rule and a table's `| --- | --- |` separator all have none, so in the
+  // mirrored workbench they sat hard against the opposite margin from every
+  // line they belong with. Those lines carry no `dir` at all now and inherit.
+  const source = readFileSync(
+    new URL("../editor-src/live-preview.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /const neutralDirection = Decoration\.line\(\{ class: "cm-line-neutral" \}\)/);
+  assert.match(source, /HAS_STRONG_CHARACTER\.test\(text\) \? autoDirection : neutralDirection/);
+  // Asking the view for its direction is the version that did not work: the
+  // plugin builds before the first measurement, so every neutral line was
+  // decided against left-to-right and never revisited. The comment explaining
+  // that may name it; the code may not use it.
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  assert.doesNotMatch(code, /view\.textDirection/);
+});
+
+test("the content element carries no direction of its own", () => {
+  // Every line inside it declares one, so `dir="auto"` on the parent saw a run
+  // of isolated objects with no strong character among them and resolved to
+  // left-to-right — permanently, whatever the workbench was doing.
+  const source = readFileSync(
+    new URL("../editor-src/codemirror-editor.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /"aria-label":[^}]*dir: "auto"/s);
+  assert.match(source, /view\.contentDOM\.removeAttribute\("dir"\)/);
+});
