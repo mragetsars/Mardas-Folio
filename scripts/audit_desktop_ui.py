@@ -134,6 +134,17 @@ def run_audit(
         checks["professional_editor_input"] = (
             "متن فارسی and English" in editor.input_value()
         )
+        # Everything that truncates has to carry the whole value somewhere.
+        # These three are the ones that hold a file name and a path, in a
+        # status bar and a tab strip narrower than either.
+        checks["truncated_labels_carry_the_full_value"] = page.evaluate(
+            """() => ['#editor-title', '#editor-path', '.document-tab .tab-name']
+                .every((selector) => {
+                  const el = document.querySelector(selector);
+                  return !!el && el.title.trim() === el.textContent.trim() && el.title !== '';
+                })"""
+        )
+
         # Tab indents inside the editor, which makes it a keyboard trap unless
         # something releases it. Escape arms the next Tab to move focus; the
         # press after that has to land somewhere that is not the editor.

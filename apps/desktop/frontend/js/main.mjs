@@ -1712,7 +1712,7 @@ function renderSummary() {
     const caption = document.createElement("span");
     caption.textContent = label;
     const detail = document.createElement("strong");
-    detail.textContent = String(value);
+    setTruncatableText(detail, value);
     row.append(caption, detail);
     return row;
   }));
@@ -1729,8 +1729,8 @@ function renderRecents() {
     button.type = "button";
     button.innerHTML = `<span>MD</span><div class="recent-copy"><strong></strong><small></small></div><b class="recent-arrow" aria-hidden="true"></b>`;
     button.querySelector(".recent-arrow").append(spriteIcon("chevron-left"));
-    button.querySelector("strong").textContent = basename(recent.path);
-    button.querySelector("small").textContent = recent.path;
+    setTruncatableText(button.querySelector("strong"), basename(recent.path));
+    setTruncatableText(button.querySelector("small"), recent.path);
     button.addEventListener("click", () => openAuthoringPaths([recent.path]));
     list.append(button);
   }
@@ -1751,8 +1751,8 @@ function showExportResult(path) {
   const resultPath = String(path || "").trim();
   const container = $("#export-result");
   if (!container || !resultPath) return;
-  $("#export-result-name").textContent = basename(resultPath);
-  $("#export-result-path").textContent = resultPath;
+  setTruncatableText($("#export-result-name"), basename(resultPath));
+  setTruncatableText($("#export-result-path"), resultPath);
   container.classList.remove("hidden");
 }
 
@@ -1882,7 +1882,7 @@ function tabElement(model) {
   tab.dataset.documentId = model.id;
   tab.innerHTML = `<button class="tab-activate" type="button" role="tab"><i class="dirty-dot"></i><span class="tab-name"></span></button><button class="tab-close" type="button" aria-label="${t("close")}"></button>`;
   tab.querySelector(".tab-close").append(spriteIcon("close"));
-  tab.querySelector(".tab-name").textContent = model.title;
+  setTruncatableText(tab.querySelector(".tab-name"), model.title);
   const activate = tab.querySelector(".tab-activate");
   activate.tabIndex = model.id === state.activeDocumentId ? 0 : -1;
   activate.setAttribute("aria-selected", String(model.id === state.activeDocumentId));
@@ -2085,6 +2085,24 @@ function updateAuthoringMode(model) {
   $("#workspace-view")?.classList.toggle("plain-text-mode", hasDocument && !markdown);
 }
 
+/**
+ * Write a label that may be wider than the box it is written into.
+ *
+ * Eighteen places in the workbench truncate with `text-overflow: ellipsis`,
+ * and most of them hold a value the user needs whole: the path of the open
+ * document, a chapter's file, a citation's title, a search hit's line. An
+ * ellipsis with nothing behind it is a value that cannot be got at. The whole
+ * string goes on the element's own `title`, which is where a pointer looks
+ * and what a screen reader reads after the visible text.
+ */
+function setTruncatableText(element, value) {
+  if (!element) return;
+  const text = String(value ?? "");
+  element.textContent = text;
+  if (text) element.title = text;
+  else element.removeAttribute("title");
+}
+
 /** The document the caret was last placed for. */
 let lastCaretDocumentId = null;
 
@@ -2097,8 +2115,8 @@ function renderWorkspace() {
   if (!model) {
     editor.value = "";
     editor.disabled = true;
-    $("#editor-title").textContent = t("untitled");
-    $("#editor-path").textContent = "";
+    setTruncatableText($("#editor-title"), t("untitled"));
+    setTruncatableText($("#editor-path"), "");
     renderOutline(null);
     renderCitations(null);
     renderProblems(null);
@@ -2118,8 +2136,8 @@ function renderWorkspace() {
     const offset = bodyStartOffset(model.content);
     if (offset > 0) editor.setSelectionRange?.(offset, offset);
   }
-  $("#editor-title").textContent = model.title;
-  $("#editor-path").textContent = model.path || t("untitled");
+  setTruncatableText($("#editor-title"), model.title);
+  setTruncatableText($("#editor-path"), model.path || t("untitled"));
   setSaveState(documentDirty(model) ? "dirty" : "saved");
   updateLineGutter();
   updateEditorMetrics();
@@ -2285,8 +2303,8 @@ function renderProjectWorkspace() {
     $("#project-search-results")?.replaceChildren();
     return;
   }
-  $("#project-name").textContent = project.name || t("projectWorkspace");
-  $("#project-path").textContent = project.path || "";
+  setTruncatableText($("#project-name"), project.name || t("projectWorkspace"));
+  setTruncatableText($("#project-path"), project.path || "");
   const files = Array.isArray(project.files) ? project.files : [];
   for (const file of files) {
     const button = document.createElement("button");
@@ -2376,7 +2394,7 @@ function renderProjectSearchResults(result) {
     button.className = "tool-item";
     button.innerHTML = `<span class="match-location"></span><span class="match-preview"></span>`;
     button.querySelector(".match-location").textContent = `${match.path}:${match.line}:${match.column}`;
-    button.querySelector(".match-preview").textContent = match.preview || "";
+    setTruncatableText(button.querySelector(".match-preview"), match.preview || "");
     button.addEventListener("click", () =>
       openProjectRelativeFile(match.path, { line: match.line, column: match.column })
     );
@@ -2834,8 +2852,8 @@ function bookChapterRow(chapter, index, chapters) {
     row.querySelector(`[data-action="${action}"]`).append(spriteIcon(symbol));
   }
   const chapterLabel = `${index + 1}. ${chapter.title || chapter.path}`;
-  row.querySelector("strong").textContent = chapterLabel;
-  row.querySelector("small").textContent = chapter.path;
+  setTruncatableText(row.querySelector("strong"), chapterLabel);
+  setTruncatableText(row.querySelector("small"), chapter.path);
   const main = row.querySelector(".book-chapter-main");
   main.setAttribute("aria-label", `${t("openBookChapter")}: ${chapterLabel}`);
   if (active) main.setAttribute("aria-current", "page");
@@ -2887,8 +2905,8 @@ function renderBookOutputResult() {
   if (!container) return;
   container.classList.toggle("hidden", !path);
   if (!path) return;
-  $("#book-output-result-name").textContent = basename(path);
-  $("#book-output-result-path").textContent = path;
+  setTruncatableText($("#book-output-result-name"), basename(path));
+  setTruncatableText($("#book-output-result-path"), path);
 }
 
 async function openBookOutput(reveal = false) {
@@ -3004,7 +3022,7 @@ function renderBibliographyEntries(entries, usedKeys = []) {
     row.dataset.cited = String(cited);
     row.innerHTML = `<span class="citation-key"></span><span class="citation-body"><strong></strong><small></small></span><span class="citation-state"></span><button class="citation-insert" type="button"></button>`;
     row.querySelector(".citation-key").textContent = `@${key}`;
-    row.querySelector("strong").textContent = entry.title || key;
+    setTruncatableText(row.querySelector("strong"), entry.title || key);
     row.querySelector("small").textContent = [bibliographyEntryAuthors(entry), entry.year].filter(Boolean).join(" · ");
     row.querySelector(".citation-state").textContent = t(cited ? "cited" : "uncited");
     const insert = row.querySelector(".citation-insert");
