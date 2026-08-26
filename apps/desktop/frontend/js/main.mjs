@@ -231,7 +231,7 @@ function setLocale(value) {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
   });
   editorAdapter?.setAriaLabel?.(t("markdownEditor"));
-  editorAdapter?.setLocale?.(state.locale);
+  editorAdapter?.setLocale?.(state.locale, editorStrings());
   const localeSetting = $("#setting-locale");
   if (localeSetting) localeSetting.value = state.locale;
   renderPresets();
@@ -2119,6 +2119,17 @@ function updateAuthoringMode(model) {
     element.disabled = !editable || !markdown;
   });
   $("#workspace-view")?.classList.toggle("plain-text-mode", hasDocument && !markdown);
+}
+
+/**
+ * The little text the editor draws itself.
+ *
+ * The bundled editor has no access to the interface's dictionary, so the label
+ * on an image it could not load was English in a Persian document. The host
+ * owns the words; the editor owns the drawing.
+ */
+function editorStrings() {
+  return { imageNotFound: t("imageNotFound") };
 }
 
 /**
@@ -4557,6 +4568,7 @@ async function boot() {
   }
   const textarea = $("#markdown-editor");
   const editorOptions = {
+    strings: editorStrings(),
     theme: document.documentElement.dataset.theme,
     mode: editorModeForView(state.preferences.viewMode),
     typewriter: state.preferences.typewriter,

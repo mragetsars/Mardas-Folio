@@ -3998,6 +3998,17 @@ button:focus-visible,
   white-space: nowrap;
 }
 
+/* The path as written, which is the thing to go and correct. Monospaced and
+   left-to-right whatever the document is, because it is a file name. */
+.codemirror-mount .cm-md-image-missing code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text-soft);
+  font: 500 11px/1.6 ui-monospace, "Cascadia Mono", monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .codemirror-mount .cm-md-image-missing span {
   overflow: hidden;
   text-overflow: ellipsis;

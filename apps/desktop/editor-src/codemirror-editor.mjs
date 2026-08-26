@@ -254,6 +254,7 @@ export function createCodeMirrorEditorAdapter(
     onContextMenu,
     onLeaveEditor,
     onScroll,
+    strings,
     onSelectionChange,
     resolveAsset,
     theme,
@@ -264,6 +265,10 @@ export function createCodeMirrorEditorAdapter(
   if (!(textarea instanceof HTMLTextAreaElement)) {
     throw new TypeError("CodeMirror editor requires a textarea fallback element.");
   }
+
+  // The host's translations for the little text the editor draws itself. Held
+  // rather than captured, so a language change re-labels what is on screen.
+  let editorText = { ...(strings || {}) };
 
   const mount = document.createElement("div");
   mount.className = "codemirror-mount";
@@ -303,7 +308,7 @@ export function createCodeMirrorEditorAdapter(
         // for writing; only code fences keep their own horizontal overflow.
         EditorView.lineWrapping,
         appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
-        preview.of(editorModeExtension(editorMode, { resolveAsset })),
+        preview.of(editorModeExtension(editorMode, { resolveAsset, strings: editorText })),
         writingRhythm.of(typewriterExtension(typewriterEnabled)),
         EditorState.allowMultipleSelections.of(true),
         // Formatting keys are bound above everything else. Bound on the window
@@ -493,9 +498,18 @@ export function createCodeMirrorEditorAdapter(
     setAriaLabel(value) {
       view.contentDOM.setAttribute("aria-label", String(value || "Markdown editor"));
     },
-    setLocale(locale) {
+    setLocale(locale, nextStrings) {
       view.contentDOM.lang = locale === "fa" ? "fa" : "en";
       view.contentDOM.removeAttribute("dir");
+      if (!nextStrings) return;
+      editorText = { ...nextStrings };
+      // Reconfiguring the mode is what puts the new text into the widgets;
+      // they are built from a facet the extension carries.
+      view.dispatch({
+        effects: preview.reconfigure(
+          editorModeExtension(editorMode, { resolveAsset, strings: editorText }),
+        ),
+      });
     },
     get mode() {
       return editorMode;
@@ -510,7 +524,11 @@ export function createCodeMirrorEditorAdapter(
       const next = normalizeEditorMode(value);
       if (next === editorMode) return editorMode;
       editorMode = next;
-      view.dispatch({ effects: preview.reconfigure(editorModeExtension(next, { resolveAsset })) });
+      view.dispatch({
+        effects: preview.reconfigure(
+          editorModeExtension(next, { resolveAsset, strings: editorText }),
+        ),
+      });
       mount.dataset.mode = next;
       view.dom.dataset.editorMode = next;
       return editorMode;

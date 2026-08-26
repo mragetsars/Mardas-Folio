@@ -391,3 +391,7 @@ Object.assign(en, {
   insertDiagram: "Mermaid diagram",
   insertHighlight: "Highlight",
 });
+
+// Drawn by the editor, translated by the application.
+Object.assign(fa, { imageNotFound: "تصویر پیدا نشد" });
+Object.assign(en, { imageNotFound: "Image not found" });

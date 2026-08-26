@@ -37,8 +37,9 @@ test("source mode renders the document verbatim but keeps bidi measurement", () 
   const source = editorModeExtension("source");
   assert.equal(
     live.length,
-    4,
-    "live mode is the block field, the asset resolver, the preview plugin and direction",
+    5,
+    "live mode is the block field, the asset resolver, the strings the host "
+      + "translates, the preview plugin and direction",
   );
   assert.equal(source.length, 2, "source mode is direction support only");
   assert.notDeepEqual(live, source);

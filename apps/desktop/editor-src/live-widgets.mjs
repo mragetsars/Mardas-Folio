@@ -168,14 +168,19 @@ class TableWidget extends WidgetType {
  * as written rather than silently showing a broken image.
  */
 export class ImageWidget extends WidgetType {
-  constructor(url, alt) {
+  constructor(url, alt, source = "", label = "Image not found") {
     super();
     this.url = url;
     this.alt = alt;
+    this.source = source;
+    this.label = label;
   }
 
   eq(other) {
-    return other.url === this.url && other.alt === this.alt;
+    return other.url === this.url
+      && other.alt === this.alt
+      && other.source === this.source
+      && other.label === this.label;
   }
 
   toDOM() {
@@ -193,8 +198,18 @@ export class ImageWidget extends WidgetType {
       const missing = document.createElement("span");
       missing.className = "cm-md-image-missing";
       const label = document.createElement("strong");
-      label.textContent = "Image not found";
+      label.textContent = this.label;
       missing.append(label);
+      // The path as it is written in the document, because that is the thing
+      // that has to be corrected. Alt text describes the picture that is not
+      // there; it does not say which file to go and look for.
+      if (this.source) {
+        const path = document.createElement("code");
+        path.dir = "ltr";
+        path.textContent = this.source;
+        path.title = this.source;
+        missing.append(path);
+      }
       if (this.alt) {
         const caption = document.createElement("span");
         caption.textContent = this.alt;

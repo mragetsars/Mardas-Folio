@@ -38,6 +38,18 @@ export const assetResolver = Facet.define({
 });
 
 /**
+ * Text the editor draws that the application has to translate.
+ *
+ * The widgets are inside the bundled editor, which has no access to the
+ * interface's own dictionary, so "Image not found" was English in a Persian
+ * document. The host passes what it needs translated in, the way it already
+ * passes in the asset resolver.
+ */
+export const editorStrings = Facet.define({
+  combine: (values) => Object.assign({ imageNotFound: "Image not found" }, ...values),
+});
+
+/**
  * Marks that are safe to hide once their effect is rendered.
  *
  * `ListMark` is deliberately absent: a bullet or number is content the reader
@@ -408,7 +420,14 @@ function buildDecorations(view) {
             marks.push([
               node.from,
               node.to,
-              Decoration.replace({ widget: new ImageWidget(url, parsed.alt) }),
+              Decoration.replace({
+                widget: new ImageWidget(
+                  url,
+                  parsed.alt,
+                  parsed.src,
+                  state.facet(editorStrings).imageNotFound,
+                ),
+              }),
             ]);
           }
           return false;
@@ -706,12 +725,13 @@ export function normalizeEditorMode(value) {
  * answers a direction like any other, so the exclusion cost correctness for a
  * risk that was not there.
  */
-export function editorModeExtension(mode, { resolveAsset } = {}) {
+export function editorModeExtension(mode, { resolveAsset, strings } = {}) {
   const perLineDirection = EditorView.perLineTextDirection.of(true);
   return normalizeEditorMode(mode) === "live"
     ? [
         createBlockWidgetField(),
         assetResolver.of(resolveAsset || (() => null)),
+        editorStrings.of(strings || {}),
         livePreviewPlugin,
         perLineDirection,
       ]
