@@ -1934,7 +1934,7 @@ function tabElement(model) {
   });
   tab.querySelector(".tab-close").addEventListener("click", (event) => {
     event.stopPropagation();
-    requestCloseDocument(model.id);
+    void requestCloseDocument(model.id);
   });
   return tab;
 }
@@ -2112,6 +2112,52 @@ function updateAuthoringMode(model) {
     element.disabled = !editable || !markdown;
   });
   $("#workspace-view")?.classList.toggle("plain-text-mode", hasDocument && !markdown);
+}
+
+/**
+ * Ask the user to confirm something, in this application's own dialog.
+ *
+ * The three decisions that most deserve a considered answer — overwrite a file
+ * that changed on disk, close a document with unsaved work, drop a chapter
+ * from a book — were asked with `window.confirm`. That draws the platform's
+ * dialog: another typeface, another button order, another focus model, a title
+ * bar naming the webview, and nothing translated past the string it is handed.
+ * On the one screen where the product's whole claim is that it will not
+ * overwrite your file without asking, the asking was done by something that
+ * did not look like the product.
+ *
+ * Cancel is what focus lands on and what every way out resolves to, because
+ * every one of these questions has a destructive answer and a safe one.
+ */
+function askConfirmation({ title, message = "", confirmLabel, danger = false }) {
+  const modal = $("#confirm-modal");
+  const accept = $("#confirm-accept");
+  const cancel = $("#confirm-cancel");
+  if (!modal || !accept || !cancel) return Promise.resolve(false);
+  $("#confirm-title").textContent = String(title || "");
+  $("#confirm-message").textContent = String(message || "");
+  accept.textContent = String(confirmLabel || t("confirm"));
+  accept.classList.toggle("danger", Boolean(danger));
+  accept.classList.toggle("primary", !danger);
+  return new Promise((resolve) => {
+    let answer = false;
+    const finish = (value) => {
+      answer = value;
+      modalManager.close(modal);
+    };
+    const onAccept = () => finish(true);
+    const onCancel = () => finish(false);
+    accept.addEventListener("click", onAccept);
+    cancel.addEventListener("click", onCancel);
+    modalManager.open(modal, {
+      initialFocus: "#confirm-cancel",
+      onClose: () => {
+        accept.removeEventListener("click", onAccept);
+        cancel.removeEventListener("click", onCancel);
+        resolve(answer);
+      },
+    });
+  });
 }
 
 /**
@@ -2844,7 +2890,13 @@ async function moveBookChapter(path, delta) {
 async function removeChapterFromBook(chapter) {
   const project = state.project;
   if (!project?.path || !project.config_sha256) return;
-  if (!globalThis.confirm(t("confirmRemoveChapter"))) return;
+  const confirmed = await askConfirmation({
+    title: t("removeFromBook"),
+    message: t("confirmRemoveChapter"),
+    confirmLabel: t("removeFromBook"),
+    danger: true,
+  });
+  if (!confirmed) return;
   try {
     const result = await removeBookChapter({
       projectPath: project.path,
@@ -3218,7 +3270,12 @@ async function persistDocumentModel(model, { saveAs = false, force = false } = {
         if (activeDocument()?.id === model.id) toast(t("projectFileConflict"), "error");
         return false;
       }
-      const overwrite = globalThis.confirm(`${t("documentConflict")}\n\n${t("forceSave")}?`);
+      const overwrite = await askConfirmation({
+        title: t("externalChange"),
+        message: t("documentConflict"),
+        confirmLabel: t("forceSave"),
+        danger: true,
+      });
       if (overwrite) return persistDocumentModel(model, { saveAs: false, force: true });
       return false;
     }
@@ -3230,10 +3287,18 @@ async function persistDocumentModel(model, { saveAs = false, force = false } = {
   }
 }
 
-function requestCloseDocument(id) {
+async function requestCloseDocument(id) {
   const model = state.documents.find((document) => document.id === id);
   if (!model) return;
-  if (documentDirty(model) && !globalThis.confirm(`${model.title}: ${t("unsaved")}. ${t("close")}?`)) return;
+  if (documentDirty(model)) {
+    const discard = await askConfirmation({
+      title: model.title,
+      message: t("closeUnsavedHelp"),
+      confirmLabel: t("closeWithoutSaving"),
+      danger: true,
+    });
+    if (!discard) return;
+  }
   cancelRecoveryTimer(model);
   removeRecovery(model);
   const result = closeDocument(state.documents, id);

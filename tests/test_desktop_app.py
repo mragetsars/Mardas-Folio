@@ -536,6 +536,32 @@ def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
             assert not _pictographs(body), f"{label} still writes the glyph {body!r}"
 
 
+def test_the_application_asks_its_own_questions() -> None:
+    """No native `confirm` on a decision that can destroy work.
+
+    Overwriting a file that changed on disk, closing a document with unsaved
+    changes and dropping a chapter from a book were all asked with
+    `window.confirm`, which draws the platform's dialog: another typeface,
+    another button order, another focus model, and nothing translated past the
+    string it is handed. On the screen whose whole claim is that it will not
+    overwrite a file without asking, the asking did not look like the product.
+    """
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
+
+    # The comment explaining why may name them; the code may not call them.
+    code = re.sub(r"/\*[\s\S]*?\*/", "", main)
+    code = re.sub(r"//[^\n]*", "", code)
+    for banned in ("globalThis.confirm", "window.confirm", "globalThis.alert", "window.alert"):
+        assert banned not in code, f"{banned} is still used"
+    assert "function askConfirmation(" in main
+    # Cancel is the safe answer to all three questions, so it is where focus
+    # lands and what every way out of the dialog resolves to.
+    assert 'initialFocus: "#confirm-cancel"' in main
+    for element in ("#confirm-title", "#confirm-message", "#confirm-accept", "#confirm-cancel"):
+        assert f'id="{element[1:]}"' in index
+
+
 def test_export_status_badge_does_not_rely_on_colour_alone() -> None:
     """A failed export used to show a tick, recoloured.
 
@@ -707,6 +733,7 @@ def test_desktop_accessibility_contracts_cover_navigation_and_modals() -> None:
         "book-project-modal",
         "chapter-modal",
         "recovery-modal",
+        "confirm-modal",
     }
     for modal_id in modal_ids:
         modal = soup.select_one(f"#{modal_id}")

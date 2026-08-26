@@ -360,3 +360,15 @@ Object.assign(en, {
   previewEngineOutdated:
     "The local engine is older than this interface; page size and footer are assumed.",
 });
+
+// The application asks its own questions rather than the platform's.
+Object.assign(fa, {
+  confirm: "تأیید",
+  closeWithoutSaving: "بستن بدون ذخیره",
+  closeUnsavedHelp: "تغییرهای ذخیره‌نشده این سند از بین می‌روند.",
+});
+Object.assign(en, {
+  confirm: "Confirm",
+  closeWithoutSaving: "Close without saving",
+  closeUnsavedHelp: "The unsaved changes in this document will be lost.",
+});

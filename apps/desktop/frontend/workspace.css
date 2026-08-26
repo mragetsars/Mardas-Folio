@@ -5202,6 +5202,34 @@ body[data-view="workspace"] main {
   min-width: 0;
 }
 
+/* The application's own question, in the application's own dialog. Narrow,
+   because a question with two answers does not need the width of a settings
+   panel; the destructive answer is the one that carries the danger colour and
+   the safe one is where focus lands. */
+.confirm-card {
+  width: min(420px, calc(100vw - 32px));
+  display: grid;
+  gap: var(--ui-space-3);
+}
+
+.confirm-card h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.confirm-card p {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.confirm-card p:empty {
+  display: none;
+}
+
 /* A chevron that means "back" or "forward" points the other way when the
    reading order does. Marked rather than duplicated: the same symbol, turned
    round, instead of two drawings of one arrow. */

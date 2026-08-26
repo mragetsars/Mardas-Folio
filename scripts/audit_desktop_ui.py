@@ -209,6 +209,24 @@ def run_audit(
             }"""
         )
         active_tab = page.locator(".document-tab .tab-activate[aria-selected='true']")
+        # Closing a document with unsaved work asks in this application's own
+        # dialog, focused on the safe answer, rather than in the platform's.
+        page.locator(".document-tab .tab-close").first.click()
+        page.wait_for_timeout(400)
+        checks["own_confirm_dialog"] = page.evaluate(
+            """() => {
+                const modal = document.querySelector('#confirm-modal');
+                return !!modal && !modal.classList.contains('hidden')
+                    && document.activeElement?.id === 'confirm-cancel'
+                    && document.querySelector('#confirm-accept')?.classList.contains('danger');
+            }"""
+        )
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        checks["cancelling_keeps_the_document"] = (
+            page.locator(".document-tab").count() > 0
+        )
+
         checks["accessible_document_tab"] = (
             active_tab.count() == 1 and active_tab.get_attribute("tabindex") == "0"
         )
