@@ -199,22 +199,45 @@ MEASURE_JS = """() => {
 
 
 CONTRAST_JS = """() => {
-  // Effective background: walk up until an ancestor paints something opaque.
+  // Effective background: walk up until an ancestor paints something opaque,
+  // and start above anything the browser is compositing at less than full
+  // strength — a faded group's own background is faded with it, so what is
+  // actually behind the text is whatever is behind the group.
   const bgOf = (el) => {
     let node = el;
     while (node && node !== document.documentElement) {
-      const bg = getComputedStyle(node).backgroundColor;
-      const m = bg.match(/rgba?\\(([^)]+)\\)/);
-      if (m) {
-        const parts = m[1].split(',').map(s => parseFloat(s));
-        const alpha = parts.length > 3 ? parts[3] : 1;
-        if (alpha >= 0.95) return [parts[0], parts[1], parts[2]];
+      const style = getComputedStyle(node);
+      if (parseFloat(style.opacity) >= 0.999) {
+        const m = style.backgroundColor.match(/rgba?\\(([^)]+)\\)/);
+        if (m) {
+          const parts = m[1].split(',').map(s => parseFloat(s));
+          const alpha = parts.length > 3 ? parts[3] : 1;
+          if (alpha >= 0.95) return [parts[0], parts[1], parts[2]];
+        }
       }
       node = node.parentElement;
     }
     const body = getComputedStyle(document.body).backgroundColor.match(/rgba?\\(([^)]+)\\)/);
     return body ? body[1].split(',').map(s => parseFloat(s)).slice(0, 3) : [255, 255, 255];
   };
+
+  // `opacity` on any ancestor fades the text with everything else in the
+  // group, and the computed `color` does not say so. Reading the colour alone
+  // meant focus mode — which drops two toolbars to 0.3 — measured as though
+  // nothing had changed.
+  const alphaOf = (el) => {
+    let alpha = 1;
+    let node = el;
+    while (node && node !== document.documentElement) {
+      alpha *= parseFloat(getComputedStyle(node).opacity);
+      node = node.parentElement;
+    }
+    return alpha;
+  };
+
+  // WCAG exempts inactive components, and this interface says so in the DOM.
+  const inactive = (el) => !!el.closest(
+    ':disabled, [aria-disabled="true"], [data-inactive="true"], .hidden');
   const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
   const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
   const ratio = (a, b) => {
@@ -244,12 +267,19 @@ CONTRAST_JS = """() => {
     if (!fg) continue;
     const parts = fg[1].split(',').map(s => parseFloat(s));
     if (parts.length > 3 && parts[3] < 0.5) continue;
+    if (inactive(el)) continue;
     const size = parseFloat(cs.fontSize);
     const weight = parseInt(cs.fontWeight, 10) || 400;
     // WCAG large text: 18.66px bold, or 24px.
     const large = size >= 24 || (size >= 18.66 && weight >= 700);
     const need = large ? 3.0 : 4.5;
-    const r = ratio(parts.slice(0, 3), bgOf(el));
+    const background = bgOf(el);
+    // Composite the text over what is behind it at the strength it is
+    // actually painted with.
+    const alpha = Math.max(0, Math.min(1, alphaOf(el) * (parts.length > 3 ? parts[3] : 1)));
+    const foreground = parts.slice(0, 3).map(
+      (channel, index) => channel * alpha + background[index] * (1 - alpha));
+    const r = ratio(foreground, background);
     if (r < need) {
       const key = name(el) + '|' + Math.round(r * 100);
       if (seen.has(key)) continue;
@@ -257,6 +287,7 @@ CONTRAST_JS = """() => {
       failures.push({
         element: name(el), ratio: +r.toFixed(2), need,
         color: cs.color, font_size: cs.fontSize,
+        painted_alpha: +alpha.toFixed(2),
         sample: text.slice(0, 42),
       });
     }
@@ -386,6 +417,14 @@ def contrast(dist: Path) -> dict[str, Any]:
             page.locator("#settings-button").click()
             page.wait_for_timeout(300)
             surfaces["settings"] = page.evaluate(CONTRAST_JS)
+            # Focus mode is where this check earns the opacity arithmetic: the
+            # bars around the document step back, and the first way that was
+            # written faded them to 0.3, which took their labels down to
+            # 1.5:1 without changing a single computed colour.
+            page.locator("label:has(#setting-focus-mode)").click()
+            page.locator("#settings-form button[type='submit']").click()
+            page.wait_for_timeout(600)
+            surfaces["focus mode"] = page.evaluate(CONTRAST_JS)
             browser.close()
         report[theme] = surfaces
     return report

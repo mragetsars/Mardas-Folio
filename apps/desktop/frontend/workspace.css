@@ -4282,19 +4282,68 @@ html[data-focus-mode="true"] .workspace-view.active {
   grid-template-rows: 56px minmax(0, 1fr);
 }
 
+/* Stepping back without becoming unreadable.
+ *
+ * These bars used to fade to `opacity: 0.3`, and opacity takes the text with
+ * everything else: measured, "Save", "Create PDF" and the whole status line
+ * came out between 1.5:1 and 2.2:1 against what was behind them, well under
+ * the 4.5:1 floor. It was invisible to the contrast audit as well, because
+ * the computed colour of faded text is the colour it would have had — a
+ * control the user cannot read is not a control that has stepped back.
+ *
+ * They lose their fills, their borders and their weight instead. Nothing is
+ * composited at partial strength, so every word stays measurable and above
+ * the floor, and hovering or focusing a bar brings it all the way back. */
 html[data-focus-mode="true"] .format-bar,
 html[data-focus-mode="true"] .author-toolbar,
 html[data-focus-mode="true"] .app-footer,
 html[data-focus-mode="true"] .editor-status {
-  opacity: 0.3;
-  transition: opacity 140ms ease;
+  background: transparent;
+  border-color: transparent;
+  transition: background-color 140ms ease, border-color 140ms ease;
 }
 
+html[data-focus-mode="true"] .author-toolbar .button,
+html[data-focus-mode="true"] .author-toolbar .toolbar-icon-button,
+html[data-focus-mode="true"] .format-bar button {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--ui-text-soft);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+html[data-focus-mode="true"] .author-toolbar .toolbar-divider,
+html[data-focus-mode="true"] .format-bar .formatting-divider {
+  opacity: 0;
+}
+
+/* Back to normal the moment the pointer or the keyboard arrives. */
 html[data-focus-mode="true"] .format-bar:hover,
 html[data-focus-mode="true"] .format-bar:focus-within,
 html[data-focus-mode="true"] .author-toolbar:hover,
 html[data-focus-mode="true"] .author-toolbar:focus-within,
 html[data-focus-mode="true"] .editor-status:hover {
+  background: var(--ui-panel);
+}
+
+html[data-focus-mode="true"] .author-toolbar:hover .button.primary,
+html[data-focus-mode="true"] .author-toolbar:focus-within .button.primary {
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+}
+
+html[data-focus-mode="true"] .author-toolbar:hover .button.secondary,
+html[data-focus-mode="true"] .author-toolbar:focus-within .button.secondary {
+  border-color: var(--ui-border);
+  background: var(--ui-panel-muted);
+  color: var(--ui-accent-hover);
+}
+
+html[data-focus-mode="true"] .author-toolbar:hover .toolbar-divider,
+html[data-focus-mode="true"] .author-toolbar:focus-within .toolbar-divider,
+html[data-focus-mode="true"] .format-bar:hover .formatting-divider,
+html[data-focus-mode="true"] .format-bar:focus-within .formatting-divider {
   opacity: 1;
 }
 
