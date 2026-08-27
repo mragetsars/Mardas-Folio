@@ -2122,6 +2122,25 @@ function updateAuthoringMode(model) {
 }
 
 /**
+ * A date the reader of this interface can read.
+ *
+ * `toLocaleString()` with no argument formats for the machine's locale, so a
+ * Persian interface on an English system said "11/15/2023, 1:43:20 AM" — the
+ * one piece of text in the recovery dialog that never followed the language
+ * the rest of it was in. Naming the interface's own locale gives the Persian
+ * calendar and Persian digits where the interface is Persian.
+ */
+function formatMoment(value) {
+  const moment = new Date(Number(value) || Date.now());
+  const locale = state.locale === "fa" ? "fa-IR" : "en-GB";
+  try {
+    return moment.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return moment.toISOString().slice(0, 16).replace("T", " ");
+  }
+}
+
+/**
  * The little text the editor draws itself.
  *
  * The bundled editor has no access to the interface's dictionary, so the label
@@ -3170,7 +3189,7 @@ function showRecovery(model, recovery) {
     return;
   }
   state.pendingRecovery = item;
-  $("#recovery-message").textContent = `${t("recoveryMessage")} ${new Date(recovery.updatedAt).toLocaleString()}`;
+  $("#recovery-message").textContent = `${t("recoveryMessage")} ${formatMoment(recovery.updatedAt)}`;
   modalManager.open($("#recovery-modal"), {
     initialFocus: "#restore-recovery",
     escape: false,

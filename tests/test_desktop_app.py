@@ -562,6 +562,36 @@ def test_the_application_asks_its_own_questions() -> None:
         assert f'id="{element[1:]}"' in index
 
 
+def test_dates_and_destructive_answers_follow_the_interface() -> None:
+    """Two things the recovery dialog was getting wrong.
+
+    `toLocaleString()` with no argument formats for the machine's locale, so a
+    Persian interface on an English system printed "11/15/2023, 1:43:20 AM" —
+    the one line in that dialog that never followed the language around it.
+    And "Discard", which throws away unsaved work for good, was styled as an
+    ordinary secondary button while every other destructive answer in the
+    product wears the danger colour.
+    """
+    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
+
+    # The comment explaining the fix may name the call; the code may not make it.
+    code = re.sub(r"/\*[\s\S]*?\*/", "", main)
+    code = re.sub(r"//[^\n]*", "", code)
+    assert "toLocaleString()" not in code, "a date is being formatted for the machine"
+    assert "function formatMoment(" in main
+    assert 'state.locale === "fa" ? "fa-IR" : "en-GB"' in main
+
+    soup = BeautifulSoup(index, "html.parser")
+    for identifier in ("discard-recovery", "confirm-accept"):
+        button = soup.select_one(f"#{identifier}")
+        assert button is not None, identifier
+    discard = soup.select_one("#discard-recovery")
+    assert "danger" in discard.get("class", []), "discarding unsaved work is destructive"
+    # And the answer that keeps the work is the one focus lands on.
+    assert 'initialFocus: "#restore-recovery"' in main
+
+
 def test_export_status_badge_does_not_rely_on_colour_alone() -> None:
     """A failed export used to show a tick, recoloured.
 
