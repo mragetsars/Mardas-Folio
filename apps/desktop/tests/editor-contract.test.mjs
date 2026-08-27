@@ -49,4 +49,9 @@ test("Tab indents, and Escape gives the keyboard a way out of the editor", () =>
   assert.match(source, /event\.preventDefault\(\);\s*return leave\(event\.shiftKey\)/);
   // Anything that is not Tab or Shift puts Tab back to indenting.
   assert.match(source, /event\.key === "Tab" \|\| event\.key === "Shift" \? false : disarm\(\)/);
+  // An Escape nothing else wanted is claimed at the lowest precedence, so the
+  // webview cannot answer it by blurring the document and taking the release
+  // out of the workbench's hands. Higher precedence would take the key from
+  // `closeCompletion` and `simplifySelection`, which is why it is last.
+  assert.match(source, /Prec\.lowest\(\s*EditorView\.domEventHandlers/);
 });

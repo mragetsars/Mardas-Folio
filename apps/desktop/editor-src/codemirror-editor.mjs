@@ -234,6 +234,21 @@ function tabEscapeHatch(onLeave) {
       mousedown: disarm,
     }),
     keymap.of([{ key: "Tab", run: indentMore, shift: indentLess }]),
+    // Last, so it only sees an Escape nothing else wanted: no completion to
+    // close, no selection to collapse. The webview answers such an Escape by
+    // blurring the document out from under the user, which takes the release
+    // out of this application's hands and lands focus on the page rather than
+    // on the control the workbench would have chosen. Claiming it here leaves
+    // the arming above intact and the next Tab ours to answer.
+    Prec.lowest(
+      EditorView.domEventHandlers({
+        keydown: (event) => {
+          if (event.key !== "Escape") return false;
+          event.preventDefault();
+          return true;
+        },
+      }),
+    ),
   ]);
 }
 

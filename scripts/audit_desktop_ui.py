@@ -183,6 +183,17 @@ def run_audit(
         checks["escape_then_tab_leaves_editor"] = page.evaluate(
             "() => !document.activeElement?.closest?.('.cm-editor')"
         )
+        # And lands on a control this workbench chose, rather than on the page
+        # the webview drops focus onto when it answers the Escape itself.
+        checks["escape_then_tab_lands_on_a_control"] = page.evaluate(
+            """() => {
+                const el = document.activeElement;
+                return !!el && el !== document.body
+                    && !!el.closest('.shell')
+                    && (el.matches('a, button, input, select, textarea')
+                        || el.tabIndex >= 0);
+            }"""
+        )
         checks["escape_then_tab_keeps_the_buffer"] = editor.input_value() == indented
 
         # The case the browser's own release does not cover: with a selection

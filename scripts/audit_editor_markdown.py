@@ -455,9 +455,22 @@ def main(argv: list[str] | None = None) -> int:
         f"editor mode: {counts.get('__mode')}   locale: {args.locale}"
         f"   slices: {len(report['shots'])}"
     )
+    # Source mode renders the document verbatim: it adds no decoration on
+    # purpose, so every expectation below would "fail" and the run would say
+    # twenty-one things are broken when nothing is. A check that cries wolf in
+    # one of its two modes is a check nobody reads in either.
+    live = args.mode != "source"
     missing = []
     for label, selector, minimum in EXPECTATIONS:
         found = counts.get(label, 0)
+        if not live:
+            # The only thing to hold source mode to is that it decorates
+            # nothing; anything found here would be live-preview leaking in.
+            flag = "ok " if found == 0 else "GAP"
+            if found:
+                missing.append(f"{label} (source mode should draw nothing)")
+            print(f"{flag} {found:4}/0    {label:32} {selector}")
+            continue
         flag = "ok " if found >= minimum else "GAP"
         if found < minimum:
             missing.append(label)
@@ -480,7 +493,11 @@ def main(argv: list[str] | None = None) -> int:
         print("\npage errors:")
         for error in report["page_errors"][:5]:
             print(" ", error)
-    print(f"\n{len(missing)} construct(s) with no decoration: {', '.join(missing) or 'none'}")
+    if live:
+        print(f"\n{len(missing)} construct(s) with no decoration: {', '.join(missing) or 'none'}")
+    else:
+        print(f"\n{len(missing)} construct(s) decorated in source mode: "
+              f"{', '.join(missing) or 'none'}")
     return 0
 
 
