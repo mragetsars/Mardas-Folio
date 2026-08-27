@@ -902,6 +902,11 @@ function toast(message, kind = "info") {
   element.dataset.toastCount = "1";
   const label = document.createElement("span");
   label.className = "toast-text";
+  // A notice can be either language: an engine or filesystem message arrives in
+  // English even when the interface is Persian, and in an RTL container its
+  // full stop was drawn at the head of the sentence. The run decides its own
+  // direction.
+  label.dir = "auto";
   label.textContent = text;
   const badge = document.createElement("span");
   badge.className = "toast-count";
