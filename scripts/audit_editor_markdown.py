@@ -117,9 +117,20 @@ EXPECTATIONS: list[tuple[str, str, int]] = [
 
 MEASURE_JS = """(selectors) => {
   const out = {};
+  const seen = {};
   for (const [label, selector] of selectors) {
-    out[label] = document.querySelectorAll(selector).length;
+    const found = [...document.querySelectorAll(selector)];
+    out[label] = found.length;
+    // A fingerprint per element, so instances that never share a viewport are
+    // still counted once each. Constructs whose text repeats — a bullet glyph,
+    // a horizontal rule — collapse to one fingerprint, which is why the count
+    // above is kept as well and the larger of the two is used.
+    seen[label] = found.map((element) => {
+      const line = element.closest(".cm-line");
+      return `${element.textContent.trim().slice(0, 60)}|${(line ? line.textContent : "").trim().slice(0, 60)}`;
+    });
   }
+  out.__fingerprints = seen;
   const view = document.querySelector(".cm-editor");
   out.__mode = view ? view.getAttribute("data-editor-mode") : null;
   const scroller = document.querySelector(".cm-scroller");
@@ -377,11 +388,19 @@ def run(
         page.wait_for_timeout(500)
 
         # CodeMirror only builds decorations for the viewport, so a count taken
-        # at one scroll position measures one screenful. The sweep below takes
-        # the running maximum per construct: "was this ever decorated".
+        # at one scroll position measures one screenful. The sweep below asks
+        # "was this ever decorated" two ways and keeps the larger answer: the
+        # running maximum seen at once, and the number of distinct instances
+        # seen across the whole sweep. The maximum alone made every expectation
+        # a statement about how many of a construct fit on a screen together,
+        # which is a fact about the line height and the width of the writing
+        # column rather than about the decoration — narrowing the column to a
+        # readable measure pushed the corpus's two tables apart and "broke" a
+        # check that nothing had actually broken.
         pane = page.locator(".editor-pane")
         selectors = [[label, selector] for label, selector, _ in EXPECTATIONS]
         totals: dict[str, int] = {}
+        fingerprints: dict[str, set[str]] = {}
         page.evaluate("document.querySelector('.cm-scroller').scrollTop = 0")
         page.wait_for_timeout(300)
         step = 700
@@ -389,6 +408,8 @@ def run(
         for index in range(30):
             page.wait_for_timeout(280)
             seen = page.evaluate(MEASURE_JS, selectors)
+            for label, marks in (seen.pop("__fingerprints", None) or {}).items():
+                fingerprints.setdefault(label, set()).update(marks)
             for key, value in seen.items():
                 if isinstance(value, int) and not key.startswith("__"):
                     totals[key] = max(totals.get(key, 0), value)
@@ -408,6 +429,8 @@ def run(
             )
             if moved < 10:
                 break
+        for label, marks in fingerprints.items():
+            totals[label] = max(totals.get(label, 0), len(marks))
         report["counts"] = totals
         report["shots"] = shots
 
