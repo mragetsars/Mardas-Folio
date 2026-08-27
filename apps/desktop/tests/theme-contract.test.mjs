@@ -23,32 +23,63 @@ function contrast(foreground, background) {
 }
 
 /**
- * Read a custom property out of a declaration block.
+ * Read a custom property out of a declaration block, following one hop.
  *
  * These assertions deliberately resolve the palette that is actually declared
  * instead of pinning hex literals. Pinning values meant a palette change failed
  * the suite for changing colour rather than for breaking a contract, which told
  * nobody anything useful; what has to hold is that the tokens exist and that
  * the resulting text clears WCAG AA.
+ *
+ * A role now usually names a step of the shared ramp — `--ui-panel-soft:
+ * var(--neutral-50)` — rather than repeating its hex, which is the point of
+ * having a ramp. The ramp itself is declared once, in `:root`, so a `var()`
+ * is resolved against `:root` whichever block it was read from.
  */
-function tokens(css, selector) {
+function declarations(css, selector) {
   const start = css.indexOf(selector);
   assert.notEqual(start, -1, `expected a ${selector} block`);
   const block = css.slice(start, css.indexOf("}", start));
   return Object.fromEntries(
-    [...block.matchAll(/(--[a-z-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)].map((m) => [m[1], m[2]]),
+    [...block.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]),
   );
 }
 
-test("dark authoring controls and preview headings have explicit theme overrides", () => {
-  for (const selector of [
-    'html[data-theme="dark"] .formatting{',
-    'html[data-theme="dark"] .formatting button{',
-    'html[data-theme="dark"] .preview-source-link.source-active{',
-  ]) {
-    assert.ok(styles.includes(selector), `missing dark override for ${selector}`);
+function tokens(css, selector) {
+  const ramp = declarations(css, ":root {");
+  const block = declarations(css, selector);
+  const resolve = (value) => {
+    const reference = /^var\(\s*(--[a-z0-9-]+)\s*\)$/.exec(value);
+    return reference ? ramp[reference[1]] : value;
+  };
+  return Object.fromEntries(
+    Object.entries(block)
+      .map(([name, value]) => [name, resolve(value)])
+      .filter(([, value]) => /^#[0-9a-fA-F]{3,8}$/.test(value ?? "")),
+  );
+}
+
+test("the theme is decided by the tokens, not by a second layer of rules", () => {
+  // This assertion used to run the other way: it required a set of
+  // `html[data-theme="dark"]` component overrides to exist, because the light
+  // values they were undoing were written as literals that no token could
+  // reach. Every base rule in this file now reads a `--ui-*` or `--cm-*`
+  // custom property, and those switch on their own — so an override is no
+  // longer a fix, it is a second opinion at a specificity no component rule
+  // can answer. Twenty-eight of them were removed; three of the twenty-eight
+  // had been styling a class (`.formatting`) that left the markup revisions
+  // earlier, and one painted a key cap in the text colour and left its legend
+  // on it at 1.3:1.
+  for (const [name, css] of [["styles.css", styles], ["workspace.css", workspaceStyles]]) {
+    const overrides = [...css.matchAll(/html\[data-theme="dark"\][^{,]*[,{]/g)]
+      .map((match) => match[0].trim())
+      .filter((selector) => !/^html\[data-theme="dark"\]\s*\{$/.test(selector));
+    assert.deepEqual(
+      overrides,
+      [],
+      `${name}: only the token block may be scoped to a theme`,
+    );
   }
-  assert.match(styles, /html\[data-theme="dark"\] \.preview-document h6,/);
 });
 
 test("workspace surface tokens keep small UI text above AA contrast", () => {

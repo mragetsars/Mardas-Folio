@@ -145,11 +145,11 @@ function blockMetrics(view, element, flowTop) {
 const DECK_CSS = `
 html.pv-frame {
   height: 100%;
-  background: #dcd3c4 !important;
+  background: #e5e5e5 !important;
   overflow: auto;
   scrollbar-width: thin;
 }
-html.pv-frame.pv-dark { background: #201e1d !important; }
+html.pv-frame.pv-dark { background: #0a0a0a !important; }
 body.pv-frame-body {
   margin: 0 !important;
   min-height: 100%;
@@ -217,7 +217,7 @@ body[data-guides="true"] .pv-page:not([data-kind="cover"]) .pv-guide { display: 
   top: 8px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: rgba(32, 30, 29, 0.62);
+  background: rgba(0, 0, 0, 0.62);
   color: #ffffff;
   font: 600 9.5px/1.7 system-ui, sans-serif;
   direction: ltr;
@@ -241,7 +241,7 @@ body[data-guides="true"] .pv-page:not([data-kind="cover"]) .pv-guide { display: 
 .pv-note {
   margin: 0;
   padding: 40px 20px 0;
-  color: #201e1d;
+  color: #111111;
   font: 12.5px/1.75 system-ui, sans-serif;
   text-align: center;
 }
@@ -250,18 +250,18 @@ body[data-guides="true"] .pv-page:not([data-kind="cover"]) .pv-guide { display: 
   padding: 0;
   max-width: 52ch;
   list-style: none;
-  color: #5c5449;
+  color: #6b6b6b;
   font: 12px/1.6 system-ui, sans-serif;
 }
-.pv-frame.pv-dark .pv-note { color: #f5ead8; }
-.pv-frame.pv-dark .pv-note-details { color: #c0b6a5; }
-.pv-frame.pv-dark .pv-note-details li { background: rgba(245, 234, 216, 0.06); }
+.pv-frame.pv-dark .pv-note { color: #f5f5f5; }
+.pv-frame.pv-dark .pv-note-details { color: #a3a3a3; }
+.pv-frame.pv-dark .pv-note-details li { background: rgba(245, 245, 245, 0.06); }
 .pv-note-details li {
   margin-top: 8px;
   padding: 8px 12px;
-  border-inline-start: 2px solid #c67139;
+  border-inline-start: 2px solid #c2410c;
   border-radius: 3px;
-  background: rgba(32, 30, 29, 0.05);
+  background: rgba(17, 17, 17, 0.05);
   text-align: start;
   overflow-wrap: anywhere;
 }
