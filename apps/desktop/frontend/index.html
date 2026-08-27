@@ -352,20 +352,13 @@
               </div>
               <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
               <div class="format-group" data-format-movable>
-                <button type="button" data-editor-command="quote" data-i18n-title="blockQuote" title="نقل‌قول"><svg class="ui-icon" aria-hidden="true"><use href="#icon-quote"></use></svg></button>
-                <button type="button" data-editor-command="callout" data-i18n-title="insertCallout" title="کادر یادداشت"><svg class="ui-icon" aria-hidden="true"><use href="#icon-callout"></use></svg></button>
-                <button type="button" data-editor-command="table" data-i18n-title="insertTable" title="جدول"><svg class="ui-icon" aria-hidden="true"><use href="#icon-table"></use></svg></button>
-                <button type="button" data-editor-command="code-block" data-i18n-title="codeBlock" title="بلوک کد"><svg class="ui-icon" aria-hidden="true"><use href="#icon-code-block"></use></svg></button>
-                <button type="button" data-editor-command="rule" data-i18n-title="horizontalRule" title="خط جداکننده"><svg class="ui-icon" aria-hidden="true"><use href="#icon-rule"></use></svg></button>
-              </div>
-              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
-              <div class="format-group" data-format-movable>
                 <button type="button" data-editor-command="undo" data-i18n-title="undo" title="واگرد"><svg class="ui-icon" aria-hidden="true"><use href="#icon-undo"></use></svg></button>
                 <button type="button" data-editor-command="redo" data-i18n-title="redo" title="ازنو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-redo"></use></svg></button>
               </div>
               <span class="formatting-divider" aria-hidden="true"></span>
-              <!-- Pinned. It is the only route to five constructs, so it is not
-                   one of the groups that may move into the overflow menu. -->
+              <!-- Pinned. It is the one route to every block construct the
+                   engine publishes, so it is not one of the groups that may
+                   move into the overflow menu. -->
               <div class="format-group">
                 <button type="button" id="insert-menu-button" class="format-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="insert-menu" data-i18n-title="insertMenu" title="درج" data-i18n-aria-label="insertMenu" aria-label="درج"><svg class="ui-icon" aria-hidden="true"><use href="#icon-insert"></use></svg><svg class="ui-icon format-caret" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
               </div>
@@ -377,10 +370,21 @@
               </div>
               </div>
         <div class="popover-menu format-overflow-menu hidden" id="format-overflow-menu" role="group" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"></div>
-        <!-- The constructs the engine publishes that do not earn a button of
-             their own. Each inserts the syntax the engine actually parses, so
-             the document stays Markdown and the user can see what was added. -->
+        <!-- Every block construct the engine publishes, in one menu.
+             Quote, callout, table, code block and divider used to be five more
+             unlabelled icons on a twenty-button strip; here each one carries
+             its name and the Markdown it writes, which is the thing a person
+             has to learn. Each inserts the syntax the engine actually parses,
+             so the document stays Markdown and the user can see what was
+             added. Every one of them also keeps its keyboard shortcut and its
+             command-palette entry. -->
         <div class="popover-menu insert-menu hidden" id="insert-menu" role="menu" aria-labelledby="insert-menu-button">
+          <button type="button" role="menuitem" data-editor-command="table" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-table"></use></svg><span data-i18n="insertTable">جدول</span><code>| … |</code></button>
+          <button type="button" role="menuitem" data-editor-command="code-block" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-code-block"></use></svg><span data-i18n="codeBlock">بلوک کد</span><code>```</code></button>
+          <button type="button" role="menuitem" data-editor-command="quote" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-quote"></use></svg><span data-i18n="blockQuote">نقل‌قول</span><code>&gt; …</code></button>
+          <button type="button" role="menuitem" data-editor-command="callout" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-callout"></use></svg><span data-i18n="insertCallout">کادر یادداشت</span><code>&gt; [!NOTE]</code></button>
+          <button type="button" role="menuitem" data-editor-command="rule" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-rule"></use></svg><span data-i18n="horizontalRule">خط جداکننده</span><code>---</code></button>
+          <span class="popover-divider" role="separator"></span>
           <button type="button" role="menuitem" id="insert-image" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-image"></use></svg><span data-i18n="insertImage">تصویر</span><code>![]()</code></button>
           <button type="button" role="menuitem" data-editor-command="footnote" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-footnote"></use></svg><span data-i18n="insertFootnote">پانویس</span><code>[^1]</code></button>
           <span class="popover-divider" role="separator"></span>
