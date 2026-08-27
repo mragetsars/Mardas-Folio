@@ -134,16 +134,12 @@ MEASURE_JS = """(selectors) => {
 #: (label, text as it renders once decorated, mark that must come back)
 REVEAL_CASES = [
     ("heading", "Heading one", "#"),
-    # KNOWN FAILURE, and wider than it looks. Clicking this line does not put
-    # the caret on it: the active line comes back empty and the `$` never
-    # return. Bisecting the corpus puts the boundary at document *length*, not
-    # at this construct — 36 lines above the target works, 38 fails, which is
-    # where the document starts to scroll. Math is simply the case this table
-    # happens to click. Ruled out: the harness (source mode works), the
-    # construct (math works in a short document after every other block),
-    # atomicRanges, the `.cm-md-math` styling, replace-versus-shrink marks,
-    # widget height estimation, and a measurement race. Left here on purpose:
-    # a line that cannot be clicked into is not previewed, it is locked.
+    # This one was the known failure, and it was never about maths. It is the
+    # first case in this table that sits below a block widget, and a widget
+    # with a CSS margin is height the height map never learns about: the map
+    # ran 45px short of what was painted by the time it reached this line, so
+    # the click resolved to the blank line below. Kept first among the cases
+    # after a widget for exactly that reason.
     ("inline math", "Inline math", "$"),
     ("bullet", "Unordered item", "-"),
     ("inline code", "inline code", "`"),

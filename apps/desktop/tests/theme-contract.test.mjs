@@ -179,3 +179,24 @@ test("type is a scale of tokens, not two hundred literals", () => {
     .map((match) => match[1]);
   assert.deepEqual(literals, [], `font sizes are still written as literals: ${literals}`);
 });
+
+test("nothing in the editor puts vertical space outside the box that is measured", () => {
+  // CodeMirror builds the height map from the boxes it measures, and a margin
+  // is outside the box. A table with `margin-block: 0.9em` was 27px the map
+  // never learned about; by the line below it the map ran 45px short of what
+  // had been painted, and a click there resolved to the wrong line. The rule
+  // is stated twice in this stylesheet for lines and had never been applied to
+  // the widgets. Horizontal margins are fine — they change no height.
+  const offenders = [];
+  for (const [, selector, body] of workspaceStyles.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    if (!/codemirror-mount|\.cm-/.test(selector)) continue;
+    for (const [, property, value] of body.matchAll(/(margin(?:-block[\w-]*|-top|-bottom)?)\s*:\s*([^;]+)/g)) {
+      if (property === "margin-inline" || property.startsWith("margin-inline")) continue;
+      // A `margin` shorthand of zero moves nothing.
+      if (/^\s*0(px|em|rem)?\s*$/.test(value)) continue;
+      if (property === "margin" && /^\s*0\s+[^\s]+\s*$/.test(value)) continue;
+      offenders.push(`${selector.trim().split("\n").pop().trim()} { ${property}: ${value.trim()} }`);
+    }
+  }
+  assert.deepEqual(offenders, [], `vertical margins inside the editor: ${offenders.join(" | ")}`);
+});

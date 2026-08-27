@@ -94,6 +94,13 @@ const isAlignmentRow = (cells) => cells.every((cell) => /^:?-{1,}:?$/.test(cell.
 
 /** Roughly one line of the editor's own type, in pixels. */
 const LINE_HEIGHT = 26;
+/* The vertical space these widgets carry, which is now inside the box
+ * CodeMirror measures rather than a margin outside it. Declared here as well
+ * as in the stylesheet because the estimate has to include what the drawn
+ * widget will include; the two disagreeing is the whole failure this pair of
+ * constants exists to prevent. */
+const TABLE_BLOCK_PADDING = 27;
+const FRONT_MATTER_BLOCK_PADDING = 16;
 
 class TableWidget extends WidgetType {
   constructor(markup, from, to) {
@@ -111,11 +118,11 @@ class TableWidget extends WidgetType {
     return this.markup.split("\n").filter((line) => line.trim()).map(splitRow);
   }
 
-  /** Header, body rows, cell padding and the wrapper's own border. */
+  /** Header, body rows, cell padding, the wrapper's border and its padding. */
   get estimatedHeight() {
     const rows = this.markup.split("\n").filter((line) => line.trim()).length;
     // The delimiter row (`| --- |`) is markup, not a row that gets drawn.
-    return Math.max(1, rows - 1) * (LINE_HEIGHT + 8) + 16;
+    return Math.max(1, rows - 1) * (LINE_HEIGHT + 8) + 16 + TABLE_BLOCK_PADDING;
   }
 
   toDOM() {
@@ -372,7 +379,7 @@ class FrontMatterWidget extends WidgetType {
 
   /** Collapsed to one summary row whatever the metadata's length. */
   get estimatedHeight() {
-    return LINE_HEIGHT + 18;
+    return LINE_HEIGHT + 18 + FRONT_MATTER_BLOCK_PADDING;
   }
 
   /** The handful of keys worth showing without opening the block. */
@@ -391,8 +398,13 @@ class FrontMatterWidget extends WidgetType {
   }
 
   toDOM() {
+    // Two elements, because the spacing around the chip has to be inside the
+    // box CodeMirror measures and the chip has a border of its own.
+    const block = document.createElement("div");
+    block.className = "cm-md-frontmatter-block";
     const wrapper = document.createElement("div");
     wrapper.className = "cm-md-frontmatter";
+    block.append(wrapper);
     const label = document.createElement("span");
     label.className = "cm-md-frontmatter-label";
     label.textContent = "metadata";
@@ -404,7 +416,7 @@ class FrontMatterWidget extends WidgetType {
       chip.dir = "auto";
       wrapper.append(chip);
     }
-    return wrapper;
+    return block;
   }
 
   ignoreEvent() {

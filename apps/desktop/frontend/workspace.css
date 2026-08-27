@@ -3194,7 +3194,10 @@ button:focus-visible,
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-list-line {
   padding-inline-start: 26px;
   text-indent: -18px;
-  margin-block: 0.12em;
+  /* Inside the box, for the same reason as the widgets above: a margin here
+   * is height the map never sees, and eleven list items is a third of a line
+   * of drift on their own. */
+  padding-block: 0.12em;
 }
 
 /* The marker is the one part of a list the accent belongs to. */
@@ -3242,8 +3245,13 @@ button:focus-visible,
 /* ---- Live preview block widgets ------------------------------------------
  * Blocks that are drawn rather than described: a real table, a real rule, a
  * clickable checkbox, a language chip on a code fence. */
+/* Padding, not margin — the rule this file states twice for lines and had
+ * never applied to the widgets. CodeMirror measures a block widget with
+ * `getBoundingClientRect`, and a margin is outside that box: the table's
+ * 0.9em top and bottom were 27px the height map never learned about, so every
+ * position below a table was 27px out and a click a whole line out. */
 .codemirror-mount .cm-md-table {
-  margin-block: 0.9em;
+  padding-block: 0.9em;
   overflow-x: auto;
 }
 
@@ -4358,13 +4366,21 @@ html[data-focus-mode="true"] .editor-status:hover {
 .cm-md-callout-bug { --callout-tint: #b91c1c; --callout-label: "BUG"; }
 .cm-md-callout-quote { --callout-tint: #5f5f5f; --callout-label: "QUOTE"; }
 
-/* Front matter, collapsed to a summary until the caret asks for it. */
+/* Front matter, collapsed to a summary until the caret asks for it.
+ *
+ * The gap around the chip is on the block that holds it rather than on the
+ * chip itself: a margin on the widget's own root is outside the box
+ * CodeMirror measures, and 16px of it moved every position below the metadata
+ * out of step with what was painted. */
+.codemirror-mount .cm-md-frontmatter-block {
+  padding: 2px 0 14px;
+}
+
 .codemirror-mount .cm-md-frontmatter {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 2px 0 14px;
   padding: 7px 11px;
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-sm);
