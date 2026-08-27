@@ -65,20 +65,29 @@ def _serve(directory: Path):
 # reviewed as an afterthought.
 SAMPLE = """---
 title: Mardas Folio
-palette: amber
+lang: en
+toc: true
 ---
 
 # Mardas Folio
 
 A desktop authoring and publishing tool for technical documents that mix
-Persian and English. The engine renders Markdown through Chromium.
+Persian and English. The engine renders Markdown through Chromium, and the
+[user guide](docs/guides/GUIDE.en.md) describes what it publishes.
 
 ## Typography
 
 Paragraph text sits on a measured column. **Bold**, *italic*, and `inline code`
 all take the surrounding rhythm.
 
-> A pull quote carries the accent rule on its leading edge.
+- A list item, with a second line long enough to wrap under its own text
+- [x] A finished task
+- [ ] One still to do
+
+> A quotation is inset and ruled, not boxed and tinted.
+
+> [!NOTE]
+> A callout names its kind and keeps the rest of the line as prose.
 
 ```python
 def render(document):
@@ -92,7 +101,7 @@ def render(document):
 
 | Option  | Default |
 | ------- | ------- |
-| palette | amber   |
+| palette | neutral |
 | mode    | light   |
 """
 
@@ -593,17 +602,22 @@ def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
             page.locator("[data-template-id='report']").click()
             page.locator(".codemirror-mount .cm-editor").wait_for(state="visible")
             page.wait_for_timeout(400)
-            page.evaluate(
-                """(doc) => {
-                    const ta = document.querySelector('#markdown-editor');
-                    const set = Object.getOwnPropertyDescriptor(
-                        HTMLTextAreaElement.prototype, 'value').set;
-                    set.call(ta, doc);
-                    ta.dispatchEvent(new Event('input', {bubbles: true}));
-                }""",
-                SAMPLE,
-            )
-            page.wait_for_timeout(800)
+            # Through the editor, not around it. Writing the textarea's value
+            # and firing `input` reaches the preview, which reads the buffer,
+            # but never reaches CodeMirror, which owns the document: every
+            # write-mode shot was of the empty template while the preview
+            # beside it showed this sample. Selecting all and inserting text is
+            # what a person does, and it goes through the same transaction.
+            page.locator(".cm-content").click()
+            page.keyboard.press("Control+a")
+            page.keyboard.insert_text(SAMPLE)
+            page.wait_for_timeout(900)
+            # Scroll to the top without moving the caret. Ctrl+Home would put
+            # it inside the front matter, whose whole point is that it stays
+            # collapsed until asked for — the shot would be of the one state
+            # the design deliberately avoids opening in.
+            page.evaluate("() => { document.querySelector('.cm-scroller').scrollTop = 0; }")
+            page.wait_for_timeout(400)
             snap("04-write")
             page.locator('[data-view-mode="split"]').click()
             page.wait_for_timeout(1100)
