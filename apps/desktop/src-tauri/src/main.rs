@@ -12,6 +12,7 @@ use sidecar::ManagedSidecar;
 use std::{
     env,
     ffi::OsString,
+    fs,
     path::{Path, PathBuf},
     process::Command,
     sync::Mutex,
@@ -241,14 +242,28 @@ fn launch_path(path: &Path, reveal: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn allow_document_images(app: AppHandle, path: String) -> Result<(), String> {
-    // Local images render in the editor through the asset protocol, whose scope
-    // starts empty. Only the directory holding the open document is added, and
-    // only non-recursively, so opening a file never exposes the tree beneath
-    // it — let alone the rest of the filesystem — to the webview.
-    let document = PathBuf::from(&path);
+async fn allow_document_images(app: AppHandle, path: String) -> Result<(), String> {
+    let images =
+        tauri::async_runtime::spawn_blocking(move || document_image_paths(Path::new(&path), 4096))
+            .await
+            .map_err(|error| format!("Could not inspect document images: {error}"))??;
+    // Grant exact files, never a directory wildcard: imported assets and nested
+    // image folders work without exposing document text or sibling secrets.
+    let scope = app.asset_protocol_scope();
+    for image in images {
+        scope
+            .allow_file(image)
+            .map_err(|error| format!("Could not allow document image: {error}"))?;
+    }
+    Ok(())
+}
+
+fn document_image_paths(document: &Path, max_entries: usize) -> Result<Vec<PathBuf>, String> {
     if !document.is_absolute() {
         return Err("Document path must be absolute.".into());
+    }
+    if document.is_symlink() || !document.is_file() {
+        return Err("Document must be an existing regular file.".into());
     }
     let directory = document
         .parent()
@@ -259,9 +274,56 @@ fn allow_document_images(app: AppHandle, path: String) -> Result<(), String> {
     if !directory.is_dir() {
         return Err("Document directory does not exist.".into());
     }
-    app.asset_protocol_scope()
-        .allow_directory(&directory, false)
-        .map_err(|error| format!("Could not allow document images: {error}"))
+    let mut pending = vec![(directory.clone(), 0usize)];
+    let mut images = Vec::new();
+    let mut inspected = 0usize;
+    while let Some((folder, depth)) = pending.pop() {
+        let entries = fs::read_dir(&folder)
+            .map_err(|error| format!("Could not read image directory: {error}"))?;
+        for entry in entries {
+            let entry = entry.map_err(|error| format!("Could not read image path: {error}"))?;
+            inspected += 1;
+            if inspected > max_entries {
+                return Err("Document image inventory exceeds the allowed size.".into());
+            }
+            let path = entry.path();
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with('.') || matches!(name.as_ref(), "node_modules" | "target" | "build")
+            {
+                continue;
+            }
+            let kind = entry
+                .file_type()
+                .map_err(|error| format!("Could not inspect image path: {error}"))?;
+            if kind.is_symlink() {
+                continue;
+            }
+            let canonical = path
+                .canonicalize()
+                .map_err(|error| format!("Could not resolve image path: {error}"))?;
+            if !canonical.starts_with(&directory) {
+                continue;
+            }
+            if kind.is_dir() && depth < 8 {
+                pending.push((canonical, depth + 1));
+            } else if kind.is_file() {
+                let extension = path
+                    .extension()
+                    .map(|value| value.to_string_lossy().to_ascii_lowercase())
+                    .unwrap_or_default();
+                if matches!(
+                    extension.as_str(),
+                    "png" | "jpg" | "jpeg" | "webp" | "gif" | "svg" | "avif" | "bmp" | "ico"
+                ) {
+                    images.push(canonical);
+                }
+            }
+        }
+    }
+    images.sort();
+    images.dedup();
+    Ok(images)
 }
 
 #[tauri::command]
@@ -373,4 +435,82 @@ fn main() {
         }
         _ => {}
     });
+}
+
+#[cfg(test)]
+mod image_scope_tests {
+    use super::*;
+
+    struct Fixture(PathBuf);
+
+    impl Fixture {
+        fn new() -> Self {
+            let suffix = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let path = env::temp_dir().join(format!(
+                "mardas-image-scope-{}-{suffix}",
+                std::process::id()
+            ));
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+
+        fn file(&self, relative: &str) -> PathBuf {
+            let path = self.0.join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, b"fixture").unwrap();
+            path
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn nested_and_imported_images_are_allowed_without_sibling_text() {
+        let fixture = Fixture::new();
+        let document = fixture.file("book.md");
+        let cover = fixture.file("cover.PNG").canonicalize().unwrap();
+        let imported = fixture.file("assets/figure.png").canonicalize().unwrap();
+        let nested = fixture
+            .file("images/chapter/chart.svg")
+            .canonicalize()
+            .unwrap();
+        fixture.file("secret.txt");
+        fixture.file("assets/references.bib");
+        fixture.file(".private/secret.png");
+        fixture.file("node_modules/vendor.png");
+        let mut expected = vec![cover, imported, nested];
+        expected.sort();
+        assert_eq!(document_image_paths(&document, 4096).unwrap(), expected);
+    }
+
+    #[test]
+    fn oversized_inventory_fails_before_granting_any_paths() {
+        let fixture = Fixture::new();
+        let document = fixture.file("book.md");
+        fixture.file("one.png");
+        fixture.file("two.png");
+        assert!(document_image_paths(&document, 2)
+            .unwrap_err()
+            .contains("allowed size"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_images_and_image_directories_are_not_allowed() {
+        use std::os::unix::fs::symlink;
+        let fixture = Fixture::new();
+        let document = fixture.file("book.md");
+        let outside = Fixture::new();
+        let image = outside.file("private.png");
+        symlink(&image, fixture.0.join("linked.png")).unwrap();
+        symlink(&outside.0, fixture.0.join("linked-assets")).unwrap();
+        assert!(document_image_paths(&document, 4096).unwrap().is_empty());
+    }
 }
