@@ -94,3 +94,30 @@ def test_workspace_save_detects_changes_during_temporary_write(
     assert error.value.code == "project_file_changed"
     assert path.read_text(encoding="utf-8") == "# External edit\n"
     assert sorted(path.name for path in tmp_path.iterdir()) == ["mardas.toml", "report.md"]
+
+
+def test_workspace_save_response_describes_written_buffer_after_external_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "mardas.toml").write_text("schema_version = 1\n", encoding="utf-8")
+    path = tmp_path / "report.md"
+    path.write_text("# Original\n", encoding="utf-8")
+    project = workspace.load_workspace(tmp_path)
+    opened = workspace.read_workspace_file(project, "report.md")
+    real_replace = workspace.os.replace
+
+    def external_edit_after_replace(source, target):
+        real_replace(source, target)
+        Path(target).write_text("# External edit\n", encoding="utf-8")
+
+    monkeypatch.setattr(workspace.os, "replace", external_edit_after_replace)
+    saved = workspace.write_workspace_file(
+        project, "report.md", "# Editor\n", expected_sha256=str(opened["sha256"])
+    )
+    assert saved["content"] == "# Editor\n"
+    assert saved["sha256"] != workspace.read_workspace_file(project, "report.md")["sha256"]
+    with pytest.raises(workspace.WorkspaceError) as error:
+        workspace.write_workspace_file(
+            project, "report.md", "# Next edit\n", expected_sha256=str(saved["sha256"])
+        )
+    assert error.value.code == "project_file_changed"

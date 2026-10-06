@@ -33,6 +33,7 @@ from .markdown import (
 from .protocol import PROTOCOL_NAME, PROTOCOL_VERSION
 from .renderer import (
     PdfOptions,
+    RenderCancelledError,
     RenderSession,
     build_html,
     convert,
@@ -43,6 +44,7 @@ from .runtime import runtime_info
 from .support import SupportBundleError, create_support_bundle
 from .workspace import (
     ProjectWorkspace,
+    WORKSPACE_IGNORED_PARTS,
     WorkspaceError,
     add_workspace_book_chapter,
     create_book_workspace,
@@ -68,6 +70,9 @@ CancellationCallback = Callable[[], bool]
 ENGINE_API_VERSION = "1.6.0"
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_IMPORTED_ASSET_BYTES = 64 * 1024 * 1024
+MAX_DOCUMENT_ASSETS = 500
+MAX_DOCUMENT_ASSET_SCAN_ENTRIES = 20_000
+MAX_DOCUMENT_ASSET_DEPTH = 4
 _DOCUMENT_SAVE_LOCK = threading.Lock()
 _MARKDOWN_DOCUMENT_EXTENSIONS = frozenset({".md", ".markdown"})
 _TEXT_DOCUMENT_EXTENSIONS = frozenset({".bib", ".json", ".toml", ".txt", ".yaml", ".yml"})
@@ -479,34 +484,69 @@ def save_text_document(
     )
 
 
-def list_document_assets(path: str | os.PathLike[str]) -> dict[str, Any]:
+def list_document_assets(
+    path: str | os.PathLike[str], *, cancelled: CancellationCallback | None = None
+) -> dict[str, Any]:
     document = Path(path).expanduser().resolve(strict=False)
     root = document.parent
     assets: list[dict[str, Any]] = []
     if not root.is_dir():
         return {"root": str(root), "assets": assets}
-    for candidate in sorted(root.rglob("*"), key=lambda item: item.as_posix().casefold()):
-        if len(assets) >= 500:
+    scanned = 0
+    truncated = False
+    for current, directory_names, file_names in os.walk(root, followlinks=False):
+        if cancelled and cancelled():
+            raise RenderCancelledError("Asset discovery was cancelled.")
+        current_path = Path(current)
+        depth = len(current_path.relative_to(root).parts)
+        safe_directories: list[str] = []
+        for name in sorted(directory_names, key=str.casefold):
+            scanned += 1
+            if scanned > MAX_DOCUMENT_ASSET_SCAN_ENTRIES:
+                truncated = True
+                break
+            if (
+                depth < MAX_DOCUMENT_ASSET_DEPTH - 1
+                and not name.startswith(".")
+                and name not in WORKSPACE_IGNORED_PARTS
+                and not (current_path / name).is_symlink()
+            ):
+                safe_directories.append(name)
+        directory_names[:] = safe_directories
+        if truncated:
             break
-        if not candidate.is_file() or candidate.is_symlink():
-            continue
-        try:
-            relative = candidate.relative_to(root)
-        except ValueError:
-            continue
-        if len(relative.parts) > 4 or candidate.suffix.casefold() not in _ASSET_EXTENSIONS:
-            continue
-        stat_result = candidate.stat()
-        assets.append(
-            {
-                "path": str(candidate),
-                "relative_path": relative.as_posix(),
-                "name": candidate.name,
-                "extension": candidate.suffix.casefold(),
-                "size_bytes": stat_result.st_size,
-            }
-        )
-    return {"root": str(root), "assets": assets}
+        for name in sorted(file_names, key=str.casefold):
+            if cancelled and cancelled():
+                raise RenderCancelledError("Asset discovery was cancelled.")
+            scanned += 1
+            if scanned > MAX_DOCUMENT_ASSET_SCAN_ENTRIES:
+                truncated = True
+                break
+            candidate = current_path / name
+            if name.startswith(".") or candidate.suffix.casefold() not in _ASSET_EXTENSIONS:
+                continue
+            try:
+                if candidate.is_symlink() or not candidate.is_file():
+                    continue
+                stat_result = candidate.stat()
+            except OSError:
+                continue
+            if len(assets) >= MAX_DOCUMENT_ASSETS:
+                truncated = True
+                break
+            assets.append(
+                {
+                    "path": str(candidate),
+                    "relative_path": candidate.relative_to(root).as_posix(),
+                    "name": candidate.name,
+                    "extension": candidate.suffix.casefold(),
+                    "size_bytes": stat_result.st_size,
+                }
+            )
+        if truncated:
+            break
+    assets.sort(key=lambda item: item["relative_path"].casefold())
+    return {"root": str(root), "assets": assets, "truncated": truncated}
 
 
 def import_document_asset(
@@ -1167,7 +1207,7 @@ class EngineService:
             )
         if method == "document.list_assets":
             _validate_params(params, {"path"})
-            return list_document_assets(_required_string(params, "path"))
+            return list_document_assets(_required_string(params, "path"), cancelled=cancelled)
         if method == "document.import_asset":
             _validate_params(params, {"document_path", "source_path"})
             return import_document_asset(
@@ -1179,6 +1219,7 @@ class EngineService:
             workspace = _load_workspace_request(
                 _required_string(params, "path"),
                 cancelled=cancelled,
+                validate_content=True,
             )
             payload = workspace_payload(workspace)
             payload["path"] = str(workspace.root)
@@ -1597,9 +1638,12 @@ def _load_workspace_request(
     path: str,
     *,
     cancelled: CancellationCallback | None = None,
+    validate_content: bool = False,
 ) -> ProjectWorkspace:
     try:
-        return load_workspace(Path(path), cancelled=cancelled)
+        return load_workspace(
+            Path(path), cancelled=cancelled, validate_content=validate_content
+        )
     except WorkspaceError as exc:
         raise _workspace_error(exc) from exc
 

@@ -25,7 +25,7 @@ from .config import CONFIG_FILENAME, LoadedProjectConfig, default_config_text, l
 from .diagnostics import Diagnostic, has_errors
 from .project_commands import project_config_diagnostics, validate_book_project
 from .markdown import embed_local_images, render_markdown
-from .renderer import CancellationCallback, PdfOptions, RenderSession, build_html
+from .renderer import CancellationCallback, PdfOptions, RenderCancelledError, RenderSession, build_html
 
 MAX_WORKSPACE_FILES = 2_000
 MAX_WORKSPACE_TEXT_BYTES = 4 * 1024 * 1024
@@ -333,6 +333,7 @@ def _write_workspace_file_locked(
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
+            written_stat = os.fstat(handle.fileno())
         os.chmod(temporary, original_mode)
         if _file_hash(_read_bytes(path)) != expected_sha256:
             raise WorkspaceError(
@@ -355,7 +356,14 @@ def _write_workspace_file_locked(
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
-    return read_workspace_file(workspace, relative_path)
+    return {
+        "path": path.relative_to(workspace.root).as_posix(),
+        "kind": _kind_for_path(path),
+        "content": data.decode("utf-8-sig"),
+        "sha256": _file_hash(data),
+        "size": len(data),
+        "mtime_ns": written_stat.st_mtime_ns,
+    }
 
 
 
@@ -900,13 +908,17 @@ def _chapter_map(manifest: BookManifest | None) -> dict[Path, tuple[int, str | N
     }
 
 
-def _iter_workspace_files(root: Path) -> Iterable[Path]:
+def _iter_workspace_files(
+    root: Path, *, cancelled: CancellationCallback | None = None
+) -> Iterable[Path]:
     """Walk project files while pruning generated, hidden, and symlink directories."""
 
     for current, directory_names, file_names in os.walk(root, followlinks=False):
+        if cancelled and cancelled():
+            raise RenderCancelledError("Project discovery was cancelled.")
         current_path = Path(current)
         safe_directories: list[str] = []
-        for name in directory_names:
+        for name in sorted(directory_names, key=str.casefold):
             candidate = current_path / name
             if (
                 name.startswith(".")
@@ -917,7 +929,9 @@ def _iter_workspace_files(root: Path) -> Iterable[Path]:
             safe_directories.append(name)
         directory_names[:] = safe_directories
 
-        for name in file_names:
+        for name in sorted(file_names, key=str.casefold):
+            if cancelled and cancelled():
+                raise RenderCancelledError("Project discovery was cancelled.")
             if name.startswith("."):
                 continue
             path = current_path / name
@@ -929,18 +943,16 @@ def _iter_workspace_files(root: Path) -> Iterable[Path]:
 
 
 def _workspace_files(
-    root: Path, manifest: BookManifest | None
+    root: Path,
+    manifest: BookManifest | None,
+    *,
+    cancelled: CancellationCallback | None = None,
 ) -> tuple[tuple[WorkspaceFile, ...], tuple[Diagnostic, ...]]:
     chapter_map = _chapter_map(manifest)
     files: list[WorkspaceFile] = []
     diagnostics: list[Diagnostic] = []
-    for index, path in enumerate(
-        sorted(
-            _iter_workspace_files(root),
-            key=lambda item: item.relative_to(root).as_posix().casefold(),
-        )
-    ):
-        if index >= MAX_WORKSPACE_FILES:
+    for path in _iter_workspace_files(root, cancelled=cancelled):
+        if len(files) >= MAX_WORKSPACE_FILES:
             diagnostics.append(
                 Diagnostic(
                     "MARDAS-W801",
@@ -951,11 +963,15 @@ def _workspace_files(
                 )
             )
             break
-        chapter = chapter_map.get(path.resolve())
+        try:
+            size = path.stat().st_size
+            chapter = chapter_map.get(path.resolve())
+        except OSError:
+            continue
         files.append(
             WorkspaceFile(
                 path=path.relative_to(root).as_posix(),
-                size=path.stat().st_size,
+                size=size,
                 kind=_kind_for_path(path),
                 chapter_index=chapter[0] if chapter else None,
                 chapter_title=chapter[1] if chapter else None,
@@ -976,7 +992,10 @@ def load_workspace(
     *,
     progress: Callable[[str, float], None] | None = None,
     cancelled: CancellationCallback | None = None,
+    validate_content: bool = True,
 ) -> ProjectWorkspace:
+    if cancelled and cancelled():
+        raise RenderCancelledError("Project discovery was cancelled.")
     resolved = target.expanduser().resolve(strict=False)
     explicit = resolved if resolved.is_file() and resolved.name == CONFIG_FILENAME else None
     start = resolved.parent if resolved.is_file() else resolved
@@ -1002,7 +1021,7 @@ def load_workspace(
 
     manifest: BookManifest | None = None
     bundle: BookRenderBundle | None = None
-    if config.values.get("book_chapters") and not has_errors(diagnostics):
+    if config.values.get("book_chapters") and not has_errors(diagnostics) and validate_content:
         manifest, bundle, book_diagnostics = validate_book_project(
             config,
             progress=progress,
@@ -1015,11 +1034,11 @@ def load_workspace(
         # diagnostics when the user actually configured Book Mode.
         if config.values.get("book_chapters"):
             diagnostics.extend(manifest_diagnostics)
-        if manifest is not None:
+        if manifest is not None and validate_content:
             bundle, render_diagnostics = render_book(manifest)
             diagnostics.extend(render_diagnostics)
 
-    files, file_diagnostics = _workspace_files(config.root, manifest)
+    files, file_diagnostics = _workspace_files(config.root, manifest, cancelled=cancelled)
     diagnostics.extend(file_diagnostics)
     return ProjectWorkspace(
         config=config,
