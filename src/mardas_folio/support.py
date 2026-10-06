@@ -37,9 +37,11 @@ def _runtime_manifest_summary() -> dict[str, Any] | None:
         if path.stat().st_size > MAX_RUNTIME_MANIFEST_BYTES:
             return {"present": True, "valid": False, "reason": "manifest-too-large"}
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+    except (OSError, UnicodeError, ValueError, RecursionError):
         return {"present": True, "valid": False, "reason": "manifest-unreadable"}
 
+    if not isinstance(payload, dict):
+        return {"present": True, "valid": False, "reason": "manifest-invalid-shape"}
     files = payload.get("files")
     return {
         "present": True,
@@ -86,11 +88,14 @@ def support_payload(*, engine_api_version: str) -> dict[str, Any]:
 
 
 def _validate_output_path(path: Path) -> Path:
-    candidate = path.expanduser().resolve(strict=False)
+    selected = path.expanduser()
+    if selected.is_symlink():
+        raise SupportBundleError("Support bundle output cannot be a symbolic link.")
+    candidate = selected.resolve(strict=False)
     if candidate.suffix.casefold() != ".zip":
         raise SupportBundleError("Support bundle output must use the .zip extension.")
-    if candidate.exists() and candidate.is_symlink():
-        raise SupportBundleError("Support bundle output cannot be a symbolic link.")
+    if candidate.exists() and not candidate.is_file():
+        raise SupportBundleError("Support bundle output must be a regular file.")
     parent = candidate.parent
     if not parent.is_dir():
         raise SupportBundleError(f"Support bundle directory does not exist: {parent}")
