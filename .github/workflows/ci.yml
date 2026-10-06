@@ -339,6 +339,12 @@ jobs:
       - name: Run desktop interface suite
         run: npm --prefix apps/desktop test
 
+      - name: Verify real updater signatures
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y minisign
+          python -m pytest -q tests/test_signed_release.py tests/test_native_desktop.py
+
       - name: Build and verify offline frontend
         run: |
           npm --prefix apps/desktop run check:editor

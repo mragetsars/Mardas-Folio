@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import subprocess
 import tarfile
 import sys
@@ -39,7 +40,19 @@ def _write_mac_updater(path: Path) -> None:
         archive.addfile(info, io.BytesIO(data))
 
 
-def _signed_release_files(root: Path, version: str) -> None:
+def _signed_release_files(root: Path, version: str) -> str:
+    minisign = shutil.which("minisign")
+    if minisign is None:
+        pytest.skip("official minisign CLI is required for real updater signature fixtures")
+    signing = root / ".signing"
+    signing.mkdir(exist_ok=True)
+    secret = signing / "updater.key"
+    public = signing / "updater.pub"
+    if not secret.exists():
+        subprocess.run(
+            [minisign, "-G", "-W", "-s", str(secret), "-p", str(public)],
+            check=True, capture_output=True,
+        )
     _write_payload(
         root / f"Mardas-Folio-{version}-windows-x86_64-setup.exe",
         b"MZ",
@@ -52,10 +65,18 @@ def _signed_release_files(root: Path, version: str) -> None:
         _write_mac_updater(
             root / f"Mardas-Folio-{version}-macos-{arch}-updater.tar.gz"
         )
-    for payload in list(root.iterdir()):
-        (root / f"{payload.name}.sig").write_text(
-            f"signed:{payload.name}", encoding="utf-8"
+    for payload in sorted(root.glob(f"Mardas-Folio-{version}-*")):
+        if payload.name.endswith(".sig"):
+            continue
+        detached = signing / "payload.minisig"
+        subprocess.run(
+            [minisign, "-S", "-s", str(secret), "-m", str(payload), "-x", str(detached)],
+            check=True, capture_output=True,
         )
+        (root / f"{payload.name}.sig").write_text(
+            base64.b64encode(detached.read_bytes()).decode("ascii"), encoding="utf-8"
+        )
+    return base64.b64encode(public.read_bytes()).decode("ascii")
 
 
 def _fake_pkcs12() -> str:
@@ -69,7 +90,7 @@ def _fake_api_key() -> str:
 def test_signed_update_assembly_uses_verified_native_payloads(tmp_path: Path) -> None:
     module = _load("assemble_signed_updates.py")
     version = "1.30.0"
-    _signed_release_files(tmp_path, version)
+    public_key = _signed_release_files(tmp_path, version)
 
     latest = module.assemble(
         tmp_path,
@@ -78,6 +99,7 @@ def test_signed_update_assembly_uses_verified_native_payloads(tmp_path: Path) ->
         tag=f"v{version}",
         notes="Release notes",
         pub_date="2026-08-08T00:00:00Z",
+        public_key=public_key,
     )
     payload = json.loads(latest.read_text(encoding="utf-8"))
 
@@ -94,21 +116,66 @@ def test_signed_update_assembly_uses_verified_native_payloads(tmp_path: Path) ->
     assert payload["platforms"]["darwin-aarch64"]["url"].endswith(
         f"/v{version}/Mardas-Folio-{version}-macos-arm64-updater.tar.gz"
     )
-    assert "signed:" in payload["platforms"]["linux-x86_64"]["signature"]
+    assert b"trusted comment:" in base64.b64decode(
+        payload["platforms"]["linux-x86_64"]["signature"]
+    )
 
 
 def test_signed_update_assembly_rejects_missing_signature_and_tag_mismatch(tmp_path: Path) -> None:
     module = _load("assemble_signed_updates.py")
     version = "1.30.0"
-    _signed_release_files(tmp_path, version)
+    public_key = _signed_release_files(tmp_path, version)
     (tmp_path / f"Mardas-Folio-{version}-linux-x86_64.AppImage.sig").unlink()
 
     with pytest.raises(ValueError, match="signature"):
-        module.assemble(tmp_path, version=version)
+        module.assemble(tmp_path, version=version, public_key=public_key)
 
     _signed_release_files(tmp_path, version)
     with pytest.raises(ValueError, match="exactly"):
-        module.assemble(tmp_path, version=version, tag="v9.9.9")
+        module.assemble(tmp_path, version=version, tag="v9.9.9", public_key=public_key)
+
+
+def test_signed_update_assembly_without_optional_notes(tmp_path: Path) -> None:
+    module = _load("assemble_signed_updates.py")
+    public_key = _signed_release_files(tmp_path, "2.1.0")
+    latest = module.assemble(tmp_path, version="2.1.0", public_key=public_key)
+    assert "notes" not in json.loads(latest.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("corruption", ["payload", "signature", "public-key", "trusted-comment"])
+def test_updater_assembly_rejects_cryptographic_mismatches(
+    tmp_path: Path, corruption: str
+) -> None:
+    module = _load("assemble_signed_updates.py")
+    version = "2.1.0"
+    public_key = _signed_release_files(tmp_path, version)
+    payload = tmp_path / f"Mardas-Folio-{version}-windows-x86_64-setup.exe"
+    signature = Path(str(payload) + ".sig")
+    if corruption == "payload":
+        data = bytearray(payload.read_bytes())
+        data[-1] ^= 1
+        payload.write_bytes(data)
+    elif corruption == "public-key":
+        wrong = tmp_path / "wrong-key"
+        wrong.mkdir()
+        public_key = _signed_release_files(wrong, version)
+    elif corruption == "trusted-comment":
+        text = base64.b64decode(signature.read_text(encoding="utf-8"))
+        text = text.replace(b"trusted comment: ", b"trusted comment: changed ")
+        signature.write_text(base64.b64encode(text).decode("ascii"), encoding="utf-8")
+    else:
+        signature.write_text("signed:unverified", encoding="utf-8")
+    with pytest.raises(ValueError, match="signature|document"):
+        module.assemble(tmp_path, version=version, public_key=public_key)
+    assert not (tmp_path / "latest.json").exists()
+
+
+def test_updater_assembly_requires_the_official_verifier(tmp_path: Path, monkeypatch) -> None:
+    module = _load("assemble_signed_updates.py")
+    public_key = _signed_release_files(tmp_path, "2.1.0")
+    monkeypatch.setattr(module.shutil, "which", lambda _name: None)
+    with pytest.raises(ValueError, match="Official minisign"):
+        module.assemble(tmp_path, version="2.1.0", public_key=public_key)
 
 
 def test_release_preflight_separates_draft_and_public_signing_requirements() -> None:

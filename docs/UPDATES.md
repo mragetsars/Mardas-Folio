@@ -1,6 +1,6 @@
 # Signed Desktop Updates
 
-Mardas Folio 2.0.0 implements the application-side and release-side Tauri v2 updater flow, but update capability is **secret-driven**. Development builds and ordinary source builds remain offline and report updates as unavailable unless a maintainer-controlled public key is embedded at build time.
+Mardas Folio implements the application-side and release-side Tauri v2 updater flow, but update capability is **secret-driven**. Development builds and ordinary source builds remain offline and report updates as unavailable unless a maintainer-controlled public key is embedded at build time.
 
 ## Trust boundary
 
@@ -118,6 +118,8 @@ The ordinary DMG/DEB/portable artifacts are still produced for direct installati
 
 After all required native jobs finish:
 
+Install the official [minisign CLI](https://github.com/jedisct1/minisign) before assembly (`sudo apt-get install minisign` on Ubuntu). Set `MARDAS_UPDATER_PUBKEY` to the same Tauri public key embedded in the native builds. The verifier uses only this public key; assembly does not need the signing private key.
+
 ```bash
 python scripts/extract_release_notes.py \
   --version X.Y.Z \
@@ -131,7 +133,9 @@ python scripts/assemble_signed_updates.py \
   --notes-file build/RELEASE-NOTES.md
 ```
 
-The assembler verifies each native payload and detached signature before creating `latest.json`. The manifest generator rejects insecure URLs, credentials in URLs, unknown/duplicate targets, empty signatures, invalid versions, and malformed publication dates.
+The assembler decodes Tauri's base64 minisign documents and uses the official CLI to verify each payload and its signed trusted comment against `MARDAS_UPDATER_PUBKEY` before creating `latest.json`. Missing tooling or keys, corrupted payloads, altered signatures, and keys that do not match the signer stop assembly. `--notes-file` is optional; omitting it produces a feed without a `notes` field. The native builder accepts only version-matching bundles and payloads/signatures produced by the current build, so a cached bundle cannot be renamed into a new release.
+
+The manifest generator rejects insecure URLs, credentials in URLs, unknown/duplicate targets, empty signatures, invalid versions, and malformed publication dates. Its `--verify` command checks manifest structure; cryptographic verification occurs during assembly and again in the Tauri client during installation. CI runs the updater tests with actual minisign keys and signatures, including tampered payload and wrong-key rejection.
 
 Verify independently:
 

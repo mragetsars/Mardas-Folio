@@ -141,6 +141,59 @@ def test_native_artifact_classification() -> None:
         assert (kind, platform_name) == expected
 
 
+def test_native_builder_ignores_stale_and_wrong_version_bundles(tmp_path: Path, monkeypatch) -> None:
+    from scripts import build_native_desktop as builder
+
+    monkeypatch.setattr(builder, "TAURI_ROOT", tmp_path)
+    directory = tmp_path / "target/release/bundle/appimage"
+    directory.mkdir(parents=True)
+    stale = directory / f"Mardas Folio_{builder.__version__}_amd64.AppImage"
+    stale.write_bytes(b"stale")
+    os.utime(stale, (2_000_000_000, 2_000_000_000))
+    old = directory / "Mardas Folio_0.0.1_amd64.AppImage"
+    old.write_bytes(b"old")
+    before = builder._bundle_snapshot()
+    old.write_bytes(b"changed but wrong version")
+    fresh = directory / f"Mardas Folio_{builder.__version__}_x86_64.AppImage"
+    fresh.write_bytes(b"fresh")
+    produced = builder._produced_bundle_files(before)
+
+    assert stale not in produced
+    assert builder._latest_candidate("appimage", produced=produced) == fresh
+    fresh.unlink()
+    with pytest.raises(SystemExit, match="fresh.*version"):
+        builder._latest_candidate("appimage", produced=produced)
+
+
+def test_macos_updater_requires_a_payload_produced_by_this_build(tmp_path: Path, monkeypatch) -> None:
+    from scripts import build_native_desktop as builder
+
+    monkeypatch.setattr(builder, "TAURI_ROOT", tmp_path)
+    directory = tmp_path / "target/release/bundle/macos"
+    directory.mkdir(parents=True)
+    stale = directory / "Old.app.tar.gz"
+    stale.write_bytes(b"cached")
+    os.utime(stale, (2_000_000_000, 2_000_000_000))
+    before = builder._bundle_snapshot()
+    fresh = directory / "Mardas Folio.app.tar.gz"
+    fresh.write_bytes(b"fresh")
+    produced = builder._produced_bundle_files(before)
+    assert builder._latest_macos_updater(produced=produced) == fresh
+
+
+def test_native_builder_rejects_a_stale_detached_signature(tmp_path: Path) -> None:
+    from scripts import build_native_desktop as builder
+
+    candidate = tmp_path / "Mardas Folio.app.tar.gz"
+    signature = Path(str(candidate) + ".sig")
+    candidate.write_bytes(b"new payload")
+    signature.write_text("cached signature", encoding="utf-8")
+    output = tmp_path / "release"
+    output.mkdir()
+    with pytest.raises(SystemExit, match="updater signature"):
+        builder._copy_signature(candidate, output / "payload.tar.gz", output, produced=frozenset({candidate}))
+
+
 def test_native_binary_signatures_are_verified(tmp_path: Path) -> None:
     version = "1.29.0"
     installer = tmp_path / f"Mardas-Folio-{version}-windows-x86_64-setup.exe"

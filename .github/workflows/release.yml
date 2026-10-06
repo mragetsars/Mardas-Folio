@@ -631,6 +631,11 @@ jobs:
       - name: Install release tooling dependencies
         run: python -m pip install --upgrade packaging
 
+      - name: Install official updater signature verifier
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y minisign
+
       - name: Download core artifacts
         uses: actions/download-artifact@v8
         with:
@@ -659,6 +664,8 @@ jobs:
 
       - name: Finalize release manifest and checksums
         shell: bash
+        env:
+          MARDAS_UPDATER_PUBKEY: ${{ vars.MARDAS_UPDATER_PUBKEY }}
         run: |
           cp build/offline/*.zip build/release/
           cp build/standalone/*.zip build/release/

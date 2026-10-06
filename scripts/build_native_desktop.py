@@ -425,7 +425,37 @@ def require_cargo_lock() -> None:
         raise SystemExit("The committed src-tauri/Cargo.lock is invalid.")
 
 
-def _latest_candidate(bundle: str) -> Path:
+def _bundle_snapshot() -> dict[Path, tuple[int, int, int, int]]:
+    """Record payloads and signatures before bundling, including cached outputs."""
+    directory = TAURI_ROOT / "target" / "release" / "bundle"
+    snapshot: dict[Path, tuple[int, int, int, int]] = {}
+    patterns = {
+        "nsis": "*-setup.exe*",
+        "dmg": "*.dmg",
+        "appimage": "*.AppImage*",
+        "deb": "*.deb",
+        "macos": "*.app.tar.gz*",
+    }
+    for bundle, pattern in patterns.items():
+        for path in (directory / bundle).glob(pattern):
+            if path.is_symlink() or not path.is_file():
+                continue
+            metadata = path.stat()
+            snapshot[path] = (
+                metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns, metadata.st_ino
+            )
+    return snapshot
+
+
+def _produced_bundle_files(
+    before: dict[Path, tuple[int, int, int, int]],
+) -> frozenset[Path]:
+    return frozenset(
+        path for path, metadata in _bundle_snapshot().items() if before.get(path) != metadata
+    )
+
+
+def _latest_candidate(bundle: str, *, produced: frozenset[Path] | None = None) -> Path:
     locations = {
         "nsis": TAURI_ROOT / "target" / "release" / "bundle" / "nsis",
         "dmg": TAURI_ROOT / "target" / "release" / "bundle" / "dmg",
@@ -440,12 +470,20 @@ def _latest_candidate(bundle: str) -> Path:
     }
     directory = locations[bundle]
     candidates = sorted(
-        directory.glob(patterns[bundle]),
+        (
+            path for path in directory.glob(patterns[bundle])
+            if not path.is_symlink()
+            and path.is_file()
+            and f"_{__version__}_" in path.name
+            and (produced is None or path in produced)
+        ),
         key=lambda path: path.stat().st_mtime_ns,
         reverse=True,
     )
     if not candidates:
-        raise SystemExit(f"Tauri did not create the expected {bundle} bundle in {directory}")
+        raise SystemExit(
+            f"Tauri did not create a fresh {bundle} bundle for version {__version__} in {directory}"
+        )
     return candidates[0]
 
 
@@ -542,9 +580,11 @@ def _build_windows_portable(output: Path, *, architecture: str) -> Path:
 
 
 
-def _copy_signature(candidate: Path, final_payload: Path, output: Path) -> Path:
+def _copy_signature(
+    candidate: Path, final_payload: Path, output: Path, *, produced: frozenset[Path]
+) -> Path:
     signature = Path(str(candidate) + ".sig")
-    if not signature.is_file() or signature.is_symlink():
+    if not signature.is_file() or signature.is_symlink() or signature not in produced:
         raise SystemExit(f"Tauri did not create updater signature: {signature}")
     final = output / f"{final_payload.name}.sig"
     temporary = final.with_name(final.name + ".tmp")
@@ -554,10 +594,13 @@ def _copy_signature(candidate: Path, final_payload: Path, output: Path) -> Path:
     return final
 
 
-def _latest_macos_updater() -> Path:
+def _latest_macos_updater(*, produced: frozenset[Path]) -> Path:
     directory = TAURI_ROOT / "target" / "release" / "bundle" / "macos"
     candidates = sorted(
-        directory.glob("*.app.tar.gz"),
+        (
+            path for path in directory.glob("*.app.tar.gz")
+            if not path.is_symlink() and path.is_file() and path in produced
+        ),
         key=lambda path: path.stat().st_mtime_ns,
         reverse=True,
     )
@@ -573,22 +616,23 @@ def _copy_updater_artifacts(
     bundles: tuple[str, ...],
     normal_artifacts: list[Path],
     output: Path,
+    produced: frozenset[Path],
 ) -> list[Path]:
     created: list[Path] = []
     if platform_name == "windows":
         if "nsis" not in bundles:
             raise SystemExit("Signed Windows updater artifacts require the NSIS bundle.")
-        candidate = _latest_candidate("nsis")
+        candidate = _latest_candidate("nsis", produced=produced)
         payload = next(path for path in normal_artifacts if path.name.endswith("-setup.exe"))
-        created.append(_copy_signature(candidate, payload, output))
+        created.append(_copy_signature(candidate, payload, output, produced=produced))
     elif platform_name == "linux":
         if "appimage" not in bundles:
             raise SystemExit("Signed Linux updater artifacts require the AppImage bundle.")
-        candidate = _latest_candidate("appimage")
+        candidate = _latest_candidate("appimage", produced=produced)
         payload = next(path for path in normal_artifacts if path.name.endswith(".AppImage"))
-        created.append(_copy_signature(candidate, payload, output))
+        created.append(_copy_signature(candidate, payload, output, produced=produced))
     elif platform_name == "macos":
-        candidate = _latest_macos_updater()
+        candidate = _latest_macos_updater(produced=produced)
         stem = f"Mardas-Folio-{__version__}-macos-{architecture}-updater.tar.gz"
         payload = output / stem
         temporary = payload.with_name(payload.name + ".tmp")
@@ -596,7 +640,7 @@ def _copy_updater_artifacts(
         os.replace(temporary, payload)
         verify_native_artifact(payload, expected_version=__version__)
         created.append(payload)
-        created.append(_copy_signature(candidate, payload, output))
+        created.append(_copy_signature(candidate, payload, output, produced=produced))
     else:
         raise SystemExit(f"Unsupported updater platform: {platform_name}")
     return created
@@ -666,11 +710,13 @@ def build(args: argparse.Namespace) -> list[Path]:
     if build_config is not None:
         command.extend(["--config", str(build_config)])
     command.extend(["--", "--locked"])
+    before = _bundle_snapshot()
     _run_tauri_build(command, environment=environment, build_config=build_config)
+    produced = _produced_bundle_files(before)
 
     artifacts = [
         _copy_verified(
-            _latest_candidate(bundle),
+            _latest_candidate(bundle, produced=produced),
             output,
             bundle=bundle,
             platform_name=platform_name,
@@ -688,6 +734,7 @@ def build(args: argparse.Namespace) -> list[Path]:
                 bundles=bundles,
                 normal_artifacts=artifacts,
                 output=output,
+                produced=produced,
             )
         )
 

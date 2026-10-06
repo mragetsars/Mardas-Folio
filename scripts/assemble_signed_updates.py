@@ -2,8 +2,14 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
+import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +25,52 @@ from generate_update_manifest import (  # noqa: E402
 from verify_native_desktop import verify_native_artifact  # noqa: E402
 
 _REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+MAX_UPDATER_KEY_BYTES = 32 * 1024
+
+
+def _decode_tauri_minisign(value: str, *, label: str, maximum: int) -> bytes:
+    """Tauri wraps the entire minisign text document in base64."""
+    if not value or len(value.encode("utf-8")) > maximum or "\x00" in value:
+        raise ValueError(f"Updater {label} is missing or exceeds the size limit")
+    try:
+        decoded = base64.b64decode(value.strip(), validate=True)
+        decoded.decode("utf-8")
+    except (binascii.Error, UnicodeError, ValueError) as exc:
+        raise ValueError(f"Updater {label} is not a valid Tauri minisign document") from exc
+    if not decoded or b"\x00" in decoded:
+        raise ValueError(f"Updater {label} is not a valid Tauri minisign document")
+    return decoded
+
+
+def _verify_signature(payload: Path, signature: Path, *, public_key: str) -> None:
+    """Delegate Ed25519 and trusted-comment verification to official minisign."""
+    executable = shutil.which("minisign")
+    if executable is None:
+        raise ValueError("Official minisign CLI is required to verify updater signatures")
+    public_text = _decode_tauri_minisign(
+        public_key, label="public key", maximum=MAX_UPDATER_KEY_BYTES
+    )
+    signature_text = _decode_tauri_minisign(
+        signature.read_text(encoding="utf-8").strip(), label="signature", maximum=64 * 1024
+    )
+    with tempfile.TemporaryDirectory(prefix="mardas-updater-verification-") as temporary:
+        directory = Path(temporary)
+        public_path = directory / "updater.pub"
+        signature_path = directory / "payload.minisig"
+        public_path.write_bytes(public_text)
+        signature_path.write_bytes(signature_text)
+        try:
+            completed = subprocess.run(
+                [executable, "-Vm", str(payload), "-p", str(public_path), "-x", str(signature_path)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=120,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise ValueError(f"Could not verify updater signature for {payload.name}") from exc
+    if completed.returncode != 0:
+        raise ValueError(f"Updater signature verification failed for {payload.name}")
 
 
 def _release_url(repository: str, tag: str, name: str) -> str:
@@ -29,7 +81,9 @@ def _release_url(repository: str, tag: str, name: str) -> str:
     return f"https://github.com/{repository}/releases/download/{tag}/{name}"
 
 
-def _require_pair(directory: Path, payload_name: str, *, version: str) -> tuple[Path, Path]:
+def _require_pair(
+    directory: Path, payload_name: str, *, version: str, public_key: str
+) -> tuple[Path, Path]:
     payload = directory / payload_name
     signature = directory / f"{payload_name}.sig"
     if not payload.is_file() or payload.is_symlink():
@@ -38,6 +92,7 @@ def _require_pair(directory: Path, payload_name: str, *, version: str) -> tuple[
         raise ValueError(f"Updater signature is missing or unsafe: {signature.name}")
     verify_native_artifact(payload, expected_version=version)
     verify_native_artifact(signature, expected_version=version)
+    _verify_signature(payload, signature, public_key=public_key)
     return payload, signature
 
 
@@ -50,6 +105,7 @@ def assemble(
     notes: str | None = None,
     pub_date: str | None = None,
     require_macos_x86_64: bool = True,
+    public_key: str | None = None,
 ) -> Path:
     directory = directory.expanduser().resolve(strict=True)
     if not directory.is_dir():
@@ -57,6 +113,8 @@ def assemble(
     tag = tag or f"v{version}"
     if tag != f"v{version}":
         raise ValueError("Release tag must exactly match v<version>")
+    public_key = public_key if public_key is not None else os.environ.get("MARDAS_UPDATER_PUBKEY", "")
+    _decode_tauri_minisign(public_key, label="public key", maximum=MAX_UPDATER_KEY_BYTES)
 
     targets: list[tuple[str, str, Path]] = []
     specs = [
@@ -82,7 +140,9 @@ def assemble(
         )
 
     for target, payload_name in specs:
-        payload, signature = _require_pair(directory, payload_name, version=version)
+        payload, signature = _require_pair(
+            directory, payload_name, version=version, public_key=public_key
+        )
         targets.append(
             (target, _release_url(repository, tag, payload.name), signature)
         )
@@ -90,7 +150,7 @@ def assemble(
     payload = build_update_manifest(
         version=version,
         platform_specs=targets,
-        notes=notes,
+        notes=notes or "",
         pub_date=pub_date,
     )
     output = directory / "latest.json"

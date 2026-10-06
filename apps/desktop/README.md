@@ -1,6 +1,6 @@
 # Mardas Folio Desktop
 
-This directory contains the native desktop product shipped with Mardas Folio 1.31.
+This directory contains the native desktop product shipped with Mardas Folio.
 
 ```text
 frontend/       offline Start Center, Quick Export, and bundled CodeMirror workspace
@@ -34,7 +34,7 @@ in the file as a comment — `cargo check` fails on any extra field.
 
 ## Authoring workspace
 
-The current 1.31 workspace provides a conflict-safe document lifecycle on top of the sidecar API:
+The authoring workspace provides a conflict-safe document lifecycle on top of the sidecar API:
 
 - multiple Markdown tabs and saved-session restore;
 - bounded local recovery snapshots for dirty buffers;
