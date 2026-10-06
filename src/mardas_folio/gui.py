@@ -8,6 +8,7 @@ import hashlib
 import ipaddress
 import json
 import logging
+import math
 import re
 import secrets
 import socket
@@ -135,6 +136,17 @@ def _error_payload(message: str, *, status: int, code: str) -> dict[str, Any]:
     return {"error": message, "status": status, "code": code}
 
 
+def _reject_json_constant(value: str) -> Any:
+    raise ValueError(f"Non-standard JSON constant {value!r} is not accepted.")
+
+
+def _finite_json_float(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise ValueError("JSON number is outside the supported finite range.")
+    return parsed
+
+
 def _decode_json_payload(raw: bytes) -> dict[str, Any]:
     try:
         text = raw.decode("utf-8")
@@ -143,10 +155,11 @@ def _decode_json_payload(raw: bytes) -> dict[str, Any]:
             "Render request body must be UTF-8 encoded.", code="invalid_encoding"
         ) from exc
     try:
-        payload = json.loads(text)
-    except json.JSONDecodeError as exc:
+        payload = json.loads(text, parse_constant=_reject_json_constant, parse_float=_finite_json_float)
+    except (ValueError, RecursionError) as exc:
         raise StudioRequestError(
-            f"Render request body must be valid JSON: {exc.msg}.", code="invalid_json"
+            "Render request body must be valid JSON with finite numbers and supported nesting.",
+            code="invalid_json",
         ) from exc
     if not isinstance(payload, dict):
         raise StudioRequestError("Render payload must be a JSON object.", code="invalid_payload")
@@ -155,7 +168,12 @@ def _decode_json_payload(raw: bytes) -> dict[str, Any]:
 
 def _is_local_bind_host(host: str) -> bool:
     normalized = (host or "").strip().lower().strip("[]")
-    return normalized in {"", "localhost", "127.0.0.1", "::1"} or normalized.startswith("127.")
+    if normalized in {"", "localhost"}:
+        return True
+    try:
+        return ipaddress.ip_address(normalized).is_loopback
+    except ValueError:
+        return False
 
 
 def _studio_bind_warning(host: str) -> str | None:
@@ -170,12 +188,25 @@ def _studio_bind_warning(host: str) -> str | None:
 def _header_host_name(value: str | None) -> str:
     """Extract and normalize the host name from an HTTP Host header."""
     raw = (value or "").strip()
-    if not raw:
+    if not raw or any(character.isspace() or ord(character) < 32 for character in raw):
         return ""
     if raw.startswith("["):
-        end = raw.find("]")
-        return raw[1:end].lower() if end > 0 else raw.strip("[]").lower()
-    return raw.rsplit(":", 1)[0].lower()
+        if not re.fullmatch(r"\[[^\[\]]+\](?::[0-9]+)?", raw):
+            return ""
+    elif not re.fullmatch(r"[^:/?#@\\]+(?::[0-9]+)?", raw):
+        return ""
+    try:
+        parsed = urlsplit(f"http://{raw}")
+        # Host is an authority only; credentials, paths, and malformed ports
+        # must not be normalized into an apparently trusted loopback name.
+        if parsed.username is not None or parsed.password is not None:
+            return ""
+        if parsed.path or parsed.query or parsed.fragment or "\\" in raw:
+            return ""
+        _port = parsed.port
+        return (parsed.hostname or "").lower()
+    except ValueError:
+        return ""
 
 
 def _host_header_is_trusted(host_header: str | None, bind_host: str | None) -> bool:
@@ -200,7 +231,10 @@ def _same_origin_request(origin: str | None, host_header: str | None) -> bool:
     """Validate an Origin header against the request Host header."""
     if not origin:
         return True
-    parsed = urlsplit(origin)
+    try:
+        parsed = urlsplit(origin)
+    except ValueError:
+        return False
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         return False
     return parsed.netloc.lower() == (host_header or "").strip().lower()
@@ -698,14 +732,24 @@ def _write_gui_assets(tmp: Path, assets: Any, *, reserved_paths: tuple[Path, ...
 def _validate_studio_payload(
     payload: dict[str, Any], *, allow_empty_markdown: bool = False
 ) -> tuple[str, dict[str, Any], list[Any], dict[str, Any], str]:
-    markdown = str(payload.get("markdown") or "")
-    options = payload.get("options") or {}
-    assets = payload.get("assets") or []
+    markdown = payload.get("markdown", "")
+    options = payload.get("options", {})
+    assets = payload.get("assets", [])
+    if not isinstance(markdown, str):
+        raise StudioRequestError("Markdown content must be a string.", code="invalid_markdown")
     if not isinstance(options, dict):
         raise StudioRequestError("Render options must be a JSON object.", code="invalid_options")
+    if not isinstance(assets, list):
+        raise StudioRequestError("Attached assets must be a JSON array.", code="invalid_assets")
     if not allow_empty_markdown and not markdown.strip():
         raise StudioRequestError("Markdown content is empty.", code="empty_markdown")
-    if len(markdown.encode("utf-8")) > MAX_GUI_MARKDOWN_BYTES:
+    try:
+        markdown_bytes = markdown.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise StudioRequestError(
+            "Markdown content must contain valid UTF-8 text.", code="invalid_encoding"
+        ) from exc
+    if len(markdown_bytes) > MAX_GUI_MARKDOWN_BYTES:
         raise StudioRequestError(
             "Markdown content is too large. "
             f"Maximum Markdown size is {_format_bytes(MAX_GUI_MARKDOWN_BYTES)}.",
@@ -718,7 +762,7 @@ def _validate_studio_payload(
     )
     if not filename.lower().endswith(".pdf"):
         filename += ".pdf"
-    return markdown, options, assets if isinstance(assets, list) else [], render_options, filename
+    return markdown, options, assets, render_options, filename
 
 
 def _studio_pdf_options(
@@ -1473,6 +1517,12 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - stdlib API
         request_path = self._request_path()
         try:
+            if not _host_header_is_trusted(self.headers.get("Host"), self._studio_bind_host()):
+                raise StudioRequestError(
+                    "Studio requests must use a trusted Host header.",
+                    status=403,
+                    code="untrusted_host",
+                )
             if self._handle_export_job_get(request_path):
                 return
             if self._handle_project_get(request_path):
