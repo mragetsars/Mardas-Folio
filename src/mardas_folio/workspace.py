@@ -7,6 +7,7 @@ import re
 import shutil
 import stat
 import tempfile
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
@@ -28,6 +29,7 @@ from .renderer import CancellationCallback, PdfOptions, RenderSession, build_htm
 
 MAX_WORKSPACE_FILES = 2_000
 MAX_WORKSPACE_TEXT_BYTES = 4 * 1024 * 1024
+_WORKSPACE_SAVE_LOCK = threading.Lock()
 WORKSPACE_TEXT_SUFFIXES = frozenset(
     {
         ".md",
@@ -229,32 +231,32 @@ def _file_hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _read_bytes(path: Path) -> bytes:
+def _read_file_snapshot(path: Path) -> tuple[bytes, os.stat_result]:
     try:
-        size = path.stat().st_size
-    except OSError as exc:
-        raise WorkspaceError(
-            "Project file metadata could not be read.",
-            code="project_file_unreadable",
-        ) from exc
-    if size > MAX_WORKSPACE_TEXT_BYTES:
-        raise WorkspaceError(
-            f"Project text file exceeds the {MAX_WORKSPACE_TEXT_BYTES}-byte Studio limit.",
-            code="project_file_too_large",
-            status=413,
-        )
-    try:
-        return path.read_bytes()
+        with path.open("rb") as handle:
+            stat_result = os.fstat(handle.fileno())
+            data = handle.read(MAX_WORKSPACE_TEXT_BYTES + 1)
     except OSError as exc:
         raise WorkspaceError(
             "Project file could not be read.",
             code="project_file_unreadable",
         ) from exc
+    if len(data) > MAX_WORKSPACE_TEXT_BYTES:
+        raise WorkspaceError(
+            f"Project text file exceeds the {MAX_WORKSPACE_TEXT_BYTES}-byte Studio limit.",
+            code="project_file_too_large",
+            status=413,
+        )
+    return data, stat_result
+
+
+def _read_bytes(path: Path) -> bytes:
+    return _read_file_snapshot(path)[0]
 
 
 def read_workspace_file(workspace: ProjectWorkspace, relative_path: str) -> dict[str, object]:
     path = _safe_workspace_file(workspace, relative_path)
-    data = _read_bytes(path)
+    data, stat_result = _read_file_snapshot(path)
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
@@ -268,11 +270,24 @@ def read_workspace_file(workspace: ProjectWorkspace, relative_path: str) -> dict
         "content": text,
         "sha256": _file_hash(data),
         "size": len(data),
-        "mtime_ns": path.stat().st_mtime_ns,
+        "mtime_ns": stat_result.st_mtime_ns,
     }
 
 
 def write_workspace_file(
+    workspace: ProjectWorkspace,
+    relative_path: str,
+    content: str,
+    *,
+    expected_sha256: str,
+) -> dict[str, object]:
+    with _WORKSPACE_SAVE_LOCK:
+        return _write_workspace_file_locked(
+            workspace, relative_path, content, expected_sha256=expected_sha256
+        )
+
+
+def _write_workspace_file_locked(
     workspace: ProjectWorkspace,
     relative_path: str,
     content: str,
@@ -319,6 +334,12 @@ def write_workspace_file(
             handle.flush()
             os.fsync(handle.fileno())
         os.chmod(temporary, original_mode)
+        if _file_hash(_read_bytes(path)) != expected_sha256:
+            raise WorkspaceError(
+                "Project file changed on disk while saving. Reload before saving.",
+                code="project_file_changed",
+                status=409,
+            )
         os.replace(temporary, path)
         try:
             directory_fd = os.open(path.parent, os.O_RDONLY)

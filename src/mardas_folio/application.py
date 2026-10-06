@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import tempfile
+import threading
 from dataclasses import fields
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -67,6 +68,7 @@ CancellationCallback = Callable[[], bool]
 ENGINE_API_VERSION = "1.6.0"
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_IMPORTED_ASSET_BYTES = 64 * 1024 * 1024
+_DOCUMENT_SAVE_LOCK = threading.Lock()
 _MARKDOWN_DOCUMENT_EXTENSIONS = frozenset({".md", ".markdown"})
 _TEXT_DOCUMENT_EXTENSIONS = frozenset({".bib", ".json", ".toml", ".txt", ".yaml", ".yml"})
 _ASSET_EXTENSIONS = {
@@ -150,7 +152,12 @@ class EngineValidationError(EngineError):
         self.diagnostics = items
 
 
-def _atomic_write_text(path: Path, text: str) -> None:
+def _atomic_write_text(
+    path: Path,
+    text: str,
+    *,
+    before_replace: Callable[[], None] | None = None,
+) -> os.stat_result:
     path = Path(path).expanduser().resolve(strict=False)
     path.parent.mkdir(parents=True, exist_ok=True)
     existing_mode = path.stat().st_mode & 0o777 if path.exists() else None
@@ -161,13 +168,17 @@ def _atomic_write_text(path: Path, text: str) -> None:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
+            written_stat = os.fstat(handle.fileno())
         if existing_mode is not None:
             os.chmod(temporary, existing_mode)
         else:
             current_umask = os.umask(0)
             os.umask(current_umask)
             os.chmod(temporary, 0o666 & ~current_umask)
+        if before_replace is not None:
+            before_replace()
         os.replace(temporary, path)
+        return written_stat
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
@@ -196,10 +207,27 @@ def _atomic_write_bytes(path: Path, payload: bytes) -> None:
         raise
 
 
+def _document_snapshot(path: Path) -> tuple[bytes, os.stat_result]:
+    """Read bounded document bytes and metadata from the same open file."""
+    with path.open("rb") as handle:
+        stat_result = os.fstat(handle.fileno())
+        data = handle.read(MAX_DOCUMENT_BYTES + 1)
+    if len(data) > MAX_DOCUMENT_BYTES:
+        raise EngineError(
+            "Document exceeds the editor size limit.",
+            code="MARDAS-DOCUMENT-TOO-LARGE",
+            details={"size_bytes": len(data), "limit_bytes": MAX_DOCUMENT_BYTES},
+        )
+    return data, stat_result
+
+
+def _revision_for_snapshot(data: bytes, stat_result: os.stat_result) -> str:
+    digest = hashlib.sha256(data).hexdigest()
+    return f"{stat_result.st_mtime_ns}:{len(data)}:{digest}"
+
+
 def _document_revision(path: Path) -> str:
-    stat_result = path.stat()
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    return f"{stat_result.st_mtime_ns}:{stat_result.st_size}:{digest}"
+    return _revision_for_snapshot(*_document_snapshot(path))
 
 
 def _paths_refer_to_same_file(left: Path, right: Path) -> bool:
@@ -271,7 +299,8 @@ def _read_document_text(
             details={"size_bytes": size, "limit_bytes": MAX_DOCUMENT_BYTES},
         )
     try:
-        content = source.read_text(encoding="utf-8-sig")
+        data, stat_result = _document_snapshot(source)
+        content = data.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise EngineError(
             f"{document_label} must be UTF-8 encoded.",
@@ -284,19 +313,12 @@ def _read_document_text(
             code="MARDAS-DOCUMENT-READ",
             details={"path": str(source)},
         ) from exc
-    try:
-        revision = _document_revision(source)
-    except OSError as exc:
-        raise EngineError(
-            "Document revision could not be read.",
-            code="MARDAS-DOCUMENT-READ",
-            details={"path": str(source)},
-        ) from exc
+    revision = _revision_for_snapshot(data, stat_result)
     return {
         "path": str(source),
         "kind": _document_kind_for_path(source),
         "content": content,
-        "size_bytes": size,
+        "size_bytes": len(data),
         "revision": revision,
         "read_only": not os.access(source, os.W_OK),
     }
@@ -334,6 +356,30 @@ def _save_document_text(
     expected_revision: str | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
+    # Serialize the revision check and atomic replacement across service users.
+    # External edits are checked again after writing the temporary file.
+    with _DOCUMENT_SAVE_LOCK:
+        return _save_document_text_locked(
+            path,
+            content,
+            allowed_extensions=allowed_extensions,
+            extension_message=extension_message,
+            document_label=document_label,
+            expected_revision=expected_revision,
+            force=force,
+        )
+
+
+def _save_document_text_locked(
+    path: str | os.PathLike[str],
+    content: str,
+    *,
+    allowed_extensions: frozenset[str],
+    extension_message: str,
+    document_label: str,
+    expected_revision: str | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
     target = Path(path).expanduser().resolve(strict=False)
     if target.suffix.casefold() not in allowed_extensions:
         raise EngineError(
@@ -361,19 +407,23 @@ def _save_document_text(
             code="MARDAS-DOCUMENT-TOO-LARGE",
             details={"size_bytes": len(payload), "limit_bytes": MAX_DOCUMENT_BYTES},
         )
-    current_revision = _document_revision(target) if target.is_file() else None
-    if not force and expected_revision is not None and expected_revision != current_revision:
-        raise EngineError(
-            "The document changed on disk after it was opened.",
-            code="MARDAS-DOCUMENT-CONFLICT",
-            details={
-                "path": str(target),
-                "expected_revision": expected_revision,
-                "current_revision": current_revision,
-            },
-        )
+    def check_revision() -> None:
+        if force or expected_revision is None:
+            return
+        current_revision = _document_revision(target) if target.is_file() else None
+        if expected_revision != current_revision:
+            raise EngineError(
+                "The document changed on disk after it was opened.",
+                code="MARDAS-DOCUMENT-CONFLICT",
+                details={
+                    "path": str(target),
+                    "expected_revision": expected_revision,
+                    "current_revision": current_revision,
+                },
+            )
     try:
-        _atomic_write_text(target, content)
+        check_revision()
+        written_stat = _atomic_write_text(target, content, before_replace=check_revision)
     except OSError as exc:
         raise EngineError(
             f"Could not save {document_label.lower()}: {exc}",
@@ -383,8 +433,8 @@ def _save_document_text(
     return {
         "path": str(target),
         "kind": _document_kind_for_path(target),
-        "size_bytes": target.stat().st_size,
-        "revision": _document_revision(target),
+        "size_bytes": len(payload),
+        "revision": _revision_for_snapshot(payload, written_stat),
         "read_only": not os.access(target, os.W_OK),
     }
 
@@ -1145,7 +1195,9 @@ class EngineService:
             )
             absolute_path = (workspace.root / str(payload["path"])).resolve(strict=False)
             payload["absolute_path"] = str(absolute_path)
-            payload["revision"] = _document_revision(absolute_path)
+            payload["revision"] = (
+                f"{payload['mtime_ns']}:{payload['size']}:{payload['sha256']}"
+            )
             payload["read_only"] = not os.access(absolute_path, os.W_OK)
             return payload
         if method == "project.save":
@@ -1168,7 +1220,9 @@ class EngineService:
             )
             absolute_path = (workspace.root / str(payload["path"])).resolve(strict=False)
             payload["absolute_path"] = str(absolute_path)
-            payload["revision"] = _document_revision(absolute_path)
+            payload["revision"] = (
+                f"{payload['mtime_ns']}:{payload['size']}:{payload['sha256']}"
+            )
             payload["read_only"] = not os.access(absolute_path, os.W_OK)
             return payload
         if method == "project.search":
