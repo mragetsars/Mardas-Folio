@@ -1340,6 +1340,16 @@ def _layout_css(options: PdfOptions, *, cover_full_bleed: bool = False, document
       body.md2pdf-dir-rtl .rtl-ascii-punctuation {{
         direction: rtl;
       }}
+      .md2pdf-article .md2pdf-mixed-prose[dir="ltr"] {{
+        direction: ltr;
+        text-align: start;
+        unicode-bidi: isolate;
+      }}
+      .md2pdf-article .md2pdf-mixed-prose[dir="rtl"] {{
+        direction: rtl;
+        text-align: start;
+        unicode-bidi: isolate;
+      }}
       .table-wrap--profiled {{
         isolation: isolate;
       }}

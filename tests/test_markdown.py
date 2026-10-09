@@ -4,7 +4,9 @@ from mardas_folio.markdown import render_markdown
 
 def test_mixed_direction_and_code_highlight():
     result = render_markdown("# سلام English\n\nمتن mixed با `code`.\n\n```python\nprint('hi')\n```")
-    assert "dir=\"auto\"" in result.body_html
+    soup = BeautifulSoup(result.body_html, "html.parser")
+    assert soup.find("h1")["dir"] == "rtl"
+    assert soup.find("p")["dir"] == "rtl"
     assert "code-block" in result.body_html
     assert "PYTHON" in result.body_html
 

@@ -1,4 +1,8 @@
 from pathlib import Path
+import os
+
+from bs4 import BeautifulSoup
+import pytest
 
 from mardas_folio.markdown import render_markdown
 from mardas_folio.renderer import FooterContext, PdfOptions, _footer_template, _layout_css
@@ -17,9 +21,94 @@ def test_mixed_persian_latin_text_gets_bidi_and_numeric_classes():
         "در خروجی PDF مقدار version 1.8.9 و شماره ۱۲۳ باید خوانا بماند.\n"
     )
 
-    assert 'dir="auto"' in result.body_html
+    paragraph = BeautifulSoup(result.body_html, "html.parser").find("p")
+    assert paragraph["dir"] == "rtl"
     assert 'mixed-script' in result.body_html
     assert 'mixed-numeral' in result.body_html
+
+
+def test_english_mixed_prose_keeps_its_base_direction_after_latin_isolation():
+    result = render_markdown(
+        "---\nlang: en\ndir: ltr\n---\n\n"
+        "This sample mixes Persian متن فارسی, English identifiers such as `renderer.pipeline`, "
+        "version 1.2, and inline math $a^2 + b^2 = c^2$.\n"
+    )
+    paragraph = BeautifulSoup(result.body_html, "html.parser").find("p")
+    assert paragraph["dir"] == "ltr"
+    assert "md2pdf-mixed-prose" in paragraph["class"]
+    assert paragraph.find("span", class_="md2pdf-ltr-isolate").get_text() == "This sample mixes Persian"
+
+
+def test_mixed_prose_preserves_an_explicit_author_direction():
+    result = render_markdown(
+        '<p dir="rtl">English words followed by متن فارسی.</p>\n'
+    )
+    paragraph = BeautifulSoup(result.body_html, "html.parser").find("p")
+    assert paragraph["dir"] == "rtl"
+    assert "md2pdf-mixed-prose" in paragraph["class"]
+
+
+def test_mixed_prose_css_honors_base_direction_instead_of_plaintext_detection(tmp_path: Path):
+    options = PdfOptions(input_path=tmp_path / "mixed.md", output_path=tmp_path / "mixed.pdf")
+    css, _classes = _layout_css(options, document_direction="ltr")
+    for direction in ["ltr", "rtl"]:
+        selector = f'.md2pdf-article .md2pdf-mixed-prose[dir="{direction}"]'
+        declaration = css.split(selector, 1)[1].split("}", 1)[0]
+        assert f"direction: {direction};" in declaration
+        assert "unicode-bidi: isolate;" in declaration
+        assert "unicode-bidi: plaintext;" not in declaration
+
+
+@pytest.mark.skipif(
+    os.environ.get("MARDAS_RENDER_SMOKE") != "1",
+    reason="set MARDAS_RENDER_SMOKE=1 to verify mixed-script layout in Chromium",
+)
+@pytest.mark.parametrize(
+    ("direction", "text"),
+    [
+        ("ltr", "This sentence فارسی has version 1.2?"),
+        ("rtl", "این جمله فارسی شامل renderer. و شماره 1.2 است؟"),
+    ],
+)
+def test_chromium_mixed_prose_starts_on_its_correct_side(tmp_path: Path, direction: str, text: str):
+    from playwright.sync_api import sync_playwright
+
+    from mardas_folio.renderer import build_html
+
+    lang = "en" if direction == "ltr" else "fa"
+    result = render_markdown(f"---\nlang: {lang}\ndir: {direction}\n---\n\n{text}\n")
+    options = PdfOptions(input_path=tmp_path / "mixed.md", output_path=tmp_path / "mixed.pdf")
+    document = build_html(result, options, include_cover=False, include_mathjax=False)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, args=["--no-sandbox"])
+        try:
+            page = browser.new_page(viewport={"width": 900, "height": 700})
+            page.set_content(document)
+            page.evaluate("document.fonts.ready")
+            metrics = page.locator("p.md2pdf-mixed-prose").evaluate(
+                """paragraph => {
+                    const range = document.createRange();
+                    range.selectNodeContents(paragraph.firstChild);
+                    const leading = range.getBoundingClientRect();
+                    const bounds = paragraph.getBoundingClientRect();
+                    const style = getComputedStyle(paragraph);
+                    return {
+                        leadingLeft: leading.left,
+                        leadingRight: leading.right,
+                        midpoint: (bounds.left + bounds.right) / 2,
+                        direction: style.direction,
+                        unicodeBidi: style.unicodeBidi,
+                    };
+                }"""
+            )
+            assert metrics["direction"] == direction
+            assert metrics["unicodeBidi"] == "isolate"
+            if direction == "ltr":
+                assert metrics["leadingLeft"] < metrics["midpoint"]
+            else:
+                assert metrics["leadingRight"] > metrics["midpoint"]
+        finally:
+            browser.close()
 
 
 def test_rtl_tables_get_direction_and_cell_profiles():

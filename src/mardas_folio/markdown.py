@@ -2580,7 +2580,14 @@ def postprocess_soup(
         if not text:
             continue
         profile = direction_profile(text)
-        if not tag.get("dir"):
+        if profile == "mixed" and tag.name not in {"td", "th"}:
+            # The first Latin words may now be inside dir=ltr isolation spans.
+            # HTML's dir=auto skips those descendants, so determine the base
+            # direction from the visible text instead of the transformed DOM.
+            _add_classes(tag, "md2pdf-mixed-prose")
+            if not tag.get("dir") or str(tag.get("dir")).lower() == "auto":
+                tag["dir"] = dominant_direction(text)
+        elif not tag.get("dir"):
             tag["dir"] = _dir_for_profile(profile)
         _add_classes(tag, *text_quality_classes(text))
 
