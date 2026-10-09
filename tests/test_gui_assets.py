@@ -73,7 +73,7 @@ def test_studio_html_preview_styles_scrollbars_for_dark_pdf_like_frames():
         }
     )
 
-    assert "scrollbar-color: #645c50 transparent" in html
+    assert "scrollbar-color: #4c5874 transparent" in html
     assert "*::-webkit-scrollbar-thumb" in html
     assert "md2pdf-preview-dark" in html
     assert "syncPreviewShellTheme" in html
@@ -1015,7 +1015,7 @@ def test_gui_topbar_uses_grouped_toolbar_and_icon_buttons():
     html = GUI_HTML.read_text(encoding="utf-8")
 
     assert 'role="toolbar" aria-label="Studio toolbar"' in html
-    assert 'class="tool-group" aria-label="File actions"' in html
+    assert 'class="tool-group file-actions" aria-label="File actions"' in html
     assert 'class="tool-group" aria-label="Resources"' in html
     assert 'class="tool-group" aria-label="Export"' in html
     assert 'class="tool-group" aria-label="View mode"' not in html
@@ -1060,8 +1060,8 @@ def test_gui_microinteractions_use_stable_numeric_and_soft_cards():
     assert '.choice-copy{color:color-mix' in html
     assert 'body:not(.light-mode) .choice-copy{color:var(--muted)}' in html
     assert '.format-btn{height:30px' in html
-    assert '--muted:#dcd3c4' in html
-    assert '--faint:#b3a996' in html
+    assert '--muted:#bec6da' in html
+    assert '--faint:#a6b1c7' in html
     assert '.editor-formatbar{gap:6px' in html
     assert 'border-color:transparent;background:transparent' in html
 
@@ -1069,12 +1069,12 @@ def test_gui_uses_thin_scrollbars_and_brand_interface_surfaces():
     html = GUI_HTML.read_text(encoding="utf-8")
 
     assert '*::-webkit-scrollbar' in html
-    assert '--scroll-thumb:#645c50' in html
-    assert '--scroll-thumb:#c0b6a5' in html
-    assert '--bg:#201e1d' in html
-    assert '--panel-2:#333029' in html
-    assert '--panel:#f5ead8' in html
-    assert '--preview:#f5ead8' in html
+    assert '--scroll-thumb:#4c5874' in html
+    assert '--scroll-thumb:#bdc7da' in html
+    assert '--bg:#141823' in html
+    assert '--panel-2:#202638' in html
+    assert '--panel:#ffffff' in html
+    assert '--preview:#edf0f5' in html
 
 
 def test_gui_export_button_keeps_contrast_on_hover_and_active():
@@ -1085,8 +1085,8 @@ def test_gui_export_button_keeps_contrast_on_hover_and_active():
     # per-theme ink instead of a fixed colour.
     assert '.btn-primary:hover{color:var(--on-accent)' in html
     assert '.btn-primary:active{color:var(--on-accent)' in html
-    assert '--on-accent:#402310' in html
-    assert '--on-accent:#f5ead8' in html
+    assert '--on-accent:#171a2a' in html
+    assert '--on-accent:#ffffff' in html
     assert '.btn-primary:focus-visible' in html
 
 

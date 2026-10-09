@@ -6,75 +6,74 @@
   <title>Mardas Folio</title>
   <style>
     :root{
-      --bg:#201e1d;
-      --bg-soft:#262320;
-      --shell:rgba(32,30,29,.86);
-      --panel:#2a2723;
-      --panel-2:#333029;
-      --panel-3:#3b372f;
-      --editor:#201e1d;
-      --preview:#2a2723;
-      --text:#f5ead8;
-      --muted:#dcd3c4;
-      /* Slightly lighter than the desktop's muted grey: Studio layers its
-         panels higher than the app's background, so the same value lands at
-         4.3:1 on the topmost card instead of clearing 4.5:1. */
-      --faint:#b3a996;
-      --border:#474238;
-      --border-strong:#645c50;
-      --accent:#f6a06b;
-      --accent-2:#d67f48;
-      --accent-3:#ffc6a5;
-      --on-accent:#402310;
-      --ok:#aebf92;
-      --danger:#f2a49a;
-      --warning:#e8c68a;
-      --info:#a9c8ee;
-      --shadow:0 8px 28px rgba(0,0,0,.5);
+      color-scheme:dark;
+      --bg:#141823;
+      --bg-soft:#202638;
+      --shell:#1b2030;
+      --panel:#1b2030;
+      --panel-2:#202638;
+      --panel-3:#2a3147;
+      --editor:#1b2030;
+      --preview:#141823;
+      --text:#e7eaf4;
+      --muted:#bec6da;
+      --faint:#a6b1c7;
+      --border:#343d54;
+      --border-strong:#4c5874;
+      --accent:#aaa6ff;
+      --accent-2:#c6c1ff;
+      --accent-3:#bab5ff;
+      --on-accent:#171a2a;
+      --ok:#4ade80;
+      --danger:#f87171;
+      --warning:#fbbf24;
+      --info:#93c5fd;
+      --shadow:0 20px 60px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.25);
       --radius-xs:4px;
       --radius-sm:6px;
       --radius:10px;
-      --radius-lg:14px;
-      --radius-xl:20px;
+      --radius-lg:10px;
+      --radius-xl:14px;
       --radius-pill:999px;
       --sidebar-width:318px;
       --editor-width:50%;
-      --font:'Figtree','Segoe UI Variable','Vazirmatn','Noto Sans Arabic',system-ui,sans-serif;
-      --code:'IBM Plex Mono','JetBrains Mono','SFMono-Regular','Consolas',monospace;
-      --scroll-thumb:#645c50;
-      --scroll-thumb-hover:#82796a;
+      --font:'Inter','Segoe UI Variable','Segoe UI','Vazirmatn','Noto Sans Arabic',system-ui,sans-serif;
+      --code:ui-monospace,'Cascadia Mono','SFMono-Regular','JetBrains Mono','DejaVu Sans Mono','Liberation Mono',Consolas,monospace;
+      --scroll-thumb:#4c5874;
+      --scroll-thumb-hover:#a6b1c7;
       --scroll-track:transparent;
-      --select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23dcd3c4' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      --select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23bec6da' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
       --gutter-width:10px;
       interpolate-size:allow-keywords;
     }
     body.light-mode{
-      --bg:#e6d9c0;
-      --bg-soft:#ebddc5;
-      --shell:rgba(245,234,216,.9);
-      --panel:#f5ead8;
-      --panel-2:#ebddc5;
-      --panel-3:#dcd3c4;
-      --editor:#f5ead8;
-      --preview:#f5ead8;
-      --text:#201e1d;
-      --muted:#474238;
-      --faint:#5c5449;
-      --border:#d5cab5;
-      --border-strong:#a19786;
-      --accent:#8c491a;
-      --accent-2:#643312;
-      --accent-3:#b2622d;
-      --on-accent:#f5ead8;
-      --ok:#4a5636;
-      --danger:#96301f;
-      --warning:#7a5312;
-      --info:#1f4f96;
-      --shadow:0 8px 28px rgba(46,43,37,.18);
-      --scroll-thumb:#c0b6a5;
-      --scroll-thumb-hover:#a19786;
+      color-scheme:light;
+      --bg:#f1f3f8;
+      --bg-soft:#f7f8fc;
+      --shell:#ffffff;
+      --panel:#ffffff;
+      --panel-2:#f7f8fc;
+      --panel-3:#edf0f7;
+      --editor:#ffffff;
+      --preview:#edf0f5;
+      --text:#22283a;
+      --muted:#46516a;
+      --faint:#5d6880;
+      --border:#dce1eb;
+      --border-strong:#bdc7da;
+      --accent:#4f46c6;
+      --accent-2:#4038ad;
+      --accent-3:#665ddd;
+      --on-accent:#ffffff;
+      --ok:#15803d;
+      --danger:#b91c1c;
+      --warning:#a16207;
+      --info:#1d4ed8;
+      --shadow:0 20px 60px rgba(34,40,58,.16),0 2px 8px rgba(34,40,58,.08);
+      --scroll-thumb:#bdc7da;
+      --scroll-thumb-hover:#5d6880;
       --scroll-track:transparent;
-      --select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23474238' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      --select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2346516a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -91,15 +90,15 @@
       background:var(--bg);
     }
     button,input,select,textarea{font:inherit}
-    .app{height:100%;display:grid;grid-template-rows:64px 1fr 32px;min-width:760px}
+    .app{height:100%;display:grid;grid-template-rows:64px minmax(0,1fr) 32px;min-width:0}
     .topbar{
       display:flex;align-items:center;justify-content:space-between;gap:18px;
-      padding:0 18px;border-bottom:1px solid var(--border);background:var(--shell);backdrop-filter:blur(18px);direction:ltr;
+      padding:0 20px;border-bottom:1px solid var(--border);background:var(--shell);direction:ltr;min-width:0;
     }
-    .brand{display:flex;align-items:center;gap:12px;min-width:260px;white-space:nowrap}
+    .brand{display:flex;align-items:center;gap:10px;min-width:190px;white-space:nowrap}
     .brand-mark{width:36px;height:36px;border-radius:0;display:grid;place-items:center;background:transparent;border:0;box-shadow:none;color:var(--text);font-weight:900;letter-spacing:-.05em;padding:0;flex:0 0 36px}
-    .brand-copy strong{display:block;font-size:15px;font-weight:900;letter-spacing:.02em;color:var(--text)}
-    .brand-copy span{display:block;margin-top:2px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+    .brand-copy strong{display:block;font-size:15px;font-weight:750;letter-spacing:-.02em;color:var(--text)}
+    .brand-copy span{display:block;margin-top:2px;color:var(--muted);font-size:11px;font-weight:500;letter-spacing:.02em}
     /* The mark is inlined rather than pulled in as a CSS mask. As a mask it
        rendered as nothing: the `mask` shorthand leaves mask-mode at
        match-source, Chromium resolves that to luminance for an SVG referenced
@@ -109,8 +108,8 @@
     .brand-mark svg g{fill:currentColor}
     .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .btn,.seg button,select,input[type=text],input[type=number]{
-      height:36px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--panel);color:var(--text);
-      padding:0 12px;outline:none;font-size:12px;font-weight:750;line-height:1;transition:border-color .16s,background .16s,transform .16s,box-shadow .16s;color-scheme:dark;
+      height:36px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--panel);color:var(--text);
+      padding:0 12px;outline:none;font-size:12px;font-weight:600;line-height:1;transition:border-color .16s,background .16s,transform .16s,box-shadow .16s;color-scheme:dark;
     }
     body.light-mode .btn,body.light-mode .seg button,body.light-mode select,body.light-mode input[type=text],body.light-mode input[type=number]{color-scheme:light}
     select{-webkit-appearance:none;appearance:none;padding-left:12px;padding-right:44px;text-overflow:ellipsis;background-color:var(--panel);background-image:var(--select-chevron);background-repeat:no-repeat;background-position:right 14px center;background-size:16px 16px;background-clip:padding-box}
@@ -119,9 +118,9 @@
     body.light-mode select{background-color:var(--panel);background-image:var(--select-chevron);background-repeat:no-repeat;background-position:right 14px center;background-size:16px 16px}
     .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;white-space:nowrap}
     .btn:hover,.seg button:hover{border-color:color-mix(in srgb, var(--accent) 58%, var(--border));background:var(--panel-2);transform:translateY(-1px)}
-    .btn-primary{border:0;color:var(--on-accent);background:var(--accent);box-shadow:0 12px 30px color-mix(in srgb, var(--accent) 24%, transparent)}
-    .btn-primary:hover{color:var(--on-accent);background:color-mix(in srgb,var(--accent) 88%, #451a03);box-shadow:0 16px 36px color-mix(in srgb, var(--accent) 30%, transparent);filter:none}
-    .btn-primary:active{color:var(--on-accent);transform:translateY(0) scale(.985);box-shadow:0 8px 22px color-mix(in srgb, var(--accent) 28%, transparent)}
+    .btn-primary{border:0;color:var(--on-accent);background:var(--accent);box-shadow:0 1px 2px color-mix(in srgb,var(--accent) 20%,transparent)}
+    .btn-primary:hover{color:var(--on-accent);background:var(--accent-2);box-shadow:0 2px 6px color-mix(in srgb,var(--accent) 20%,transparent);filter:none}
+    .btn-primary:active{color:var(--on-accent);transform:translateY(0) scale(.985);box-shadow:none}
     .btn-primary:focus-visible{outline:2px solid color-mix(in srgb, var(--accent) 70%, #ffffff);outline-offset:2px}
     .btn-ghost{background:transparent}
     .seg{display:inline-flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--panel)}
@@ -131,7 +130,7 @@
     .sidebar,.pane{border:0;border-radius:0;background:var(--panel);box-shadow:none;min-height:0;overflow:hidden}
     .sidebar{height:100%;display:flex;flex-direction:column;overflow:hidden;transition:opacity .2s ease,transform .22s ease}
     .pane.editor-pane{border-radius:0}
-    .pane.preview-pane{border-radius:0}
+    .pane.preview-pane{border-radius:0;display:grid;grid-template-rows:46px minmax(0,1fr)}
     .gutter{cursor:col-resize;background:transparent;position:relative;border:0;isolation:isolate;transition:background-color .16s ease-out}
     .gutter::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;transform:translateX(-50%);background:color-mix(in srgb, var(--border) 78%, transparent);opacity:.5;pointer-events:none;transition:background-color .16s ease-out,opacity .16s ease-out}
     .gutter::after{content:"";position:absolute;left:50%;top:50%;width:3px;height:34px;transform:translate(-50%,-50%) scaleY(.82);border-radius:var(--radius-pill);background:color-mix(in srgb, var(--border-strong) 72%, transparent);opacity:.34;box-shadow:none;transition:height .18s ease-out,transform .18s ease-out,background-color .18s ease-out,box-shadow .18s ease-out,opacity .18s ease-out}
@@ -147,25 +146,25 @@
     body.light-mode .settings-restore{background:var(--panel);border-color:var(--border-strong);box-shadow:0 12px 28px rgba(0,0,0,.14)}
     body.settings-collapsed .settings-restore{display:grid}
     .sidebar-head,.pane-head{height:46px;min-height:46px;flex:0 0 46px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);background:color-mix(in srgb, var(--panel-2) 88%, var(--bg-soft));direction:ltr}
-    .sidebar-head strong,.pane-head strong{font-size:11px;font-weight:900;letter-spacing:.11em;line-height:1;text-transform:uppercase;color:var(--muted);text-rendering:geometricPrecision}
+    .sidebar-head strong,.pane-head strong{font-size:12px;font-weight:700;letter-spacing:.01em;line-height:1;color:var(--muted);text-rendering:geometricPrecision}
     .sidebar-head{flex-wrap:nowrap}
     .sidebar-head strong{flex:0 0 auto;min-width:0}
-    .sidebar-head #appearanceName{display:block;flex:1 1 auto;max-width:180px;min-width:0;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--panel);color:var(--text);font-size:10px;font-weight:900;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
-    .card{border:1px solid var(--border);background:var(--panel);border-radius:var(--radius-xl);padding:12px;margin-bottom:12px}
+    .sidebar-head #appearanceName{display:block;flex:1 1 auto;max-width:180px;min-width:0;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--panel);color:var(--text);font-size:11px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+    .card{border:1px solid var(--border);background:var(--panel);border-radius:var(--radius);padding:12px;margin-bottom:12px}
     .card h3{margin:0 0 12px;font-size:13px;color:var(--text);display:flex;align-items:center;gap:8px}
     .field{display:grid;gap:6px;margin-bottom:11px}
-    .field label,.check span{font-size:11px;color:var(--muted);font-weight:800}
+    .field label,.check span{font-size:12px;color:var(--muted);font-weight:600}
     .field input{width:100%;background-color:var(--panel-2)}
     .field select{width:100%;padding-right:46px;background-color:var(--panel-2);background-image:var(--select-chevron);background-repeat:no-repeat;background-position:right 14px center;background-size:16px 16px}
     .field input:focus,.field select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent)}
     .check{display:flex;align-items:center;gap:9px;margin:10px 0;user-select:none;cursor:pointer}
     .check input{appearance:none;width:18px;height:18px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:var(--panel-2);display:grid;place-items:center;cursor:pointer}
     .check input:checked{background:var(--accent);border-color:color-mix(in srgb, var(--accent) 82%, transparent)}
-    .check input:checked::after{content:"";width:8px;height:4px;border-left:2px solid #ffffff;border-bottom:2px solid #ffffff;transform:rotate(-45deg);margin-top:-2px}
-    .hint{font-size:11px;line-height:1.55;color:var(--faint);margin-top:4px}
+    .check input:checked::after{content:"";width:8px;height:4px;border-left:2px solid var(--on-accent);border-bottom:2px solid var(--on-accent);transform:rotate(-45deg);margin-top:-2px}
+    .hint{font-size:12px;line-height:1.55;color:var(--faint);margin-top:4px}
 
     .card h3 small{display:block;margin-top:2px;color:var(--faint);font-size:10px;font-weight:700;letter-spacing:0;text-transform:none}
-    .section-kicker{margin:0 0 16px;color:var(--faint);font-size:11px;line-height:1.55}
+    .section-kicker{margin:0 0 16px;color:var(--faint);font-size:12px;line-height:1.55}
     .hidden-settings{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
     .choice-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px}
     .choice-grid--style{grid-template-columns:1fr 1fr}
@@ -175,8 +174,8 @@
     }
     .choice-card:hover,.palette-card:hover,.mode-card:hover,.branding-card:hover{border-color:color-mix(in srgb, var(--accent) 55%, var(--border));transform:translateY(-1px)}
     .choice-card.active,.palette-card.active,.mode-card.active,.branding-card.active{border-color:var(--accent);background:color-mix(in srgb, var(--accent) 12%, var(--panel-2));box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent)}
-    .choice-title{display:block;font-size:12px;font-weight:900;color:var(--text);line-height:1.25}
-    .choice-copy{display:block;margin-top:4px;font-size:10px;line-height:1.45;color:var(--muted);font-weight:700}
+    .choice-title{display:block;font-size:12px;font-weight:650;color:var(--text);line-height:1.25}
+    .choice-copy{display:block;margin-top:4px;font-size:11px;line-height:1.45;color:var(--muted);font-weight:500}
     .palette-grid{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px}
     .palette-card{position:relative;display:inline-grid;place-items:center;width:34px;height:34px;min-height:34px;min-width:34px;padding:0;border-radius:var(--radius-pill);font-size:0;line-height:1}
     .palette-dot{width:22px;height:22px;border-radius:var(--radius-pill);background:linear-gradient(135deg,var(--swatch),var(--swatch2));box-shadow:inset 0 0 0 1px color-mix(in srgb, #fff 36%, transparent),0 0 0 1px color-mix(in srgb, var(--swatch) 30%, transparent);flex:0 0 auto}
@@ -190,8 +189,8 @@
     .settings-section:not([open]) .settings-body{opacity:0;transform:translateY(-4px)}
     .settings-section>summary:hover{background:color-mix(in srgb, var(--panel-2) 72%, transparent)}
     .segmented-choice--three{grid-template-columns:repeat(3,minmax(0,1fr))}
-    .mode-card,.branding-card{text-align:center;font-size:11px;font-weight:900;min-height:38px}
-    .branding-card small,.mode-card small{display:block;margin-top:3px;font-size:9px;line-height:1.25;color:var(--faint);font-weight:800}
+    .mode-card,.branding-card{text-align:center;font-size:12px;font-weight:650;min-height:38px}
+    .branding-card small,.mode-card small{display:block;margin-top:3px;font-size:10px;line-height:1.25;color:var(--faint);font-weight:500}
     .advanced-card{padding:0;overflow:hidden}
     .setting-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     .asset-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
@@ -273,7 +272,7 @@
     .settings-section>summary{position:relative;list-style:none;cursor:pointer;padding:16px 16px 15px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;min-width:0;border-bottom:1px solid transparent;transition:background .18s ease,border-color .18s ease,color .18s ease}
     .settings-section>summary::-webkit-details-marker{display:none}
     .settings-section>summary h3{margin:0;min-width:0;flex:1 1 auto;font-size:13px;color:var(--text);display:flex;align-items:center;gap:9px;line-height:1.2}
-    .settings-section>summary small{display:block;margin-top:4px;color:var(--faint);font-size:10px;font-weight:700;line-height:1.35;letter-spacing:0;text-transform:none;overflow:hidden;text-overflow:ellipsis;white-space:normal}
+    .settings-section>summary small{display:block;margin-top:4px;color:var(--faint);font-size:11px;font-weight:500;line-height:1.4;letter-spacing:0;text-transform:none;overflow:hidden;text-overflow:ellipsis;white-space:normal}
     .settings-section>summary::after{content:"";width:8px;height:8px;border-right:1.8px solid var(--muted);border-bottom:1.8px solid var(--muted);transform:rotate(45deg);transition:transform .22s ease,border-color .18s ease;margin-top:5px;flex:0 0 auto}
     .settings-section[open]{border-color:color-mix(in srgb, var(--accent) 14%, var(--border));box-shadow:0 6px 18px rgba(0,0,0,.055)}
     body.light-mode .settings-section[open]{box-shadow:0 8px 20px rgba(0,0,0,.04)}
@@ -284,21 +283,21 @@
     .field{gap:7px;margin-bottom:16px}
     .field label{color:color-mix(in srgb, var(--muted) 92%, var(--text));letter-spacing:.01em}
     .field input,.field select{
-      min-height:38px;border-color:var(--border-strong);background-color:color-mix(in srgb, var(--panel-2) 84%, #000 16%);
-      box-shadow:inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
+      min-height:38px;border-color:var(--border-strong);background-color:var(--panel-2);
+      box-shadow:none;
     }
     body.light-mode .field input{background-color:var(--panel);box-shadow:inset 0 1px 0 rgba(0,0,0,.04)}
     body.light-mode .field select{background-color:var(--panel);box-shadow:inset 0 1px 0 rgba(0,0,0,.04);background-image:var(--select-chevron);background-repeat:no-repeat;background-position:right 14px center;background-size:16px 16px}
-    .switch{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0;user-select:none;cursor:pointer;color:var(--muted);font-size:11px;font-weight:850;line-height:1.35}
+    .switch{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0;user-select:none;cursor:pointer;color:var(--muted);font-size:12px;font-weight:600;line-height:1.4}
     .switch span{min-width:0}
-    .switch input{appearance:none;width:46px;height:26px;border-radius:var(--radius-pill);border:1px solid color-mix(in srgb, var(--border-strong) 78%, transparent);background:color-mix(in srgb, var(--panel-3) 74%, #000 26%);position:relative;cursor:pointer;flex:0 0 auto;box-shadow:inset 0 1px 1px rgba(255,255,255,.05),inset 0 -1px 2px rgba(0,0,0,.28);transition:background .24s cubic-bezier(.2,.8,.2,1),border-color .2s ease,box-shadow .2s ease}
+    .switch input{appearance:none;width:46px;height:26px;border-radius:var(--radius-pill);border:1px solid color-mix(in srgb, var(--border-strong) 78%, transparent);background:var(--panel-3);position:relative;cursor:pointer;flex:0 0 auto;box-shadow:inset 0 1px 1px rgba(255,255,255,.05),inset 0 -1px 2px rgba(0,0,0,.28);transition:background .24s cubic-bezier(.2,.8,.2,1),border-color .2s ease,box-shadow .2s ease}
     .switch input::after{content:'';position:absolute;width:20px;height:20px;top:2px;left:2px;border-radius:50%;background:#ffffff;transition:transform .24s cubic-bezier(.2,.8,.2,1),box-shadow .2s ease;box-shadow:0 2px 7px rgba(0,0,0,.34),0 0 0 1px rgba(255,255,255,.18)}
     .switch input:focus-visible{outline:2px solid color-mix(in srgb, var(--accent) 70%, #ffffff);outline-offset:3px}
     body.light-mode .switch input{background:var(--panel-3);border-color:var(--border-strong);box-shadow:inset 0 1px 2px rgba(0,0,0,.08)}
     body.light-mode .switch input::after{background:#ffffff;box-shadow:0 2px 7px rgba(0,0,0,.24),0 0 0 1px rgba(255,255,255,.85)}
     .switch input:checked{background:var(--accent);border-color:color-mix(in srgb, var(--accent) 82%, transparent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent),inset 0 1px 1px rgba(255,255,255,.18)}
     body.light-mode .switch input:checked{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent),inset 0 1px 1px rgba(255,255,255,.24)}
-    .switch input:checked::after{transform:translateX(20px);background:#ffffff;box-shadow:0 3px 9px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.72)}
+    .switch input:checked::after{transform:translateX(20px);background:var(--on-accent);box-shadow:0 3px 9px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.72)}
     .editor-pane{display:grid;grid-template-rows:46px 40px minmax(0,1fr)}
     .editor-formatbar{height:40px;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid var(--border);background:color-mix(in srgb, var(--panel-2) 94%, transparent);direction:ltr;overflow:auto;scrollbar-width:none}
     .editor-formatbar::-webkit-scrollbar{display:none}
@@ -310,16 +309,16 @@
     .line-number-content{position:absolute;top:0;left:0;right:0;white-space:normal;will-change:transform}
     .line-number-row{height:var(--editor-line-height,24px);line-height:var(--editor-line-height,24px);padding:0 10px 0 4px;overflow:hidden;white-space:nowrap}
     textarea{height:100%;padding:20px;border-radius:0;line-height:1.72;scrollbar-width:thin;white-space:pre;overflow:auto;overflow-wrap:normal;word-break:normal}
-    .preview{height:calc(100% - 46px);border-left:1px solid color-mix(in srgb, var(--border) 60%, transparent)}
+    .preview{height:100%;min-height:0;border-left:1px solid color-mix(in srgb, var(--border) 60%, transparent)}
     .preview-pane .pane-head{gap:8px;padding-right:10px}
     .preview-pane .pane-head strong{flex:0 0 auto}
     .preview-tools{min-width:0;display:flex;align-items:center;gap:7px;flex:0 1 auto;justify-content:flex-end}
-    .preview-status{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:72px;max-width:none;min-height:26px;padding:0 9px;border:1px solid var(--border);border-radius:var(--radius-pill);background:color-mix(in srgb, var(--panel) 84%, transparent);font-size:10px;font-weight:900;color:var(--muted);white-space:nowrap;overflow:visible;text-overflow:clip;letter-spacing:.015em;flex:0 0 auto}
+    .preview-status{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:72px;max-width:none;min-height:26px;padding:0 9px;border:1px solid var(--border);border-radius:var(--radius-pill);background:color-mix(in srgb, var(--panel) 84%, transparent);font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:visible;text-overflow:clip;letter-spacing:.015em;flex:0 0 auto}
     .preview-status::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;flex:0 0 auto}
     .preview-status.rendering{color:var(--text);border-color:color-mix(in srgb, var(--accent) 48%, var(--border));background:color-mix(in srgb, var(--accent) 10%, var(--panel))}
     .preview-status.rendering::before{background:transparent;border:2px solid var(--border-strong);border-top-color:var(--accent);animation:spin .7s linear infinite;width:10px;height:10px}
-    .preview-mode-select{height:30px;min-width:112px;border-radius:var(--radius);padding-left:10px;padding-right:34px;background-color:var(--panel);font-size:10px;text-transform:uppercase;letter-spacing:.06em;flex:0 0 auto}
-    .accurate-preview-frame{height:calc(100% - 46px);width:100%;border:0;border-left:1px solid color-mix(in srgb, var(--border) 60%, transparent);background:var(--preview);color-scheme:dark}
+    .preview-mode-select{height:28px;width:100px;min-width:100px;border-radius:var(--radius);padding-left:10px;padding-right:34px;background-color:var(--panel);font-size:11px;letter-spacing:0;flex:0 0 auto}
+    .accurate-preview-frame{height:100%;min-height:0;width:100%;border:0;border-left:1px solid color-mix(in srgb, var(--border) 60%, transparent);background:var(--preview);color-scheme:dark}
     body.light-mode .accurate-preview-frame{background:#ffffff;color-scheme:light}
     [hidden]{display:none!important}
     @keyframes spin{to{transform:rotate(360deg)}}
@@ -335,8 +334,8 @@
     body.resizing-panes *{cursor:col-resize !important;user-select:none !important}
     .command-palette-backdrop{position:fixed;inset:0;z-index:120;display:none;align-items:flex-start;justify-content:center;padding-top:96px;background:rgba(0,0,0,.42);backdrop-filter:blur(10px)}
     body.command-palette-open .command-palette-backdrop{display:flex}
-    .command-palette{width:min(640px,calc(100vw - 32px));border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--panel);box-shadow:0 24px 70px rgba(0,0,0,.5);overflow:hidden;color:var(--text)}
-    .command-palette input{width:100%;height:52px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:var(--panel-2);color:var(--text);padding:0 18px;font-size:15px;font-weight:800;outline:none}
+    .command-palette{width:min(640px,calc(100vw - 32px));border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--panel);box-shadow:var(--shadow);overflow:hidden;color:var(--text)}
+    .command-palette input{width:100%;height:52px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:var(--panel-2);color:var(--text);padding:0 18px;font-size:15px;font-weight:500;outline:none}
     .command-list{max-height:360px;overflow:auto;padding:8px}
     .command-item{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;border:0;border-radius:var(--radius-lg);background:transparent;color:var(--text);padding:12px 13px;text-align:left;cursor:pointer;outline:none}
     .command-item:hover,.command-item.active,.command-item[aria-selected="true"]{background:color-mix(in srgb, var(--accent) 12%, var(--panel-2))}
@@ -365,15 +364,49 @@
     .problem-item.error{border-left:3px solid var(--danger)}.problem-item.warning{border-left:3px solid var(--warning)}.problem-item.info{border-left:3px solid var(--info)}
     .problem-item strong{display:block;font-size:10px;line-height:1.35}.problem-item small{display:block;margin-top:3px;color:var(--muted);font-size:9px;line-height:1.35;direction:ltr;text-align:left}
     .project-editor-path{max-width:min(42vw,440px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:right}
-    .toast{max-width:min(420px,calc(100vw - 36px));border:1px solid color-mix(in srgb, var(--accent) 28%, var(--border));border-radius:var(--radius-lg);background:color-mix(in srgb, var(--panel) 94%, transparent);color:var(--text);box-shadow:0 18px 48px rgba(0,0,0,.38);padding:11px 13px;font-size:12px;font-weight:850;line-height:1.45;opacity:0;transform:translateY(8px) scale(.98);transition:opacity .18s ease-out,transform .18s ease-out;backdrop-filter:blur(14px)}
+    .toast{max-width:min(420px,calc(100vw - 36px));border:1px solid color-mix(in srgb, var(--accent) 28%, var(--border));border-radius:var(--radius-lg);background:color-mix(in srgb, var(--panel) 94%, transparent);color:var(--text);box-shadow:var(--shadow);padding:11px 13px;font-size:12px;font-weight:600;line-height:1.45;opacity:0;transform:translateY(8px) scale(.98);transition:opacity .18s ease-out,transform .18s ease-out;backdrop-filter:blur(14px)}
     .toast.show{opacity:1;transform:translateY(0) scale(1)}
     .toast[data-tone="danger"]{border-color:color-mix(in srgb, var(--danger) 52%, var(--border))}
     .toast[data-tone="success"]{border-color:color-mix(in srgb, var(--ok) 48%, var(--border))}
-    @media(max-width:1160px){
-      .app{min-width:0}.brand-copy span{display:none}.toolbar{gap:6px}.workspace{grid-template-columns:290px 7px 1fr}.preview-gutter,.preview-pane{display:none}.editor-pane{border-radius:0;border-right:0}
+    .workspace-tabs{display:none;align-items:center;gap:4px;padding:6px 16px;border-bottom:1px solid var(--border);background:var(--panel-2)}
+    .workspace-tab{height:32px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 14px;border:1px solid transparent;border-radius:var(--radius-sm);background:transparent;color:var(--muted);font-size:12px;font-weight:650;cursor:pointer}
+    .workspace-tab[aria-pressed="true"]{border-color:var(--border);background:var(--panel);color:var(--accent)}
+    button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    ::placeholder{color:var(--faint);opacity:1}
+    .preview-tools .btn-icon{width:28px;min-width:28px;height:28px}
+    #dirBtn{height:28px;min-width:36px;padding:0 6px;font-size:11px}
+    #dirBtn .icon{display:none}
+    @media(max-width:1360px){
+      .app{grid-template-rows:64px 46px minmax(0,1fr) 32px}
+      .brand-copy span{display:none}.toolbar{gap:6px}.brand{min-width:160px}
+      .secondary-file-action{display:none}.workspace-tabs{display:flex}
+      .workspace,body.settings-collapsed .workspace{grid-template-columns:1fr;padding:0}
+      .sidebar,.editor-pane,.preview-pane,.gutter,.settings-restore{display:none!important}
+      body[data-studio-panel="editor"] .editor-pane,body[data-studio-panel="settings"] .sidebar,body[data-studio-panel="preview"] .preview-pane{display:grid!important;opacity:1;transform:none;pointer-events:auto}
+      body[data-studio-panel="settings"] .sidebar{display:flex!important}
+      .sidebar-body{max-width:600px;width:100%;align-self:center}
+      .sidebar-head #appearanceName{flex:0 1 auto}
+      .preview-pane .pane-head{justify-content:space-between}
     }
     @media(max-width:800px){
-      .topbar{height:auto;min-height:64px;align-items:flex-start;padding:12px;flex-direction:column}.app{grid-template-rows:auto 1fr 32px}.workspace,body.settings-collapsed .workspace{grid-template-columns:1fr;padding:0}.sidebar,.settings-gutter,.settings-restore{display:none!important}.editor-pane{border-radius:0}.toolbar{justify-content:flex-start}.preview-pane,.preview-gutter{display:none}
+      .topbar{height:auto;min-height:64px;align-items:flex-start;padding:12px;flex-direction:column;gap:10px}
+      .app{grid-template-rows:auto 46px minmax(0,1fr) 32px}
+      .toolbar{width:100%;justify-content:space-between;gap:6px}.tool-group{gap:3px}.tool-divider{display:none}
+      .brand-copy span{display:block}.workspace-tabs{padding-inline:12px}
+      .footer{padding-inline:12px;gap:8px;font-size:10px}.footer-group{gap:8px}
+      .export-progress{min-width:0;gap:5px}.progress-track{width:64px}.footer #savedState{display:none}
+      .command-palette-backdrop{padding-top:32px}
+    }
+    @media(max-width:540px){
+      .toolbar .btn:not(.btn-primary){width:32px;min-width:32px;padding:0}
+      .toolbar .btn:not(.btn-primary) span:not(.sr-only){display:none}
+      .toolbar .btn-primary{padding-inline:10px}.toolbar .btn-primary .icon{display:none}
+      .toolbar .tool-group{gap:2px}.toolbar{gap:4px}
+      .workspace-tab{flex:1;padding-inline:8px}.workspace-tabs{gap:6px}
+      .settings-body{padding-inline:14px}.sidebar-body{padding:12px}
+    }
+    @media(prefers-reduced-motion:reduce){
+      *,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}
     }
 
 
@@ -396,12 +429,12 @@
     .settings-section[open]>summary h3 .icon{color:color-mix(in srgb, var(--accent) 82%, #ffffff)}
     .choice-grid{gap:12px;margin-bottom:18px}.choice-grid--style{gap:12px}.palette-grid{gap:8px;margin-bottom:18px}.segmented-choice{gap:10px;margin-bottom:16px}
     .choice-card,.palette-card,.mode-card,.branding-card{padding:13px;background:color-mix(in srgb, var(--panel-2) 86%, transparent);transition:border-color .18s ease-out,background-color .18s ease-out,box-shadow .18s ease-out,transform .16s ease-out}
-    .choice-card:hover,.mode-card:hover,.branding-card:hover{box-shadow:0 10px 26px rgba(0,0,0,.16);transform:translateY(-2px)}
+    .choice-card:hover,.mode-card:hover,.branding-card:hover{box-shadow:none;transform:none}
     .palette-card:hover{transform:translateY(-1px) scale(1.06);box-shadow:0 8px 20px rgba(0,0,0,.18)}
     .palette-card.active{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);transform:scale(1.04)}
     .palette-card{padding:0;background:color-mix(in srgb, var(--panel-2) 76%, transparent)}
     .palette-card.active{background:color-mix(in srgb, var(--accent) 10%, var(--panel-2))}
-    body.light-mode .choice-card:hover,body.light-mode .mode-card:hover,body.light-mode .branding-card:hover{box-shadow:0 10px 24px rgba(0,0,0,.08)}
+    body.light-mode .choice-card:hover,body.light-mode .mode-card:hover,body.light-mode .branding-card:hover{box-shadow:none}
     body.light-mode .palette-card:hover{box-shadow:0 8px 18px rgba(0,0,0,.10)}
     .choice-copy{color:color-mix(in srgb, var(--muted) 78%, var(--text));line-height:1.38}
     body:not(.light-mode) .choice-copy{color:var(--muted)}
@@ -417,8 +450,9 @@
     body.light-mode .sidebar,body.light-mode .pane{box-shadow:none}
   </style>
 </head>
-<body>
+<body class="light-mode" data-studio-panel="editor">
   <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <symbol id="icon-shield-check" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4 3 7 8 9 5-2 8-5 8-9V6Z"/><path d="m8 12 3 3 5-6"/></symbol>
   <symbol id="icon-folder-open" viewBox="0 0 24 24"><path d="M3 7.5V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7.5L9.5 5H5a2 2 0 0 0-2 2.5Z"/><path d="M3 10h18"/></symbol>
   <symbol id="icon-save" viewBox="0 0 24 24"><path d="M5 3h12l2 2v16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M7 3v7h9"/><path d="M8 21v-6h8v6"/></symbol>
   <symbol id="icon-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></symbol>
@@ -449,16 +483,16 @@
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 512 512" focusable="false"><g transform="translate(256 256) scale(2.72)" fill="currentColor"><g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g><g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g><g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g><g transform="rotate(270) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g></g></svg></span>
-        <span class="brand-copy"><strong>Mardas Folio</strong><span>Markdown to PDF Engine · v__MARDAS_VERSION__</span></span>
+        <span class="brand-copy"><strong>Mardas Folio</strong><span>Publishing studio · v__MARDAS_VERSION__</span></span>
       </div>
       <div class="toolbar" role="toolbar" aria-label="Studio toolbar">
-        <div class="tool-group" aria-label="File actions">
+        <div class="tool-group file-actions" aria-label="File actions">
           <button class="btn" onclick="newDocument()" title="Start a clean Markdown draft"><svg class="icon" aria-hidden="true"><use href="#icon-file-text"></use></svg><span>New</span></button>
           <button class="btn" onclick="openFile()" title="Open Markdown file"><svg class="icon" aria-hidden="true"><use href="#icon-folder-open"></use></svg><span>Open MD</span></button><input type="file" id="fileInput" accept=".md,.markdown,.txt" hidden>
-          <button class="btn" onclick="openProject()" title="Open a saved Studio bundle"><svg class="icon" aria-hidden="true"><use href="#icon-folder-open"></use></svg><span>Open Bundle</span></button><input type="file" id="projectInput" accept=".mardas.json,application/json" hidden>
+          <button class="btn secondary-file-action" onclick="openProject()" title="Open a saved Studio bundle"><svg class="icon" aria-hidden="true"><use href="#icon-folder-open"></use></svg><span>Open Bundle</span></button><input type="file" id="projectInput" accept=".mardas.json,application/json" hidden>
           <button class="btn" onclick="downloadMarkdown()" title="Save Markdown locally"><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg><span>Save MD</span></button>
-          <button class="btn" onclick="downloadProject()" title="Save Markdown, export options, and attached assets as a Studio bundle"><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg><span>Save Bundle</span></button>
-          <button class="btn btn-icon btn-quiet" onclick="clearStudioState()" title="Reset local Studio state" aria-label="Reset local Studio state"><svg class="icon" aria-hidden="true"><use href="#icon-rotate-ccw"></use></svg><span class="sr-only">Reset State</span></button>
+          <button class="btn secondary-file-action" onclick="downloadProject()" title="Save Markdown, export options, and attached assets as a Studio bundle"><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg><span>Save Bundle</span></button>
+          <button class="btn btn-icon btn-quiet secondary-file-action" onclick="clearStudioState()" title="Reset local Studio state" aria-label="Reset local Studio state"><svg class="icon" aria-hidden="true"><use href="#icon-rotate-ccw"></use></svg><span class="sr-only">Reset State</span></button>
         </div>
         <span class="tool-divider" aria-hidden="true"></span>
         <div class="tool-group" aria-label="Resources">
@@ -475,8 +509,13 @@
       </div>
     </header>
     <button id="settingsRestoreBtn" class="settings-restore" type="button" onclick="expandSettingsPane()" title="Show export settings" aria-label="Show export settings"><svg class="icon" aria-hidden="true"><use href="#icon-panel-left"></use></svg></button>
+    <nav class="workspace-tabs" id="workspaceTabs" aria-label="Workspace panel">
+      <button class="workspace-tab" type="button" data-studio-target="editor" aria-controls="editorPane" aria-pressed="true" onclick="selectStudioPanel('editor')"><svg class="icon" aria-hidden="true"><use href="#icon-file-text"></use></svg>Editor</button>
+      <button class="workspace-tab" type="button" data-studio-target="settings" aria-controls="sidebar" aria-pressed="false" onclick="selectStudioPanel('settings')"><svg class="icon" aria-hidden="true"><use href="#icon-settings"></use></svg>Settings</button>
+      <button class="workspace-tab" type="button" data-studio-target="preview" aria-controls="previewPane" aria-pressed="false" onclick="selectStudioPanel('preview')"><svg class="icon" aria-hidden="true"><use href="#icon-file-down"></use></svg>Preview</button>
+    </nav>
     <main class="workspace" id="workspace">
-      <aside id="sidebar" class="sidebar">
+      <aside id="sidebar" class="sidebar" aria-label="Export settings">
         <div class="sidebar-head"><strong>Export Settings</strong><span id="appearanceName">modern · blue · light</span></div>
         <div class="sidebar-body">
 
@@ -587,7 +626,7 @@
         </div>
       </aside>
       <div class="gutter settings-gutter" id="settingsGutter" title="Drag to resize or collapse export settings" aria-label="Resize export settings panel"></div>
-      <section class="pane editor-pane">
+      <section class="pane editor-pane" id="editorPane" aria-label="Markdown editor">
         <div class="pane-head"><strong>Markdown Editor</strong><span class="editor-tools"><span id="activeProjectPath" class="preview-note project-editor-path">Markdown source</span></span></div>
         <div class="editor-formatbar" aria-label="Markdown formatting toolbar">
           <button class="format-btn" type="button" onclick="insertMarkdown('bold')" title="Bold" aria-label="Bold"><svg class="icon" aria-hidden="true"><use href="#icon-bold"></use></svg></button>
@@ -606,11 +645,11 @@
         </div>
         <div class="editor-shell">
           <div id="lineNumbers" class="line-numbers" aria-hidden="true"><div id="lineNumberSpacer" class="line-number-spacer"><div id="lineNumberContent" class="line-number-content">1</div></div></div>
-          <textarea id="editor" dir="auto" spellcheck="false" wrap="off"></textarea>
+          <textarea id="editor" aria-label="Markdown source" dir="auto" spellcheck="false" wrap="off"></textarea>
         </div>
       </section>
       <div class="gutter preview-gutter" id="previewGutter" title="Drag to resize editor and preview" aria-label="Resize editor and preview panels"></div>
-      <section class="pane preview-pane">
+      <section class="pane preview-pane" id="previewPane" aria-label="Document preview">
         <div class="pane-head"><strong>Preview</strong><span class="preview-tools"><span id="previewStatus" class="preview-status" title="PDF-like preview uses backend renderer HTML with page size and margins. Fast is an approximate browser-local editing preview with editor scroll sync.">Ready</span><select id="previewModeInput" class="preview-mode-select" title="Preview mode" aria-label="Preview mode"><option value="accurate" selected>PDF-like</option><option value="fast">Fast (approx)</option></select><button id="refreshPreviewBtn" class="btn btn-icon btn-quiet" onclick="forceAccuratePreview()" title="Refresh PDF-like preview now" aria-label="Refresh PDF-like preview"><svg class="icon" aria-hidden="true"><use href="#icon-rotate-ccw"></use></svg><span class="sr-only">Refresh preview</span></button><button class="btn" onclick="toggleDirection()" id="dirBtn" title="Toggle preview direction"><svg class="icon" aria-hidden="true"><use href="#icon-arrow-left-right"></use></svg><span id="dirBtnLabel">RTL</span></button></span></div>
         <div id="preview" class="preview" dir="auto"></div>
         <iframe id="accuratePreviewFrame" class="accurate-preview-frame" title="Accurate renderer HTML preview" hidden></iframe>
@@ -2586,6 +2625,15 @@ function copyCommand(){
   setServerStatus('CLI command copied', { toast: true, tone: 'success' });
 }
 
+function selectStudioPanel(panel){
+  if (!['editor', 'settings', 'preview'].includes(panel)) return;
+  document.body.dataset.studioPanel = panel;
+  document.querySelectorAll('[data-studio-target]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.studioTarget === panel));
+  });
+  if (panel === 'editor') requestAnimationFrame(syncLineNumbers);
+}
+
 function toggleInterfaceMode(){
   document.body.classList.toggle('light-mode');
   const light = document.body.classList.contains('light-mode');
@@ -2610,18 +2658,28 @@ function setSidebarWidth(width, options={}){
 }
 
 function collapseSettingsPane(options={}){
+  if (options.persist !== false) selectStudioPanel('editor');
   settingsCollapsed = true;
   document.body.classList.add('settings-collapsed');
   if (options.persist !== false) scheduleStudioStateSave();
 }
 
 function expandSettingsPane(options={}){
+  if (options.persist !== false) selectStudioPanel('settings');
   settingsCollapsed = false;
   document.body.classList.remove('settings-collapsed');
   const requestedWidth = parseFloat(options.width ?? currentSidebarWidth()) || SETTINGS_RESTORE_WIDTH;
   const width = requestedWidth < SETTINGS_COMFORT_WIDTH ? SETTINGS_RESTORE_WIDTH : requestedWidth;
   document.documentElement.style.setProperty('--sidebar-width', clamp(width, SETTINGS_MIN_WIDTH, SETTINGS_MAX_WIDTH) + 'px');
   if (options.persist !== false) scheduleStudioStateSave();
+}
+
+function toggleSettingsPanel(){
+  if (window.matchMedia('(max-width:1360px)').matches) {
+    selectStudioPanel(document.body.dataset.studioPanel === 'settings' ? 'editor' : 'settings');
+  } else {
+    settingsCollapsed ? expandSettingsPane() : collapseSettingsPane();
+  }
 }
 
 function toggleDirection(){
@@ -2696,7 +2754,8 @@ const COMMANDS = [
   { id:'attach-assets', title:'Attach assets', hint:'Attach image files or folders for Markdown images and brand logos.', shortcut:'A', run:attachAssets },
   { id:'clear-assets', title:'Clear assets', hint:'Remove all currently attached browser-side assets.', shortcut:'', run:clearAssets },
   { id:'copy-cli', title:'Copy CLI command', hint:'Copy a command matching the current export settings.', shortcut:'', run:copyCommand },
-  { id:'settings', title:'Toggle settings panel', hint:'Collapse or restore the export settings sidebar.', shortcut:'Ctrl/Cmd+,', run:() => settingsCollapsed ? expandSettingsPane() : collapseSettingsPane() },
+  { id:'reset-local-state', title:'Reset local Studio state', hint:'Remove the locally saved draft and settings.', shortcut:'', run:clearStudioState },
+  { id:'settings', title:'Toggle settings panel', hint:'Show or hide export settings.', shortcut:'Ctrl/Cmd+,', run:toggleSettingsPanel },
   { id:'preview-fast', title:'Use fast approximate preview', hint:'Switch to the browser-local approximate Markdown preview for low-latency editing.', shortcut:'', run:() => setPreviewMode('fast') },
   { id:'preview-accurate', title:'Use PDF-like preview', hint:'Preview server-rendered HTML with a page-sized sheet and margins.', shortcut:'', run:() => setPreviewMode('accurate') },
   { id:'direction', title:'Toggle preview direction', hint:'Switch editor and preview direction between RTL and LTR.', shortcut:'', run:toggleDirection }
@@ -2815,7 +2874,7 @@ window.addEventListener('keydown', (event) => {
   }
   if (key === ',') {
     event.preventDefault();
-    settingsCollapsed ? expandSettingsPane() : collapseSettingsPane();
+    toggleSettingsPanel();
   }
   if (key === 's') {
     event.preventDefault();
@@ -2833,6 +2892,7 @@ markLineNumbersDirty();
 attachChoiceCards();
 attachOptionPersistence();
 loadStudioState();
+updateInterfaceButton();
 updateAppearanceName();
 applyDocumentDirection();
 renderAssetList();

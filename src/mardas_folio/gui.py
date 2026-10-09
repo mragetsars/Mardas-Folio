@@ -850,9 +850,9 @@ def _studio_pdf_like_preview_css(page_size: str | None) -> str:
         --md2pdf-preview-page-height: {page_height};
         --md2pdf-preview-page-gap: 30px;
         --md2pdf-preview-scale: 1;
-        --md2pdf-preview-shell-bg: #dcd3c4;
-        --md2pdf-preview-shell-bg-dark: #201e1d;
-        --md2pdf-preview-label-bg: #f5ead8;
+        --md2pdf-preview-shell-bg: #edf0f5;
+        --md2pdf-preview-shell-bg-dark: #141823;
+        --md2pdf-preview-label-bg: #ffffff;
       }}
       html {{
         min-height: 100%;
@@ -860,20 +860,20 @@ def _studio_pdf_like_preview_css(page_size: str | None) -> str:
         overflow-x: hidden;
         color-scheme: light;
         scrollbar-width: thin;
-        scrollbar-color: #c0b6a5 transparent;
+        scrollbar-color: #bdc7da transparent;
       }}
       html.md2pdf-preview-dark,
       html:has(body.md2pdf-mode-dark) {{
         color-scheme: dark;
-        scrollbar-color: #645c50 transparent;
+        scrollbar-color: #4c5874 transparent;
       }}
       * {{
         scrollbar-width: thin;
-        scrollbar-color: #c0b6a5 transparent;
+        scrollbar-color: #bdc7da transparent;
       }}
       html.md2pdf-preview-dark *,
       html:has(body.md2pdf-mode-dark) * {{
-        scrollbar-color: #645c50 transparent;
+        scrollbar-color: #4c5874 transparent;
       }}
       *::-webkit-scrollbar {{
         width: 10px;
@@ -883,23 +883,23 @@ def _studio_pdf_like_preview_css(page_size: str | None) -> str:
         background: transparent;
       }}
       *::-webkit-scrollbar-thumb {{
-        background: #aab3c1;
+        background: #bdc7da;
         border: 3px solid transparent;
         border-radius: 999px;
         background-clip: padding-box;
       }}
       html.md2pdf-preview-dark *::-webkit-scrollbar-thumb,
       html:has(body.md2pdf-mode-dark) *::-webkit-scrollbar-thumb {{
-        background: #454545;
+        background: #4c5874;
         background-clip: padding-box;
       }}
       *::-webkit-scrollbar-thumb:hover {{
-        background: #7f8da3;
+        background: #5d6880;
         background-clip: padding-box;
       }}
       html.md2pdf-preview-dark *::-webkit-scrollbar-thumb:hover,
       html:has(body.md2pdf-mode-dark) *::-webkit-scrollbar-thumb:hover {{
-        background: #666666;
+        background: #a6b1c7;
         background-clip: padding-box;
       }}
       body {{

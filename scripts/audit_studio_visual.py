@@ -137,6 +137,120 @@ def _proxy_local_studio_api(
         return 502, str(exc).encode("utf-8", errors="replace"), "text/plain", {}
 
 
+def _capture_responsive_surfaces(page: Any, directory: Path) -> list[dict[str, Any]]:
+    """Exercise the actual panel/theme controls at desktop, tablet, and phone sizes."""
+    cases: list[dict[str, Any]] = []
+    original_markdown = page.locator("#editor").input_value()
+    original_direction = page.locator("#directionInput").input_value()
+    for theme in ("light", "dark"):
+        light = page.evaluate("document.body.classList.contains('light-mode')")
+        if light != (theme == "light"):
+            page.locator("#interfaceBtn").click()
+        for width, height in (
+            (1600, 1000), (1440, 1000), (1366, 768), (1280, 800),
+            (1024, 768), (768, 900), (540, 800), (390, 844), (320, 740),
+        ):
+            page.set_viewport_size({"width": width, "height": height})
+            compact = width <= 1360
+            for panel in (("editor", "settings", "preview") if compact else ("all",)):
+                if compact:
+                    page.locator(f'[data-studio-target="{panel}"]').click()
+                page.wait_for_timeout(250)
+                geometry = page.evaluate(
+                    """() => {
+                      const visible = node => Boolean(node && node.getClientRects().length);
+                      const root = document.documentElement;
+                      const topbar = document.querySelector('.topbar');
+                      const title = document.querySelector('.preview-pane .pane-head strong');
+                      const tools = document.querySelector('.preview-tools');
+                      const tab = document.querySelector('.workspace-tab[aria-pressed="true"]');
+                      const frame = document.querySelector('#accuratePreviewFrame');
+                      const previewHead = document.querySelector('.preview-pane .pane-head');
+                      const titleBox = title.getBoundingClientRect();
+                      const toolsBox = tools.getBoundingClientRect();
+                      const style = getComputedStyle(document.body);
+                      const luminance = name => {
+                        const hex = style.getPropertyValue(name).trim().slice(1);
+                        const channels = [0, 2, 4].map(offset => parseInt(hex.slice(offset, offset + 2), 16) / 255)
+                          .map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+                        return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+                      };
+                      const contrast = (ink, surface) => {
+                        const values = [luminance(ink), luminance(surface)].sort((a, b) => b - a);
+                        return (values[0] + .05) / (values[1] + .05);
+                      };
+                      return {
+                        rootFits: root.scrollWidth <= innerWidth + 1 && root.scrollHeight <= innerHeight + 1,
+                        toolbarFits: topbar.scrollWidth <= topbar.clientWidth + 1,
+                        editorVisible: visible(document.querySelector('#editorPane')),
+                        settingsVisible: visible(document.querySelector('#sidebar')),
+                        previewVisible: visible(document.querySelector('#previewPane')),
+                        selectedPanel: tab && tab.dataset.studioTarget,
+                        previewHeaderFits: !visible(title) || titleBox.right + 4 <= toolsBox.left,
+                        previewFrameFillsPane: !visible(frame) ||
+                          (Math.abs(frame.getBoundingClientRect().top - previewHead.getBoundingClientRect().bottom) <= 1 &&
+                           Math.abs(frame.getBoundingClientRect().bottom - document.querySelector('#previewPane').getBoundingClientRect().bottom) <= 1),
+                        iconReferencesValid: [...document.querySelectorAll('use')].every(
+                          node => document.querySelector(node.getAttribute('href'))),
+                        textContrastPasses: ['--text', '--muted', '--faint', '--accent'].every(
+                          ink => ['--panel', '--panel-2', '--panel-3'].every(surface => contrast(ink, surface) >= 4.5)),
+                        primaryContrastPasses: ['--accent', '--accent-2'].every(surface => contrast('--on-accent', surface) >= 4.5),
+                      };
+                    }"""
+                )
+                expected = {
+                    "editorVisible": panel in {"editor", "all"},
+                    "settingsVisible": panel in {"settings", "all"},
+                    "previewVisible": panel in {"preview", "all"},
+                }
+                failures = [
+                    key for key in ("rootFits", "toolbarFits", "previewHeaderFits", "previewFrameFillsPane", "iconReferencesValid", "textContrastPasses", "primaryContrastPasses")
+                    if not geometry.get(key)
+                ]
+                failures.extend(key for key, value in expected.items() if geometry.get(key) != value)
+                if compact and geometry.get("selectedPanel") != panel:
+                    failures.append("selectedPanel")
+                screenshot = f"studio-{theme}-{width}-{panel}.png"
+                page.screenshot(path=str(directory / screenshot))
+                cases.append({"theme": theme, "width": width, "height": height,
+                              "panel": panel, "screenshot": screenshot,
+                              "geometry": geometry, "failures": failures})
+    page.set_viewport_size({"width": 1440, "height": 1000})
+    if not page.evaluate("document.body.classList.contains('light-mode')"):
+        page.locator("#interfaceBtn").click()
+    if page.locator("#editor").input_value() != original_markdown:
+        raise RuntimeError("Studio panel/theme switching changed the document text")
+    if page.locator("#directionInput").input_value() != original_direction:
+        raise RuntimeError("Studio panel/theme switching changed the document direction")
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.locator('[data-studio-target="editor"]').click()
+    page.keyboard.press("Control+,")
+    if not page.locator("#sidebar").is_visible():
+        raise RuntimeError("Studio settings shortcut did not open the compact settings panel")
+    page.keyboard.press("Control+,")
+    if not page.locator("#editorPane").is_visible():
+        raise RuntimeError("Studio settings shortcut did not return to the editor")
+    theme_restored = page.evaluate(
+        """() => {
+          document.body.classList.remove('light-mode');
+          saveStudioState();
+          document.body.classList.add('light-mode');
+          loadStudioState();
+          const restored = !document.body.classList.contains('light-mode');
+          document.body.classList.add('light-mode');
+          updateInterfaceButton();
+          saveStudioState();
+          return restored;
+        }"""
+    )
+    if not theme_restored:
+        raise RuntimeError("Studio did not restore a saved dark interface preference")
+    if not page.locator("#editorPane").is_visible():
+        raise RuntimeError("Restoring desktop sidebar state hid the compact editor")
+    page.set_viewport_size({"width": 1440, "height": 1000})
+    return cases
+
+
 def _capture_studio(
     html_text: str,
     url: str,
@@ -161,6 +275,8 @@ def _capture_studio(
         browser = playwright.chromium.launch(executable_path=_chromium_executable())
         try:
             page = browser.new_page(viewport={"width": 1440, "height": 1000}, device_scale_factor=1)
+            page_errors: list[str] = []
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
 
             def proxy_studio_api(route: Any, request: Any) -> None:
                 status, body, content_type, response_headers = _proxy_local_studio_api(
@@ -184,7 +300,10 @@ def _capture_studio(
                 )
 
             page.route("**/api/**", proxy_studio_api)
-            page.set_content(html_text, wait_until="domcontentloaded", timeout=timeout_ms)
+            # Retain the real loopback origin so state persistence behaves like
+            # a browser visit rather than failing on an opaque about:blank page.
+            page.route(url, lambda route: route.fulfill(body=html_text, content_type="text/html"))
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
             try:
                 page.wait_for_function(preview_ready_script, timeout=timeout_ms)
             except PlaywrightTimeoutError:
@@ -223,6 +342,7 @@ def _capture_studio(
                 """
             )
             page.screenshot(path=str(screenshot_path), full_page=True)
+            responsive_cases = _capture_responsive_surfaces(page, screenshot_path.parent)
             line_number_check = page.evaluate(
                 """
                 () => {
@@ -338,6 +458,8 @@ def _capture_studio(
                 "project_validate_button_present": bool(project_checks.get("validateButtonPresent")),
                 "project_preview_book_button_present": bool(project_checks.get("previewBookButtonPresent")),
                 "project_export_book_button_present": bool(project_checks.get("exportBookButtonPresent")),
+                "responsive_cases": responsive_cases,
+                "page_errors": page_errors,
             }
         finally:
             browser.close()
@@ -412,6 +534,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if checks.get("title") != "Mardas Folio":
         raise SystemExit("unexpected Studio page title")
+    if checks.get("page_errors"):
+        raise SystemExit(f"Studio page errors: {checks['page_errors']}")
+    failed_cases = [case for case in checks.get("responsive_cases", []) if case.get("failures")]
+    if failed_cases:
+        raise SystemExit(f"Studio responsive visual checks failed: {failed_cases}")
     for key in [
         "export_button_visible",
         "document_section_visible",

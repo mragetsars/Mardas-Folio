@@ -11,9 +11,12 @@ def _gui_html() -> str:
 
 
 def _css_rule(html: str, selector: str) -> str:
-    start = html.index(selector + "{")
-    end = html.index("}", start)
-    return html[start:end]
+    import re
+
+    # Match a whole selector, not a nested selector such as #dirBtn .icon.
+    match = re.search(r"(?:^|[}\n])\s*(" + re.escape(selector) + r"\{[^}]+)", html)
+    assert match is not None, selector
+    return match.group(1)
 
 
 def test_studio_headers_are_pixel_aligned() -> None:
@@ -43,7 +46,7 @@ def test_studio_appearance_badge_truncates_without_reflow() -> None:
 
 def test_studio_sidebar_uses_block_scroller_without_flex_leakage() -> None:
     html = _gui_html()
-    assert html.count(".sidebar-body{") == 1
+    assert html.count(".sidebar-body{display:block;") == 1
 
     sidebar_rule = _css_rule(html, ".sidebar")
     for expected in ("height:100%", "overflow:hidden", "display:flex", "flex-direction:column"):
@@ -70,13 +73,13 @@ def test_studio_light_mode_uses_layered_surface_colors() -> None:
     html = _gui_html()
 
     light_mode_rule = _css_rule(html, "body.light-mode")
-    assert "--bg:#e6d9c0" in light_mode_rule
-    assert "--bg-soft:#ebddc5" in light_mode_rule
-    assert "--panel:#f5ead8" in light_mode_rule
-    assert "--editor:#f5ead8" in light_mode_rule
-    assert "--preview:#f5ead8" in light_mode_rule
-    assert "--border-strong:#a19786" in light_mode_rule
-    assert "--border:#d5cab5" in light_mode_rule
+    assert "--bg:#f1f3f8" in light_mode_rule
+    assert "--bg-soft:#f7f8fc" in light_mode_rule
+    assert "--panel:#ffffff" in light_mode_rule
+    assert "--editor:#ffffff" in light_mode_rule
+    assert "--preview:#edf0f5" in light_mode_rule
+    assert "--border-strong:#bdc7da" in light_mode_rule
+    assert "--border:#dce1eb" in light_mode_rule
 
     light_brand_rule = _css_rule(html, "body.light-mode .brand-mark")
     assert "background:transparent" in light_brand_rule
@@ -144,7 +147,7 @@ def test_studio_footer_and_light_switches_have_clear_boundaries() -> None:
 
     checked_knob_rule = _css_rule(html, ".switch input:checked::after")
     assert "transform:translateX(20px)" in checked_knob_rule
-    assert "background:#ffffff" in checked_knob_rule
+    assert "background:var(--on-accent)" in checked_knob_rule
 
     light_switch_rule = _css_rule(html, "body.light-mode .switch input")
     assert "background:var(--panel-3)" in light_switch_rule
@@ -181,9 +184,9 @@ def test_studio_logo_and_toolbar_icons_are_minimal_and_centered() -> None:
     assert "mask:url(" not in html
 
     header_title_rule = _css_rule(html, ".sidebar-head strong,.pane-head strong")
-    assert "font-size:11px" in header_title_rule
-    assert "font-weight:900" in header_title_rule
-    assert "letter-spacing:.11em" in header_title_rule
+    assert "font-size:12px" in header_title_rule
+    assert "font-weight:700" in header_title_rule
+    assert "letter-spacing:.01em" in header_title_rule
 
     icon_rule = _css_rule(html, ".icon")
     assert "display:block" in icon_rule
@@ -263,9 +266,9 @@ def test_studio_select_controls_reserve_arrow_space() -> None:
     root_rule = _css_rule(html, ":root")
     light_root_rule = _css_rule(html, "body.light-mode")
     assert "--select-chevron:url" in root_rule
-    assert "stroke='%23dcd3c4'" in root_rule
+    assert "stroke='%23bec6da'" in root_rule
     assert "--select-chevron:url" in light_root_rule
-    assert "stroke='%23474238'" in light_root_rule
+    assert "stroke='%2346516a'" in light_root_rule
 
     light_select_rule = _css_rule(html, "body.light-mode select")
     assert "background-image:var(--select-chevron)" in light_select_rule
@@ -308,10 +311,10 @@ def test_studio_uses_monochromatic_accent_controls() -> None:
 
     dark_root = _css_rule(html, ":root")
     light_root = _css_rule(html, "body.light-mode")
-    assert "--accent-2:#d67f48" in dark_root
-    assert "--accent-3:#ffc6a5" in dark_root
-    assert "--accent-2:#643312" in light_root
-    assert "--accent-3:#b2622d" in light_root
+    assert "--accent-2:#c6c1ff" in dark_root
+    assert "--accent-3:#bab5ff" in dark_root
+    assert "--accent-2:#4038ad" in light_root
+    assert "--accent-3:#665ddd" in light_root
 
     primary_rule = _css_rule(html, ".btn-primary")
     assert "background:var(--accent)" in primary_rule
