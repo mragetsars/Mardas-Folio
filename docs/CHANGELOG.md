@@ -4,6 +4,39 @@ All notable changes to Mardas Folio are tracked here.
 
 The project follows semantic versioning for user-visible behavior. Patch releases may include documentation, generated guide PDF refreshes, regression tests, and narrowly scoped renderer/Studio fixes.
 
+## 2.1.0 - 2026-10-07
+
+In development. This entry records the current source changes; it does not
+announce a published or signed release.
+
+### Changed
+- Rebuilt the desktop interface around a shared indigo, pearl and graphite visual system: a new writing-studio start screen, clearer workflow and template cards, consistent workspace controls, sidebars, dialogs, menus, settings and export surfaces, with light/dark and Persian/English layouts.
+- Aligned the browser Studio with the desktop visual system and added accessible Editor, Settings and Preview panel selection at narrow widths, preserving saved interface themes and bilingual document direction.
+- Bounded asset and project discovery while walking instead of materializing the whole tree, pruned generated directories, and made discovery cancellable. Chapter read, save and search use structural project loading; full-book validation and rendering run only when requested.
+- Require pypdf 6.19.0 and Soup Sieve 2.9.0 to include the current resource-exhaustion fixes. Development audit tooling requires urllib3 2.8.0, and the PDF compatibility matrix follows the supported floor. Optional artwork tooling has its own extra with CairoSVG 2.9.1 and Pillow 12.3.0.
+
+### Fixed
+- Rejected DNS hostnames that merely begin with `127.` and checked the Studio HTML Host before exposing the workspace token. Invalid, deeply nested and non-finite JSON and incorrect Markdown/asset types now produce structured input errors.
+- Derived document revisions from the same bytes returned to the editor, serialized in-process saves and checked external changes again before atomic replacement. Project save responses describe the written buffer even when another process immediately replaces the file.
+- Kept each open document's undo history, caret and scroll position separate. Metadata edits replace complete YAML entries, preserve untouched structured values and line endings, and leave unsupported values available for source editing.
+- Preserved keyboard focus when rebuilding document tabs and export option navigation, localized citation status, and refreshed metadata and diagnostics from the current editor buffer.
+- Granted contained local image files individually, including images imported into `assets/`, with bounded discovery and rejection of symlink escapes and non-image siblings. Image permissions are ready before the editor renders the opened document.
+- Kept the visible document's identity during pending reads and native permission grants, including multi-file opens. New tab, Home and close intents supersede earlier activation requests; closing an inactive tab preserves the current selection.
+- Recovered render worker startup/restart failures, completed cancellation atomically, bounded shutdown time, and deferred temporary-file deletion until non-cooperative workers have finished.
+- Rejected malformed UTF-8 project save content before cancellable discovery, and capped scanned entries and directory depth even when a workspace contains no supported text files.
+- Verified updater payload signatures with the official minisign tool under the release public key, rejected unchanged stale build artifacts, and accepted omitted optional release notes.
+- Updated the native updater's Rustls/WebPKI lockfile entries to Rustls 0.23.45 and WebPKI 0.103.15, resolving the TLS handshake encryption-boundary advisory.
+- Kept support bundle creation usable with malformed runtime manifests and rejected existing or dangling output symlinks before resolving destinations.
+- Preserved original-text direction in mixed prose after Latin isolation, and kept comma-separated Persian phrase lists in English source order. Both fixes are covered by actual browser geometry and PDF inspection.
+- Kept all export settings reachable above sticky actions, allowed pointer access through non-interactive toasts, and named filtered settings as their own translated accessibility region.
+
+### Validation
+- Added deterministic regression scenarios for Host validation, save races, bounded discovery, release signature tampering, stale artifacts and native image scope.
+- Added browser-backed checks for per-document history, caret/scroll restoration, tab keyboard focus and metadata preservation in both languages and themes. These run in desktop CI alongside the existing UI checks.
+- Exercised delayed native grants while typing, opening multiple files, closing tabs and returning Home. Visual QA now configures language and theme before onboarding, edits through the actual editor, and uses valid TeX in its PDF feature fixture.
+- Extended the core type gate to Studio, workspace discovery and export workers. Browser Studio has 84 responsive/theme/project cases; desktop has 40 responsive combinations and 32 visual snapshots.
+- The project-wide review and acceptance list are recorded in `docs/PROJECT_REVIEW.fa.md`. Native installation and signed update acceptance still require evidence from their target-platform release jobs.
+
 ## 2.0.3 - 2026-08-18
 
 Interface corrections found by measuring the built frontend in a browser rather
