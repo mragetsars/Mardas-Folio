@@ -112,10 +112,10 @@ jobs:
       fail-fast: false
       matrix:
         # The declared floor and the newest release. Pinning a version below
-        # `pypdf>=6.15.0` tests a combination pip refuses to install, so it
+        # `pypdf>=6.19.0` tests a combination pip refuses to install, so it
         # measured nothing except how far the matrix had drifted from the
         # dependency floor raised for the pypdf security advisories.
-        pypdf: ['6.15.0', 'latest']
+        pypdf: ['6.19.0', 'latest']
     steps:
       - name: Checkout
         uses: actions/checkout@v6

@@ -17,10 +17,10 @@ dependencies = [
   "markdown-it-py>=3.0.0",
   "pygments>=2.17.0",
   "beautifulsoup4>=4.12.0",
-  "soupsieve>=2.8.4",
+  "soupsieve>=2.9.0",
   "playwright>=1.45.0",
   "PyYAML>=6.0.0",
-  "pypdf>=6.15.0",
+  "pypdf>=6.19.0",
   "tomli>=2.0.1; python_version < '3.11'"
 ]
 
@@ -32,6 +32,7 @@ dev = [
   "ruff>=0.6.0",
   "pyright>=1.1.390",
   "pip-audit>=2.7.0",
+  "urllib3>=2.8.0",
   "build>=1.2.0",
   "packaging>=24.0",
   "setuptools==83.0.0",
@@ -39,6 +40,11 @@ dev = [
 ]
 desktop = [
   "pyinstaller>=6.11,<7"
+]
+
+artwork = [
+  "CairoSVG>=2.9.1",
+  "Pillow>=12.3.0"
 ]
 
 [project.scripts]
