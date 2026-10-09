@@ -298,16 +298,15 @@ export function createCodeMirrorEditorAdapter(
   let appearanceMode = theme === "dark" || theme === "light" ? theme : documentTheme();
   let editorMode = normalizeEditorMode(mode);
   let typewriterEnabled = Boolean(typewriter);
+  let activeDocumentId = null;
+  let retainedDocuments = new Set();
+  const documentStates = new Map();
   const readOnly = new Compartment();
   const appearance = new Compartment();
   const preview = new Compartment();
   const writingRhythm = new Compartment();
 
-  const view = new EditorView({
-    parent: mount,
-    state: EditorState.create({
-      doc: textarea.value,
-      extensions: [
+  const extensions = [
         basicSetup,
         // `markdown()` defaults to CommonMark, so tables, task lists and
         // strikethrough were never in the syntax tree even though the
@@ -333,6 +332,9 @@ export function createCodeMirrorEditorAdapter(
         Prec.highest(keymap.of([
           ...markdownCommandKeymap(),
           ...APPLICATION_OWNED_KEYS,
+          // Accept the same redo gesture on every desktop platform and keep
+          // undo/redo in CodeMirror even when the relevant history is empty.
+          { key: "Mod-z", run: undo, shift: redo, preventDefault: true },
           // Ahead of the continuation rule: an empty item is a request to
           // leave the list, not to carry it further down the page. It has to
           // sit in this keymap rather than beside `markdownKeymap` — a second
@@ -385,9 +387,23 @@ export function createCodeMirrorEditorAdapter(
           if (update.docChanged) onChange?.();
           if (update.selectionSet || update.docChanged) onSelectionChange?.();
         }),
-      ],
-    }),
+  ];
+  const createState = (doc, selection = 0) => EditorState.create({
+    doc,
+    selection: EditorSelection.cursor(clampOffset(selection, doc.length)),
+    extensions,
   });
+  const view = new EditorView({ parent: mount, state: createState(textarea.value) });
+
+  function restorePresentation(scrollSnapshot) {
+    view.dispatch({ effects: [
+      readOnly.reconfigure([EditorState.readOnly.of(disabled), EditorView.editable.of(!disabled)]),
+      appearance.reconfigure(mardasEditorAppearance(appearanceMode === "dark")),
+      preview.reconfigure(editorModeExtension(editorMode, { resolveAsset, strings: editorText })),
+      writingRhythm.reconfigure(typewriterExtension(typewriterEnabled)),
+      ...(scrollSnapshot ? [scrollSnapshot] : []),
+    ] });
+  }
 
   const scroll = () => onScroll?.(view.scrollDOM.scrollTop);
   view.scrollDOM.addEventListener("scroll", scroll, { passive: true });
@@ -418,13 +434,50 @@ export function createCodeMirrorEditorAdapter(
       suppressCallbacks = true;
       try {
         view.dispatch({
-          annotations: Transaction.addToHistory.of(false),
+          annotations: Transaction.userEvent.of("input"),
           changes: { from: 0, to: view.state.doc.length, insert: next },
           selection: EditorSelection.cursor(Math.min(view.state.selection.main.head, next.length)),
         });
         textarea.value = next;
       } finally {
         suppressCallbacks = false;
+      }
+    },
+    setDocument(id, content, { initialSelection = 0 } = {}) {
+      const next = String(content ?? "");
+      if (id === activeDocumentId) {
+        if (next !== adapter.value) {
+          suppressCallbacks = true;
+          try {
+            view.setState(createState(next, view.state.selection.main.head));
+            textarea.value = next;
+            restorePresentation();
+          } finally {
+            suppressCallbacks = false;
+          }
+        }
+        return;
+      }
+      if (activeDocumentId !== null && retainedDocuments.has(activeDocumentId)) {
+        documentStates.set(activeDocumentId, { state: view.state, scroll: view.scrollSnapshot() });
+      }
+      const saved = documentStates.get(id);
+      const restores = saved && saved.state.doc.toString() === next;
+      activeDocumentId = id;
+      suppressCallbacks = true;
+      try {
+        view.setState(restores ? saved.state : createState(next, initialSelection));
+        textarea.value = next;
+        restorePresentation(restores ? saved.scroll : null);
+        if (!restores) view.scrollDOM.scrollTop = 0;
+      } finally {
+        suppressCallbacks = false;
+      }
+    },
+    retainDocuments(ids) {
+      retainedDocuments = new Set(ids);
+      for (const id of documentStates.keys()) {
+        if (!retainedDocuments.has(id)) documentStates.delete(id);
       }
     },
     get selectionStart() {
@@ -610,6 +663,7 @@ export function createCodeMirrorEditorAdapter(
       view.dispatch(setDiagnostics(view.state, mapped));
     },
     destroy() {
+      documentStates.clear();
       view.scrollDOM.removeEventListener("scroll", scroll);
       view.dom.removeEventListener("contextmenu", contextMenu);
       view.destroy();

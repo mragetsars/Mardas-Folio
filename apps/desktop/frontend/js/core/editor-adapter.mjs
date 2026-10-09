@@ -14,6 +14,9 @@ export function createEditorAdapter(element, { onChange, onSelectionChange, onSc
   const change = () => onChange?.();
   const selection = () => onSelectionChange?.();
   const scroll = () => onScroll?.(element.scrollTop);
+  let activeDocumentId = null;
+  let retainedDocuments = new Set();
+  const documents = new Map();
 
   element.addEventListener("input", change);
   element.addEventListener("click", selection);
@@ -27,6 +30,39 @@ export function createEditorAdapter(element, { onChange, onSelectionChange, onSc
     },
     set value(value) {
       element.value = String(value ?? "");
+    },
+    setDocument(id, content, { initialSelection = 0 } = {}) {
+      const next = String(content ?? "");
+      if (id === activeDocumentId) {
+        if (element.value !== next) element.value = next;
+        return;
+      }
+      if (activeDocumentId !== null && retainedDocuments.has(activeDocumentId)) {
+        documents.set(activeDocumentId, {
+          value: element.value,
+          start: element.selectionStart,
+          end: element.selectionEnd,
+          direction: element.selectionDirection,
+          scroll: element.scrollTop,
+        });
+      }
+      const saved = documents.get(id);
+      activeDocumentId = id;
+      element.value = next;
+      if (saved?.value === next) {
+        element.setSelectionRange(saved.start, saved.end, saved.direction);
+        element.scrollTop = saved.scroll;
+      } else {
+        const offset = Math.max(0, Math.min(next.length, Number(initialSelection) || 0));
+        element.setSelectionRange(offset, offset);
+        element.scrollTop = 0;
+      }
+    },
+    retainDocuments(ids) {
+      retainedDocuments = new Set(ids);
+      for (const id of documents.keys()) {
+        if (!retainedDocuments.has(id)) documents.delete(id);
+      }
     },
     get selectionStart() {
       return element.selectionStart;
@@ -88,6 +124,7 @@ export function createEditorAdapter(element, { onChange, onSelectionChange, onSc
       change();
     },
     destroy() {
+      documents.clear();
       element.removeEventListener("input", change);
       element.removeEventListener("click", selection);
       element.removeEventListener("keyup", selection);

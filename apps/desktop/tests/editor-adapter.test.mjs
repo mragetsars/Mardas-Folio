@@ -65,3 +65,30 @@ test("editor adapter preserves a stable document boundary", () => {
   delete globalThis.HTMLTextAreaElement;
   delete globalThis.getComputedStyle;
 });
+
+test("fallback editor restores each document's selection and scroll independently", () => {
+  globalThis.HTMLTextAreaElement = FakeTextArea;
+  const element = new FakeTextArea();
+  const editor = createEditorAdapter(element);
+  editor.retainDocuments(["a", "b"]);
+  editor.setDocument("a", "first document", { initialSelection: 2 });
+  editor.setSelectionRange(4, 8);
+  editor.scrollTop = 80;
+  editor.setDocument("b", "second document", { initialSelection: 3 });
+  assert.equal(editor.selectionStart, 3);
+  editor.setSelectionRange(5);
+  editor.scrollTop = 25;
+  editor.setDocument("a", "first document");
+  assert.equal(editor.selectionStart, 4);
+  assert.equal(editor.selectionEnd, 8);
+  assert.equal(editor.scrollTop, 80);
+  editor.setDocument("b", "second document");
+  assert.equal(editor.selectionStart, 5);
+  assert.equal(editor.scrollTop, 25);
+  editor.retainDocuments(["b"]);
+  editor.setDocument("a", "first document", { initialSelection: 1 });
+  assert.equal(editor.selectionStart, 1);
+  assert.equal(editor.scrollTop, 0);
+  editor.destroy();
+  delete globalThis.HTMLTextAreaElement;
+});
