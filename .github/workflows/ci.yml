@@ -358,6 +358,9 @@ jobs:
       - name: Run browser-backed desktop UI smoke
         run: python scripts/audit_desktop_ui.py --output-dir build/desktop-ui-audit
 
+      - name: Exercise document history and metadata in both languages and themes
+        run: python scripts/audit_desktop_documents.py --output-dir build/desktop-document-audit
+
       - name: Upload desktop UX audit evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -366,6 +369,7 @@ jobs:
           path: |
             build/desktop-accessibility/
             build/desktop-ui-audit/
+            build/desktop-document-audit/
           if-no-files-found: warn
           retention-days: 14
 

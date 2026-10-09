@@ -2,6 +2,32 @@
 
 This document keeps routine project work predictable and patch-friendly.
 
+## Desktop document lifecycle checks
+
+After changing editor state, tab activation, metadata forms or undo behavior,
+build the committed editor bundle and exercise the actual browser interface:
+
+```bash
+npm --prefix apps/desktop run build:editor
+npm --prefix apps/desktop test
+python scripts/build_desktop_frontend.py
+python scripts/audit_desktop_documents.py
+```
+
+The document audit types through CodeMirror, keeps a separate history in two
+tabs, restores caret and scroll, follows tab focus after keyboard activation,
+and edits metadata while preserving structured YAML. It runs in English and
+Persian, in light and dark themes. It also suspends native image grants while
+typing, opening multiple files, closing a tab and returning Home, to verify
+that the visible buffer always belongs to the selected document.
+Directly assigning the hidden mirror textarea
+does not exercise CodeMirror's document state or undo history.
+
+To regenerate desktop icons, install the optional artwork tools with
+`python -m pip install -e '.[artwork]'`, then run
+`python scripts/generate_desktop_icons.py`. CairoSVG and Pillow belong to this
+development workflow; the PDF publishing runtime does not require them.
+
 ## Local checks
 
 Run the default quality gate before creating a patch or tag:
