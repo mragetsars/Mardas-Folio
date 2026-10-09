@@ -1365,8 +1365,10 @@ function renderOptionPane() {
   const pane = $("#option-pane");
   if (!pane) return;
   pane.replaceChildren();
+  pane.setAttribute("role", optionSearchQuery ? "region" : "tabpanel");
 
   if (optionSearchQuery) {
+    pane.setAttribute("aria-labelledby", "option-search-label");
     const matches = (searchOptions(optionSearchQuery, t) || [])
       .filter(({ field, group }) => showExpertOptions || (!field.expert && !group.expert));
     if (!matches.length) {

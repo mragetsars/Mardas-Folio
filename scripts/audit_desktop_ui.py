@@ -327,6 +327,32 @@ def run_audit(
             """() => document.querySelector('#adv-style')?.value === 'modern'"""
         )
 
+        # Filtered results are named by the search field, not by a previously
+        # selected category. Clearing the query restores the category tabpanel.
+        page.locator("#option-search").fill("margin")
+        checks["option_search_has_its_own_accessible_region"] = page.evaluate(
+            """() => {
+                const pane = document.querySelector('#option-pane');
+                return pane?.getAttribute('role') === 'region'
+                    && pane.getAttribute('aria-labelledby') === 'option-search-label'
+                    && !!document.querySelector('#option-search-label')?.textContent.trim()
+                    && !document.querySelector('.option-rail-item[aria-selected="true"]');
+            }"""
+        )
+        page.locator("#option-search").fill("")
+        page.locator(".option-rail-item").first.focus()
+        page.keyboard.press("ArrowDown")
+        checks["option_category_keyboard_focus_survives_rendering"] = page.evaluate(
+            """() => {
+                const pane = document.querySelector('#option-pane');
+                const tab = document.activeElement;
+                return tab?.classList.contains('option-rail-item')
+                    && tab.getAttribute('aria-selected') === 'true'
+                    && pane?.getAttribute('role') === 'tabpanel'
+                    && pane.getAttribute('aria-labelledby') === tab.id;
+            }"""
+        )
+
         # The two buttons the screen exists for have to be on screen without
         # scrolling past eleven categories of publishing options to find them.
         checks["export_actions_in_view"] = page.evaluate(
