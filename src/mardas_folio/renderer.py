@@ -1310,6 +1310,12 @@ def _layout_css(options: PdfOptions, *, cover_full_bleed: bool = False, document
       .md2pdf-ltr-isolate--punct {{
         white-space: nowrap;
       }}
+      .md2pdf-rtl-isolate {{
+        direction: rtl;
+        unicode-bidi: isolate;
+        display: inline;
+        font-family: var(--font-fa), var(--font-en), sans-serif;
+      }}
       .md2pdf-ltr-isolate-group {{
         direction: ltr;
         unicode-bidi: isolate;

@@ -432,6 +432,12 @@ LTR_ISOLATE_RUN_RE = re.compile(
 LTR_ISOLATE_SKIP_TAGS = {"a", "code", "kbd", "pre", "samp", "script", "style", "textarea"}
 LTR_ISOLATE_SKIP_CLASSES = {"math", "math-inline", "math-display", "mjx-container"}
 LTR_ISOLATE_CONTEXT_TAGS = {"p", "li", "td", "th", "caption", "figcaption", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6"}
+RTL_ISOLATE_RUN_RE = re.compile(
+    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]"
+    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9\u200c\u200d]*"
+    r"(?:[ \t]+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9]"
+    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9\u200c\u200d]*)*"
+)
 
 
 def strong_direction_counts(text: str) -> tuple[int, int]:
@@ -702,6 +708,61 @@ def isolate_ltr_runs_in_mixed_persian_text(soup: BeautifulSoup) -> None:
         node.extract()
 
     _group_ltr_isolate_footnote_refs(soup)
+
+
+def isolate_rtl_phrase_lists_in_ltr_prose(soup: BeautifulSoup) -> None:
+    """Keep comma-separated Persian phrases in the source order of English prose."""
+    contexts = {
+        id(tag)
+        for tag in soup.find_all(class_="md2pdf-mixed-prose")
+        if tag.get("dir") == "ltr"
+        and "," in tag.get_text()
+        and sum(
+            strong_direction_counts(phrase)[0] > 0
+            for phrase in RTL_ISOLATE_RUN_RE.findall(tag.get_text())
+        ) > 1
+    }
+    if not contexts:
+        return
+    for node in list(soup.find_all(string=True)):
+        parent = node.parent if isinstance(node.parent, Tag) else None
+        if (
+            parent is None
+            or _inside_tag(parent, LTR_ISOLATE_SKIP_TAGS)
+            or _inside_class(parent, LTR_ISOLATE_SKIP_CLASSES | {"md2pdf-rtl-isolate"})
+        ):
+            continue
+        context = next(
+            (ancestor for ancestor in _parent_chain(parent) if ancestor.name in LTR_ISOLATE_CONTEXT_TAGS),
+            None,
+        )
+        if context is None or id(context) not in contexts:
+            continue
+        text = str(node)
+        position = 0
+        fragments: list[str | Tag] = []
+        for match in RTL_ISOLATE_RUN_RE.finditer(text):
+            if strong_direction_counts(match.group())[0] == 0:
+                continue
+            if match.start() > position:
+                fragments.append(text[position:match.start()])
+            span = soup.new_tag("span")
+            span["class"] = ["md2pdf-rtl-isolate"]
+            span["dir"] = "rtl"
+            span.string = match.group()
+            fragments.append(span)
+            position = match.end()
+        if not fragments:
+            continue
+        if position < len(text):
+            fragments.append(text[position:])
+        for fragment in reversed(fragments):
+            if isinstance(fragment, str):
+                if fragment:
+                    node.insert_after(NavigableString(fragment))
+            else:
+                node.insert_after(fragment)
+        node.extract()
 
 
 CALLOUT_KIND_ALIASES = {
@@ -2590,6 +2651,8 @@ def postprocess_soup(
         elif not tag.get("dir"):
             tag["dir"] = _dir_for_profile(profile)
         _add_classes(tag, *text_quality_classes(text))
+
+    isolate_rtl_phrase_lists_in_ltr_prose(soup)
 
     # Make code and pre blocks strictly LTR.
     for tag in soup.find_all(["pre", "code"]):

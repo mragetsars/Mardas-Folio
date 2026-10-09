@@ -48,6 +48,58 @@ def test_mixed_prose_preserves_an_explicit_author_direction():
     assert "md2pdf-mixed-prose" in paragraph["class"]
 
 
+def test_comma_separated_persian_phrases_are_isolated_in_ltr_source_order():
+    text = "English terms include راست به چپ, فونت فارسی, and گزارش فنی with `renderer.pipeline` 1.2."
+    result = render_markdown(f"---\nlang: en\ndir: ltr\n---\n\n{text}\n")
+    paragraph = BeautifulSoup(result.body_html, "html.parser").find("p")
+    assert [span.get_text() for span in paragraph.select(".md2pdf-rtl-isolate")] == [
+        "راست به چپ", "فونت فارسی", "گزارش فنی",
+    ]
+    assert paragraph.get_text() == text.replace("`", "")
+    assert paragraph.find("code").get_text() == "renderer.pipeline"
+    assert paragraph.find("code").find("span") is None
+
+
+def test_rtl_phrase_list_isolation_keeps_rtl_prose_and_numeric_tokens_unchanged():
+    result = render_markdown(
+        "---\nlang: fa\ndir: rtl\n---\n\n"
+        "این جمله فارسی، گزارش فنی, فونت فارسی, و `renderer.pipeline` ۱۴۰۵ و 1.2 را حفظ می‌کند.\n"
+    )
+    paragraph = BeautifulSoup(result.body_html, "html.parser").find("p")
+    assert paragraph["dir"] == "rtl"
+    assert not paragraph.select(".md2pdf-rtl-isolate")
+    assert "۱۴۰۵" in paragraph.get_text()
+    assert "1.2" in paragraph.get_text()
+
+
+@pytest.mark.skipif(
+    os.environ.get("MARDAS_RENDER_SMOKE") != "1",
+    reason="set MARDAS_RENDER_SMOKE=1 to verify RTL phrase order in Chromium",
+)
+def test_chromium_comma_separated_persian_phrases_follow_ltr_source_order(tmp_path: Path):
+    from playwright.sync_api import sync_playwright
+
+    from mardas_folio.renderer import build_html
+
+    text = "English terms: راست به چپ, فونت فارسی, and گزارش فنی."
+    result = render_markdown(f"---\nlang: en\ndir: ltr\n---\n\n{text}\n")
+    options = PdfOptions(input_path=tmp_path / "mixed.md", output_path=tmp_path / "mixed.pdf")
+    document = build_html(result, options, include_cover=False, include_mathjax=False)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, args=["--no-sandbox"])
+        try:
+            page = browser.new_page(viewport={"width": 1000, "height": 700})
+            page.set_content(document)
+            page.evaluate("document.fonts.ready")
+            phrases = page.locator("p .md2pdf-rtl-isolate").evaluate_all(
+                "elements => elements.map(element => ({text:element.textContent,left:element.getBoundingClientRect().left}))"
+            )
+            assert [phrase["text"] for phrase in phrases] == ["راست به چپ", "فونت فارسی", "گزارش فنی"]
+            assert phrases[0]["left"] < phrases[1]["left"] < phrases[2]["left"]
+        finally:
+            browser.close()
+
+
 def test_mixed_prose_css_honors_base_direction_instead_of_plaintext_detection(tmp_path: Path):
     options = PdfOptions(input_path=tmp_path / "mixed.md", output_path=tmp_path / "mixed.pdf")
     css, _classes = _layout_css(options, document_direction="ltr")
