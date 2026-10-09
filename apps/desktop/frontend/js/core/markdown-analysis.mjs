@@ -71,14 +71,115 @@ export function bodyStartOffset(text) {
 
 function parseScalar(raw) {
   const value = raw.trim();
-  if (value === "true") return true;
-  if (value === "false") return false;
-  if (value === "null" || value === "~") return null;
-  if (/^-?\d+(?:\.\d+)?$/.test(value)) return Number(value);
-  if (value.startsWith("[") && value.endsWith("]")) {
-    return value.slice(1, -1).split(",").map((part) => part.trim().replace(/^['"]|['"]$/g, "")).filter(Boolean);
+  if (value.startsWith('"')) {
+    const quoted = /^"(?:[^"\\]|\\.)*"(?=\s*(?:#.*)?$)/.exec(value)?.[0];
+    if (quoted) {
+      try { return JSON.parse(quoted); } catch { return undefined; }
+    }
+    return undefined;
   }
-  return value.replace(/^['"]|['"]$/g, "");
+  if (value.startsWith("'")) {
+    const quoted = /^'(?:[^']|'')*'(?=\s*(?:#.*)?$)/.exec(value)?.[0];
+    if (quoted) return quoted.slice(1, -1).replace(/''/g, "'");
+    return undefined;
+  }
+  const plain = value.replace(/\s+#.*$/, "").trim();
+  if (plain.startsWith("[")) {
+    // Only flat scalar sequences belong in the compact form. Tokenize quoted
+    // items so a comma inside an author's name is not treated as a separator.
+    if (!plain.endsWith("]")) return undefined;
+    const items = [];
+    let token = "";
+    let quote = null;
+    const inner = plain.slice(1, -1);
+    for (let index = 0; index < inner.length; index += 1) {
+      const character = inner[index];
+      if (quote) {
+        token += character;
+        if (quote === '"' && character === "\\") {
+          token += inner[++index] ?? "";
+        } else if (character === quote) {
+          if (quote === "'" && inner[index + 1] === "'") token += inner[++index];
+          else quote = null;
+        }
+      } else if (character === '"' || character === "'") {
+        quote = character;
+        token += character;
+      } else if (character === ",") {
+        if (!token.trim()) return undefined;
+        items.push(parseScalar(token));
+        token = "";
+      } else if ("[]{}".includes(character)) {
+        return undefined;
+      } else token += character;
+    }
+    if (quote) return undefined;
+    if (token.trim()) items.push(parseScalar(token));
+    return items.some((item) => item === undefined) ? undefined : items;
+  }
+  if (/^[{&*!|>]/.test(plain) || /:\s/.test(plain)) return undefined;
+  if (plain === "true") return true;
+  if (plain === "false") return false;
+  if (plain === "null" || plain === "~") return null;
+  if (/^-?\d+(?:\.\d+)?$/.test(plain)) return Number(plain);
+  return plain;
+}
+
+const METADATA_KEY = /^(?:([A-Za-z0-9_-]+)|"([A-Za-z0-9_-]+)"|'([A-Za-z0-9_-]+)'):\s*(.*)$/;
+
+// Editing one top-level value must replace its continuation as well. Preserve
+// other keys verbatim: the form is deliberately not a YAML serializer.
+function metadataEntries(range) {
+  const entries = [];
+  for (let start = 1; start < range.end; start += 1) {
+    const match = METADATA_KEY.exec(range.lines[start]);
+    if (!match) continue;
+    let end = start + 1;
+    while (end < range.end) {
+      const line = range.lines[end];
+      if (line.trim() && !/^[ \t]/.test(line) && !/^-\s/.test(line)) break;
+      end += 1;
+    }
+    // Comments and blank separators after a value belong to the surrounding
+    // document, not to the value being replaced.
+    while (end > start + 1 && !range.lines[end - 1].trim()) end -= 1;
+    entries.push({ key: match[1] || match[2] || match[3], raw: match[4], start, end });
+    start = end - 1;
+  }
+  return entries;
+}
+
+function metadataValue(entry, lines) {
+  const block = /^([|>])([+-]?)(\d?)(?:\s+#.*)?$/.exec(entry.raw.trim());
+  const continuation = lines.slice(entry.start + 1, entry.end);
+  if (block) {
+    // The compact form cannot round-trip keep-chomp or folded paragraphs.
+    // Leave those values to source editing instead of inventing their text.
+    if (block[2] === "+" || (block[1] === ">" && continuation.some((line) => !line.trim()))) return undefined;
+    const nonempty = continuation.filter((line) => line.trim());
+    const indent = block[3] ? Number(block[3])
+      : Math.min(...nonempty.map((line) => /^ */.exec(line)[0].length));
+    const parts = continuation.map((line) => line.slice(Number.isFinite(indent) ? indent : 0));
+    let value = parts.join("\n");
+    if (block[1] === ">") {
+      value = parts.reduce((result, part, index) => {
+        if (!index) return part;
+        const previous = parts[index - 1];
+        const separator = !previous || !part || /^\s/.test(previous) || /^\s/.test(part) ? "\n" : " ";
+        return result + separator + part;
+      }, "");
+    }
+    if (block[2] === "-") return value.replace(/\n+$/, "");
+    return value.replace(/\n+$/, "") + (parts.length ? "\n" : "");
+  }
+  if (!entry.raw.trim() && continuation.length && continuation.every((line) => /^\s*-\s/.test(line))) {
+    const items = continuation.map((line) => parseScalar(line.replace(/^\s*-\s*/, "")));
+    return items.some((item) => item === undefined) ? undefined : items;
+  }
+  if (continuation.some((line) => line.trim())) return undefined;
+  if ((entry.raw.startsWith('"') && !/^"(?:[^"\\]|\\.)*"(?:\s+#.*)?\s*$/.test(entry.raw))
+    || (entry.raw.startsWith("'") && !/^'(?:[^']|'')*'(?:\s+#.*)?\s*$/.test(entry.raw))) return undefined;
+  return parseScalar(entry.raw);
 }
 
 export function parseFrontMatter(text) {
@@ -86,14 +187,15 @@ export function parseFrontMatter(text) {
   if (!range) return { fields: {}, rawLines: [], valid: true, present: false };
   const fields = {};
   let valid = true;
-  for (const line of range.lines.slice(1, range.end)) {
-    if (!line.trim() || /^\s*#/.test(line)) continue;
-    const match = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
-    if (!match) {
-      valid = false;
-      continue;
-    }
-    fields[match[1]] = parseScalar(match[2]);
+  const covered = new Set();
+  for (const entry of metadataEntries(range)) {
+    for (let index = entry.start; index < entry.end; index += 1) covered.add(index);
+    const value = metadataValue(entry, range.lines);
+    if (value === undefined) valid = false;
+    else Object.defineProperty(fields, entry.key, { value, enumerable: true, configurable: true });
+  }
+  for (let index = 1; index < range.end; index += 1) {
+    if (!covered.has(index) && range.lines[index].trim() && !/^\s*#/.test(range.lines[index])) valid = false;
   }
   return { fields, rawLines: range.lines.slice(1, range.end), valid, present: true };
 }
@@ -111,16 +213,12 @@ export function upsertFrontMatter(text, key, value) {
   const range = frontMatterRange(source);
   if (!range) return `---\n${key}: ${yamlValue(value)}\n---\n\n${source}`;
   const lines = [...range.lines];
-  let replaced = false;
-  for (let index = 1; index < range.end; index += 1) {
-    if (new RegExp(`^${key}:`).test(lines[index])) {
-      lines[index] = `${key}: ${yamlValue(value)}`;
-      replaced = true;
-      break;
-    }
+  const matches = metadataEntries(range).filter((entry) => entry.key === key);
+  for (const entry of [...matches].reverse()) {
+    lines.splice(entry.start, entry.end - entry.start, `${key}: ${yamlValue(value)}`);
   }
-  if (!replaced) lines.splice(range.end, 0, `${key}: ${yamlValue(value)}`);
-  return lines.join("\n");
+  if (!matches.length) lines.splice(range.end, 0, `${key}: ${yamlValue(value)}`);
+  return lines.join(source.includes("\r\n") ? "\r\n" : "\n");
 }
 
 export function extractOutline(text) {

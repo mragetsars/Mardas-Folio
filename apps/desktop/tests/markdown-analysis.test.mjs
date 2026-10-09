@@ -17,6 +17,45 @@ test("front matter is parsed and updated without dropping unknown keys", () => {
   assert.equal(parseFrontMatter(updated).fields.title, "New");
 });
 
+test("replacing a multiline value removes its complete YAML entry", () => {
+  const source = '---\ntitle: >-\n  Old title\n  on two lines\ncustom:\n  nested: keep\n# Keep this comment\n---\n\n# Body\n';
+  assert.equal(parseFrontMatter(source).fields.title, "Old title on two lines");
+  const updated = upsertFrontMatter(source, "title", "New title");
+  assert.equal(updated, '---\ntitle: "New title"\ncustom:\n  nested: keep\n# Keep this comment\n---\n\n# Body\n');
+});
+
+test("replacing bibliography removes block list items and preserves CRLF", () => {
+  const source = '---\r\nbibliography:\r\n- old.bib\r\n- another.bib\r\nauthor: "Doe, Jane"\r\n---\r\n\r\nBody\r\n';
+  const updated = upsertFrontMatter(source, "bibliography", ["new.bib"]);
+  assert.equal(updated, '---\r\nbibliography: ["new.bib"]\r\nauthor: "Doe, Jane"\r\n---\r\n\r\nBody\r\n');
+  assert.deepEqual(parseFrontMatter(source).fields.bibliography, ["old.bib", "another.bib"]);
+});
+
+test("quoted keys and scalars are read without exposing escapes or comments", () => {
+  const source = `---\n"title": "A \\"quoted\\" title" # note\nauthor: 'O''Brien'\nsubtitle: Plain text # comment\n---\nBody`;
+  const parsed = parseFrontMatter(source);
+  assert.equal(parsed.fields.title, 'A "quoted" title');
+  assert.equal(parsed.fields.author, "O'Brien");
+  assert.equal(parsed.fields.subtitle, "Plain text");
+  assert.equal(parseFrontMatter(upsertFrontMatter(source, "title", "Next")).fields.title, "Next");
+});
+
+test("unsupported complex form values stay unavailable instead of becoming empty strings", () => {
+  const parsed = parseFrontMatter('---\ntitle: |+\n  First\n\nauthor:\n  name: Jane\n---\nBody');
+  assert.equal(parsed.valid, false);
+  assert.equal(Object.hasOwn(parsed.fields, "title"), false);
+  assert.equal(Object.hasOwn(parsed.fields, "author"), false);
+});
+
+test("flow lists preserve quoted commas and complex YAML stays in source editing", () => {
+  const parsed = parseFrontMatter(`---\nauthor: ["Doe, Jane", 'O''Brien']\nbibliography: [main.bib, extra.bib] # sources\npublisher: {name: Press}\nsubtitle: &shared Text\ncustom: "\\e"\n---\nBody`);
+  assert.deepEqual(parsed.fields.author, ["Doe, Jane", "O'Brien"]);
+  assert.deepEqual(parsed.fields.bibliography, ["main.bib", "extra.bib"]);
+  assert.equal(parsed.valid, false);
+  for (const key of ["publisher", "subtitle", "custom"]) assert.equal(Object.hasOwn(parsed.fields, key), false);
+  assert.equal(parseFrontMatter('---\nauthor:\n- {name: Jane}\n---\nBody').fields.author, undefined);
+});
+
 test("outline ignores fenced headings and returns source lines", () => {
   const outline = extractOutline("# One\n\n```md\n## Fake\n```\n\n### Three\n");
   assert.deepEqual(outline, [
