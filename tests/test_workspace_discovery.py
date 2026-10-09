@@ -128,3 +128,113 @@ def test_workspace_discovery_honors_cancellation(tmp_path: Path) -> None:
     _book(tmp_path)
     with pytest.raises(RenderCancelledError):
         workspace.load_workspace(tmp_path, cancelled=lambda: True, validate_content=False)
+
+
+def test_workspace_scan_bounds_nontext_entries_without_materializing_the_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    examined: list[int] = []
+
+    class Entry:
+        def __init__(self, index: int) -> None:
+            self.index = index
+            self.name = f"{index}.bin"
+
+        def is_symlink(self) -> bool:
+            examined.append(self.index)
+            return False
+
+        def is_dir(self, *, follow_symlinks: bool) -> bool:
+            assert follow_symlinks is False
+            return False
+
+        def is_file(self, *, follow_symlinks: bool) -> bool:
+            assert follow_symlinks is False
+            return True
+
+    class Entries:
+        def __enter__(self):
+            def stream():
+                for index in range(5):
+                    yield Entry(index)
+                raise AssertionError("Discovery consumed the entire non-text directory")
+
+            return stream()
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(workspace.os, "scandir", lambda path: Entries())
+    monkeypatch.setattr(workspace, "MAX_WORKSPACE_SCAN_ENTRIES", 4)
+    files, diagnostics = workspace._workspace_files(tmp_path, None)
+    assert files == ()
+    assert examined == [0, 1, 2, 3]
+    assert [item.code for item in diagnostics] == ["MARDAS-W802"]
+
+
+def test_workspace_scan_keeps_collected_files_and_reports_truncation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "a-first.md").write_text("# First", encoding="utf-8")
+    for index in range(4):
+        (tmp_path / f"z-{index}.bin").write_bytes(b"binary")
+    with workspace.os.scandir(tmp_path) as entries:
+        ordered = sorted(entries, key=lambda entry: entry.name)
+
+    class Entries:
+        def __enter__(self):
+            return iter(ordered)
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(workspace.os, "scandir", lambda path: Entries())
+    monkeypatch.setattr(workspace, "MAX_WORKSPACE_SCAN_ENTRIES", 3)
+    files, diagnostics = workspace._workspace_files(tmp_path, None)
+    # The budget applies to entries, including files that are not accepted text.
+    assert [item.path for item in files] == ["a-first.md"]
+    assert [item.code for item in diagnostics] == ["MARDAS-W802"]
+
+
+def test_workspace_depth_limit_keeps_shallow_siblings_and_reports_omissions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for relative in ["a/b/at-limit.md", "a/b/c/too-deep.md", "z/shallow.md"]:
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# Chapter", encoding="utf-8")
+    monkeypatch.setattr(workspace, "MAX_WORKSPACE_DEPTH", 2)
+    files, diagnostics = workspace._workspace_files(tmp_path, None)
+    assert [item.path for item in files] == ["a/b/at-limit.md", "z/shallow.md"]
+    assert [item.code for item in diagnostics] == ["MARDAS-W803"]
+
+
+def test_workspace_discovery_prunes_generated_hidden_and_symlink_directories(tmp_path: Path) -> None:
+    for relative in ["chapters/visible.md", ".hidden/secret.md", "node_modules/generated.md"]:
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# Chapter", encoding="utf-8")
+    (tmp_path / ".secret.md").write_text("hidden", encoding="utf-8")
+    try:
+        (tmp_path / "linked").symlink_to(tmp_path / "chapters", target_is_directory=True)
+        (tmp_path / "linked.md").symlink_to(tmp_path / "chapters/visible.md")
+    except OSError:
+        pass
+    files, diagnostics = workspace._workspace_files(tmp_path, None)
+    assert [item.path for item in files] == ["chapters/visible.md"]
+    assert diagnostics == ()
+
+
+def test_workspace_scan_checks_cancellation_for_nontext_entries(tmp_path: Path) -> None:
+    for index in range(5):
+        (tmp_path / f"{index}.bin").write_bytes(b"binary")
+    checks = 0
+
+    def cancelled() -> bool:
+        nonlocal checks
+        checks += 1
+        return checks >= 3
+
+    with pytest.raises(RenderCancelledError):
+        workspace._workspace_files(tmp_path, None, cancelled=cancelled)
+    assert checks == 3

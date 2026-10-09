@@ -28,6 +28,8 @@ from .markdown import embed_local_images, render_markdown
 from .renderer import CancellationCallback, PdfOptions, RenderCancelledError, RenderSession, build_html
 
 MAX_WORKSPACE_FILES = 2_000
+MAX_WORKSPACE_SCAN_ENTRIES = 20_000
+MAX_WORKSPACE_DEPTH = 32
 MAX_WORKSPACE_TEXT_BYTES = 4 * 1024 * 1024
 _WORKSPACE_SAVE_LOCK = threading.Lock()
 WORKSPACE_TEXT_SUFFIXES = frozenset(
@@ -910,36 +912,72 @@ def _chapter_map(manifest: BookManifest | None) -> dict[Path, tuple[int, str | N
 
 def _iter_workspace_files(
     root: Path, *, cancelled: CancellationCallback | None = None
-) -> Iterable[Path]:
-    """Walk project files while pruning generated, hidden, and symlink directories."""
+) -> Iterable[Path | Diagnostic]:
+    """Discover text files within bounded traversal and report omitted entries."""
 
-    for current, directory_names, file_names in os.walk(root, followlinks=False):
+    pending = [(root, 0)]
+    scanned = 0
+    depth_limited = False
+    while pending:
         if cancelled and cancelled():
             raise RenderCancelledError("Project discovery was cancelled.")
-        current_path = Path(current)
-        safe_directories: list[str] = []
-        for name in sorted(directory_names, key=str.casefold):
-            candidate = current_path / name
-            if (
-                name.startswith(".")
-                or name in WORKSPACE_IGNORED_PARTS
-                or candidate.is_symlink()
-            ):
-                continue
-            safe_directories.append(name)
-        directory_names[:] = safe_directories
-
-        for name in sorted(file_names, key=str.casefold):
-            if cancelled and cancelled():
-                raise RenderCancelledError("Project discovery was cancelled.")
-            if name.startswith("."):
-                continue
-            path = current_path / name
-            if path.is_symlink() or not path.is_file():
-                continue
-            if path.name != CONFIG_FILENAME and path.suffix.lower() not in WORKSPACE_TEXT_SUFFIXES:
-                continue
-            yield path
+        current_path, depth = pending.pop()
+        directories: list[Path] = []
+        files: list[Path] = []
+        scan_limited = False
+        try:
+            # os.walk materializes every name in a directory before yielding.
+            # Stream entries so a directory of non-text files is bounded too.
+            with os.scandir(current_path) as entries:
+                for entry in entries:
+                    if cancelled and cancelled():
+                        raise RenderCancelledError("Project discovery was cancelled.")
+                    if scanned >= MAX_WORKSPACE_SCAN_ENTRIES:
+                        scan_limited = True
+                        break
+                    scanned += 1
+                    if entry.name.startswith(".") or entry.is_symlink():
+                        continue
+                    path = current_path / entry.name
+                    try:
+                        if entry.is_dir(follow_symlinks=False):
+                            if entry.name in WORKSPACE_IGNORED_PARTS:
+                                continue
+                            if depth >= MAX_WORKSPACE_DEPTH:
+                                depth_limited = True
+                            else:
+                                directories.append(path)
+                        elif entry.is_file(follow_symlinks=False) and (
+                            path.name == CONFIG_FILENAME
+                            or path.suffix.lower() in WORKSPACE_TEXT_SUFFIXES
+                        ):
+                            files.append(path)
+                    except OSError:
+                        continue
+        except OSError:
+            continue
+        yield from sorted(files, key=lambda path: path.name.casefold())
+        if scan_limited:
+            yield Diagnostic(
+                "MARDAS-W802",
+                "warning",
+                f"Studio project discovery is limited to {MAX_WORKSPACE_SCAN_ENTRIES} entries.",
+                path=root,
+                hint="Exclude generated directories or split very large projects.",
+            )
+            break
+        pending.extend(
+            (path, depth + 1)
+            for path in sorted(directories, key=lambda path: path.name.casefold(), reverse=True)
+        )
+    if depth_limited:
+        yield Diagnostic(
+            "MARDAS-W803",
+            "warning",
+            f"Studio project discovery is limited to {MAX_WORKSPACE_DEPTH} directory levels.",
+            path=root,
+            hint="Move source files into shallower directories.",
+        )
 
 
 def _workspace_files(
@@ -952,6 +990,9 @@ def _workspace_files(
     files: list[WorkspaceFile] = []
     diagnostics: list[Diagnostic] = []
     for path in _iter_workspace_files(root, cancelled=cancelled):
+        if isinstance(path, Diagnostic):
+            diagnostics.append(path)
+            continue
         if len(files) >= MAX_WORKSPACE_FILES:
             diagnostics.append(
                 Diagnostic(
