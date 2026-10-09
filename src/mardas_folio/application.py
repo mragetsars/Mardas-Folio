@@ -1246,6 +1246,18 @@ class EngineService:
                 params,
                 {"project_path", "relative_path", "content", "expected_sha256"},
             )
+            content = _required_content(params)
+            # Reject malformed request text before a cancellable project scan.
+            # Shutdown may cancel discovery, but must not hide invalid content.
+            try:
+                content.encode("utf-8")
+            except UnicodeEncodeError as exc:
+                raise _workspace_error(
+                    WorkspaceError(
+                        "Project file content must be valid UTF-8 text.",
+                        code="invalid_project_content",
+                    )
+                ) from exc
             workspace = _load_workspace_request(
                 _required_string(params, "project_path"),
                 cancelled=cancelled,
@@ -1255,7 +1267,7 @@ class EngineService:
                 lambda: write_workspace_file(
                     workspace,
                     relative_path,
-                    _required_content(params),
+                    content,
                     expected_sha256=_required_string(params, "expected_sha256"),
                 )
             )
