@@ -63,6 +63,7 @@ class StudioExportManager:
         )
         self._lock = threading.Lock()
         self._jobs: dict[str, StudioExportJob] = {}
+        self._closed = False
 
     def _cleanup_locked(self) -> None:
         now = time.time()
@@ -98,6 +99,8 @@ class StudioExportManager:
         work: StudioExportWork,
     ) -> StudioExportJob:
         with self._lock:
+            if self._closed:
+                raise StudioExportJobError("Studio export manager is closed.")
             self._cleanup_locked()
             if len(self._jobs) >= self.max_jobs:
                 raise RenderQueueFullError("Studio export history is full.")
@@ -157,10 +160,28 @@ class StudioExportManager:
                 job.downloaded_at = time.time()
 
     def close(self) -> None:
-        self.pool.close()
         with self._lock:
-            self._jobs.clear()
-        self._root.cleanup()
+            if self._closed:
+                return
+            self._closed = True
+        self.pool.close()
+
+        def cleanup() -> None:
+            # A blocked browser call can outlast the pool's shutdown deadline.
+            # Keep its temporary files alive until the worker has actually left.
+            self.pool.wait_for_shutdown()
+            with self._lock:
+                self._jobs.clear()
+            self._root.cleanup()
+
+        if self.pool.shutdown_complete:
+            cleanup()
+        else:
+            threading.Thread(
+                target=cleanup,
+                name="mardas-export-cleanup",
+                daemon=True,
+            ).start()
 
     def __enter__(self) -> "StudioExportManager":
         return self

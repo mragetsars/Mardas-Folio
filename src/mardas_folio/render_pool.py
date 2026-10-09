@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
+import math
 from queue import Empty, Full, Queue
 import threading
 import time
@@ -11,6 +13,8 @@ from .renderer import ProgressCallback, RenderCancelledError, RenderSession
 
 T = TypeVar("T")
 RenderWork = Callable[[RenderSession, ProgressCallback, Callable[[], bool]], T]
+LOGGER = logging.getLogger(__name__)
+RENDER_POOL_SHUTDOWN_TIMEOUT_SECONDS = 5.0
 
 
 class RenderQueueFullError(RuntimeError):
@@ -111,6 +115,14 @@ class RenderFuture(Generic[T]):
 
     def _mark_succeeded(self, result: T) -> None:
         with self._lock:
+            # Cancellation may arrive after the worker's last callback check.
+            # Publish completion while holding the same lock as cancel().
+            if self._cancel.is_set():
+                self._status = "cancelled"
+                self._message = "Rendering cancelled"
+                self._finished_at = time.time()
+                self._done.set()
+                return
             self._result = result
             self._status = "succeeded"
             self._message = "PDF ready"
@@ -193,17 +205,26 @@ class RenderPool:
         queue_size: int = 6,
         idle_timeout: float = 60.0,
     ) -> None:
-        if workers < 1 or workers > 8:
+        if isinstance(workers, bool) or not isinstance(workers, int) or not 1 <= workers <= 8:
             raise ValueError("workers must be between 1 and 8")
-        if queue_size < 1 or queue_size > 64:
+        if isinstance(queue_size, bool) or not isinstance(queue_size, int) or not 1 <= queue_size <= 64:
             raise ValueError("queue_size must be between 1 and 64")
-        if idle_timeout < 1:
+        if (
+            isinstance(idle_timeout, bool)
+            or not isinstance(idle_timeout, (int, float))
+            or not math.isfinite(idle_timeout)
+            or idle_timeout < 1
+        ):
             raise ValueError("idle_timeout must be at least one second")
         self.workers = workers
         self.queue_size = queue_size
         self.idle_timeout = float(idle_timeout)
-        self._queue: Queue[_QueuedWork[object] | None] = Queue(maxsize=queue_size)
+        self._queue: Queue[_QueuedWork[object]] = Queue(maxsize=queue_size)
         self._closed = threading.Event()
+        self._stopped = threading.Event()
+        self._workers_remaining = workers
+        self._state_lock = threading.Lock()
+        self._active: set[RenderFuture[object]] = set()
         self._threads = [
             threading.Thread(
                 target=self._worker,
@@ -216,40 +237,55 @@ class RenderPool:
             thread.start()
 
     def submit(self, work: RenderWork[T], *, label: str = "PDF export") -> RenderFuture[T]:
-        if self._closed.is_set():
-            raise RenderPoolClosedError("Render pool is closed.")
         future: RenderFuture[T] = RenderFuture(label=label)
-        try:
-            self._queue.put_nowait(_QueuedWork(future=future, work=work))
-        except Full as exc:
-            raise RenderQueueFullError("Render queue is full.") from exc
+        with self._state_lock:
+            if self._closed.is_set():
+                raise RenderPoolClosedError("Render pool is closed.")
+            try:
+                self._queue.put_nowait(_QueuedWork(future=future, work=work))
+            except Full as exc:
+                raise RenderQueueFullError("Render queue is full.") from exc
         return future
+
+    @staticmethod
+    def _close_session(session: RenderSession | None) -> None:
+        if session is not None:
+            try:
+                session.close()
+            except BaseException:
+                LOGGER.warning("Could not close a render worker session", exc_info=True)
 
     def _worker(self) -> None:
         session: RenderSession | None = None
         last_work = time.monotonic()
         try:
-            while True:
+            while not self._closed.is_set():
                 try:
                     item = self._queue.get(timeout=min(1.0, self.idle_timeout))
                 except Empty:
                     if session is not None and time.monotonic() - last_work >= self.idle_timeout:
-                        session.close()
+                        self._close_session(session)
                         session = None
                     if self._closed.is_set():
                         return
                     continue
-                if item is None:
-                    self._queue.task_done()
-                    return
                 future = item.future
-                if not future._mark_running():
-                    self._queue.task_done()
-                    continue
-                if session is None:
-                    session = RenderSession()
-                    session.__enter__()
                 try:
+                    with self._state_lock:
+                        if self._closed.is_set():
+                            future.cancel()
+                            continue
+                        if not future._mark_running():
+                            continue
+                        self._active.add(future)
+                    if session is None:
+                        created = RenderSession()
+                        try:
+                            created.__enter__()
+                        except BaseException:
+                            self._close_session(created)
+                            raise
+                        session = created
                     result = item.work(session, future.update_progress, future.cancelled)
                     if future.cancelled():
                         future._mark_cancelled()
@@ -260,28 +296,52 @@ class RenderPool:
                 except BaseException as exc:
                     future._mark_failed(exc)
                     if session is not None:
-                        session.restart()
+                        try:
+                            session.restart()
+                        except BaseException:
+                            LOGGER.warning("Could not restart a render worker session", exc_info=True)
+                            self._close_session(session)
+                            session = None
                 finally:
+                    with self._state_lock:
+                        self._active.discard(future)
                     last_work = time.monotonic()
                     self._queue.task_done()
         finally:
-            if session is not None:
-                session.close()
+            self._close_session(session)
+            with self._state_lock:
+                self._workers_remaining -= 1
+                if self._workers_remaining == 0:
+                    self._stopped.set()
 
     def close(self, *, wait: bool = True) -> None:
-        if self._closed.is_set():
-            return
-        self._closed.set()
-        for _ in self._threads:
+        with self._state_lock:
+            self._closed.set()
+            for future in self._active:
+                future.cancel()
+            # Drain queued work directly; shutdown never waits for room to put
+            # sentinels behind a full queue or an unavailable worker.
             while True:
                 try:
-                    self._queue.put(None, timeout=0.1)
+                    item = self._queue.get_nowait()
+                except Empty:
                     break
-                except Full:
-                    continue
+                item.future.cancel()
+                self._queue.task_done()
         if wait:
+            deadline = time.monotonic() + RENDER_POOL_SHUTDOWN_TIMEOUT_SECONDS
             for thread in self._threads:
-                thread.join(timeout=max(5.0, self.idle_timeout + 5.0))
+                if thread is threading.current_thread():
+                    continue
+                thread.join(timeout=max(0.0, deadline - time.monotonic()))
+
+    @property
+    def shutdown_complete(self) -> bool:
+        return self._closed.is_set() and self._stopped.is_set()
+
+    def wait_for_shutdown(self, timeout: float | None = None) -> bool:
+        """Wait until every worker has released its thread-affine resources."""
+        return self._stopped.wait(timeout)
 
     def __enter__(self) -> "RenderPool":
         return self
