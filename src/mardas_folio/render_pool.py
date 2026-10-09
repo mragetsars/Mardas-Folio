@@ -6,7 +6,7 @@ import math
 from queue import Empty, Full, Queue
 import threading
 import time
-from typing import Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, TypeVar
 from uuid import uuid4
 
 from .renderer import ProgressCallback, RenderCancelledError, RenderSession
@@ -219,12 +219,15 @@ class RenderPool:
         self.workers = workers
         self.queue_size = queue_size
         self.idle_timeout = float(idle_timeout)
-        self._queue: Queue[_QueuedWork[object]] = Queue(maxsize=queue_size)
+        # A pool contains jobs with different result types. Each queued pair
+        # keeps its work/future type relationship; the container erases that
+        # parameter while the public submit/result API remains generic.
+        self._queue: Queue[_QueuedWork[Any]] = Queue(maxsize=queue_size)
         self._closed = threading.Event()
         self._stopped = threading.Event()
         self._workers_remaining = workers
         self._state_lock = threading.Lock()
-        self._active: set[RenderFuture[object]] = set()
+        self._active: set[RenderFuture[Any]] = set()
         self._threads = [
             threading.Thread(
                 target=self._worker,

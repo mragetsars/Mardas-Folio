@@ -1182,7 +1182,9 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
         return str(getattr(self.server, "studio_csrf_token", ""))
 
     def _studio_bind_host(self) -> str:
-        return str(getattr(self.server, "studio_bind_host", self.server.server_address[0]))
+        address = self.server.server_address
+        bind_host = address[0] if isinstance(address, tuple) else address
+        return str(getattr(self.server, "studio_bind_host", bind_host))
 
     def _studio_project_workspace(self) -> ProjectWorkspace | None:
         workspace = getattr(self.server, "studio_project_workspace", None)
