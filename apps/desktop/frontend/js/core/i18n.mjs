@@ -94,6 +94,19 @@ Object.assign(en, {authoringToolbar:"Authoring toolbar",startCenter:"Start Cente
 export const LOCALE_STORAGE_KEY="mardas.desktop.locale";
 function localeStorage(storage){if(storage!==undefined)return storage;try{return globalThis.localStorage}catch{return null}}
 const messages={fa,en};export function supportedLocale(value){return String(value||"").toLowerCase().startsWith("fa")?"fa":"en"}
+Object.assign(fa, {
+  studioKicker: "فضای نوشتن و انتشار",
+  studioWelcome: "سند بعدی‌ات از اینجا شروع می‌شود.",
+  studioDescription: "بنویس، فصل‌ها را مرتب کن و خروجی آماده انتشار بساز.",
+  structuredMetadataHelp: "مشخصات ساختاریافته را در نمای سورس ویرایش کن؛ این فرم آن‌ها را حفظ می‌کند.",
+});
+Object.assign(en, {
+  studioKicker: "Writing & publishing studio",
+  studioWelcome: "Your next document starts here.",
+  studioDescription: "Write, organize your chapters, and create a publication ready to share.",
+  structuredMetadataHelp: "Edit structured metadata in Source view. This form preserves those values.",
+});
+
 export function readLocalePreference(storage,fallback="en"){const fallbackLocale=supportedLocale(fallback);try{const value=localeStorage(storage)?.getItem(LOCALE_STORAGE_KEY);return value?supportedLocale(value):fallbackLocale}catch{return fallbackLocale}}
 export function writeLocalePreference(value,storage){const normalized=supportedLocale(value);try{localeStorage(storage)?.setItem(LOCALE_STORAGE_KEY,normalized)}catch{/* Locale persistence is optional and must never block the desktop shell. */}return normalized}
 export function createTranslator(locale="fa"){let current=supportedLocale(locale);return{get locale(){return current},set locale(value){current=supportedLocale(value)},t(key){return messages[current][key]??messages.en[key]??key}}}

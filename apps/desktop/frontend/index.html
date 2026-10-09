@@ -94,8 +94,14 @@
 
   <main id="app-main" tabindex="-1">
     <section class="view active" id="start-view">
-      <!-- An application launcher, not a landing page: the actions the user
-           came for, the documents they were last in, and nothing else. -->
+      <header class="studio-welcome">
+        <div>
+          <p class="studio-kicker" data-i18n="studioKicker">فضای نوشتن و انتشار</p>
+          <h1 data-i18n="studioWelcome">سند بعدی‌ات از اینجا شروع می‌شود.</h1>
+          <p class="studio-description" data-i18n="studioDescription">بنویس، فصل‌ها را مرتب کن و خروجی آماده انتشار بساز.</p>
+        </div>
+        <div class="studio-mark" aria-hidden="true"><svg class="ui-icon"><use href="#icon-book"></use></svg></div>
+      </header>
       <div class="launcher">
         <section class="launcher-col launcher-col-start" aria-labelledby="launcher-start-title">
           <h2 class="launcher-heading" id="launcher-start-title" data-i18n="chooseWorkflow">از کجا شروع کنیم؟</h2>
@@ -122,7 +128,7 @@
         <section class="launcher-col launcher-col-recent" aria-labelledby="launcher-recent-title">
           <h2 class="launcher-heading" id="launcher-recent-title"><span data-i18n="recentDocuments">سندهای اخیر</span><button class="text-button" id="clear-recents" type="button" data-i18n="clear">پاک‌کردن</button></h2>
           <div id="recent-list" class="recent-list"></div>
-          <div id="recent-empty" class="empty"><strong data-i18n="noRecent">هنوز سندی باز نشده است.</strong><small data-i18n="noRecentHelp">فایل‌های اخیر برای دسترسی سریع اینجا نمایش داده می‌شوند.</small></div>
+          <div id="recent-empty" class="empty"><svg class="ui-icon empty-document-icon" aria-hidden="true"><use href="#icon-file"></use></svg><strong data-i18n="noRecent">هنوز سندی باز نشده است.</strong><small data-i18n="noRecentHelp">فایل‌های اخیر برای دسترسی سریع اینجا نمایش داده می‌شوند.</small></div>
         </section>
       </div>
 
@@ -146,7 +152,7 @@
             </div>
             <div class="settings-browser">
               <nav class="option-rail" id="option-rail" role="tablist" aria-orientation="vertical" data-i18n-aria-label="settingsCategories" aria-label="دسته‌های تنظیمات"></nav>
-              <div class="option-pane" id="option-pane"></div>
+              <div class="option-pane" id="option-pane" role="tabpanel" tabindex="0"></div>
             </div>
           </section>
           <section class="step"><header><span>4</span><div><h2 data-i18n="outputFile">فایل خروجی</h2><p data-i18n="outputFileHelp">محل ذخیره PDF را مشخص کن.</p></div></header><div class="path-row"><input id="output-path" readonly data-i18n-aria-label="outputFile" aria-label="فایل خروجی" placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse">انتخاب</button></div></section>
@@ -282,6 +288,7 @@
           <section class="sidebar-panel" id="sidebar-panel-frontmatter" role="tabpanel" aria-labelledby="sidebar-tab-frontmatter" aria-hidden="true" data-panel="frontmatter">
             <header><strong data-i18n="frontMatter">مشخصات سند</strong></header>
             <form class="frontmatter-form" id="frontmatter-form">
+              <p class="sidebar-help hidden" id="structured-metadata-note" role="status" data-i18n="structuredMetadataHelp">مشخصات ساختاریافته را در نمای سورس ویرایش کن؛ این فرم آن‌ها را حفظ می‌کند.</p>
               <label><span data-i18n="title">عنوان</span><input name="title" type="text"></label>
               <label><span data-i18n="subtitle">زیرعنوان</span><input name="subtitle" type="text"></label>
               <label><span data-i18n="author">نویسنده</span><input name="author" type="text"></label>

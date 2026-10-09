@@ -118,6 +118,7 @@ const state = {
   recents: readRecents(),
   documents: [],
   activeDocumentId: null,
+  documentActivationSequence: 0,
   previewTimer: null,
   recoveryTimers: new Map(),
   previewSequence: 0,
@@ -247,6 +248,8 @@ function setLocale(value) {
 }
 
 function showView(name) {
+  // Leaving the workspace is a newer intent than any pending file activation.
+  if (name !== "workspace") state.documentActivationSequence += 1;
   $$(".view").forEach((element) => element.classList.remove("active"));
   $(`#${name}-view`)?.classList.add("active");
   document.body.dataset.view = name;
@@ -259,8 +262,8 @@ function showView(name) {
  * Map a Markdown image path to a URL the webview may load.
  *
  * Only paths that resolve inside the open document's own directory are turned
- * into asset URLs; the native side allows exactly that directory and nothing
- * below it. Remote and absolute-URL sources are declined here rather than
+ * into asset URLs; the native side grants a bounded inventory of image files.
+ * Remote and absolute sources are declined here rather than
  * fetched, which keeps the offline guarantee the app makes on its own footer.
  */
 function resolveEditorAsset(source) {
@@ -275,10 +278,8 @@ function resolveEditorAsset(source) {
   const normalized = raw.replaceAll("\\", "/");
   // A path that climbs out of the document directory is outside the scope the
   // native side allowed, so it would fail to load anyway.
-  if (normalized.split("/").includes("..")) return null;
-  const absolute = normalized.startsWith("/")
-    ? normalized
-    : `${directory}${separator}${normalized}`;
+  if (normalized.startsWith("/") || normalized.split("/").includes("..")) return null;
+  const absolute = `${directory}${separator}${normalized}`;
   try {
     return globalThis.__TAURI__?.core?.convertFileSrc?.(absolute) || null;
   } catch {
@@ -448,6 +449,7 @@ function renderTemplateGallery() {
 }
 
 function createDocumentFromTemplate(templateId = "blank") {
+  state.documentActivationSequence += 1;
   const metadata = templateList().find((item) => item.id === templateId) || templateList()[0];
   const model = createDocument({ content: templateContent(templateId, state.locale) });
   model.title = t(metadata.titleKey);
@@ -1324,6 +1326,8 @@ function renderOptionRail() {
     button.type = "button";
     button.className = "option-rail-item";
     button.setAttribute("role", "tab");
+    button.id = `option-tab-${group.id}`;
+    button.setAttribute("aria-controls", "option-pane");
     button.setAttribute("aria-selected", String(group.id === activeOptionGroup && !optionSearchQuery));
     button.tabIndex = group.id === activeOptionGroup ? 0 : -1;
     button.dataset.group = group.id;
@@ -1351,6 +1355,7 @@ function renderOptionRail() {
       optionSearchQuery = "";
       renderOptionRail();
       renderOptionPane();
+      $(`#option-tab-${group.id}`)?.focus({ preventScroll: true });
     });
     rail.append(button);
   }
@@ -1386,6 +1391,7 @@ function renderOptionPane() {
   }
 
   const group = OPTION_GROUPS.find((item) => item.id === activeOptionGroup) || OPTION_GROUPS[0];
+  pane.setAttribute("aria-labelledby", `option-tab-${group.id}`);
   const header = document.createElement("header");
   header.className = "option-pane-head";
   const heading = document.createElement("div");
@@ -1936,13 +1942,14 @@ function tabElement(model) {
     }
     const index = state.documents.findIndex((item) => item.id === model.id);
     let target = null;
-    if (event.key === "ArrowLeft" || event.key === "ArrowUp") target = state.documents[(index - 1 + state.documents.length) % state.documents.length];
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") target = state.documents[(index + 1) % state.documents.length];
+    const rtl = document.documentElement.dir === "rtl";
+    if (event.key === (rtl ? "ArrowRight" : "ArrowLeft") || event.key === "ArrowUp") target = state.documents[(index - 1 + state.documents.length) % state.documents.length];
+    if (event.key === (rtl ? "ArrowLeft" : "ArrowRight") || event.key === "ArrowDown") target = state.documents[(index + 1) % state.documents.length];
     if (event.key === "Home") target = state.documents[0];
     if (event.key === "End") target = state.documents.at(-1);
     if (!target) return;
     event.preventDefault();
-    activateDocument(target.id);
+    void activateDocument(target.id, { focus: "tab" });
   });
   tab.querySelector(".tab-close").addEventListener("click", (event) => {
     event.stopPropagation();
@@ -2005,14 +2012,35 @@ function renderOutline(model) {
   }
 }
 
+const frontMatterFormBaseline = new Map();
+
 function loadFrontMatterForm(model) {
   const form = $("#frontmatter-form");
-  const fields = parseFrontMatter(model?.content || "").fields;
+  const { fields, rawLines } = parseFrontMatter(model?.content || "");
+  frontMatterFormBaseline.clear();
+  let hasStructuredFields = false;
   for (const name of ["title", "subtitle", "author", "lang", "dir"]) {
     const input = form.elements.namedItem(name);
-    if (input) input.value = fields[name] ?? (name === "lang" || name === "dir" ? "auto" : "");
+    if (!input) continue;
+    const value = fields[name];
+    const present = rawLines.some((line) => new RegExp(`^(?:${name}|"${name}"|'${name}'):`).test(line));
+    const structured = present && (value === undefined || (value !== null && typeof value === "object")
+      || /[\r\n]/.test(String(value ?? ""))
+      || (input instanceof HTMLSelectElement && value !== undefined && ![...input.options].some((option) => option.value === String(value))));
+    input.value = structured ? "" : value ?? (name === "lang" || name === "dir" ? "auto" : "");
+    input.disabled = Boolean(model?.readOnly) || structured;
+    input.title = structured ? t("structuredMetadataHelp") : "";
+    frontMatterFormBaseline.set(name, input.value);
+    hasStructuredFields ||= structured;
   }
-  form.elements.namedItem("toc").checked = Boolean(fields.toc);
+  const toc = form.elements.namedItem("toc");
+  const tocPresent = rawLines.some((line) => /^(?:toc|"toc"|'toc'):/.test(line));
+  const tocStructured = tocPresent && typeof fields.toc !== "boolean";
+  toc.checked = fields.toc === true;
+  toc.disabled = Boolean(model?.readOnly) || tocStructured;
+  toc.title = tocStructured ? t("structuredMetadataHelp") : "";
+  frontMatterFormBaseline.set("toc", toc.checked);
+  $("#structured-metadata-note")?.classList.toggle("hidden", !(hasStructuredFields || tocStructured));
 }
 
 function renderCitations(model) {
@@ -2037,7 +2065,7 @@ function renderCitations(model) {
     button.type = "button";
     button.innerHTML = `<span class="citation-key"></span><small></small>`;
     button.querySelector(".citation-key").textContent = `@${key}`;
-    button.querySelector("small").textContent = used.includes(key) ? "used" : "library";
+    button.querySelector("small").textContent = t(used.includes(key) ? "cited" : "bibliographyLibrary");
     button.addEventListener("click", () => insertAtCursor(`[@${key}]`));
     list.append(button);
   }
@@ -2220,17 +2248,16 @@ function setTruncatableText(element, value) {
   else element.removeAttribute("title");
 }
 
-/** The document the caret was last placed for. */
-let lastCaretDocumentId = null;
-
 function renderWorkspace() {
   const model = activeDocument();
   renderDocumentTabs();
   const editor = currentEditor();
+  editor.retainDocuments?.(state.documents.map((document) => document.id));
   renderProjectWorkspace();
   renderBookWorkspace();
   if (!model) {
-    editor.value = "";
+    if (editor.setDocument) editor.setDocument(null, "");
+    else editor.value = "";
     editor.disabled = true;
     setTruncatableText($("#editor-title"), t("untitled"));
     setTruncatableText($("#editor-path"), "");
@@ -2242,17 +2269,10 @@ function renderWorkspace() {
   }
   editor.disabled = model.readOnly;
   updateAuthoringMode(model);
-  if (editor.value !== model.content) editor.value = model.content;
-  // Write mode opens on the document, not on its metadata. The caret starts at
-  // offset 0, live preview reveals the raw source of the block the caret is in,
-  // and offset 0 is inside the front matter of everything this application
-  // creates — so the first thing a new document showed was seven lines of YAML.
-  // Once per document, so switching tabs is not a reason to move it again.
-  if (lastCaretDocumentId !== model.id) {
-    lastCaretDocumentId = model.id;
-    const offset = bodyStartOffset(model.content);
-    if (offset > 0) editor.setSelectionRange?.(offset, offset);
-  }
+  // The adapter owns each document's undo history, selection and scroll.
+  // Initial selection is applied only when the adapter sees this ID first.
+  if (editor.setDocument) editor.setDocument(model.id, model.content, { initialSelection: bodyStartOffset(model.content) });
+  else if (editor.value !== model.content) editor.value = model.content;
   setTruncatableText($("#editor-title"), model.title);
   setTruncatableText($("#editor-path"), model.path || t("untitled"));
   setSaveState(documentDirty(model) ? "dirty" : "saved");
@@ -2268,8 +2288,7 @@ function renderWorkspace() {
 /**
  * Let the webview read images from a document's own directory.
  *
- * The asset scope starts empty; this widens it by exactly one directory, and
- * only for a document the user actually opened.
+ * Grant the native scope's bounded set of local images before widgets load.
  */
 async function allowDocumentImages(model) {
   if (!model?.path) return;
@@ -2280,22 +2299,28 @@ async function allowDocumentImages(model) {
   }
 }
 
-function activateDocument(id) {
+async function activateDocument(id, { focus = "editor" } = {}) {
   const model = state.documents.find((document) => document.id === id);
   if (!model) return;
+  const sequence = ++state.documentActivationSequence;
+  await allowDocumentImages(model);
+  if (sequence !== state.documentActivationSequence || !state.documents.includes(model)) return;
   state.activeDocumentId = id;
-  void allowDocumentImages(model);
   state.validationSequence += 1;
   state.assetSequence += 1;
   state.bibliographySequence += 1;
   persistSession();
   renderWorkspace();
-  currentEditor().focus();
+  if (focus === "tab") {
+    const tab = $$(".document-tab").find((element) => element.dataset.documentId === id);
+    tab?.querySelector(".tab-activate")?.focus({ preventScroll: true });
+  } else currentEditor().focus();
   schedulePreview(80);
   if (model.path) refreshAssets();
 }
 
 function createUntitledDocument() {
+  state.documentActivationSequence += 1;
   const model = createDocument({ content: "---\ntitle: \"\"\nlang: auto\n---\n\n# New document\n\n" });
   state.documents.push(model);
   state.activeDocumentId = model.id;
@@ -2309,11 +2334,14 @@ function createUntitledDocument() {
 async function openAuthoringPaths(paths) {
   const values = [...new Set((Array.isArray(paths) ? paths : [paths]).filter(Boolean))];
   if (!values.length) return;
+  const sequence = ++state.documentActivationSequence;
+  let intendedDocument = null;
   showView("workspace");
   for (const path of values) {
     const existing = findDocumentByPath(state.documents, path);
     if (existing) {
-      state.activeDocumentId = existing.id;
+      await allowDocumentImages(existing);
+      if (state.documents.includes(existing)) intendedDocument = existing;
       continue;
     }
     try {
@@ -2334,13 +2362,23 @@ async function openAuthoringPaths(paths) {
         kind: result.kind || (isMarkdownPath(result.path) ? "markdown" : "text"),
       });
       if (!duplicate) state.documents.push(model);
-      state.activeDocumentId = model.id;
+      await allowDocumentImages(model);
+      if (state.documents.includes(model)) intendedDocument = model;
       saveRecent(model.path);
       const recovery = recoveryForPath(model.path);
-      if (recovery && recovery.content !== model.content) showRecovery(model, recovery);
+      if (sequence === state.documentActivationSequence && state.documents.includes(model)
+          && recovery && recovery.content !== model.content) showRecovery(model, recovery);
     } catch (error) {
       toast(errorText(error), "error");
     }
+  }
+  // Keep the owner of the visible buffer unchanged throughout every file read
+  // and scope grant, including when several files are opened together.
+  if (sequence === state.documentActivationSequence && state.documents.includes(intendedDocument)) {
+    state.activeDocumentId = intendedDocument.id;
+    state.validationSequence += 1;
+    state.assetSequence += 1;
+    state.bibliographySequence += 1;
   }
   persistSession();
   renderWorkspace();
@@ -2368,6 +2406,7 @@ async function chooseProjectDirectory() {
 }
 
 async function loadProject(path, { announce = true, openFirstChapter = true } = {}) {
+  const activationSequence = ++state.documentActivationSequence;
   const handoff = pathKey(path) !== pathKey(state.project?.path)
     ? invalidateBookTaskForProjectChange()
     : Promise.resolve(true);
@@ -2379,6 +2418,7 @@ async function loadProject(path, { announce = true, openFirstChapter = true } = 
   if (sequence !== state.projectRequestSequence) return null;
   applyProjectPayload(payload);
   state.bibliographyEntries = [];
+  if (activationSequence !== state.documentActivationSequence) return payload;
   showView("workspace");
   activateSidebar("project");
   if (announce) toast(t("projectOpened"), "success");
@@ -2445,6 +2485,7 @@ async function openProjectRelativeFile(relativePath, { line = null, column = 1 }
   const projectPath = state.project?.path;
   const projectGeneration = state.projectGeneration;
   if (!projectPath) return;
+  const sequence = ++state.documentActivationSequence;
   try {
     const requestKey = `${projectGeneration}:${relativePath}`;
     let request = state.projectFileRequests.get(requestKey);
@@ -2455,6 +2496,7 @@ async function openProjectRelativeFile(relativePath, { line = null, column = 1 }
     }
     const result = await request;
     if (state.project?.path !== projectPath || state.projectGeneration !== projectGeneration) return;
+    if (sequence !== state.documentActivationSequence) return;
     const existing = findDocumentByPath(state.documents, result.absolute_path);
     let model = existing;
     const file = state.project.files?.find((item) => item.path === result.path || item.path === relativePath);
@@ -2468,7 +2510,13 @@ async function openProjectRelativeFile(relativePath, { line = null, column = 1 }
         kind,
       });
       state.documents.push(model);
-    } else if (result.content !== model.savedContent) {
+    }
+    await allowDocumentImages(model);
+    if (sequence !== state.documentActivationSequence || !state.documents.includes(model)
+        || state.project?.path !== projectPath || state.projectGeneration !== projectGeneration) return;
+    // Recheck unsaved edits after the asynchronous grant. An existing document
+    // may still be visible and editable while this request is pending.
+    if (existing && result.content !== model.savedContent) {
       if (documentDirty(model)) {
         state.activeDocumentId = model.id;
         renderWorkspace();
@@ -3332,6 +3380,7 @@ async function persistDocumentModel(model, { saveAs = false, force = false } = {
 async function requestCloseDocument(id) {
   const model = state.documents.find((document) => document.id === id);
   if (!model) return;
+  state.documentActivationSequence += 1;
   if (documentDirty(model)) {
     const discard = await askConfirmation({
       title: model.title,
@@ -3341,14 +3390,17 @@ async function requestCloseDocument(id) {
     });
     if (!discard) return;
   }
+  if (!state.documents.includes(model)) return;
   cancelRecoveryTimer(model);
   removeRecovery(model);
   const result = closeDocument(state.documents, id);
+  const wasActive = state.activeDocumentId === id;
   state.documents = result.documents;
-  state.activeDocumentId = result.nextId;
+  if (wasActive) state.activeDocumentId = null;
   persistSession();
   renderWorkspace();
   if (!state.documents.length) showView("start");
+  else if (wasActive) await activateDocument(result.nextId);
 }
 
 function onEditorInput() {
@@ -3358,6 +3410,8 @@ function onEditorInput() {
   state.validationSequence += 1;
   state.bibliographySequence += 1;
   model.diagnostics = [];
+  model.bibliographyDiagnostics = [];
+  renderProblems(model);
   setSaveState("dirty");
   renderDocumentTabs();
   renderOutline(model);
@@ -3680,6 +3734,8 @@ async function refreshAssets() {
   try {
     const result = await listDocumentAssets(model.path);
     if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false })) return;
+    await allowDocumentImages(model);
+    if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false })) return;
     renderAssets(Array.isArray(result.assets) ? result.assets : []);
   } catch (error) {
     if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false })) return;
@@ -3700,6 +3756,8 @@ async function importAsset() {
     if (!source) return;
     if (!contextIsCurrent(context, { requireContent: false })) return;
     const asset = await importDocumentAsset(model.path, source);
+    if (!contextIsCurrent(context, { requireContent: false })) return;
+    await allowDocumentImages(model);
     if (!contextIsCurrent(context, { requireContent: false })) return;
     toast(t("assetImported"), "success");
     insertAssetReference(asset, model);
@@ -3736,6 +3794,7 @@ function activateSidebar(name) {
     panel.setAttribute("aria-hidden", String(!active));
   });
   if (name === "assets") refreshAssets();
+  if (name === "frontmatter") loadFrontMatterForm(activeDocument());
   if (name === "project") renderProjectWorkspace();
   if (name === "citations") refreshBibliography();
 }
@@ -4178,10 +4237,18 @@ function applyFrontMatter(event) {
   const form = event.currentTarget;
   let content = model.content;
   for (const key of ["title", "subtitle", "author", "lang", "dir"]) {
-    content = upsertFrontMatter(content, key, form.elements.namedItem(key).value);
+    const input = form.elements.namedItem(key);
+    if (!input.disabled && input.value !== frontMatterFormBaseline.get(key)) {
+      content = upsertFrontMatter(content, key, input.value);
+    }
   }
-  content = upsertFrontMatter(content, "toc", form.elements.namedItem("toc").checked);
+  const toc = form.elements.namedItem("toc");
+  if (!toc.disabled && toc.checked !== frontMatterFormBaseline.get("toc")) {
+    content = upsertFrontMatter(content, "toc", toc.checked);
+  }
+  if (content === model.content) return;
   applyEditorContent(content);
+  loadFrontMatterForm(model);
   schedulePreview(80);
 }
 
@@ -4280,7 +4347,7 @@ function bindEvents() {
     if (event.key === "Home") next = 0;
     if (event.key === "End") next = items.length - 1;
     items[next].click();
-    items[next].focus();
+    $(`#option-tab-${items[next].dataset.group}`)?.focus({ preventScroll: true });
   });
   $("#preview-zoom-in").addEventListener("click", () => exportPreviewDeck()?.zoomBy(1));
   $("#preview-zoom-out").addEventListener("click", () => exportPreviewDeck()?.zoomBy(-1));
@@ -4676,14 +4743,17 @@ async function boot() {
         }
       }
       if (session.paths.length) {
-        await openAuthoringPaths(session.paths);
+        const restoration = openAuthoringPaths(session.paths);
+        const activationSequence = state.documentActivationSequence;
+        await restoration;
         const active = findDocumentByPath(state.documents, session.activePath);
-        if (active) activateDocument(active.id);
+        if (active && activationSequence === state.documentActivationSequence) await activateDocument(active.id);
       }
     }
   } catch (error) {
     toast(errorText(error), "error");
   }
+  const draftActivationSequence = state.documentActivationSequence;
   await engineHealth();
   await initializeUpdater();
   const drafts = readRecoveries().filter((item) => !item.path);
@@ -4700,7 +4770,7 @@ async function boot() {
     if (!state.activeDocumentId) state.activeDocumentId = model.id;
     restoredDrafts += 1;
   }
-  if (restoredDrafts) {
+  if (restoredDrafts && draftActivationSequence === state.documentActivationSequence) {
     showView("workspace");
     renderWorkspace();
     schedulePreview(120);

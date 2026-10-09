@@ -126,8 +126,7 @@ test("line decorations never add box spacing that desynchronises the caret", () 
   // padding proved to desynchronise the map as well: every line below a spaced
   // heading was offset, so the caret landed a line away from the click.
   const css = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
-  const live = css.slice(css.indexOf("Live preview: a document"));
-  const headingRules = [...live.matchAll(/\.cm-md-h(?:eading|\d)\s*\{([^}]*)\}/g)].map((m) => m[1]);
+  const headingRules = [...css.matchAll(/\.cm-md-h(?:eading|\d)\s*\{([^}]*)\}/g)].map((m) => m[1]);
   assert.ok(headingRules.length >= 3, "expected the heading line rules");
   for (const rule of headingRules) {
     assert.ok(!/margin/.test(rule), `heading line rule uses margin: ${rule.trim()}`);

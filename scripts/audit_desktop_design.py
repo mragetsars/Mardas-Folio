@@ -321,16 +321,11 @@ def _open_workspace(page: Any) -> None:
     page.locator("[data-template-id='report']").click()
     page.locator(".codemirror-mount .cm-editor").wait_for(state="visible")
     page.wait_for_timeout(400)
-    page.evaluate(
-        """(doc) => {
-            const ta = document.querySelector('#markdown-editor');
-            const set = Object.getOwnPropertyDescriptor(
-                HTMLTextAreaElement.prototype, 'value').set;
-            set.call(ta, doc);
-            ta.dispatchEvent(new Event('input', {bubbles: true}));
-        }""",
-        SAMPLE,
-    )
+    # The hidden textarea mirrors the editor; changing it does not change the
+    # rendered CodeMirror buffer whose geometry and text we are auditing.
+    page.locator(".cm-content").click()
+    page.keyboard.press("Control+a")
+    page.keyboard.insert_text(SAMPLE)
     page.wait_for_timeout(700)
 
 
@@ -423,6 +418,10 @@ def contrast(dist: Path) -> dict[str, Any]:
             page.locator('[data-view-mode="split"]').click()
             page.wait_for_timeout(800)
             surfaces["workspace"] = page.evaluate(CONTRAST_JS)
+            page.keyboard.press("Control+Shift+P")
+            page.wait_for_timeout(300)
+            surfaces["commands"] = page.evaluate(CONTRAST_JS)
+            page.keyboard.press("Escape")
             page.locator("#settings-button").click()
             page.wait_for_timeout(300)
             surfaces["settings"] = page.evaluate(CONTRAST_JS)
@@ -434,6 +433,21 @@ def contrast(dist: Path) -> dict[str, Any]:
             page.locator("#settings-form button[type='submit']").click()
             page.wait_for_timeout(600)
             surfaces["focus mode"] = page.evaluate(CONTRAST_JS)
+            page.locator("#home-button").click()
+            page.locator("#workflow-quick").click()
+            page.wait_for_timeout(300)
+            surfaces["export"] = page.evaluate(CONTRAST_JS)
+            page.locator("label:has(#show-expert)").click()
+            groups = page.locator(".option-rail-item").evaluate_all(
+                "items => items.map(item => item.dataset.group)"
+            )
+            for group in groups:
+                page.locator(f'.option-rail-item[data-group="{group}"]').click()
+                surfaces[f"export {group}"] = page.evaluate(CONTRAST_JS)
+            page.locator("#export-back").click()
+            page.locator("#workflow-book").click()
+            page.wait_for_timeout(300)
+            surfaces["new book"] = page.evaluate(CONTRAST_JS)
             browser.close()
         report[theme] = surfaces
     return report
@@ -453,7 +467,20 @@ RESPONSIVE_JS = """() => {
 
   // Every control the user needs to keep working must be on screen and big
   // enough to hit. 24px is the floor WCAG 2.2 AA sets for a pointer target.
-  const required = {
+  const newBook = document.querySelector('#book-project-modal:not(.hidden)');
+  const exporting = document.body.dataset.view === 'export';
+  const required = newBook ? {
+    '#book-project-title-input': 'book title',
+    '#book-project-folder-input': 'project folder',
+    '#choose-book-parent': 'project location',
+    '#cancel-book-project': 'cancel project',
+    '#book-project-form button[type="submit"]': 'create project',
+  } : exporting ? {
+    '#validate-button': 'check document',
+    '#export-button': 'create PDF',
+    '#settings-button': 'settings',
+    '#command-button': 'command palette',
+  } : {
     "#workspace-save": "save",
     "#workspace-export": "create PDF",
     "#workspace-validate": "check document",
@@ -506,7 +533,7 @@ RESPONSIVE_JS = """() => {
 
   // A pane track that has collapsed to nothing takes the document with it.
   const editor = document.querySelector(".editor-pane");
-  if (editor) {
+  if (editor && editor.offsetParent !== null && !newBook) {
     const box = editor.getBoundingClientRect();
     if (box.width < 240) problems.push(`editor pane is only ${Math.round(box.width)}px wide`);
   }
@@ -524,6 +551,47 @@ RESPONSIVE_JS = """() => {
   }
   return problems;
 }"""
+
+
+FOCUS_REACHABILITY_JS = """controls => {
+  const problems = [];
+  for (const control of controls) {
+    if (control.disabled || control.closest('[data-inactive="true"]')
+        || control.offsetParent === null) continue;
+    // Native focus scrolls the same containers as keyboard navigation. Probe
+    // the visible label for a visually hidden switch's 1px input.
+    control.focus();
+    const target = control.closest('.toggle') || control;
+    const box = target.getBoundingClientRect();
+    const x = box.left + box.width / 2, y = box.top + box.height / 2;
+    const at = document.elementFromPoint(x, y);
+    if (box.top < 0 || box.bottom > innerHeight || box.left < 0 || box.right > innerWidth
+        || !at || (at !== target && !target.contains(at))) {
+      const name = control.id || control.name || control.className || control.tagName;
+      const covering = at ? (at.id || at.className || at.tagName) : 'outside viewport';
+      problems.push(`${name} cannot be reached after keyboard focus (${Math.round(box.top)}..${Math.round(box.bottom)}; ${covering})`);
+    }
+  }
+  return problems;
+}"""
+
+
+def _export_reachability(page: Any) -> list[str]:
+    problems: list[str] = []
+    page.locator("label:has(#show-expert)").click()
+    groups = page.locator(".option-rail-item").evaluate_all(
+        "items => items.map(item => item.dataset.group)"
+    )
+    for group in groups:
+        tab = page.locator(f'.option-rail-item[data-group="{group}"]')
+        tab.evaluate("node => node.scrollIntoView({block: 'center'})")
+        tab.click()
+        problems.extend(f"{group}: {problem}" for problem in page.locator(
+            "#option-pane input, #option-pane select, #option-pane button"
+        ).evaluate_all(FOCUS_REACHABILITY_JS))
+    problems.extend(page.locator("#choose-source, #choose-output, #output-path")
+                    .evaluate_all(FOCUS_REACHABILITY_JS))
+    return problems
 
 
 def responsive(dist: Path, *, locale: str = "en", theme: str = "light") -> dict[str, Any]:
@@ -557,6 +625,16 @@ def responsive(dist: Path, *, locale: str = "en", theme: str = "light") -> dict[
                 page.wait_for_timeout(500)
                 key = f"{width}x{height}" if view == "write" else f"{width}x{height} split"
                 findings[key] = page.evaluate(RESPONSIVE_JS)
+            page.locator("#home-button").click()
+            page.locator("#workflow-quick").click()
+            findings[f"{width}x{height} export"] = _export_reachability(page)
+            findings[f"{width}x{height} export"].extend(page.evaluate(RESPONSIVE_JS))
+            page.locator("#export-back").click()
+            page.locator("#workflow-book").click()
+            findings[f"{width}x{height} new book"] = page.locator(
+                "#book-project-form input, #book-project-form select, #book-project-form button"
+            ).evaluate_all(FOCUS_REACHABILITY_JS)
+            findings[f"{width}x{height} new book"].extend(page.evaluate(RESPONSIVE_JS))
             page.close()
         browser.close()
     return findings
@@ -580,6 +658,13 @@ def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
             page = context.new_page()
             page.set_default_timeout(30_000)
             page.add_init_script(INIT_SCRIPT)
+            page.add_init_script(
+                "localStorage.setItem('mardas.desktop.preferences.v1', "
+                + json.dumps(json.dumps({"theme": theme}))
+                + "); localStorage.setItem('mardas.desktop.locale', "
+                + json.dumps(locale)
+                + ");"
+            )
             errors: list[str] = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto(url, wait_until="networkidle")
@@ -591,7 +676,6 @@ def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
 
             snap("01-onboarding")
             _dismiss_onboarding(page)
-            _apply(page, theme, locale)
             snap("02-start")
             page.locator("#settings-button").click()
             page.wait_for_timeout(300)
@@ -627,6 +711,14 @@ def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
             snap("06-command-palette")
             page.keyboard.press("Escape")
             page.wait_for_timeout(200)
+            page.locator("#home-button").click()
+            page.locator("#workflow-quick").click()
+            page.wait_for_timeout(300)
+            snap("07-export")
+            page.locator("#export-back").click()
+            page.locator("#workflow-book").click()
+            page.wait_for_timeout(300)
+            snap("08-new-book")
             if errors:
                 print(f"  {label}: page errors {errors[:2]}", file=sys.stderr)
             browser.close()

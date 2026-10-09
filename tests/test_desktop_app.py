@@ -421,8 +421,13 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     assert '.author-sidebar:focus-within .sidebar-panel.active' in workspace_css
     assert '@media (max-width: 980px)' in workspace_css
     assert '@media (max-width: 900px)' in workspace_css
-    assert 'padding-inline-start: calc(var(--tab-sidebar-offset) + 10px)' in workspace_css
-    assert 'padding-inline-end: calc(var(--tab-preview-offset) + 10px)' in workspace_css
+    # The tab strip tracks both resizable panes; the visual gutter can change
+    # without changing this logical alignment contract in either direction.
+    for edge, pane in (("start", "sidebar"), ("end", "preview")):
+        assert re.search(
+            rf"padding-inline-{edge}:\s*calc\(var\(--tab-{pane}-offset\)\s*\+\s*[1-9]\d*px\)",
+            workspace_css,
+        )
 
 
 def test_workbench_takes_its_direction_from_the_interface_language() -> None:
@@ -918,20 +923,23 @@ def test_switch_inputs_cannot_overflow_or_swallow_clicks() -> None:
     """
     styles = (DESKTOP / "frontend" / "styles.css").read_text(encoding="utf-8")
 
-    assert ".toggle{" in styles
-    toggle_rule = styles.split(".toggle{", 1)[1].split("}", 1)[0]
-    assert "position:relative" in toggle_rule
+    def declarations(selector: str) -> dict[str, str]:
+        match = re.search(rf"(?m)^{re.escape(selector)}\s*\{{([^}}]*)\}}", styles)
+        assert match is not None, f"missing rule for {selector}"
+        return dict(re.findall(r"([\w-]+)\s*:\s*([^;]+);?", match.group(1)))
 
-    assert ".toggle input{" in styles
-    input_rule = styles.split(".toggle input{", 1)[1].split("}", 1)[0]
-    assert "width:1px" in input_rule
-    assert "height:1px" in input_rule
-    assert "min-height:0" in input_rule
-    assert "pointer-events:none" in input_rule
+    toggle_rule = declarations(".toggle")
+    assert toggle_rule["position"] == "relative"
+
+    input_rule = declarations(".toggle input")
+    assert input_rule["width"] == "1px"
+    assert input_rule["height"] == "1px"
+    assert input_rule["min-height"] == "0"
+    assert input_rule["pointer-events"] == "none"
     # Still focusable: display:none or visibility:hidden would drop it from the
     # tab order and break the keyboard path to the setting.
-    assert "display:none" not in input_rule
-    assert "visibility:hidden" not in input_rule
+    assert input_rule.get("display") != "none"
+    assert input_rule.get("visibility") != "hidden"
 
 
 def test_live_preview_mode_is_presentation_only() -> None:
@@ -1052,8 +1060,8 @@ def test_editor_images_load_through_a_bounded_asset_scope() -> None:
     """Rendering local images must not hand the webview the filesystem.
 
     The asset protocol ships with an empty scope. Opening a document widens it
-    by exactly that document's own directory, non-recursively, so a Markdown
-    file can show the images beside it and nothing else.
+    by a bounded inventory of individual images below that document's own
+    directory. Nested asset folders work without granting text or symlinks.
     """
     config = json.loads((TAURI / "tauri.conf.json").read_text(encoding="utf-8"))
     security = config["app"]["security"]
@@ -1064,8 +1072,17 @@ def test_editor_images_load_through_a_bounded_asset_scope() -> None:
     main_rs = (TAURI / "src" / "main.rs").read_text(encoding="utf-8")
     assert "fn allow_document_images" in main_rs
     assert "asset_protocol_scope()" in main_rs
-    # Non-recursive: the second argument to allow_directory is the recursion flag.
-    assert "allow_directory(&directory, false)" in main_rs
+    grant = main_rs.split("async fn allow_document_images", 1)[1].split("fn document_image_paths", 1)[0]
+    assert ".allow_file(image)" in grant
+    assert "allow_directory" not in grant, "never grant a directory wildcard"
+    assert "document_image_paths(Path::new(&path), 4096)" in grant
+    inventory = main_rs.split("fn document_image_paths", 1)[1].split("#[tauri::command]", 1)[0]
+    assert "inspected > max_entries" in inventory
+    assert "depth < 8" in inventory
+    assert "kind.is_symlink()" in inventory
+    assert "canonical.starts_with(&directory)" in inventory
+    assert "kind.is_file()" in inventory
+    assert '"png" | "jpg" | "jpeg" | "webp" | "gif" | "svg"' in inventory
     assert "canonicalize()" in main_rs, "resolve the directory before trusting it"
 
     main_js = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
