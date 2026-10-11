@@ -1,4 +1,4 @@
-import { autocompletion, snippetCompletion } from "@codemirror/autocomplete";
+import { autocompletion, completionKeymap, snippetCompletion } from "@codemirror/autocomplete";
 import { indentLess, indentMore, redo, undo } from "@codemirror/commands";
 import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
@@ -21,6 +21,12 @@ import {
 import { EditorView, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 
+import {
+  authoringToolsTheme,
+  readOnlyDocumentGuard,
+  selectionToolbarExtension,
+  slashCompletionSource,
+} from "./authoring-tools.mjs";
 import { mardasEditorAppearance } from "./editor-theme.mjs";
 import { editorModeExtension, normalizeEditorMode } from "./live-preview.mjs";
 import {
@@ -111,8 +117,12 @@ function normalizedCompletions(provider) {
   return [...unique.values()];
 }
 
-function completionSource(provider) {
+function completionSource(provider, getLocale) {
+  const slash = slashCompletionSource(getLocale);
   return (context) => {
+    if (context.state.readOnly) return null;
+    const block = slash(context);
+    if (block) return block;
     const citation = context.matchBefore(/@[\p{L}\p{N}_.:-]*/u);
     if (citation) {
       const options = normalizedCompletions(provider);
@@ -121,7 +131,9 @@ function completionSource(provider) {
     }
 
     const token = context.matchBefore(/[\p{L}\p{N}_-]*/u);
-    if (!context.explicit && (!token || token.from === token.to)) return null;
+    // Blocks have an explicit `/` affordance. Ordinary prose should not
+    // raise a menu whenever it happens to begin with "heading" or "link".
+    if (!context.explicit) return null;
     return {
       from: token?.from ?? context.pos,
       options: MARKDOWN_SNIPPETS,
@@ -167,6 +179,9 @@ function severity(value) {
 const APPLICATION_OWNED_KEYS = [
   { key: "Mod-f", run: () => true },
   { key: "Mod-h", run: () => true },
+  { key: "Mod-p", run: () => true },
+  { key: "Mod-Shift-p", run: () => true },
+  { key: "Mod-Shift-o", run: () => true },
 ];
 
 /**
@@ -274,6 +289,7 @@ export function createCodeMirrorEditorAdapter(
     resolveAsset,
     theme,
     mode,
+    locale = "en",
     typewriter = false,
   } = {},
 ) {
@@ -295,6 +311,8 @@ export function createCodeMirrorEditorAdapter(
 
   let suppressCallbacks = false;
   let disabled = Boolean(textarea.disabled);
+  let readerMode = Boolean(textarea.readOnly);
+  let editorLocale = locale === "fa" ? "fa" : "en";
   let appearanceMode = theme === "dark" || theme === "light" ? theme : documentTheme();
   let editorMode = normalizeEditorMode(mode);
   let typewriterEnabled = Boolean(typewriter);
@@ -305,6 +323,12 @@ export function createCodeMirrorEditorAdapter(
   const appearance = new Compartment();
   const preview = new Compartment();
   const writingRhythm = new Compartment();
+  const selectionTools = new Compartment();
+
+  const accessExtensions = () => [
+    EditorState.readOnly.of(disabled || readerMode),
+    EditorView.editable.of(!disabled && !readerMode),
+  ];
 
   const extensions = [
         basicSetup,
@@ -324,11 +348,17 @@ export function createCodeMirrorEditorAdapter(
         appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
         preview.of(editorModeExtension(editorMode, { resolveAsset, strings: editorText })),
         writingRhythm.of(typewriterExtension(typewriterEnabled)),
+        selectionTools.of(selectionToolbarExtension(editorLocale, editorMode === "live")),
+        authoringToolsTheme,
+        // The read-only facet prevents ordinary typing. This also protects
+        // transactions from custom commands, history and rendered widgets.
+        readOnlyDocumentGuard,
         EditorState.allowMultipleSelections.of(true),
         // Formatting keys are bound above everything else. Bound on the window
         // instead, they could not see that CodeMirror had already acted on the
         // same key — which is how Ctrl+I came to expand the selection to its
         // parent syntax node *and* wrap the result in underscores.
+        Prec.highest(keymap.of(completionKeymap)),
         Prec.highest(keymap.of([
           ...markdownCommandKeymap(),
           ...APPLICATION_OWNED_KEYS,
@@ -361,12 +391,9 @@ export function createCodeMirrorEditorAdapter(
         autocompletion({
           activateOnTyping: true,
           maxRenderedOptions: 80,
-          override: [completionSource(getCompletions)],
+          override: [completionSource(getCompletions, () => editorLocale)],
         }),
-        readOnly.of([
-          EditorState.readOnly.of(disabled),
-          EditorView.editable.of(!disabled),
-        ]),
+        readOnly.of(accessExtensions()),
         // No `dir` on the content element.
         //
         // It carried `dir="auto"`, which cannot work here: every line inside
@@ -397,10 +424,11 @@ export function createCodeMirrorEditorAdapter(
 
   function restorePresentation(scrollSnapshot) {
     view.dispatch({ effects: [
-      readOnly.reconfigure([EditorState.readOnly.of(disabled), EditorView.editable.of(!disabled)]),
+      readOnly.reconfigure(accessExtensions()),
       appearance.reconfigure(mardasEditorAppearance(appearanceMode === "dark")),
       preview.reconfigure(editorModeExtension(editorMode, { resolveAsset, strings: editorText })),
       writingRhythm.reconfigure(typewriterExtension(typewriterEnabled)),
+      selectionTools.reconfigure(selectionToolbarExtension(editorLocale, editorMode === "live")),
       ...(scrollSnapshot ? [scrollSnapshot] : []),
     ] });
   }
@@ -434,6 +462,10 @@ export function createCodeMirrorEditorAdapter(
       suppressCallbacks = true;
       try {
         view.dispatch({
+          // Replacing the model value is application synchronization, rather
+          // than a writing command. It remains available while the workspace
+          // is reading or clearing a disabled document.
+          filter: false,
           annotations: Transaction.userEvent.of("input"),
           changes: { from: 0, to: view.state.doc.length, insert: next },
           selection: EditorSelection.cursor(Math.min(view.state.selection.main.head, next.length)),
@@ -504,12 +536,21 @@ export function createCodeMirrorEditorAdapter(
       disabled = next;
       textarea.disabled = next;
       view.dispatch({
-        effects: readOnly.reconfigure([
-          EditorState.readOnly.of(next),
-          EditorView.editable.of(!next),
-        ]),
+        effects: readOnly.reconfigure(accessExtensions()),
       });
-      mount.dataset.readOnly = String(next);
+      mount.dataset.readOnly = String(disabled || readerMode);
+    },
+    get readOnly() {
+      return readerMode;
+    },
+    setReadOnly(value) {
+      const next = Boolean(value);
+      if (next === readerMode) return readerMode;
+      readerMode = next;
+      textarea.readOnly = next;
+      view.dispatch({ effects: readOnly.reconfigure(accessExtensions()) });
+      mount.dataset.readOnly = String(disabled || readerMode);
+      return readerMode;
     },
     focus(options) {
       view.contentDOM.focus(options);
@@ -547,6 +588,7 @@ export function createCodeMirrorEditorAdapter(
       return { line: line.number, column: safeOffset - line.from + 1 };
     },
     replaceRange(start, end, value, selectionStart, selectionEnd) {
+      if (disabled || readerMode) return false;
       const documentLength = view.state.doc.length;
       const from = clampOffset(start, documentLength);
       const to = Math.max(from, clampOffset(end, documentLength));
@@ -562,21 +604,23 @@ export function createCodeMirrorEditorAdapter(
         selection: EditorSelection.single(selectionFrom, selectionTo),
       });
       view.focus();
+      return true;
     },
     setAriaLabel(value) {
       view.contentDOM.setAttribute("aria-label", String(value || "Markdown editor"));
     },
     setLocale(locale, nextStrings) {
-      view.contentDOM.lang = locale === "fa" ? "fa" : "en";
+      editorLocale = locale === "fa" ? "fa" : "en";
+      view.contentDOM.lang = editorLocale;
       view.contentDOM.removeAttribute("dir");
-      if (!nextStrings) return;
-      editorText = { ...nextStrings };
+      if (nextStrings) editorText = { ...nextStrings };
       // Reconfiguring the mode is what puts the new text into the widgets;
       // they are built from a facet the extension carries.
       view.dispatch({
-        effects: preview.reconfigure(
-          editorModeExtension(editorMode, { resolveAsset, strings: editorText }),
-        ),
+        effects: [
+          preview.reconfigure(editorModeExtension(editorMode, { resolveAsset, strings: editorText })),
+          selectionTools.reconfigure(selectionToolbarExtension(editorLocale, editorMode === "live")),
+        ],
       });
     },
     get mode() {
@@ -593,9 +637,10 @@ export function createCodeMirrorEditorAdapter(
       if (next === editorMode) return editorMode;
       editorMode = next;
       view.dispatch({
-        effects: preview.reconfigure(
-          editorModeExtension(next, { resolveAsset, strings: editorText }),
-        ),
+        effects: [
+          preview.reconfigure(editorModeExtension(next, { resolveAsset, strings: editorText })),
+          selectionTools.reconfigure(selectionToolbarExtension(editorLocale, next === "live")),
+        ],
       });
       mount.dataset.mode = next;
       view.dom.dataset.editorMode = next;
@@ -628,7 +673,7 @@ export function createCodeMirrorEditorAdapter(
      * it was asked for.
      */
     runCommand(name) {
-      if (disabled) return false;
+      if (disabled || readerMode) return false;
       if (name === "undo") return undo(view);
       if (name === "redo") return redo(view);
       return runMarkdownCommand(view, name);
@@ -674,7 +719,7 @@ export function createCodeMirrorEditorAdapter(
     },
   };
 
-  mount.dataset.readOnly = String(disabled);
+  mount.dataset.readOnly = String(disabled || readerMode);
   mount.dataset.mode = editorMode;
   view.dom.dataset.editorMode = editorMode;
   return adapter;

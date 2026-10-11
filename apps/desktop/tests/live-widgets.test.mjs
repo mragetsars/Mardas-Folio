@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ImageWidget } from "../editor-src/live-widgets.mjs";
+import { ImageWidget, TableWidget, tableContentDirection } from "../editor-src/live-widgets.mjs";
 
 /**
  * Enough of a document to build one widget and read it back.
@@ -91,4 +91,32 @@ test("two widgets differ when their path or their message does", () => {
   assert.ok(base.eq(new ImageWidget("u", "a", "images/one.png", "Image not found")));
   assert.ok(!base.eq(new ImageWidget("u", "a", "images/two.png", "Image not found")));
   assert.ok(!base.eq(new ImageWidget("u", "a", "images/one.png", "تصویر پیدا نشد")));
+});
+
+test("live table column order follows content in either interface direction", () => {
+  const cases = [
+    ["| Option | Default |\n| --- | --- |\n| Width | Narrow |", "ltr"],
+    ["| گزینه | مقدار |\n| --- | --- |\n| پهنا | کم |", "rtl"],
+    ["| 1 | 2 |\n| --- | --- |\n| 10 | 20 |", "ltr"],
+    ["| 1 | گزینه |\n| --- | --- |\n| 10 | value |", "rtl"],
+    ["| Επιλογή | Значение |\n| --- | --- |", "ltr"],
+  ];
+  const previous = globalThis.document;
+  try {
+    for (const interfaceDirection of ["ltr", "rtl"]) {
+      const shim = fakeDocument();
+      globalThis.document = { createElement: shim.createElement, documentElement: { dir: interfaceDirection } };
+      for (const [markup, expected] of cases) {
+        assert.equal(tableContentDirection(markup), expected);
+        const wrapper = new TableWidget(markup, 0, markup.length).toDOM();
+        assert.equal(wrapper.dir, expected);
+        assert.equal(wrapper.children[0].dir, expected);
+        const cells = wrapper.children[0].children[0].children[0].children;
+        assert.equal(cells[0].textContent, markup.split("|")[1].trim());
+        assert.equal(cells[0].dir, "auto");
+      }
+    }
+  } finally {
+    globalThis.document = previous;
+  }
 });

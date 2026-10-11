@@ -17,6 +17,7 @@ export function createEditorAdapter(element, { onChange, onSelectionChange, onSc
   let activeDocumentId = null;
   let retainedDocuments = new Set();
   const documents = new Map();
+  let readerMode = Boolean(element.readOnly);
 
   element.addEventListener("input", change);
   element.addEventListener("click", selection);
@@ -85,6 +86,14 @@ export function createEditorAdapter(element, { onChange, onSelectionChange, onSc
     set disabled(value) {
       element.disabled = Boolean(value);
     },
+    get readOnly() {
+      return readerMode;
+    },
+    setReadOnly(value) {
+      readerMode = Boolean(value);
+      element.readOnly = readerMode;
+      return readerMode;
+    },
     focus(options) {
       element.focus(options);
     },
@@ -115,6 +124,7 @@ export function createEditorAdapter(element, { onChange, onSelectionChange, onSc
       };
     },
     replaceRange(start, end, value, selectionStart, selectionEnd) {
+      if (element.disabled || readerMode) return false;
       const text = element.value;
       const replacement = String(value ?? "");
       element.value = `${text.slice(0, start)}${replacement}${text.slice(end)}`;
@@ -122,6 +132,7 @@ export function createEditorAdapter(element, { onChange, onSelectionChange, onSc
       const to = selectionEnd ?? from;
       element.setSelectionRange(from, to);
       change();
+      return true;
     },
     destroy() {
       documents.clear();

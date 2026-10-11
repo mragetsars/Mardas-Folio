@@ -342,7 +342,7 @@ export function markdownCommandNames() {
  */
 export function runMarkdownCommand(view, name) {
   const command = MARKDOWN_COMMANDS[name];
-  if (!command || !view) return false;
+  if (!command || !view || view.state.readOnly) return false;
   const transaction = command(view.state);
   if (!transaction) return false;
   view.dispatch(transaction);
@@ -408,6 +408,7 @@ const EMPTY_BLOCK_LINE = /^(\s*)(?:[-*+]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]*)?$|^(\
  */
 export function exitEmptyBlock(view) {
   const { state } = view;
+  if (state.readOnly) return false;
   const { main } = state.selection;
   if (!main.empty) return false;
   const line = state.doc.lineAt(main.head);

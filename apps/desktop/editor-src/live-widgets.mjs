@@ -66,6 +66,12 @@ function splitRow(line) {
 
 const isAlignmentRow = (cells) => cells.every((cell) => /^:?-{1,}:?$/.test(cell.trim()));
 
+/** The table's column order belongs to its content, not the interface locale. */
+export function tableContentDirection(markup) {
+  const firstLetter = String(markup).match(/\p{L}/u)?.[0];
+  return firstLetter && /[\u0590-\u08ff\uFB1D-\uFDFF\uFE70-\uFEFF]/u.test(firstLetter) ? "rtl" : "ltr";
+}
+
 /**
  * A rendered GitHub table.
  *
@@ -102,7 +108,7 @@ const LINE_HEIGHT = 26;
 const TABLE_BLOCK_PADDING = 27;
 const FRONT_MATTER_BLOCK_PADDING = 16;
 
-class TableWidget extends WidgetType {
+export class TableWidget extends WidgetType {
   constructor(markup, from, to) {
     super();
     this.markup = markup;
@@ -129,6 +135,7 @@ class TableWidget extends WidgetType {
     const wrapper = document.createElement("div");
     wrapper.className = "cm-md-table";
     const table = document.createElement("table");
+    wrapper.dir = table.dir = tableContentDirection(this.markup);
     let body = null;
 
     const rows = this.rows();
@@ -343,9 +350,11 @@ export class TaskWidget extends WidgetType {
     box.type = "checkbox";
     box.className = "cm-md-task";
     box.checked = this.checked;
+    box.disabled = view.state.readOnly;
     box.setAttribute("aria-label", this.checked ? "Completed task" : "Task");
     box.addEventListener("mousedown", (event) => event.preventDefault());
     box.addEventListener("change", () => {
+      if (view.state.readOnly) return;
       view.dispatch({
         changes: { from: this.from, to: this.to, insert: this.checked ? "[ ]" : "[x]" },
       });

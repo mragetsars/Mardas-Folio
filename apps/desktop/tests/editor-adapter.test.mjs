@@ -9,6 +9,7 @@ class FakeTextArea {
     this.selectionEnd = 0;
     this.scrollTop = 0;
     this.disabled = false;
+    this.readOnly = false;
     this.listeners = new Map();
     this.focused = false;
   }
@@ -89,6 +90,29 @@ test("fallback editor restores each document's selection and scroll independentl
   editor.setDocument("a", "first document", { initialSelection: 1 });
   assert.equal(editor.selectionStart, 1);
   assert.equal(editor.scrollTop, 0);
+  editor.destroy();
+  delete globalThis.HTMLTextAreaElement;
+});
+
+test("fallback reading mode blocks editing independently of a disabled editor", () => {
+  globalThis.HTMLTextAreaElement = FakeTextArea;
+  const element = new FakeTextArea();
+  const editor = createEditorAdapter(element);
+  editor.setDocument("a", "keep this document");
+  assert.equal(editor.setReadOnly(true), true);
+  assert.equal(editor.readOnly, true);
+  assert.equal(element.readOnly, true);
+  assert.equal(editor.disabled, false);
+  assert.equal(editor.replaceRange(0, 4, "lose"), false);
+  assert.equal(editor.value, "keep this document");
+  editor.setSelectionRange(5, 9);
+  assert.equal(editor.selectionStart, 5);
+  editor.setReadOnly(false);
+  editor.disabled = true;
+  assert.equal(editor.replaceRange(0, 4, "lose"), false);
+  editor.disabled = false;
+  assert.equal(editor.replaceRange(0, 4, "edit"), true);
+  assert.equal(editor.value, "edit this document");
   editor.destroy();
   delete globalThis.HTMLTextAreaElement;
 });
