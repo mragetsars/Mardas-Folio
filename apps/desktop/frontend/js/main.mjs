@@ -769,8 +769,8 @@ function commandDefinitions() {
   return [
     ...[
       ["bold", "bold", "pencil"], ["italic", "italic", "pencil"], ["strike", "strikethrough", "pencil"],
-      ["link", "link", "link"], ["code", "code", "source"], ["bullet-list", "bulletList", "list"],
-      ["ordered-list", "orderedList", "list"], ["task-list", "taskList", "quality"], ["quote", "blockQuote", "quote"],
+      ["link", "link", "link"], ["code", "code", "source"], ["bullet-list", "bulletList", "outline"],
+      ["ordered-list", "orderedList", "outline"], ["task-list", "taskList", "quality"], ["quote", "blockQuote", "quote"],
       ["table", "insertTable", "table"], ["code-block", "codeBlock", "source"], ["callout", "insertCallout", "callout"],
       ["rule", "horizontalRule", "rule"],
     ].map(([command, label, symbol]) => ({ id: `format-${command}`, symbol, label: t(label), keywords: `${command} markdown format قالب بندی`, priority: 45, enabled: canEdit, run: () => editorCommand(command) })),
@@ -795,11 +795,11 @@ function commandDefinitions() {
     { id: "updates", symbol: "update", label: t("commandCheckUpdates"), keywords: "update upgrade release version", priority: 37, run: () => { openSettings(); setTimeout(() => checkUpdates(), 0); } },
     // The constructs with no button of their own, so the palette can reach
     // them by name as well as the Insert menu by picture.
-    { id: "insert-footnote", symbol: "footnote", label: t("insertFootnote"), keywords: "footnote note reference پانویس", priority: 46, enabled: hasDocument, run: () => editorCommand("footnote") },
-    { id: "insert-math-inline", symbol: "maths", label: t("insertMathInline"), keywords: "math formula equation latex فرمول ریاضی", priority: 45, enabled: hasDocument, run: () => editorCommand("math-inline") },
-    { id: "insert-math-block", symbol: "maths-block", label: t("insertMathBlock"), keywords: "math display block equation فرمول", priority: 44, enabled: hasDocument, run: () => editorCommand("math-block") },
-    { id: "insert-diagram", symbol: "diagram", label: t("insertDiagram"), keywords: "mermaid diagram graph chart نمودار", priority: 43, enabled: hasDocument, run: () => editorCommand("mermaid") },
-    { id: "insert-highlight", symbol: "highlight", label: t("insertHighlight"), keywords: "highlight mark هایلایت", priority: 43, enabled: hasDocument, run: () => editorCommand("highlight") },
+    { id: "insert-footnote", symbol: "footnote", label: t("insertFootnote"), keywords: "footnote note reference پانویس", priority: 46, enabled: canEdit, run: () => editorCommand("footnote") },
+    { id: "insert-math-inline", symbol: "maths", label: t("insertMathInline"), keywords: "math formula equation latex فرمول ریاضی", priority: 45, enabled: canEdit, run: () => editorCommand("math-inline") },
+    { id: "insert-math-block", symbol: "maths-block", label: t("insertMathBlock"), keywords: "math display block equation فرمول", priority: 44, enabled: canEdit, run: () => editorCommand("math-block") },
+    { id: "insert-diagram", symbol: "diagram", label: t("insertDiagram"), keywords: "mermaid diagram graph chart نمودار", priority: 43, enabled: canEdit, run: () => editorCommand("mermaid") },
+    { id: "insert-highlight", symbol: "highlight", label: t("insertHighlight"), keywords: "highlight mark هایلایت", priority: 43, enabled: canEdit, run: () => editorCommand("highlight") },
     { id: "view-write", symbol: "pencil", label: t("viewWrite"), keywords: "write live formatted wysiwyg نوشتن", priority: 42, run: () => setViewMode("write") },
     { id: "view-source", symbol: "source", label: t("viewSource"), keywords: "source raw markdown سورس", priority: 41, run: () => setViewMode("source") },
     { id: "view-read", symbol: "book", label: t("viewRead"), keywords: "reading readonly خواندن مطالعه", priority: 41, enabled: hasDocument, run: () => setViewMode("read") },
