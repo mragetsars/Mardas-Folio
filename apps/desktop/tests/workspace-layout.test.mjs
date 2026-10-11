@@ -22,6 +22,8 @@ test("workspace layout normalizes visibility and bounded pane widths", () => {
   assert.equal(clampWorkspaceWidth("sidebar", 9999), 420);
   assert.equal(clampWorkspaceWidth("preview", 10), 340);
   assert.equal(clampWorkspaceWidth("preview", 9999), 760);
+  assert.equal(clampWorkspaceWidth("files", 10), 208);
+  assert.equal(clampWorkspaceWidth("files", 9999), 360);
   assert.throws(() => clampWorkspaceWidth("unknown", 300), /Unknown workspace pane/);
 });
 

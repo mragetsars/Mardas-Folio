@@ -201,28 +201,160 @@
 
     <section class="view workspace-view" id="workspace-view">
       <header class="author-toolbar" data-i18n-aria-label="authoringToolbar" aria-label="نوار ابزار نویسندگی">
-        <div class="toolbar-group toolbar-file-actions">
+        <div class="toolbar-group workspace-navigation">
           <button class="toolbar-icon-button" id="workspace-home" type="button" data-i18n-title="startCenter" title="مرکز شروع" aria-label="مرکز شروع"><svg class="ui-icon" aria-hidden="true"><use href="#icon-home"></use></svg></button>
-          <span class="toolbar-divider" aria-hidden="true"></span>
-          <button class="button secondary compact" id="workspace-new" type="button" data-i18n="newDocument">سند جدید</button>
-          <button class="button secondary compact" id="workspace-open" type="button" data-i18n="openDocuments">باز کردن</button>
-          <button class="button primary compact" id="workspace-save" type="button" data-i18n="save">ذخیره</button>
-          <button class="button secondary compact toolbar-optional-label" id="workspace-save-as" type="button" data-i18n="saveAs">ذخیره با نام</button>
+          <button class="toolbar-icon-button" id="workspace-toggle-files" type="button" aria-controls="file-navigator" aria-pressed="true" data-i18n-title="toggleFiles" title="فایل‌ها" aria-label="فایل‌ها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-panel-left"></use></svg></button>
+          <button class="quick-open-button" id="workspace-quick-open" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg><span data-i18n="quickOpen">رفتن به فایل</span><kbd>Ctrl P</kbd></button>
         </div>
+        <div class="document-identity"><strong id="editor-title" data-i18n="untitled">بدون عنوان</strong><small id="editor-path" dir="auto"></small><span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span></div>
         <div class="toolbar-group toolbar-publish-actions">
-          <div class="layout-controls" data-i18n-aria-label="workspaceLayout" aria-label="چیدمان فضای کار">
-            <button class="toolbar-icon-button" id="workspace-toggle-sidebar" type="button" aria-controls="author-sidebar" aria-pressed="true" data-i18n-title="toggleSidebar" title="نمایش یا پنهان‌کردن نوار کناری" aria-label="نمایش یا پنهان‌کردن نوار کناری"><svg class="ui-icon" aria-hidden="true"><use href="#icon-panel-left"></use></svg></button>
-          </div>
-          <span class="toolbar-divider" aria-hidden="true"></span>
-          <button class="button secondary compact" id="workspace-validate" type="button" data-i18n="checkDocument">بررسی سند</button>
-          <button class="button primary compact" id="workspace-export" type="button" data-i18n="exportPdf">ساخت PDF</button>
+          <button class="button secondary compact document-save-button" id="workspace-save" type="button" data-i18n-aria-label="save" aria-label="ذخیره"><svg class="ui-icon" aria-hidden="true"><use href="#icon-save"></use></svg><span data-i18n="save">ذخیره</span></button>
+          <button class="button secondary compact document-export-button" id="workspace-export" type="button" data-i18n-aria-label="exportPdf" aria-label="ساخت PDF"><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg><span data-i18n="exportPdf">ساخت PDF</span></button>
+          <details class="document-actions" id="document-actions-menu">
+            <summary class="toolbar-icon-button" data-i18n-title="documentActions" title="عملیات سند" data-i18n-aria-label="documentActions" aria-label="عملیات سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more"></use></svg></summary>
+            <div class="document-actions-popover">
+              <button id="workspace-new" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span data-i18n="newDocument">سند جدید</span><kbd>Ctrl N</kbd></button>
+              <button id="workspace-open" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg><span data-i18n="openDocuments">باز کردن</span><kbd>Ctrl O</kbd></button>
+              <button id="workspace-save-as" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-save-as"></use></svg><span data-i18n="saveAs">ذخیره با نام</span><kbd>Ctrl Shift S</kbd></button>
+              <span class="popover-divider" role="separator"></span>
+              <button id="workspace-validate" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-quality"></use></svg><span data-i18n="checkDocument">بررسی سند</span></button>
+              <button id="workspace-commands" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-command"></use></svg><span data-i18n="commandPalette">فرمان‌ها</span><kbd>Ctrl Shift P</kbd></button>
+              <button id="workspace-settings" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-settings"></use></svg><span data-i18n="settings">تنظیمات</span></button>
+              <button id="workspace-help" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-help"></use></svg><span data-i18n="help">راهنما</span><kbd>F1</kbd></button>
+            </div>
+          </details>
         </div>
       </header>
 
 
       <div class="authoring-grid">
+        <aside class="file-navigator" id="file-navigator" data-i18n-aria-label="files" aria-label="فایل‌ها">
+          <header class="navigator-heading"><strong data-i18n="files">فایل‌ها</strong><div><button class="toolbar-icon-button" id="navigator-new" type="button" data-i18n-title="newDocument" title="سند جدید" aria-label="سند جدید"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg></button><button class="toolbar-icon-button" id="navigator-open" type="button" data-i18n-title="openDocuments" title="باز کردن" aria-label="باز کردن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg></button><button class="toolbar-icon-button" id="navigator-close" type="button" data-i18n-title="closeFiles" title="بستن فایل‌ها" aria-label="بستن فایل‌ها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></div></header>
+          <div class="navigator-content"><section class="navigator-section"><h2 data-i18n="openDocumentList">اسناد باز</h2><div class="open-document-list" id="open-document-list" data-i18n-aria-label="openDocumentList" aria-label="اسناد باز"></div></section><section class="navigator-section navigator-project-section" id="navigator-project-section"><header><h2 data-i18n="projectFiles">فایل‌های پروژه</h2></header><strong class="navigator-project-name" id="navigator-project-name"></strong><div class="navigator-project-files" id="navigator-project-files"></div></section></div>
+          <footer class="navigator-footer"><button class="button secondary compact" id="navigator-open-project" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg><span data-i18n="openProject">باز کردن پروژه</span></button><span class="navigator-quick-hint"><span data-i18n="quickOpen">رفتن به فایل</span><kbd>Ctrl P</kbd></span></footer>
+        </aside>
+        <div class="pane-resizer file-resizer" id="file-resizer" role="separator" aria-orientation="vertical" aria-controls="file-navigator" aria-valuemin="208" aria-valuemax="360" aria-valuenow="248" data-i18n-aria-label="resizeFiles" aria-label="عرض فایل‌ها" tabindex="0"></div>
+        <section class="editor-pane">
+        <div class="tab-bar">
+          <div class="document-tabs" id="document-tabs" role="tablist" data-i18n-aria-label="openDocuments" aria-label="باز کردن چند سند"></div>
+          <button class="toolbar-icon-button tab-new-document" id="tab-new-document" type="button" data-i18n-title="newDocument" title="سند جدید" aria-label="سند جدید"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg></button>
+        </div>
+        <div class="document-toolbar">
+          <div class="view-modes" role="radiogroup" data-i18n-aria-label="viewMode" aria-label="حالت نمایش">
+            <button type="button" class="view-mode" data-view-mode="write" role="radio" aria-checked="true" data-i18n="viewWrite" data-i18n-title="writeModeHelp" title="نوشتن با نمایش قالب‌بندی در همان متن">نوشتن</button>
+            <button type="button" class="view-mode" data-view-mode="source" role="radio" aria-checked="false" data-i18n="viewSource" data-i18n-title="sourceModeHelp" title="ویرایش مستقیم Markdown">سورس</button>
+            <button type="button" class="view-mode" data-view-mode="read" role="radio" aria-checked="false" data-i18n="viewRead" data-i18n-title="readModeHelp" title="مرور سند بدون تغییر متن">خواندن</button>
+            <button type="button" class="view-mode" data-view-mode="split" role="radio" aria-checked="false" data-i18n="viewSplit" data-i18n-title="splitModeHelp" title="سورس و نتیجه کنار هم">دوستونه</button>
+          </div>
+          <div class="document-toolbar-actions">
+            <button type="button" id="insert-menu-button" class="toolbar-icon-button insert-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="insert-menu" data-i18n-title="insertMenu" title="درج" data-i18n-aria-label="insertMenu" aria-label="درج"><svg class="ui-icon" aria-hidden="true"><use href="#icon-insert"></use></svg><span class="toolbar-action-label" data-i18n="insertMenu">درج</span></button>
+            <button class="toolbar-icon-button formatting-toggle" id="workspace-toggle-formatting" type="button" aria-controls="format-bar" aria-pressed="false" data-i18n-title="formattingTools" title="ابزارهای قالب‌بندی" aria-label="ابزارهای قالب‌بندی"><span aria-hidden="true">Aa</span><span class="toolbar-action-label" data-i18n="format">قالب‌بندی</span></button>
+            <button class="toolbar-icon-button" type="button" id="format-find" data-i18n-title="find" title="جست‌وجو" aria-label="جست‌وجو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg></button>
+            <button class="toolbar-icon-button" id="workspace-focus" type="button" aria-pressed="false" data-i18n-title="focusMode" title="حالت تمرکز" aria-label="حالت تمرکز"><svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg></button>
+            <button class="toolbar-icon-button" id="workspace-toggle-sidebar" type="button" aria-controls="author-sidebar" aria-pressed="false" data-i18n-title="toggleDocumentTools" title="ابزارهای سند" aria-label="ابزارهای سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-panel-right"></use></svg></button>
+          </div>
+        </div>
+        <button class="button secondary compact focus-exit" id="exit-focus-mode" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg><span data-i18n="exitFocusMode">خروج از تمرکز</span><kbd>Esc</kbd></button>
+        <div class="format-bar" id="format-bar" role="toolbar" data-i18n-aria-label="formattingTools" aria-label="ابزارهای قالب‌بندی">
+              <div class="format-group">
+                <button type="button" id="heading-menu-button" class="format-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="heading-menu" data-i18n-title="heading" title="عنوان">H<svg class="ui-icon format-caret" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
+              </div>
+              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
+              <div class="format-group" data-format-movable>
+                <button type="button" data-editor-command="bold" data-i18n-title="bold" title="پررنگ"><b>B</b></button>
+                <button type="button" data-editor-command="italic" data-i18n-title="italic" title="مورب"><i>I</i></button>
+                <button type="button" data-editor-command="strike" data-i18n-title="strikethrough" title="خط‌خورده"><s>S</s></button>
+                <button type="button" data-editor-command="code" data-i18n-title="code" title="کد">&lt;/&gt;</button>
+              </div>
+              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
+              <div class="format-group" data-format-movable>
+                <button type="button" data-editor-command="link" data-i18n-title="link" title="پیوند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-link"></use></svg></button>
+                <button type="button" id="workspace-import-asset" data-i18n-title="importAsset" title="افزودن فایل"><svg class="ui-icon" aria-hidden="true"><use href="#icon-image"></use></svg></button>
+                <button type="button" data-editor-command="citation" data-i18n-title="insertCitation" title="درج ارجاع"><svg class="ui-icon" aria-hidden="true"><use href="#icon-citation"></use></svg></button>
+              </div>
+              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
+              <div class="format-group" data-format-movable>
+                <button type="button" data-editor-command="bullet-list" data-i18n-title="bulletList" title="فهرست نقطه‌ای"><svg class="ui-icon" aria-hidden="true"><use href="#icon-contents"></use></svg></button>
+                <button type="button" data-editor-command="ordered-list" data-i18n-title="orderedList" title="فهرست شماره‌دار"><svg class="ui-icon" aria-hidden="true"><use href="#icon-list-ordered"></use></svg></button>
+                <button type="button" data-editor-command="task-list" data-i18n-title="taskList" title="فهرست کارها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-list-task"></use></svg></button>
+              </div>
+              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
+              <div class="format-group" data-format-movable>
+                <button type="button" data-editor-command="undo" data-i18n-title="undo" title="واگرد"><svg class="ui-icon" aria-hidden="true"><use href="#icon-undo"></use></svg></button>
+                <button type="button" data-editor-command="redo" data-i18n-title="redo" title="ازنو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-redo"></use></svg></button>
+              </div>
+              <div class="format-group format-group-overflow hidden" id="format-overflow-group">
+                <button type="button" id="format-overflow-button" aria-haspopup="true" aria-expanded="false" aria-controls="format-overflow-menu" data-i18n-title="moreTools" title="ابزارهای بیشتر" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more"></use></svg></button>
+              </div>
+              </div>
+        <div class="popover-menu format-overflow-menu hidden" id="format-overflow-menu" role="group" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"></div>
+        <!-- Every block construct the engine publishes, in one menu.
+             Quote, callout, table, code block and divider used to be five more
+             unlabelled icons on a twenty-button strip; here each one carries
+             its name and the Markdown it writes, which is the thing a person
+             has to learn. Each inserts the syntax the engine actually parses,
+             so the document stays Markdown and the user can see what was
+             added. Every one of them also keeps its keyboard shortcut and its
+             command-palette entry. -->
+        <div class="popover-menu insert-menu hidden" id="insert-menu" role="menu" aria-labelledby="insert-menu-button">
+          <button type="button" role="menuitem" data-editor-command="table" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-table"></use></svg><span data-i18n="insertTable">جدول</span><code>| … |</code></button>
+          <button type="button" role="menuitem" data-editor-command="code-block" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-code-block"></use></svg><span data-i18n="codeBlock">بلوک کد</span><code>```</code></button>
+          <button type="button" role="menuitem" data-editor-command="quote" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-quote"></use></svg><span data-i18n="blockQuote">نقل‌قول</span><code>&gt; …</code></button>
+          <button type="button" role="menuitem" data-editor-command="callout" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-callout"></use></svg><span data-i18n="insertCallout">کادر یادداشت</span><code>&gt; [!NOTE]</code></button>
+          <button type="button" role="menuitem" data-editor-command="rule" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-rule"></use></svg><span data-i18n="horizontalRule">خط جداکننده</span><code>---</code></button>
+          <span class="popover-divider" role="separator"></span>
+          <button type="button" role="menuitem" id="insert-image" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-image"></use></svg><span data-i18n="insertImage">تصویر</span><code>![]()</code></button>
+          <button type="button" role="menuitem" data-editor-command="footnote" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-footnote"></use></svg><span data-i18n="insertFootnote">پانویس</span><code>[^1]</code></button>
+          <span class="popover-divider" role="separator"></span>
+          <button type="button" role="menuitem" data-editor-command="math-inline" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-maths"></use></svg><span data-i18n="insertMathInline">فرمول در متن</span><code>$…$</code></button>
+          <button type="button" role="menuitem" data-editor-command="math-block" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-maths-block"></use></svg><span data-i18n="insertMathBlock">فرمول مستقل</span><code>$$…$$</code></button>
+          <button type="button" role="menuitem" data-editor-command="mermaid" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-diagram"></use></svg><span data-i18n="insertDiagram">نمودار Mermaid</span><code>mermaid</code></button>
+          <span class="popover-divider" role="separator"></span>
+          <button type="button" role="menuitem" data-editor-command="highlight" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-highlight"></use></svg><span data-i18n="insertHighlight">هایلایت</span><code>==…==</code></button>
+        </div>
+        <div class="popover-menu hidden" id="heading-menu" role="menu" aria-labelledby="heading-menu-button">
+          <button type="button" role="menuitem" data-editor-command="heading-1" class="heading-choice heading-choice-1">H1</button>
+          <button type="button" role="menuitem" data-editor-command="heading-2" class="heading-choice heading-choice-2">H2</button>
+          <button type="button" role="menuitem" data-editor-command="heading-3" class="heading-choice heading-choice-3">H3</button>
+          <button type="button" role="menuitem" data-editor-command="heading-4" class="heading-choice heading-choice-4">H4</button>
+          <button type="button" role="menuitem" data-editor-command="heading-5" class="heading-choice heading-choice-5">H5</button>
+          <button type="button" role="menuitem" data-editor-command="heading-6" class="heading-choice heading-choice-6">H6</button>
+          <span class="popover-divider" role="separator"></span>
+          <button type="button" role="menuitem" data-editor-command="paragraph" class="heading-choice" data-i18n="paragraphText">متن معمولی</button>
+        </div>
+
+          <div class="find-bar hidden" id="find-bar">
+            <input id="find-query" type="search" data-i18n-placeholder="find" data-i18n-aria-label="find" aria-label="جست‌وجو" placeholder="جست‌وجو">
+            <input id="replace-query" type="text" data-i18n-placeholder="replaceWith" data-i18n-aria-label="replaceWith" aria-label="جایگزین" placeholder="جایگزین">
+            <span id="find-count">0/0</span>
+            <button type="button" id="find-previous" data-i18n-title="previousMatch" title="نتیجه قبلی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-up"></use></svg></button>
+            <button type="button" id="find-next" data-i18n-title="nextMatch" title="نتیجه بعدی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
+            <button type="button" id="replace-one" data-i18n="replace">جایگزینی</button>
+            <button type="button" id="replace-all" data-i18n="replaceAll">جایگزینی همه</button>
+            <button type="button" id="close-find" data-i18n-title="close" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+          </div>
+          <div class="editor-surface">
+            <div class="line-gutter" id="line-gutter" aria-hidden="true">1</div>
+            <textarea id="markdown-editor" spellcheck="true" wrap="off" data-i18n-aria-label="markdownEditor" aria-label="ویرایشگر Markdown"></textarea>
+          </div>
+          <div class="reading-surface" id="reading-surface">
+            <div class="reading-loading" id="reading-loading" role="status" aria-live="polite"><i></i><span data-i18n="renderingPreview">در حال ساخت پیش‌نمایش</span></div>
+            <article class="reading-document" id="reading-document" dir="auto" data-i18n-aria-label="readingView" aria-label="نمای خواندن" tabindex="0"></article>
+          </div>
+        </section>
+
+        <div class="pane-resizer preview-resizer" id="preview-resizer" role="separator" aria-orientation="vertical" aria-controls="preview-pane" aria-valuemin="340" aria-valuemax="760" aria-valuenow="500" aria-label="Preview width" data-i18n-aria-label="resizePreview" tabindex="0"></div>
+
+        <section class="preview-pane" id="preview-pane">
+          <header class="pane-header" data-i18n-title="previewScope" title="صفحه‌بندی، جلد، سرصفحه و واترمارک هنگام ساخت PDF اعمال می‌شوند."><div><strong data-i18n="preview">پیش‌نمایش</strong><small id="preview-detail" data-i18n="previewHelp">فقط محتوا</small></div><div class="preview-actions"><label class="toggle compact-toggle"><input id="auto-preview" type="checkbox" checked><i></i><span data-i18n="automatic">خودکار</span></label><button class="icon-button" id="refresh-preview" type="button" data-i18n-title="refresh" title="بازخوانی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-refresh"></use></svg></button></div></header>
+          <div class="preview-loading hidden" id="preview-loading" role="status" aria-live="polite"><i></i><span data-i18n="renderingPreview">در حال ساخت پیش‌نمایش</span></div>
+          <article class="preview-document" id="preview-document" dir="auto"><div class="empty-preview"><strong data-i18n="previewEmpty">برای مشاهده پیش‌نمایش، نوشتن را شروع کن.</strong></div></article>
+        </section>
+        <div class="pane-resizer sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-controls="author-sidebar" aria-valuemin="248" aria-valuemax="420" aria-valuenow="296" aria-label="Sidebar width" data-i18n-aria-label="resizeSidebar" tabindex="0"></div>
+
         <aside class="author-sidebar" id="author-sidebar" data-i18n-aria-label="documentTools" aria-label="ابزارهای سند">
-          <nav class="sidebar-tabs" role="tablist" data-i18n-aria-label="documentTools" aria-label="ابزارهای سند" aria-orientation="vertical">
+          <header class="inspector-heading"><strong data-i18n="documentTools">ابزارهای سند</strong><button class="toolbar-icon-button" id="inspector-close" type="button" data-i18n-title="closeDocumentTools" title="بستن ابزارهای سند" aria-label="بستن ابزارهای سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></header>
+          <nav class="sidebar-tabs" role="tablist" data-i18n-aria-label="documentTools" aria-label="ابزارهای سند" aria-orientation="horizontal">
             <button id="sidebar-tab-project" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-project" tabindex="-1" data-i18n-title="projectWorkspace" data-sidebar="project"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-folder"></use></svg></span><span class="sidebar-tab-label" data-i18n="projectWorkspace">پروژه</span></button>
             <button id="sidebar-tab-book" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-book" tabindex="-1" data-i18n-title="bookProject" data-sidebar="book"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-book"></use></svg></span><span class="sidebar-tab-label" data-i18n="bookProject">کتاب</span></button>
             <button class="active" id="sidebar-tab-outline" type="button" role="tab" aria-selected="true" aria-controls="sidebar-panel-outline" tabindex="0" data-i18n-title="outline" data-sidebar="outline"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-outline"></use></svg></span><span class="sidebar-tab-label" data-i18n="outline">ساختار</span></button>
@@ -317,127 +449,9 @@
             <div class="tool-list" id="problem-list"></div>
           </section>
         </aside>
-        <div class="pane-resizer sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-controls="author-sidebar" aria-valuemin="248" aria-valuemax="420" aria-valuenow="296" aria-label="Sidebar width" data-i18n-aria-label="resizeSidebar" tabindex="0"></div>
-
-        <section class="editor-pane">
-        <div class="tab-bar">
-          <div class="document-tabs" id="document-tabs" role="tablist" data-i18n-aria-label="openDocuments" aria-label="باز کردن چند سند"></div>
-          <div class="tab-bar-tools">
-            <div class="view-modes" role="radiogroup" data-i18n-aria-label="viewMode" aria-label="حالت نمایش">
-              <button type="button" class="view-mode" data-view-mode="write" role="radio" aria-checked="true" data-i18n="viewWrite">نوشتن</button>
-              <button type="button" class="view-mode" data-view-mode="source" role="radio" aria-checked="false" data-i18n="viewSource">سورس</button>
-              <button type="button" class="view-mode" data-view-mode="split" role="radio" aria-checked="false" data-i18n="viewSplit">دوستونه</button>
-            </div>
-            <span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span>
-          </div>
-        </div>
-        <!-- Grouped by what the tools do, not by how many fit on a row: a
-             twenty-button strip is read as twenty buttons; five groups of four
-             are read as five decisions. -->
-        <div class="format-bar" role="toolbar" data-i18n-aria-label="formattingTools" aria-label="ابزارهای قالب‌بندی">
-              <div class="format-group">
-                <button type="button" id="heading-menu-button" class="format-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="heading-menu" data-i18n-title="heading" title="عنوان">H<svg class="ui-icon format-caret" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
-              </div>
-              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
-              <div class="format-group" data-format-movable>
-                <button type="button" data-editor-command="bold" data-i18n-title="bold" title="پررنگ"><b>B</b></button>
-                <button type="button" data-editor-command="italic" data-i18n-title="italic" title="مورب"><i>I</i></button>
-                <button type="button" data-editor-command="strike" data-i18n-title="strikethrough" title="خط‌خورده"><s>S</s></button>
-                <button type="button" data-editor-command="code" data-i18n-title="code" title="کد">&lt;/&gt;</button>
-              </div>
-              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
-              <div class="format-group" data-format-movable>
-                <button type="button" data-editor-command="link" data-i18n-title="link" title="پیوند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-link"></use></svg></button>
-                <button type="button" id="workspace-import-asset" data-i18n-title="importAsset" title="افزودن فایل"><svg class="ui-icon" aria-hidden="true"><use href="#icon-image"></use></svg></button>
-                <button type="button" data-editor-command="citation" data-i18n-title="insertCitation" title="درج ارجاع"><svg class="ui-icon" aria-hidden="true"><use href="#icon-citation"></use></svg></button>
-              </div>
-              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
-              <div class="format-group" data-format-movable>
-                <button type="button" data-editor-command="bullet-list" data-i18n-title="bulletList" title="فهرست نقطه‌ای"><svg class="ui-icon" aria-hidden="true"><use href="#icon-contents"></use></svg></button>
-                <button type="button" data-editor-command="ordered-list" data-i18n-title="orderedList" title="فهرست شماره‌دار"><svg class="ui-icon" aria-hidden="true"><use href="#icon-list-ordered"></use></svg></button>
-                <button type="button" data-editor-command="task-list" data-i18n-title="taskList" title="فهرست کارها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-list-task"></use></svg></button>
-              </div>
-              <span class="formatting-divider" aria-hidden="true" data-format-movable></span>
-              <div class="format-group" data-format-movable>
-                <button type="button" data-editor-command="undo" data-i18n-title="undo" title="واگرد"><svg class="ui-icon" aria-hidden="true"><use href="#icon-undo"></use></svg></button>
-                <button type="button" data-editor-command="redo" data-i18n-title="redo" title="ازنو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-redo"></use></svg></button>
-              </div>
-              <span class="formatting-divider" aria-hidden="true"></span>
-              <!-- Pinned. It is the one route to every block construct the
-                   engine publishes, so it is not one of the groups that may
-                   move into the overflow menu. -->
-              <div class="format-group">
-                <button type="button" id="insert-menu-button" class="format-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="insert-menu" data-i18n-title="insertMenu" title="درج" data-i18n-aria-label="insertMenu" aria-label="درج"><svg class="ui-icon" aria-hidden="true"><use href="#icon-insert"></use></svg><svg class="ui-icon format-caret" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
-              </div>
-              <div class="format-group format-group-overflow hidden" id="format-overflow-group">
-                <button type="button" id="format-overflow-button" aria-haspopup="true" aria-expanded="false" aria-controls="format-overflow-menu" data-i18n-title="moreTools" title="ابزارهای بیشتر" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more"></use></svg></button>
-              </div>
-              <div class="format-group format-group-end">
-                <button type="button" id="format-find" data-i18n-title="find" title="جست‌وجو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg></button>
-              </div>
-              </div>
-        <div class="popover-menu format-overflow-menu hidden" id="format-overflow-menu" role="group" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"></div>
-        <!-- Every block construct the engine publishes, in one menu.
-             Quote, callout, table, code block and divider used to be five more
-             unlabelled icons on a twenty-button strip; here each one carries
-             its name and the Markdown it writes, which is the thing a person
-             has to learn. Each inserts the syntax the engine actually parses,
-             so the document stays Markdown and the user can see what was
-             added. Every one of them also keeps its keyboard shortcut and its
-             command-palette entry. -->
-        <div class="popover-menu insert-menu hidden" id="insert-menu" role="menu" aria-labelledby="insert-menu-button">
-          <button type="button" role="menuitem" data-editor-command="table" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-table"></use></svg><span data-i18n="insertTable">جدول</span><code>| … |</code></button>
-          <button type="button" role="menuitem" data-editor-command="code-block" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-code-block"></use></svg><span data-i18n="codeBlock">بلوک کد</span><code>```</code></button>
-          <button type="button" role="menuitem" data-editor-command="quote" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-quote"></use></svg><span data-i18n="blockQuote">نقل‌قول</span><code>&gt; …</code></button>
-          <button type="button" role="menuitem" data-editor-command="callout" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-callout"></use></svg><span data-i18n="insertCallout">کادر یادداشت</span><code>&gt; [!NOTE]</code></button>
-          <button type="button" role="menuitem" data-editor-command="rule" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-rule"></use></svg><span data-i18n="horizontalRule">خط جداکننده</span><code>---</code></button>
-          <span class="popover-divider" role="separator"></span>
-          <button type="button" role="menuitem" id="insert-image" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-image"></use></svg><span data-i18n="insertImage">تصویر</span><code>![]()</code></button>
-          <button type="button" role="menuitem" data-editor-command="footnote" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-footnote"></use></svg><span data-i18n="insertFootnote">پانویس</span><code>[^1]</code></button>
-          <span class="popover-divider" role="separator"></span>
-          <button type="button" role="menuitem" data-editor-command="math-inline" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-maths"></use></svg><span data-i18n="insertMathInline">فرمول در متن</span><code>$…$</code></button>
-          <button type="button" role="menuitem" data-editor-command="math-block" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-maths-block"></use></svg><span data-i18n="insertMathBlock">فرمول مستقل</span><code>$$…$$</code></button>
-          <button type="button" role="menuitem" data-editor-command="mermaid" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-diagram"></use></svg><span data-i18n="insertDiagram">نمودار Mermaid</span><code>mermaid</code></button>
-          <span class="popover-divider" role="separator"></span>
-          <button type="button" role="menuitem" data-editor-command="highlight" class="insert-choice"><svg class="ui-icon" aria-hidden="true"><use href="#icon-highlight"></use></svg><span data-i18n="insertHighlight">هایلایت</span><code>==…==</code></button>
-        </div>
-        <div class="popover-menu hidden" id="heading-menu" role="menu" aria-labelledby="heading-menu-button">
-          <button type="button" role="menuitem" data-editor-command="heading-1" class="heading-choice heading-choice-1">H1</button>
-          <button type="button" role="menuitem" data-editor-command="heading-2" class="heading-choice heading-choice-2">H2</button>
-          <button type="button" role="menuitem" data-editor-command="heading-3" class="heading-choice heading-choice-3">H3</button>
-          <button type="button" role="menuitem" data-editor-command="heading-4" class="heading-choice heading-choice-4">H4</button>
-          <button type="button" role="menuitem" data-editor-command="heading-5" class="heading-choice heading-choice-5">H5</button>
-          <button type="button" role="menuitem" data-editor-command="heading-6" class="heading-choice heading-choice-6">H6</button>
-          <span class="popover-divider" role="separator"></span>
-          <button type="button" role="menuitem" data-editor-command="paragraph" class="heading-choice" data-i18n="paragraphText">متن معمولی</button>
-        </div>
-
-          <div class="find-bar hidden" id="find-bar">
-            <input id="find-query" type="search" data-i18n-placeholder="find" data-i18n-aria-label="find" aria-label="جست‌وجو" placeholder="جست‌وجو">
-            <input id="replace-query" type="text" data-i18n-placeholder="replaceWith" data-i18n-aria-label="replaceWith" aria-label="جایگزین" placeholder="جایگزین">
-            <span id="find-count">0/0</span>
-            <button type="button" id="find-previous" data-i18n-title="previousMatch" title="نتیجه قبلی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-up"></use></svg></button>
-            <button type="button" id="find-next" data-i18n-title="nextMatch" title="نتیجه بعدی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
-            <button type="button" id="replace-one" data-i18n="replace">جایگزینی</button>
-            <button type="button" id="replace-all" data-i18n="replaceAll">جایگزینی همه</button>
-            <button type="button" id="close-find" data-i18n-title="close" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
-          </div>
-          <div class="editor-surface">
-            <div class="line-gutter" id="line-gutter" aria-hidden="true">1</div>
-            <textarea id="markdown-editor" spellcheck="true" wrap="off" data-i18n-aria-label="markdownEditor" aria-label="ویرایشگر Markdown"></textarea>
-          </div>
-        </section>
-
-        <div class="pane-resizer preview-resizer" id="preview-resizer" role="separator" aria-orientation="vertical" aria-controls="preview-pane" aria-valuemin="340" aria-valuemax="760" aria-valuenow="500" aria-label="Preview width" data-i18n-aria-label="resizePreview" tabindex="0"></div>
-
-        <section class="preview-pane" id="preview-pane">
-          <header class="pane-header" data-i18n-title="previewScope" title="صفحه‌بندی، جلد، سرصفحه و واترمارک هنگام ساخت PDF اعمال می‌شوند."><div><strong data-i18n="preview">پیش‌نمایش</strong><small id="preview-detail" data-i18n="previewHelp">فقط محتوا</small></div><div class="preview-actions"><label class="toggle compact-toggle"><input id="auto-preview" type="checkbox" checked><i></i><span data-i18n="automatic">خودکار</span></label><button class="icon-button" id="refresh-preview" type="button" data-i18n-title="refresh" title="بازخوانی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-refresh"></use></svg></button></div></header>
-          <div class="preview-loading hidden" id="preview-loading" role="status" aria-live="polite"><i></i><span data-i18n="renderingPreview">در حال ساخت پیش‌نمایش</span></div>
-          <article class="preview-document" id="preview-document" dir="auto"><div class="empty-preview"><strong data-i18n="previewEmpty">برای مشاهده پیش‌نمایش، نوشتن را شروع کن.</strong></div></article>
-        </section>
       </div>
 
-      <footer class="editor-status" id="workspace-status"><strong id="editor-title" data-i18n="untitled">بدون عنوان</strong><small id="editor-path"></small><span class="editor-status-spacer"></span><span id="cursor-status">خط 1، ستون 1</span><span id="word-status">0 واژه</span><span id="recovery-status"></span></footer>
+      <footer class="editor-status" id="workspace-status"><span id="word-status">0 واژه</span><span class="editor-status-spacer"></span><span id="cursor-status">خط 1، ستون 1</span><span id="recovery-status"></span></footer>
     </section>
   </main>
   <footer class="app-footer"><span data-i18n="localEngine">موتور محلی؛ فایل‌ها از دستگاه خارج نمی‌شوند.</span><span id="runtime-detail"></span></footer>
@@ -481,6 +495,7 @@
       </section>
       <section class="settings-section" data-settings-terms="writing typewriter focus distraction نوشتن تایپ فوکوس تمرکز">
         <h3 data-i18n="writingSettings">نوشتن</h3>
+        <label><span data-i18n="writingWidth">عرض نوشتن</span><select id="setting-writing-width"><option value="comfortable" data-i18n="comfortableColumn">ستون خوانا</option><option value="wide" data-i18n="wideColumn">ستون عریض</option></select></label>
         <label class="toggle compact-toggle"><input id="setting-typewriter" type="checkbox"><i></i><span data-i18n="typewriterMode">حالت ماشین تحریر</span></label>
         <p class="settings-help" data-i18n="typewriterHelp">خط در حال نوشتن همیشه در ارتفاع ثابتی از صفحه می‌ماند.</p>
         <label class="toggle compact-toggle"><input id="setting-focus-mode" type="checkbox"><i></i><span data-i18n="focusMode">حالت تمرکز</span></label>

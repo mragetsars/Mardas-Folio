@@ -408,3 +408,34 @@ Object.assign(en, {
 // Drawn by the editor, translated by the application.
 Object.assign(fa, { imageNotFound: "تصویر پیدا نشد" });
 Object.assign(en, { imageNotFound: "Image not found" });
+
+Object.assign(fa, {
+  files: "فایل‌ها", quickOpen: "رفتن به فایل", toggleFiles: "نمایش یا پنهان‌کردن فایل‌ها",
+  openDocumentList: "اسناد باز", writingWidth: "عرض ستون نوشتن", comfortableColumn: "متمرکز", wideColumn: "عریض",
+  exportNeedsCurrentSave: "متن هنگام ذخیره تغییر کرد؛ برای خروجی‌گرفتن دوباره اقدام کن.",
+  closeFiles: "بستن ناوبر فایل‌ها", resizeFiles: "تغییر عرض ناوبر فایل‌ها",
+  documentActions: "عملیات سند", documentOutline: "ساختار سند", closeDocumentTools: "بستن ابزارهای سند",
+  toggleDocumentTools: "نمایش یا پنهان‌کردن ابزارهای سند", toggleSidebar: "نمایش یا پنهان‌کردن ابزارهای سند",
+  format: "قالب‌بندی", toggleFormatting: "نمایش یا پنهان‌کردن قالب‌بندی",
+  viewRead: "خواندن", readingView: "نمای خواندن سند", writeModeHelp: "نوشتن با نمایش قالب‌بندی در همان متن",
+  sourceModeHelp: "ویرایش مستقیم Markdown", readModeHelp: "مرور سند بدون تغییر متن", splitModeHelp: "سورس و نتیجه کنار هم",
+  goToHeading: "رفتن به عنوان", searchHeadings: "جست‌وجوی عنوان‌های این سند…", searchOpenFiles: "جست‌وجوی نام یا مسیر فایل…",
+  noHeadingsFound: "عنوانی پیدا نشد.", noFilesFound: "فایلی پیدا نشد.", unsavedDocument: "سند ذخیره‌نشده",
+  headingPickerHelp: "عنوان‌های سند فعال", filePickerHelp: "اسناد باز و فایل‌های پروژه",
+  focusModeHelp: "ابزارهای محیط را کنار می‌زند؛ خروج با Escape یا دکمهٔ خروج از تمرکز.",
+});
+Object.assign(en, {
+  files: "Files", quickOpen: "Go to file", toggleFiles: "Show or hide files",
+  openDocumentList: "Open documents", writingWidth: "Writing column width", comfortableColumn: "Comfortable", wideColumn: "Wide",
+  exportNeedsCurrentSave: "The document changed while saving. Start export again to include the latest text.",
+  closeFiles: "Close file navigator", resizeFiles: "Resize file navigator",
+  documentActions: "Document actions", documentOutline: "Document outline", closeDocumentTools: "Close document tools",
+  toggleDocumentTools: "Show or hide document tools", toggleSidebar: "Show or hide document tools",
+  format: "Format", toggleFormatting: "Show or hide formatting",
+  viewRead: "Read", readingView: "Document reading view", writeModeHelp: "Write with formatting in the same text",
+  sourceModeHelp: "Edit raw Markdown", readModeHelp: "Read without changing the document", splitModeHelp: "Source and result side by side",
+  goToHeading: "Go to heading", searchHeadings: "Search headings in this document…", searchOpenFiles: "Search file name or path…",
+  noHeadingsFound: "No headings found.", noFilesFound: "No files found.", unsavedDocument: "Unsaved document",
+  headingPickerHelp: "Headings in the active document", filePickerHelp: "Open documents and project files",
+  focusModeHelp: "Clears the workspace tools; leave with Escape or the exit button.",
+});

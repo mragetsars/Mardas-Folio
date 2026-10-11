@@ -382,20 +382,27 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
 
     sidebar_toggle = soup.select_one("#workspace-toggle-sidebar")
     assert sidebar_toggle is not None
-    assert sidebar_toggle.get("aria-pressed") == "true"
+    assert sidebar_toggle.get("aria-pressed") == "false"
     assert sidebar_toggle.get("aria-controls")
 
     # The preview pane is not a standalone switch any more. Showing source and
     # showing the preview were separate toggles whose combinations included
     # states nobody wants, so one radio group names the arrangements instead.
     modes = soup.select("[data-view-mode]")
-    assert [button.get("data-view-mode") for button in modes] == ["write", "source", "split"]
+    assert [button.get("data-view-mode") for button in modes] == ["write", "source", "read", "split"]
     assert all(button.get("role") == "radio" for button in modes)
     assert sum(button.get("aria-checked") == "true" for button in modes) == 1
     group = soup.select_one(".view-modes")
     assert group is not None and group.get("role") == "radiogroup"
 
-    for element_id in ("sidebar-resizer", "preview-resizer"):
+    files = soup.select_one("#file-navigator")
+    assert files is not None and files.get("data-i18n-aria-label") == "files"
+    assert soup.select_one("#open-document-list") is not None
+    files_toggle = soup.select_one("#workspace-toggle-files")
+    assert files_toggle is not None and files_toggle.get("aria-controls") == "file-navigator"
+    reading = soup.select_one("#reading-document")
+    assert reading is not None and reading.get("tabindex") == "0"
+    for element_id in ("file-resizer", "sidebar-resizer", "preview-resizer"):
         separator = soup.select_one(f"#{element_id}")
         assert separator is not None
         assert separator.get("role") == "separator"
@@ -416,18 +423,11 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     assert soup.select_one("#mardas-ui-icons") is not None
     assert len(sidebar.select(".sidebar-tab-icon .ui-icon")) == 7
     assert 'body[data-view="workspace"] main' in workspace_css
-    assert 'grid-template-columns: var(--sidebar-track) var(--sidebar-divider) minmax(360px, 1fr) var(--preview-divider) var(--preview-track)' in workspace_css
-    assert '@media (max-width: 1060px)' in workspace_css
-    assert '.author-sidebar:focus-within .sidebar-panel.active' in workspace_css
-    assert '@media (max-width: 980px)' in workspace_css
-    assert '@media (max-width: 900px)' in workspace_css
-    # The tab strip tracks both resizable panes; the visual gutter can change
-    # without changing this logical alignment contract in either direction.
-    for edge, pane in (("start", "sidebar"), ("end", "preview")):
-        assert re.search(
-            rf"padding-inline-{edge}:\s*calc\(var\(--tab-{pane}-offset\)\s*\+\s*[1-9]\d*px\)",
-            workspace_css,
-        )
+    assert 'var(--files-track) var(--files-divider) minmax(0, 1fr)' in workspace_css
+    assert 'var(--preview-divider) var(--preview-track) var(--sidebar-divider) var(--sidebar-track)' in workspace_css
+    assert '@media (max-width: 1100px)' in workspace_css
+    assert '@media (max-width: 760px)' in workspace_css
+    assert soup.select_one("#exit-focus-mode") is not None
 
 
 def test_workbench_takes_its_direction_from_the_interface_language() -> None:
@@ -963,7 +963,7 @@ def test_live_preview_mode_is_presentation_only() -> None:
 
     # Reachable from the toolbar and the command palette, and remembered.
     assert 'data-view-mode="write"' in index
-    assert '"[data-view-mode]"' in main
+    assert '"button[data-view-mode]"' in main
     assert '"view-split"' in main
     # The writing tools belong to the document, not to the window chrome.
     assert '<div class="format-bar"' in index

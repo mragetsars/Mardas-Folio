@@ -70,6 +70,8 @@ import {
   writeWorkspaceLayout,
 } from "./core/workspace-layout.mjs";
 import { filterCommands } from "./core/command-palette.mjs";
+import { documentNavigationEntries } from "./core/document-navigation.mjs";
+import { createNavigationPicker } from "./core/navigation-picker.mjs";
 import { fitToolbarGroups } from "./core/toolbar-overflow.mjs";
 import { createModalManager, focusableElements } from "./core/modal-manager.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
@@ -114,6 +116,7 @@ const state = {
   outputPath: "",
   activeRequestId: null,
   outputResult: null,
+  exportReturnView: "start",
   bookOutputPath: null,
   recents: readRecents(),
   documents: [],
@@ -161,6 +164,7 @@ const state = {
 };
 let editorAdapter = null;
 let modalManager = null;
+let navigationPicker = null;
 const saveCoordinator = createSaveCoordinator({ isDirty: documentDirty });
 const translator = createTranslator(state.locale);
 const t = (key) => translator.t(key);
@@ -175,6 +179,16 @@ function requestId(prefix) {
 
 function activeDocument() {
   return state.documents.find((document) => document.id === state.activeDocumentId) ?? null;
+}
+
+function documentEditable() {
+  const model = activeDocument();
+  return Boolean(model && !model.readOnly && state.preferences.viewMode !== "read");
+}
+
+function focusDocument() {
+  if (state.preferences.viewMode === "read") $("#reading-document")?.focus({ preventScroll: true });
+  else currentEditor().focus();
 }
 
 function activeProjectPath() {
@@ -253,6 +267,7 @@ function showView(name) {
   $$(".view").forEach((element) => element.classList.remove("active"));
   $(`#${name}-view`)?.classList.add("active");
   document.body.dataset.view = name;
+  if (name !== "workspace" && state.preferences.focusMode) updatePreference({ focusMode: false });
   if (name === "workspace") applyWorkspaceLayout();
   $("#app-main")?.focus({ preventScroll: true });
 }
@@ -298,6 +313,7 @@ function resolveEditorAsset(source) {
 function applyViewMode() {
   const mode = state.preferences.viewMode;
   editorAdapter?.setMode?.(editorModeForView(mode));
+  editorAdapter?.setReadOnly?.(mode === "read");
 
   const showPreview = previewVisibleForView(mode);
   if (state.workspaceLayout.previewOpen !== showPreview) {
@@ -305,20 +321,34 @@ function applyViewMode() {
     applyWorkspaceLayout({ persist: true });
   }
 
-  for (const button of $$("[data-view-mode]")) {
+  for (const button of $$("button[data-view-mode]")) {
     const selected = button.dataset.viewMode === mode;
     button.setAttribute("aria-checked", String(selected));
+    button.tabIndex = selected ? 0 : -1;
     button.classList.toggle("selected", selected);
   }
   const surface = $(".editor-pane");
   if (surface) surface.dataset.viewMode = mode;
-  if (showPreview) schedulePreview(120);
+  if ($("#reading-surface")) $("#reading-surface").hidden = mode !== "read";
+  if ($(".editor-surface")) $(".editor-surface").inert = mode === "read";
+  $("#workspace-view")?.setAttribute("data-view-mode", mode);
+  updateAuthoringMode(activeDocument());
+  if (isMarkdownModel(activeDocument())) loadFrontMatterForm(activeDocument());
+  if (showPreview || mode === "read") {
+    renderReading(activeDocument());
+    schedulePreview(120);
+  }
 }
 
 function setViewMode(mode) {
+  if (mode === "read" && activeDocument() && !isMarkdownModel(activeDocument())) mode = "source";
   if (state.preferences.viewMode === mode) return;
+  if (state.preferences.viewMode === "read" && readingDocumentId) {
+    readingScroll.set(readingDocumentId, $("#reading-document")?.scrollTop || 0);
+  }
   updatePreference({ viewMode: mode });
-  editorAdapter?.focus?.();
+  if (mode === "read") $("#reading-document")?.focus({ preventScroll: true });
+  else editorAdapter?.focus?.();
 }
 
 function applyInterfacePreferences({ persist = false } = {}) {
@@ -328,6 +358,7 @@ function applyInterfacePreferences({ persist = false } = {}) {
   // match the workspace.
   editorAdapter?.setTheme?.(document.documentElement.dataset.theme);
   editorAdapter?.setTypewriter?.(state.preferences.typewriter);
+  $("#workspace-focus")?.setAttribute("aria-pressed", String(state.preferences.focusMode));
   applyViewMode();
   const autoPreview = $("#auto-preview");
   if (autoPreview) autoPreview.checked = Boolean(state.preferences.autoPreview);
@@ -345,28 +376,41 @@ function applyWorkspaceLayout({ persist = false } = {}) {
   if (!grid || !workspace) return;
   if (persist) state.workspaceLayout = writeWorkspaceLayout(state.workspaceLayout);
   for (const element of [workspace, grid]) {
+    element.dataset.filesOpen = String(state.workspaceLayout.filesOpen);
+    element.dataset.formattingOpen = String(state.workspaceLayout.formattingOpen);
     element.dataset.sidebarOpen = String(state.workspaceLayout.sidebarOpen);
     element.dataset.previewOpen = String(state.workspaceLayout.previewOpen);
     element.style.setProperty("--sidebar-width", `${state.workspaceLayout.sidebarWidth}px`);
+    element.style.setProperty("--files-width", `${state.workspaceLayout.filesWidth}px`);
     element.style.setProperty("--preview-width", `${state.workspaceLayout.previewWidth}px`);
   }
   const sidebarButton = $("#workspace-toggle-sidebar");
   const sidebarResizer = $("#sidebar-resizer");
   const previewResizer = $("#preview-resizer");
+  $("#workspace-toggle-files")?.setAttribute("aria-pressed", String(state.workspaceLayout.filesOpen));
+  $("#workspace-toggle-formatting")?.setAttribute("aria-pressed", String(state.workspaceLayout.formattingOpen));
+  $("#file-resizer")?.setAttribute("aria-valuenow", String(state.workspaceLayout.filesWidth));
+  if ($("#file-navigator")) $("#file-navigator").inert = !state.workspaceLayout.filesOpen;
+  if ($("#author-sidebar")) $("#author-sidebar").inert = !state.workspaceLayout.sidebarOpen;
   if (sidebarButton) sidebarButton.setAttribute("aria-pressed", String(state.workspaceLayout.sidebarOpen));
   if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.sidebarWidth));
   if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.previewWidth));
 }
 
 function toggleWorkspacePane(name) {
-  const key = name === "sidebar" ? "sidebarOpen" : "previewOpen";
+  const key = `${name}Open`;
   state.workspaceLayout = { ...state.workspaceLayout, [key]: !state.workspaceLayout[key] };
+  if (matchMedia("(max-width: 1100px)").matches && state.workspaceLayout[key]) {
+    if (name === "files") state.workspaceLayout.sidebarOpen = false;
+    if (name === "sidebar") state.workspaceLayout.filesOpen = false;
+  }
   applyWorkspaceLayout({ persist: true });
+  if (!state.workspaceLayout[key]) focusDocument();
   if (name === "preview" && state.workspaceLayout.previewOpen) schedulePreview(80);
 }
 
 function setWorkspacePaneWidth(name, value, { persist = false } = {}) {
-  const key = name === "sidebar" ? "sidebarWidth" : "previewWidth";
+  const key = `${name}Width`;
   state.workspaceLayout = {
     ...state.workspaceLayout,
     [key]: clampWorkspaceWidth(name, value),
@@ -385,7 +429,7 @@ function setWorkspacePaneWidth(name, value, { persist = false } = {}) {
  */
 function paneResizeSign(name) {
   const mirrored = document.documentElement.dir === "rtl" ? -1 : 1;
-  return (name === "sidebar" ? 1 : -1) * mirrored;
+  return (name === "files" ? 1 : -1) * mirrored;
 }
 
 function beginPaneResize(event, name) {
@@ -394,9 +438,7 @@ function beginPaneResize(event, name) {
   const handle = event.currentTarget;
   const startX = event.clientX;
   const sign = paneResizeSign(name);
-  const startWidth = name === "sidebar"
-    ? state.workspaceLayout.sidebarWidth
-    : state.workspaceLayout.previewWidth;
+  const startWidth = state.workspaceLayout[`${name}Width`];
   handle.classList.add("is-dragging");
   handle.setPointerCapture?.(event.pointerId);
   const move = (moveEvent) => {
@@ -418,15 +460,13 @@ function beginPaneResize(event, name) {
 function resizePaneWithKeyboard(event, name) {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   event.preventDefault();
-  const current = name === "sidebar"
-    ? state.workspaceLayout.sidebarWidth
-    : state.workspaceLayout.previewWidth;
+  const current = state.workspaceLayout[`${name}Width`];
   const sign = paneResizeSign(name);
   let next = current;
   if (event.key === "ArrowLeft") next -= sign * 16;
   if (event.key === "ArrowRight") next += sign * 16;
-  if (event.key === "Home") next = name === "sidebar" ? 248 : 340;
-  if (event.key === "End") next = name === "sidebar" ? 420 : 760;
+  if (event.key === "Home") next = clampWorkspaceWidth(name, 0);
+  if (event.key === "End") next = clampWorkspaceWidth(name, 9999);
   setWorkspacePaneWidth(name, next, { persist: true });
 }
 
@@ -449,6 +489,7 @@ function renderTemplateGallery() {
 }
 
 function createDocumentFromTemplate(templateId = "blank") {
+  if (state.preferences.viewMode === "read") updatePreference({ viewMode: "write" });
   state.documentActivationSequence += 1;
   const metadata = templateList().find((item) => item.id === templateId) || templateList()[0];
   const model = createDocument({ content: templateContent(templateId, state.locale) });
@@ -470,6 +511,7 @@ function fillSettingsForm() {
   $("#setting-motion").value = state.preferences.reducedMotion;
   $("#setting-auto-preview").checked = state.preferences.autoPreview;
   $("#setting-typewriter").checked = state.preferences.typewriter;
+  if ($("#setting-writing-width")) $("#setting-writing-width").value = state.preferences.writingWidth;
   $("#setting-focus-mode").checked = state.preferences.focusMode;
   $("#setting-locale").value = state.locale;
   $("#settings-search").value = "";
@@ -508,6 +550,7 @@ function submitSettings(event) {
     ...state.preferences,
     theme: $("#setting-theme").value,
     contentScale: $("#setting-content-scale").value,
+    writingWidth: $("#setting-writing-width")?.value || "comfortable",
     reducedMotion: $("#setting-motion").value,
     autoPreview: $("#setting-auto-preview").checked,
     typewriter: $("#setting-typewriter").checked,
@@ -722,7 +765,22 @@ function onboardingBack() {
 
 function commandDefinitions() {
   const hasDocument = Boolean(activeDocument());
+  const canEdit = documentEditable() && isMarkdownModel(activeDocument());
   return [
+    ...[
+      ["bold", "bold", "pencil"], ["italic", "italic", "pencil"], ["strike", "strikethrough", "pencil"],
+      ["link", "link", "link"], ["code", "code", "source"], ["bullet-list", "bulletList", "list"],
+      ["ordered-list", "orderedList", "list"], ["task-list", "taskList", "quality"], ["quote", "blockQuote", "quote"],
+      ["table", "insertTable", "table"], ["code-block", "codeBlock", "source"], ["callout", "insertCallout", "callout"],
+      ["rule", "horizontalRule", "rule"],
+    ].map(([command, label, symbol]) => ({ id: `format-${command}`, symbol, label: t(label), keywords: `${command} markdown format قالب بندی`, priority: 45, enabled: canEdit, run: () => editorCommand(command) })),
+    ...[1, 2, 3, 4, 5, 6].map((level) => ({ id: `format-heading-${level}`, symbol: "outline", label: `${t("heading")} ${level}`, keywords: `heading h${level} عنوان`, priority: 43, enabled: canEdit, run: () => editorCommand(`heading-${level}`) })),
+    { id: "insert-image", symbol: "image", label: t("insertImage"), keywords: "image photo تصویر عکس", priority: 45, enabled: canEdit, run: () => importAsset() },
+    { id: "quick-open", symbol: "folder", label: t("quickOpen"), keywords: "switch file document فایل سند", shortcut: "Ctrl P", priority: 94, run: () => navigationPicker.open("files") },
+    { id: "go-heading", symbol: "outline", label: t("goToHeading"), keywords: "heading outline section عنوان بخش", shortcut: "Ctrl Shift O", priority: 59, enabled: hasDocument, run: () => navigationPicker.open("headings") },
+    { id: "files-pane", symbol: "panel-left", label: t("toggleFiles"), keywords: "files explorer navigator فایل", priority: 38, run: () => toggleWorkspacePane("files") },
+    { id: "inspector-pane", symbol: "outline", label: t("toggleSidebar"), keywords: "outline inspector properties ساختار مشخصات", priority: 38, run: () => toggleWorkspacePane("sidebar") },
+    { id: "formatting-pane", symbol: "pencil", label: t("toggleFormatting"), keywords: "format toolbar tools قالب بندی", priority: 38, run: () => toggleWorkspacePane("formatting") },
     { id: "new", symbol: "plus", label: t("commandNewDocument"), keywords: "new document markdown", shortcut: "Ctrl N", priority: 100, run: () => createUntitledDocument() },
     { id: "open", symbol: "file", label: t("commandOpenDocument"), keywords: "open file markdown", shortcut: "Ctrl O", priority: 95, run: () => chooseAuthoringFiles() },
     { id: "project", symbol: "folder", label: t("commandOpenProject"), keywords: "open folder workspace project", priority: 80, run: () => chooseProjectDirectory() },
@@ -744,6 +802,7 @@ function commandDefinitions() {
     { id: "insert-highlight", symbol: "highlight", label: t("insertHighlight"), keywords: "highlight mark هایلایت", priority: 43, enabled: hasDocument, run: () => editorCommand("highlight") },
     { id: "view-write", symbol: "pencil", label: t("viewWrite"), keywords: "write live formatted wysiwyg نوشتن", priority: 42, run: () => setViewMode("write") },
     { id: "view-source", symbol: "source", label: t("viewSource"), keywords: "source raw markdown سورس", priority: 41, run: () => setViewMode("source") },
+    { id: "view-read", symbol: "book", label: t("viewRead"), keywords: "reading readonly خواندن مطالعه", priority: 41, enabled: hasDocument, run: () => setViewMode("read") },
     { id: "view-split", symbol: "panel-right", label: t("viewSplit"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, run: () => setViewMode("split") },
     { id: "typewriter", symbol: "typewriter", label: t("typewriterMode"), keywords: "typewriter scroll centre writing ماشین تحریر", priority: 39, run: () => updatePreference({ typewriter: !state.preferences.typewriter }) },
     { id: "focus-mode", symbol: "focus", label: t("focusMode"), keywords: "focus distraction free zen تمرکز", priority: 39, run: () => updatePreference({ focusMode: !state.preferences.focusMode }) },
@@ -1806,6 +1865,7 @@ function showExportResult(path) {
 }
 
 function openExportSource(path) {
+  state.exportReturnView = $("#workspace-view").classList.contains("active") ? "workspace" : "start";
   hideExportResult();
   state.sourcePath = path;
   state.outputPath = defaultOutputPath(path);
@@ -1964,6 +2024,58 @@ function renderDocumentTabs() {
   const container = $("#document-tabs");
   if (!container) return;
   container.replaceChildren(...state.documents.map(tabElement));
+  renderFileNavigator();
+}
+
+function renderFileNavigator({ includeProject = false } = {}) {
+  const list = $("#open-document-list");
+  if (!list) return;
+  list.replaceChildren();
+  for (const model of state.documents) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `navigator-document${model.id === state.activeDocumentId ? " active" : ""}${documentDirty(model) ? " dirty" : ""}`;
+    button.dataset.documentId = model.id;
+    button.setAttribute("aria-current", model.id === state.activeDocumentId ? "page" : "false");
+    button.innerHTML = '<i aria-hidden="true"></i><span><strong></strong><small dir="auto"></small></span>';
+    button.querySelector("i").append(spriteIcon("file"));
+    button.querySelector("strong").textContent = model.title;
+    button.querySelector("small").textContent = model.path || t("unsavedDocument");
+    button.title = `${model.title}\n${model.path || t("unsavedDocument")}${documentDirty(model) ? `\n${t("unsaved")}` : ""}`;
+    button.setAttribute("aria-label", button.title);
+    button.addEventListener("click", async () => {
+      await activateDocument(model.id);
+      if (matchMedia("(max-width: 1100px)").matches) {
+        state.workspaceLayout.filesOpen = false;
+        applyWorkspaceLayout();
+      }
+    });
+    list.append(button);
+  }
+  if (!includeProject) return;
+  const section = $("#navigator-project-section");
+  const projectFiles = $("#navigator-project-files");
+  if (!section || !projectFiles) return;
+  section.classList.toggle("hidden", !state.project);
+  projectFiles.replaceChildren();
+  setTruncatableText($("#navigator-project-name"), state.project?.name || t("projectFiles"));
+  for (const file of state.project?.files || []) {
+    if (!["markdown", "text", "config", "toml", "bibliography", "json"].includes(file.kind)) continue;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "navigator-project-file";
+    button.textContent = file.path;
+    button.title = file.path;
+    button.dir = "auto";
+    button.addEventListener("click", async () => {
+      await openProjectRelativeFile(file.path);
+      if (matchMedia("(max-width: 1100px)").matches) {
+        state.workspaceLayout.filesOpen = false;
+        applyWorkspaceLayout();
+      }
+    });
+    projectFiles.append(button);
+  }
 }
 
 function setSaveState(kind) {
@@ -1991,6 +2103,13 @@ function updateEditorMetrics() {
   const metrics = textMetrics(editor.value, editor.selectionStart);
   $("#cursor-status").textContent = `${t("lineShort")} ${metrics.line}, ${t("columnShort")} ${metrics.column}`;
   $("#word-status").textContent = `${metrics.words} ${t("wordsLabel")} · ${metrics.characters} ${t("charactersLabel")}`;
+  const headings = $$("#outline-list [data-source-line]");
+  const current = headings.filter((item) => Number(item.dataset.sourceLine) <= metrics.line).at(-1);
+  for (const item of headings) {
+    item.classList.toggle("active", item === current);
+    if (item === current) item.setAttribute("aria-current", "location");
+    else item.removeAttribute("aria-current");
+  }
 }
 
 function renderOutline(model) {
@@ -2007,6 +2126,7 @@ function renderOutline(model) {
     button.className = "tool-item";
     button.type = "button";
     button.dataset.level = String(item.level);
+    button.dataset.sourceLine = String(item.line);
     button.innerHTML = `<span class="level">H${item.level}</span><span></span>`;
     button.querySelector("span:last-child").textContent = item.title;
     button.addEventListener("click", () => goToLine(item.line));
@@ -2030,7 +2150,7 @@ function loadFrontMatterForm(model) {
       || /[\r\n]/.test(String(value ?? ""))
       || (input instanceof HTMLSelectElement && value !== undefined && ![...input.options].some((option) => option.value === String(value))));
     input.value = structured ? "" : value ?? (name === "lang" || name === "dir" ? "auto" : "");
-    input.disabled = Boolean(model?.readOnly) || structured;
+    input.disabled = Boolean(model?.readOnly) || state.preferences.viewMode === "read" || structured;
     input.title = structured ? t("structuredMetadataHelp") : "";
     frontMatterFormBaseline.set(name, input.value);
     hasStructuredFields ||= structured;
@@ -2039,7 +2159,7 @@ function loadFrontMatterForm(model) {
   const tocPresent = rawLines.some((line) => /^(?:toc|"toc"|'toc'):/.test(line));
   const tocStructured = tocPresent && typeof fields.toc !== "boolean";
   toc.checked = fields.toc === true;
-  toc.disabled = Boolean(model?.readOnly) || tocStructured;
+  toc.disabled = Boolean(model?.readOnly) || state.preferences.viewMode === "read" || tocStructured;
   toc.title = tocStructured ? t("structuredMetadataHelp") : "";
   frontMatterFormBaseline.set("toc", toc.checked);
   $("#structured-metadata-note")?.classList.toggle("hidden", !(hasStructuredFields || tocStructured));
@@ -2137,8 +2257,8 @@ function renderAssets(items = []) {
 function updateAuthoringMode(model) {
   const hasDocument = Boolean(model);
   const markdown = isMarkdownModel(model);
-  const editable = hasDocument && !model.readOnly;
-  $("#workspace-save").disabled = !editable;
+  const editable = hasDocument && !model.readOnly && state.preferences.viewMode !== "read";
+  $("#workspace-save").disabled = !hasDocument || model.readOnly;
   $("#workspace-save-as").disabled = !hasDocument;
   for (const element of $$('[data-editor-command], #workspace-import-asset, #import-asset, #refresh-assets')) {
     element.disabled = !editable || !markdown;
@@ -2154,6 +2274,9 @@ function updateAuthoringMode(model) {
     element.disabled = !editable || !markdown;
   });
   $("#workspace-view")?.classList.toggle("plain-text-mode", hasDocument && !markdown);
+  $("#insert-menu-button").disabled = !editable || !markdown;
+  $("#workspace-toggle-formatting")?.toggleAttribute("disabled", !editable || !markdown);
+  editorAdapter?.setReadOnly?.(state.preferences.viewMode === "read");
 }
 
 /**
@@ -2270,6 +2393,7 @@ function renderWorkspace() {
     return;
   }
   editor.disabled = model.readOnly;
+  if (!isMarkdownModel(model) && state.preferences.viewMode === "read") updatePreference({ viewMode: "source" });
   updateAuthoringMode(model);
   // The adapter owns each document's undo history, selection and scroll.
   // Initial selection is applied only when the adapter sees this ID first.
@@ -2316,14 +2440,16 @@ async function activateDocument(id, { focus = "editor" } = {}) {
   if (focus === "tab") {
     const tab = $$(".document-tab").find((element) => element.dataset.documentId === id);
     tab?.querySelector(".tab-activate")?.focus({ preventScroll: true });
-  } else currentEditor().focus();
+  } else if (state.preferences.viewMode === "read") $("#reading-document")?.focus({ preventScroll: true });
+  else currentEditor().focus();
   schedulePreview(80);
   if (model.path) refreshAssets();
 }
 
 function createUntitledDocument() {
   state.documentActivationSequence += 1;
-  const model = createDocument({ content: "---\ntitle: \"\"\nlang: auto\n---\n\n# New document\n\n" });
+  if (state.preferences.viewMode === "read") updatePreference({ viewMode: "write" });
+  const model = createDocument({ content: "" });
   state.documents.push(model);
   state.activeDocumentId = model.id;
   showView("workspace");
@@ -2450,6 +2576,7 @@ async function refreshActiveProject() {
 }
 
 function renderProjectWorkspace() {
+  renderFileNavigator({ includeProject: true });
   const empty = $("#project-empty");
   const tools = $("#project-tools");
   const list = $("#project-file-tree");
@@ -3127,6 +3254,11 @@ async function validateActiveBook() {
 }
 
 function renderFullBookPreview(html) {
+  setViewMode("split");
+  // This explicit request shows the whole book. Retire the per-document
+  // preview scheduled by the mode change so it cannot immediately replace it.
+  clearTimeout(state.previewTimer);
+  state.previewSequence += 1;
   const parsed = new DOMParser().parseFromString(String(html || ""), "text/html");
   const container = $("#preview-document");
   container.replaceChildren();
@@ -3414,7 +3546,7 @@ function onEditorInput() {
   model.diagnostics = [];
   model.bibliographyDiagnostics = [];
   renderProblems(model);
-  setSaveState("dirty");
+  setSaveState(documentDirty(model) ? "dirty" : "saved");
   renderDocumentTabs();
   renderOutline(model);
   renderCitations(model);
@@ -3459,9 +3591,14 @@ function schedulePreview(delay = 650) {
     if (model) model.preview = null;
     renderPreview(model);
     $("#preview-loading")?.classList.add("hidden");
+    $("#reading-loading")?.classList.add("hidden");
     return;
   }
-  if (!$("#auto-preview")?.checked) return;
+  if (!$("#auto-preview")?.checked && state.preferences.viewMode !== "read") {
+    $("#preview-loading")?.classList.add("hidden");
+    $("#reading-loading")?.classList.add("hidden");
+    return;
+  }
   state.previewTimer = setTimeout(() => void refreshPreview(), delay);
 }
 
@@ -3471,7 +3608,7 @@ function previewOptions() {
   return {};
 }
 
-function safePreviewHtml(value) {
+function safePreviewHtml(value, prefix = "preview-") {
   const template = document.createElement("template");
   template.innerHTML = String(value || "");
   template.content
@@ -3480,7 +3617,7 @@ function safePreviewHtml(value) {
   const idMap = new Map();
   template.content.querySelectorAll("[id]").forEach((element) => {
     const original = element.id;
-    const prefixed = `preview-${original}`;
+    const prefixed = `${prefix}${original}`;
     idMap.set(original, prefixed);
     element.dataset.previewSourceId = original;
     element.id = prefixed;
@@ -3518,7 +3655,7 @@ function safePreviewHtml(value) {
       if (name === "href") {
         if (attribute.value.startsWith("#")) {
           const target = attribute.value.slice(1);
-          element.setAttribute("href", `#${idMap.get(target) || `preview-${target}`}`);
+          element.setAttribute("href", `#${idMap.get(target) || `${prefix}${target}`}`);
         } else {
           element.removeAttribute("href");
           element.setAttribute("aria-disabled", "true");
@@ -3530,7 +3667,7 @@ function safePreviewHtml(value) {
       if (["for", "aria-labelledby", "aria-describedby"].includes(name)) {
         const rewritten = attribute.value
           .split(/\s+/)
-          .map((id) => idMap.get(id) || `preview-${id}`)
+          .map((id) => idMap.get(id) || `${prefix}${id}`)
           .join(" ");
         element.setAttribute(attribute.name, rewritten);
       }
@@ -3542,7 +3679,7 @@ function safePreviewHtml(value) {
           attribute.name,
           attribute.value.replace(
             /url\(#([^)"']+)\)/g,
-            (whole, id) => `url(#${idMap.get(id) || `preview-${id}`})`,
+            (whole, id) => `url(#${idMap.get(id) || `${prefix}${id}`})`,
           ),
         );
       }
@@ -3573,6 +3710,57 @@ function renderPreviewMessage(title, detail = "") {
     message.append(description);
   }
   container.replaceChildren(message);
+  $("#reading-document")?.replaceChildren(message.cloneNode(true));
+}
+
+const readingScroll = new Map();
+let readingDocumentId = null;
+
+function renderReading(model) {
+  if (state.preferences.viewMode !== "read") return;
+  const container = $("#reading-document");
+  if (!container) return;
+  if (readingDocumentId !== model?.id) {
+    readingDocumentId = model?.id || null;
+    for (const id of readingScroll.keys()) {
+      if (!state.documents.some((item) => item.id === id)) readingScroll.delete(id);
+    }
+    container.scrollTop = readingScroll.get(readingDocumentId) || 0;
+  }
+  if (!model?.content.trim() || !isMarkdownModel(model)) {
+    container.replaceChildren();
+    const empty = document.createElement("p");
+    empty.className = "empty-preview";
+    empty.textContent = t("previewEmpty");
+    container.append(empty);
+    return;
+  }
+  if (!model.preview || model.previewContentVersion !== model.contentVersion) {
+    container.replaceChildren();
+    const note = document.createElement("p");
+    note.className = "empty-preview";
+    note.textContent = t("renderingPreview");
+    container.append(note);
+    return;
+  }
+  const previousScroll = readingScroll.get(model.id) || container.scrollTop;
+  // Namespacing belongs to the sanitizer so SVG, ARIA and footnote references
+  // follow their targets within this article, including hidden sibling views.
+  const fragment = safePreviewHtml(`${model.preview.body_html || ""}${model.preview.reference_lists_html || ""}${model.preview.bibliography_html || ""}`, "reading-");
+  const entries = new Map(previewSourceEntries(model).map((entry) => [entry.id, entry.line]));
+  for (const heading of fragment.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
+    if (!heading.hasAttribute("dir")) heading.dir = "auto";
+    const id = heading.dataset.previewSourceId || heading.id.replace(/^reading-/, "");
+    const line = Number(heading.dataset.sourceLine) || entries.get(id);
+    if (line) heading.dataset.sourceLine = String(line);
+  }
+  container.replaceChildren(fragment);
+  if (model.preview.pygments_css) {
+    const style = document.createElement("style");
+    style.textContent = model.preview.pygments_css;
+    container.prepend(style);
+  }
+  container.scrollTop = previousScroll;
 }
 
 function previewSourceEntries(model = activeDocument()) {
@@ -3622,6 +3810,7 @@ function syncPreviewFromEditorScroll(scrollTop) {
 }
 
 function renderPreview(model) {
+  renderReading(model);
   document.body.classList.remove("book-preview-mode");
   const container = $("#preview-document");
   if (model && !isMarkdownModel(model)) {
@@ -3687,10 +3876,12 @@ async function drawWritePreview() {
   }
   const context = requestContext(model);
   $("#preview-loading").classList.remove("hidden");
+  $("#reading-loading")?.classList.remove("hidden");
   try {
     const result = await previewDocumentText({ path: model.path, content: model.content, options: previewOptions() });
     if (sequence !== state.previewSequence || !contextIsCurrent(context)) return;
     model.preview = result;
+    model.previewContentVersion = model.contentVersion;
     model.diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
     renderPreview(model);
     renderCitations(model);
@@ -3703,7 +3894,10 @@ async function drawWritePreview() {
     renderProblems(model);
     renderPreviewMessage(t("previewFailed"), errorText(error));
   } finally {
-    if (sequence === state.previewSequence) $("#preview-loading").classList.add("hidden");
+    if (sequence === state.previewSequence) {
+      $("#preview-loading").classList.add("hidden");
+      $("#reading-loading")?.classList.add("hidden");
+    }
   }
 }
 
@@ -3747,6 +3941,7 @@ async function refreshAssets() {
 }
 
 async function importAsset() {
+  if (!documentEditable()) return;
   const model = activeDocument();
   if (!model?.path || !isMarkdownModel(model)) {
     toast(t("saveBeforeAsset"), "error");
@@ -3755,6 +3950,7 @@ async function importAsset() {
   const context = requestContext(model);
   try {
     const source = await invoke("pick_document_asset");
+    if (!documentEditable()) return;
     if (!source) return;
     if (!contextIsCurrent(context, { requireContent: false })) return;
     const asset = await importDocumentAsset(model.path, source);
@@ -3783,6 +3979,11 @@ function insertAssetReference(asset, model = activeDocument()) {
 }
 
 function activateSidebar(name) {
+  if (!state.workspaceLayout.sidebarOpen) {
+    state.workspaceLayout.sidebarOpen = true;
+    if (matchMedia("(max-width: 1100px)").matches) state.workspaceLayout.filesOpen = false;
+    applyWorkspaceLayout({ persist: true });
+  }
   state.activeSidebar = name;
   $$("[data-sidebar]").forEach((button) => {
     const active = button.dataset.sidebar === name;
@@ -3802,6 +4003,15 @@ function activateSidebar(name) {
 }
 
 function goToLine(line, column = 1) {
+  if (state.preferences.viewMode === "read") {
+    const target = $("#reading-document")?.querySelector(`[data-source-line="${Number(line) || 1}"]`);
+    if (target) {
+      target.scrollIntoView({ block: "start", behavior: "instant" });
+      $("#reading-document")?.focus({ preventScroll: true });
+      return;
+    }
+    setViewMode("source");
+  }
   const editor = currentEditor();
   if (editorAdapter) editorAdapter.goToLine(line, column);
   else {
@@ -3850,6 +4060,9 @@ function selectFindMatch(index) {
 }
 
 function openFind({ replace = false } = {}) {
+  // Search selects the actual Markdown, and replacement requires an explicit
+  // visible editing surface rather than changing a hidden reader buffer.
+  if (state.preferences.viewMode === "read") setViewMode("source");
   $("#find-bar").classList.remove("hidden");
   $("#replace-query").classList.toggle("hidden", !replace);
   $("#replace-one").classList.toggle("hidden", !replace);
@@ -3875,6 +4088,7 @@ function moveFind(direction) {
 }
 
 function replaceCurrentMatch() {
+  if (!documentEditable()) return;
   const editor = currentEditor();
   if (!state.findMatches.length) return;
   const match = state.findMatches[state.findIndex];
@@ -3885,6 +4099,7 @@ function replaceCurrentMatch() {
 }
 
 function replaceAllMatches() {
+  if (!documentEditable()) return;
   const query = $("#find-query").value;
   if (!query) return;
   const replacement = $("#replace-query").value;
@@ -3896,6 +4111,7 @@ function replaceAllMatches() {
 }
 
 function applyEditorResult(result) {
+  if (!documentEditable()) return;
   const editor = currentEditor();
   editor.value = result.text;
   editor.focus();
@@ -3904,6 +4120,7 @@ function applyEditorResult(result) {
 }
 
 function applyEditorContent(content) {
+  if (!documentEditable()) return;
   const editor = currentEditor();
   const cursor = Math.min(editor.selectionStart, content.length);
   editor.value = content;
@@ -3926,7 +4143,7 @@ function insertAtCursor(value) {
  */
 function editorCommand(command) {
   const model = activeDocument();
-  if (!model || model.readOnly || !isMarkdownModel(model)) return;
+  if (!documentEditable() || !isMarkdownModel(model)) return;
   if (editorAdapter?.runCommand?.(command)) {
     onEditorInput();
     return;
@@ -4150,10 +4367,17 @@ async function copyAsHtml() {
 
 async function pasteAsPlainText() {
   const model = activeDocument();
-  if (!model || model.readOnly) return;
+  if (!documentEditable()) return;
+  const context = requestContext(model);
+  const intent = state.documentActivationSequence;
+  const editor = currentEditor();
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
   try {
     const text = await navigator.clipboard.readText();
-    if (text) insertAtCursor(text);
+    if (!contextIsCurrent(context) || intent !== state.documentActivationSequence
+      || !documentEditable() || editor.selectionStart !== start || editor.selectionEnd !== end) return;
+    if (text) applyEditorResult(replaceSelection(editor.value, start, end, text));
   } catch {
     toast(t("clipboardUnavailable"), "error");
   }
@@ -4170,7 +4394,7 @@ async function pasteAsPlainText() {
 function openEditorContextMenu(event) {
   closeEditorContextMenu();
   const model = activeDocument();
-  const editable = Boolean(model) && !model.readOnly && isMarkdownModel(model);
+  const editable = documentEditable() && isMarkdownModel(model);
   const hasSelection = currentEditor().selectionStart !== currentEditor().selectionEnd;
 
   const items = [
@@ -4235,7 +4459,7 @@ function closeEditorContextMenu() {
 function applyFrontMatter(event) {
   event.preventDefault();
   const model = activeDocument();
-  if (!model || model.readOnly || !isMarkdownModel(model)) return;
+  if (!documentEditable() || !isMarkdownModel(model)) return;
   const form = event.currentTarget;
   let content = model.content;
   for (const key of ["title", "subtitle", "author", "lang", "dir"]) {
@@ -4257,9 +4481,15 @@ function applyFrontMatter(event) {
 async function exportActiveDocument() {
   const model = activeDocument();
   if (!model || !isMarkdownModel(model)) return;
+  const intent = state.documentActivationSequence;
   if (!model.path || documentDirty(model)) {
     const saved = await saveActiveDocument();
     if (!saved) return;
+  }
+  if (intent !== state.documentActivationSequence || activeDocument()?.id !== model.id) return;
+  if (documentDirty(model)) {
+    toast(t("exportNeedsCurrentSave"));
+    return;
   }
   openExportSource(model.path);
 }
@@ -4321,8 +4551,19 @@ function bindEvents() {
   $("#help-button").addEventListener("click", openHelp);
   $("#settings-button").addEventListener("click", openSettings);
   $("#template-help").addEventListener("click", openHelp);
-  for (const button of $$("[data-view-mode]")) {
+  for (const button of $$("button[data-view-mode]")) {
     button.addEventListener("click", () => setViewMode(button.dataset.viewMode));
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const buttons = $$("button[data-view-mode]");
+      const index = buttons.indexOf(button);
+      const rtl = document.documentElement.dir === "rtl";
+      const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1
+        : (index + ((event.key === "ArrowRight") !== rtl ? 1 : -1) + buttons.length) % buttons.length;
+      setViewMode(buttons[next].dataset.viewMode);
+      buttons[next].focus();
+    });
   }
   $("#reset-advanced").addEventListener("click", resetAdvancedOptions);
   $("#option-search").addEventListener("input", (event) => {
@@ -4359,13 +4600,17 @@ function bindEvents() {
   $("#preview-prev-page").addEventListener("click", () => movePreviewPage(-1));
   $("#preview-next-page").addEventListener("click", () => movePreviewPage(1));
   $("#workflow-quick").addEventListener("click", () => {
+    state.exportReturnView = "start";
     showView("export");
     schedulePdfPreview(0);
   });
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
   $("#workflow-project").addEventListener("click", chooseProjectDirectory);
   $("#workflow-book").addEventListener("click", openNewBookModal);
-  $("#export-back").addEventListener("click", () => showView("start"));
+  $("#export-back").addEventListener("click", () => {
+    showView(state.exportReturnView);
+    if (state.exportReturnView === "workspace") focusDocument();
+  });
   $("#choose-source").addEventListener("click", chooseExportSource);
   $("#choose-output").addEventListener("click", chooseExportOutput);
   $("#validate-button").addEventListener("click", validateExportDocument);
@@ -4379,6 +4624,43 @@ function bindEvents() {
   });
 
   $("#workspace-home").addEventListener("click", () => showView("start"));
+  $("#workspace-toggle-files")?.addEventListener("click", () => toggleWorkspacePane("files"));
+  $("#workspace-toggle-formatting")?.addEventListener("click", () => toggleWorkspacePane("formatting"));
+  $("#workspace-quick-open")?.addEventListener("click", () => navigationPicker.open("files"));
+  $("#navigator-new")?.addEventListener("click", createUntitledDocument);
+  $("#tab-new-document")?.addEventListener("click", createUntitledDocument);
+  $("#navigator-open")?.addEventListener("click", chooseAuthoringFiles);
+  $("#navigator-open-project")?.addEventListener("click", chooseProjectDirectory);
+  $("#navigator-close")?.addEventListener("click", () => toggleWorkspacePane("files"));
+  $("#inspector-close")?.addEventListener("click", () => toggleWorkspacePane("sidebar"));
+  $("#workspace-focus")?.addEventListener("click", () => { updatePreference({ focusMode: !state.preferences.focusMode }); focusDocument(); });
+  $("#exit-focus-mode")?.addEventListener("click", () => { updatePreference({ focusMode: false }); focusDocument(); });
+  $("#workspace-commands")?.addEventListener("click", openCommandPalette);
+  $("#workspace-settings")?.addEventListener("click", openSettings);
+  $("#workspace-help")?.addEventListener("click", openHelp);
+  $("#file-resizer")?.addEventListener("pointerdown", (event) => beginPaneResize(event, "files"));
+  $("#file-resizer")?.addEventListener("keydown", (event) => resizePaneWithKeyboard(event, "files"));
+  $("#reading-document")?.addEventListener("scroll", (event) => {
+    if (readingDocumentId && state.preferences.viewMode === "read" && event.currentTarget.getClientRects().length) {
+      readingScroll.set(readingDocumentId, event.currentTarget.scrollTop);
+    }
+  });
+  $("#document-actions-menu")?.addEventListener("click", (event) => {
+    if (event.target.closest("button")) event.currentTarget.open = false;
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest("#document-actions-menu")) $("#document-actions-menu")?.removeAttribute("open");
+  });
+  let compactWorkspace = matchMedia("(max-width: 1100px)").matches;
+  window.addEventListener("resize", () => {
+    const next = matchMedia("(max-width: 1100px)").matches;
+    if (next && !compactWorkspace) {
+      state.workspaceLayout.filesOpen = false;
+      state.workspaceLayout.sidebarOpen = false;
+      applyWorkspaceLayout();
+    }
+    compactWorkspace = next;
+  });
   $("#workspace-new").addEventListener("click", createUntitledDocument);
   $("#workspace-open").addEventListener("click", chooseAuthoringFiles);
   $("#workspace-save").addEventListener("click", () => saveActiveDocument());
@@ -4527,8 +4809,9 @@ function bindEvents() {
       event.preventDefault();
       const index = sidebarButtons.indexOf(button);
       let targetIndex = index;
-      if (["ArrowUp", "ArrowLeft"].includes(event.key)) targetIndex = (index - 1 + sidebarButtons.length) % sidebarButtons.length;
-      if (["ArrowDown", "ArrowRight"].includes(event.key)) targetIndex = (index + 1) % sidebarButtons.length;
+      const rtl = document.documentElement.dir === "rtl";
+      if (event.key === "ArrowUp" || event.key === (rtl ? "ArrowRight" : "ArrowLeft")) targetIndex = (index - 1 + sidebarButtons.length) % sidebarButtons.length;
+      if (event.key === "ArrowDown" || event.key === (rtl ? "ArrowLeft" : "ArrowRight")) targetIndex = (index + 1) % sidebarButtons.length;
       if (event.key === "Home") targetIndex = 0;
       if (event.key === "End") targetIndex = sidebarButtons.length - 1;
       const target = sidebarButtons[targetIndex];
@@ -4567,13 +4850,28 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      // The dialog manager and editor menus get the first Escape. Closing a
+      // picker must not also leave the writer's focus mode underneath it.
+      if (event.defaultPrevented) return;
+      const documentMenuOpen = Boolean($("#document-actions-menu")?.open);
       closeEditorContextMenu();
+      $("#document-actions-menu")?.removeAttribute("open");
       toggleHeadingMenu(false);
       toggleInsertMenu(false);
+      if (documentMenuOpen) {
+        $("#document-actions-menu summary")?.focus();
+        return;
+      }
       // A mode that hides the way out has to have one.
       if (state.preferences.focusMode && !modalManager.hasOpenModal()) {
         updatePreference({ focusMode: false });
-        toast(t("exitFocusMode"));
+        focusDocument();
+      } else if (!modalManager.hasOpenModal() && matchMedia("(max-width: 1100px)").matches
+        && (state.workspaceLayout.filesOpen || state.workspaceLayout.sidebarOpen)) {
+        state.workspaceLayout.filesOpen = false;
+        state.workspaceLayout.sidebarOpen = false;
+        applyWorkspaceLayout();
+        focusDocument();
       }
     }
     if (event.key === "F1") {
@@ -4592,6 +4890,15 @@ function bindEvents() {
     if (key === "p" && event.shiftKey) {
       event.preventDefault();
       openCommandPalette();
+    } else if (key === "p") {
+      event.preventDefault();
+      navigationPicker.open("files");
+    } else if (key === "o" && event.shiftKey) {
+      event.preventDefault();
+      navigationPicker.open("headings");
+    } else if (key === "\\") {
+      event.preventDefault();
+      toggleWorkspacePane("files");
     } else if (key === "f") {
       event.preventDefault();
       openFind({ replace: false });
@@ -4625,6 +4932,28 @@ function bindEvents() {
     }
   });
 
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || event.defaultPrevented || modalManager.hasOpenModal()) return;
+    const compactDrawer = event.target.closest?.(".editor-surface")
+      && matchMedia("(max-width: 1100px)").matches
+      && (state.workspaceLayout.filesOpen || state.workspaceLayout.sidebarOpen);
+    if (!state.preferences.focusMode && !compactDrawer) return;
+    const completion = $(".cm-tooltip-autocomplete");
+    const editorPopupFocused = event.target.closest?.(".cm-selection-toolbar");
+    if (completion?.getClientRects().length || editorPopupFocused) return;
+    if (["#editor-context-menu", "#insert-menu", "#heading-menu", "#format-overflow-menu"]
+      .some((selector) => !$(selector)?.classList.contains("hidden"))) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (state.preferences.focusMode) updatePreference({ focusMode: false });
+    else {
+      state.workspaceLayout.filesOpen = false;
+      state.workspaceLayout.sidebarOpen = false;
+      applyWorkspaceLayout();
+    }
+    focusDocument();
+  }, true);
+
   window.addEventListener("beforeunload", () => {
     for (const model of state.documents) if (documentDirty(model)) saveRecovery(model);
   });
@@ -4645,6 +4974,28 @@ function bindEvents() {
 
 async function boot() {
   modalManager = createModalManager(document);
+  navigationPicker = createNavigationPicker({ manager: modalManager, t,
+    getEntries: (scope) => scope === "headings"
+      ? extractOutline(activeDocument()?.content || "").map((item) => ({ id: `heading:${item.line}`, label: item.title, detail: `${t("lineShort")} ${item.line}`, line: item.line, level: item.level, documentId: activeDocument()?.id, contentVersion: activeDocument()?.contentVersion }))
+      : documentNavigationEntries(state.documents, state.project),
+    onChoose: async (entry, scope) => {
+      if (scope === "headings") {
+        if (entry.documentId === activeDocument()?.id && entry.contentVersion === activeDocument()?.contentVersion) goToLine(entry.line);
+        else focusDocument();
+      }
+      else {
+        showView("workspace");
+        if (entry.documentId) await activateDocument(entry.documentId);
+        else await openProjectRelativeFile(entry.relativePath);
+      }
+    },
+  });
+  // An initially open drawer must not obscure the writing surface on a small
+  // window. Explicit toggles still open one drawer at a time.
+  if (matchMedia("(max-width: 1100px)").matches) {
+    state.workspaceLayout.filesOpen = false;
+    state.workspaceLayout.sidebarOpen = false;
+  }
   applyInterfacePreferences();
   applyWorkspaceLayout();
   document.body.dataset.view = $("#workspace-view")?.classList.contains("active") ? "workspace" : "start";
@@ -4661,6 +5012,7 @@ async function boot() {
   }
   const textarea = $("#markdown-editor");
   const editorOptions = {
+    locale: state.locale,
     strings: editorStrings(),
     theme: document.documentElement.dataset.theme,
     mode: editorModeForView(state.preferences.viewMode),

@@ -184,12 +184,9 @@ test("focus mode restates the workspace rows it empties", () => {
   // Taking the tab strip out of the flow takes its grid row with it; without
   // restating the rows the authoring grid lands in the 40px tab track.
   const css = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
-  const start = css.indexOf('html[data-focus-mode="true"] .document-tabs');
-  assert.ok(start > 0, "focus mode does not hide the tab strip");
-  assert.match(
-    css.slice(start),
-    /html\[data-focus-mode="true"\] \.workspace-view\.active \{\s*grid-template-rows/,
-  );
+  assert.match(css, /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.tab-bar/);
+  assert.match(css, /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.workspace-view\.active \{\s*grid-template-rows/);
+  assert.match(css, /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.editor-pane \{[^}]*grid-template-rows/);
 });
 
 test("a footnote inserts its reference and its definition together", () => {
