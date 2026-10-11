@@ -676,7 +676,50 @@ const livePreviewPlugin = ViewPlugin.fromClass(
   },
 );
 
-/** Source mode needs the same per-line direction, without any of the rendering. */
+const sourceBlockLtr = Decoration.line({
+  class: "cm-source-block-ltr",
+  attributes: { dir: "ltr" },
+});
+const sourceBlockRtl = Decoration.line({
+  class: "cm-source-block-rtl",
+  attributes: { dir: "rtl" },
+});
+
+/**
+ * Structural source lines belong to their block, not the interface language.
+ *
+ * An English table's neutral separator used to inherit a Persian workbench's
+ * direction while its header and cells resolved themselves as LTR. Closing
+ * code fences did the same. Decide table direction from its content once and
+ * keep code syntax LTR, as the live editor already does. This changes only line
+ * presentation: fences, whitespace and cursor offsets remain raw Markdown.
+ * Only visible lines receive decorations, even when a code block is very long.
+ */
+export function sourceBlockDirections(state, visibleRanges) {
+  const directions = new Map();
+  for (const { from, to } of visibleRanges) {
+    syntaxTree(state).iterate({
+      from,
+      to,
+      enter(node) {
+        const code = node.name === "FencedCode" || node.name === "CodeBlock";
+        if (!code && node.name !== "Table") return;
+        const direction = !code && blockIsRtl(state.doc.sliceString(node.from, node.to))
+          ? "rtl"
+          : "ltr";
+        const first = state.doc.lineAt(Math.max(from, node.from)).number;
+        const last = state.doc.lineAt(Math.min(to, node.to)).number;
+        for (let number = first; number <= last; number += 1) {
+          directions.set(state.doc.line(number).from, direction);
+        }
+        return false;
+      },
+    });
+  }
+  return directions;
+}
+
+/** Source mode keeps raw text with line- and block-aware bidi measurement. */
 const autoDirectionPlugin = ViewPlugin.fromClass(
   class {
     constructor(view) {
@@ -684,15 +727,22 @@ const autoDirectionPlugin = ViewPlugin.fromClass(
     }
 
     update(update) {
-      if (update.docChanged || update.viewportChanged) this.decorations = this.build(update.view);
+      if (update.docChanged || update.viewportChanged
+          || syntaxTree(update.startState) !== syntaxTree(update.state)) {
+        this.decorations = this.build(update.view);
+      }
     }
 
     build(view) {
       const builder = new RangeSetBuilder();
+      const blocks = sourceBlockDirections(view.state, view.visibleRanges);
       for (const { from, to } of view.visibleRanges) {
         for (let pos = from; pos <= to; ) {
           const line = view.state.doc.lineAt(pos);
-          builder.add(line.from, line.from, lineDirection(line.text));
+          const direction = blocks.get(line.from);
+          builder.add(line.from, line.from, direction === "ltr"
+            ? sourceBlockLtr
+            : direction === "rtl" ? sourceBlockRtl : lineDirection(line.text));
           pos = line.to + 1;
         }
       }

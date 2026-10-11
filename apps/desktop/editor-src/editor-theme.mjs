@@ -127,6 +127,11 @@ export function mardasEditorTheme(dark = false) {
         tabSize: "4",
       },
       ".cm-scroller": { fontFamily: EDITOR_FONT_FAMILY },
+      // `plaintext` resolves each row separately. A source table and a code
+      // fence need one base direction, including punctuation-only rows, while
+      // Unicode bidi still handles Persian words inside their Latin syntax.
+      ".cm-line.cm-source-block-ltr": { direction: "ltr", unicodeBidi: "isolate" },
+      ".cm-line.cm-source-block-rtl": { direction: "rtl", unicodeBidi: "isolate" },
 
       "&.cm-focused": { outline: "none" },
       ".cm-cursor, .cm-dropCursor": {

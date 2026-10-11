@@ -217,7 +217,13 @@ export function selectionToolbarExtension(locale = "en", enabled = true) {
       if (!selectionToolbarEligible(view.state)) return false;
       view.dispatch({ effects: revealToolbar.of(true) });
       const tooltip = view.state.field(field);
-      const focus = () => getTooltip(view, tooltip)?.dom.querySelector("button")?.focus();
+      const focus = () => {
+        const dom = getTooltip(view, tooltip)?.dom;
+        // The toolbar can mount synchronously. A key pressed before the next
+        // frame may already have moved to another button; delayed mount focus
+        // must not reset that user's roving focus to the first button.
+        if (dom && !dom.contains(document.activeElement)) dom.querySelector("button")?.focus();
+      };
       focus();
       // A new tooltip is positioned at the next measure when previously
       // dismissed. Focus follows the mounted DOM on that frame as well.
