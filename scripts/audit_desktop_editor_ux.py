@@ -365,8 +365,34 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     checks.extend(run_export_navigation(page))
     checks.extend(run_authoring(page, locale))
     checks.extend(run_book_preview(page))
+    checks.extend(run_narrow_panes(page))
     page.screenshot(path=str(output / f"{locale}-{theme}-workspace.png"), full_page=True)
     return checks
+
+
+def run_narrow_panes(page: Any) -> list[str]:
+    mode(page, "split")
+    for selector in ("#workspace-toggle-files", "#workspace-toggle-sidebar"):
+        if page.locator(selector).get_attribute("aria-pressed") != "true":
+            page.locator(selector).click()
+    for selector in ("#file-resizer", "#sidebar-resizer"):
+        page.locator(selector).focus()
+        page.keyboard.press("End")
+    for button in page.locator(".document-toolbar button").all():
+        expect(button).to_be_visible()
+        button.evaluate("el => el.scrollIntoView({block:'nearest'})")
+        geometry = button.evaluate("""el => {
+          const r=el.getBoundingClientRect(), pane=el.closest('.editor-pane').getBoundingClientRect();
+          const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+          return {inside:r.left>=pane.left-.5 && r.right<=pane.right+.5,
+            reachable:hit===el || el.contains(hit)};
+        }""")
+        if not geometry["inside"] or not geometry["reachable"]:
+            raise AssertionError(f"Narrow editor clips toolbar control {button.get_attribute('id')}: {geometry}")
+    for selector in ("#file-resizer", "#sidebar-resizer"):
+        page.locator(selector).focus()
+        page.keyboard.press("Home")
+    return ["toolbar-controls-remain-reachable-with-both-panes-at-maximum-width"]
 
 
 def run_clipboard_race(page: Any, content_a: str) -> list[str]:
