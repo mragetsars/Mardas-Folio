@@ -12,8 +12,8 @@ editing surface in overlapping slices.
     python scripts/audit_editor_markdown.py --out build/editor-audit
 
 ``--mode write`` is the live preview; ``--mode source`` is the raw buffer, and
-comparing the two is how you tell "the decoration is wrong" from "the parse is
-wrong".
+``--mode split`` keeps that raw buffer beside the engine preview. Comparing
+the views distinguishes decoration failures from parser failures.
 
 ``--locale fa`` runs the same corpus with the interface mirrored. The editor
 then sits in a right-to-left container, so CodeMirror's own base direction
@@ -177,7 +177,7 @@ def check_caret_reveals_source(page: Any, _text: str) -> list[dict[str, Any]]:
         target = None
         for _ in range(40):
             target = page.evaluate(
-                """(rendered) => {
+                r"""(rendered) => {
                     for (const line of document.querySelectorAll('.cm-line')) {
                         if (!line.textContent.includes(rendered)) continue;
                         line.scrollIntoView({block: "center"});
@@ -239,7 +239,7 @@ def check_caret_reveals_source(page: Any, _text: str) -> list[dict[str, Any]]:
         # decoration failing to yield.
         for _ in range(4):
             on_line = page.evaluate(
-                """(rendered) => {
+                r"""(rendered) => {
                     const active = document.querySelector('.cm-activeLine');
                     if (!active) return false;
                     return active.textContent.includes(rendered)
@@ -382,6 +382,14 @@ def run(
             )
         page.locator(f'button[data-view-mode="{mode}"]').click()
         page.wait_for_timeout(700)
+        actual_mode = page.locator(".cm-editor").get_attribute("data-editor-mode")
+        expected_mode = "live" if mode == "write" else "source"
+        if actual_mode != expected_mode or not page.locator(".cm-content").is_visible():
+            raise RuntimeError(
+                f"requested {mode} editor is not visible in {expected_mode} mode: {actual_mode}"
+            )
+        if mode == "split" and not page.locator("#preview-pane").is_visible():
+            raise RuntimeError("split mode did not expose its preview pane")
         # Park the caret at the very end so no construct is expanded for editing.
         page.locator(".cm-content").click()
         page.keyboard.press("Control+End")
@@ -444,7 +452,7 @@ def run(
         )
         # Typing is checked last: it rewrites the buffer, so everything that
         # reads the corpus has to have run already.
-        report["typing"] = check_typing_behaviour(page) if mode == "write" else []
+        report["typing"] = check_typing_behaviour(page)
         report["page_errors"] = errors
         browser.close()
 
@@ -482,7 +490,7 @@ def main(argv: list[str] | None = None) -> int:
     # purpose, so every expectation below would "fail" and the run would say
     # twenty-one things are broken when nothing is. A check that cries wolf in
     # one of its two modes is a check nobody reads in either.
-    live = args.mode != "source"
+    live = args.mode == "write"
     missing = []
     for label, selector, minimum in EXPECTATIONS:
         found = counts.get(label, 0)
@@ -521,7 +529,8 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(f"\n{len(missing)} construct(s) decorated in source mode: "
               f"{', '.join(missing) or 'none'}")
-    return 0
+    failed_interactions = sum(not item.get("ok") for item in [*editable, *typing])
+    return 1 if missing or failed_interactions or report["page_errors"] else 0
 
 
 if __name__ == "__main__":

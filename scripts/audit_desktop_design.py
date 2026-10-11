@@ -36,6 +36,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+from audit_desktop_ui import go_home, open_settings
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DIST = ROOT / "apps" / "desktop" / "dist"
 DEFAULT_OUTPUT = ROOT / "build" / "desktop-design"
@@ -160,13 +162,14 @@ MEASURE_JS = """() => {
     topbar: h(q('.topbar')),
     author_toolbar: h(q('.author-toolbar')),
     tab_bar: h(q('.tab-bar')) || h(q('.document-tabs')),
+    document_toolbar: h(q('.document-toolbar')),
     editor_pane_header: h(q('.editor-pane .pane-header')),
     format_bar: h(q('.format-bar')),
     editor_status: h(q('.editor-status')),
     app_footer: h(q('.app-footer')),
   };
   const chrome = Object.values(heights).reduce((a, b) => a + b, 0);
-  const doc = h(q('.codemirror-mount .cm-scroller')) || h(q('.editor-surface'));
+  const doc = h(q('#reading-document')) || h(q('.codemirror-mount .cm-scroller')) || h(q('.editor-surface'));
   const win = window.innerHeight;
   const bars = Object.entries(heights).filter(([, v]) => v > 0).map(([k]) => k);
 
@@ -422,7 +425,7 @@ def contrast(dist: Path) -> dict[str, Any]:
             page.wait_for_timeout(300)
             surfaces["commands"] = page.evaluate(CONTRAST_JS)
             page.keyboard.press("Escape")
-            page.locator("#settings-button").click()
+            open_settings(page)
             page.wait_for_timeout(300)
             surfaces["settings"] = page.evaluate(CONTRAST_JS)
             # Focus mode is where this check earns the opacity arithmetic: the
@@ -433,7 +436,7 @@ def contrast(dist: Path) -> dict[str, Any]:
             page.locator("#settings-form button[type='submit']").click()
             page.wait_for_timeout(600)
             surfaces["focus mode"] = page.evaluate(CONTRAST_JS)
-            page.locator("#home-button").click()
+            go_home(page)
             page.locator("#workflow-quick").click()
             page.wait_for_timeout(300)
             surfaces["export"] = page.evaluate(CONTRAST_JS)
@@ -483,10 +486,11 @@ RESPONSIVE_JS = """() => {
   } : {
     "#workspace-save": "save",
     "#workspace-export": "create PDF",
-    "#workspace-validate": "check document",
-    "#settings-button": "settings",
-    "#command-button": "command palette",
+    "#document-actions-menu > summary": "document actions",
+    "#workspace-quick-open": "quick file navigation",
     "#workspace-toggle-sidebar": "sidebar toggle",
+    "#format-find": "find in document",
+    "#insert-menu-button": "insert Markdown",
   };
   for (const [selector, label] of Object.entries(required)) {
     const el = document.querySelector(selector);
@@ -617,6 +621,7 @@ def responsive(dist: Path, *, locale: str = "en", theme: str = "light") -> dict[
             page.locator("[data-template-id='report']").click()
             page.locator(".codemirror-mount .cm-editor").wait_for(state="visible")
             page.wait_for_timeout(500)
+            page.locator("#workspace-toggle-formatting").click()
             # Split view is where the workbench is tightest: the editor sheet
             # gives half its width to the preview, and a strip that fits in
             # write view no longer does.
@@ -625,7 +630,13 @@ def responsive(dist: Path, *, locale: str = "en", theme: str = "light") -> dict[
                 page.wait_for_timeout(500)
                 key = f"{width}x{height}" if view == "write" else f"{width}x{height} split"
                 findings[key] = page.evaluate(RESPONSIVE_JS)
-            page.locator("#home-button").click()
+                page.locator("#document-actions-menu > summary").click()
+                findings[key].extend(page.locator(
+                    "#workspace-new, #workspace-open, #workspace-save-as, "
+                    "#workspace-validate, #workspace-commands, #workspace-settings"
+                ).evaluate_all(FOCUS_REACHABILITY_JS))
+                page.keyboard.press("Escape")
+            go_home(page)
             page.locator("#workflow-quick").click()
             findings[f"{width}x{height} export"] = _export_reachability(page)
             findings[f"{width}x{height} export"].extend(page.evaluate(RESPONSIVE_JS))
@@ -706,12 +717,19 @@ def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
             page.locator('[data-view-mode="split"]').click()
             page.wait_for_timeout(1100)
             snap("05-split")
+            page.locator('[data-view-mode="read"][role="radio"]').click()
+            page.locator("#reading-surface").wait_for(state="visible")
+            page.wait_for_timeout(500)
+            snap("09-reading")
+            page.locator('[data-view-mode="source"][role="radio"]').click()
+            page.wait_for_timeout(400)
+            snap("10-source")
             page.keyboard.press("Control+Shift+P")
             page.wait_for_timeout(300)
             snap("06-command-palette")
             page.keyboard.press("Escape")
             page.wait_for_timeout(200)
-            page.locator("#home-button").click()
+            go_home(page)
             page.locator("#workflow-quick").click()
             page.wait_for_timeout(300)
             snap("07-export")
@@ -732,7 +750,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dist", type=Path, default=DEFAULT_DIST)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--only", default=None, help="one of light-en, dark-en, light-fa, dark-fa")
-    parser.add_argument("--view-mode", default="split", choices=("write", "source", "split"))
+    parser.add_argument("--view-mode", default="split", choices=("write", "source", "read", "split"))
     parser.add_argument("--label", default="")
     parser.add_argument("--locale", default="en", choices=("en", "fa"))
     parser.add_argument("--theme", default="light", choices=("light", "dark"))

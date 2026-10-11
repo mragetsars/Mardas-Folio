@@ -68,6 +68,25 @@ def _visible(page: Any, selector: str) -> bool:
     return bool(page.locator(selector).evaluate("(node) => !node.classList.contains('hidden')"))
 
 
+def open_settings(page: Any) -> None:
+    """Use the settings control exposed by the current workspace or launcher."""
+    if page.locator("#workspace-view").is_visible():
+        page.locator("#document-actions-menu > summary").click()
+        page.locator("#workspace-settings").click()
+    else:
+        page.locator("#settings-button").click()
+
+
+def go_home(page: Any) -> None:
+    """Leave Focus before using the workspace's visible Home control."""
+    if page.locator("#exit-focus-mode").is_visible():
+        page.locator("#exit-focus-mode").click()
+    if page.locator("#workspace-view").is_visible():
+        page.locator("#workspace-home").click()
+    else:
+        page.locator("#home-button").click()
+
+
 def run_audit(
     dist: Path,
     output_dir: Path,
@@ -265,7 +284,7 @@ def run_audit(
             active_tab.count() == 1 and active_tab.get_attribute("tabindex") == "0"
         )
 
-        page.locator("#settings-button").click()
+        open_settings(page)
         checks["settings_visible"] = _visible(page, "#settings-modal")
         tab_count = page.locator(".document-tab").count()
         page.keyboard.press("Control+N")
@@ -285,19 +304,21 @@ def run_audit(
         checks["help_visible"] = _visible(page, "#help-modal")
         page.locator("#help-done").click()
 
-        page.locator("#settings-button").click()
+        open_settings(page)
         page.locator("#setting-locale").select_option("fa")
         page.locator("#settings-form button[type='submit']").click()
         checks["rtl_locale"] = page.locator("html").get_attribute("dir") == "rtl"
+        page.locator("#workspace-toggle-sidebar").click()
         checks["workbench_mirrors"] = page.evaluate(
             """() => {
-                const rail = document.querySelector('.sidebar-tabs');
+                const files = document.querySelector('#file-navigator');
+                const inspector = document.querySelector('#author-sidebar');
                 const editor = document.querySelector('.editor-pane');
-                if (!rail || !editor) return false;
-                // Mirrored, the activity rail is on the trailing edge, which
-                // in a right-to-left interface is the right of the window.
-                return rail.getBoundingClientRect().left
-                    > editor.getBoundingClientRect().left;
+                if (!files || !inspector || !editor) return false;
+                // File navigation is the leading region and document tools
+                // are trailing. In RTL the file navigator sits on the right.
+                return files.getBoundingClientRect().left > editor.getBoundingClientRect().left
+                    && inspector.getBoundingClientRect().right <= editor.getBoundingClientRect().left;
             }"""
         )
         page.screenshot(path=str(output_dir / "desktop-fa-dark.png"), full_page=True)

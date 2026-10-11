@@ -46,7 +46,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                 cursor_a = page.locator("#cursor-status").inner_text()
                 scroll_a = page.locator(".cm-scroller").evaluate("node => node.scrollTop")
 
-                page.locator("#workspace-new").click()
+                page.locator("#tab-new-document").click()
                 expect(page.locator(".document-tab")).to_have_count(2)
                 base_b = mirror.input_value()
                 editor.click()
@@ -84,6 +84,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                 editor.click()
                 page.keyboard.press("Control+a")
                 page.keyboard.insert_text(yaml)
+                page.locator("#workspace-toggle-sidebar").click()
                 page.locator('[data-sidebar="frontmatter"]').click()
                 title = page.locator('#frontmatter-form [name="title"]')
                 expect(title).to_have_value("A long title")
@@ -146,7 +147,7 @@ def run_delayed_image_scope_audit(dist: Path) -> dict[str, object]:
         editor.click()
         page.keyboard.press("Control+a")
         page.keyboard.insert_text("# Document A\n")
-        page.locator("#workspace-open").click()
+        page.locator("#navigator-open").click()
         page.wait_for_function("globalThis.__scopeResolvers.length > 0")
         expect(mirror).to_have_value("# Document A\n")
         editor.click()
@@ -180,7 +181,7 @@ def run_delayed_image_scope_audit(dist: Path) -> dict[str, object]:
             globalThis.__pickedFiles = ['/fixtures/multi-c.md', '/fixtures/multi-d.md'];
             globalThis.__scopeBlocked = true;
         }""")
-        page.locator("#workspace-open").click()
+        page.locator("#navigator-open").click()
         page.wait_for_function("globalThis.__scopeResolvers.length > 0")
         editor.click()
         page.keyboard.press("Control+End")
