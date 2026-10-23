@@ -68,6 +68,14 @@ function inertMath(node) {
       }
     }
   }
+  // MathJax's assistive MathML normally relies on a stylesheet injected into
+  // its own document. Our SVG is also cloned into an isolated paper frame,
+  // so carry the fixed accessibility presentation with the generated node.
+  // Otherwise the browser paints MathML beside the SVG as a second formula.
+  for (const assistive of node.querySelectorAll("mjx-assistive-mml")) {
+    assistive.style.cssText = "position:absolute!important;clip:rect(1px,1px,1px,1px)!important;clip-path:inset(50%)!important;width:1px!important;height:1px!important;overflow:hidden!important;padding:0!important;border:0!important;white-space:nowrap!important";
+  }
+  if (node.querySelector("mjx-assistive-mml")) node.style.position = "relative";
   return node;
 }
 

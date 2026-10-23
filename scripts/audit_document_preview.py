@@ -153,14 +153,48 @@ ARTICLE_CHECK = r"""({selector, expectedMath, expectedCodes, alignment = true}) 
       problems.push(`math has no visible SVG paths: ${source || node.textContent}`);
     }
     if (node.querySelector('[id],use[href],use[xlink\\:href]')) problems.push('math relies on shared SVG IDs');
+    for (const fallback of node.querySelectorAll('mjx-assistive-mml')) {
+      const style = getComputedStyle(fallback), bounds = fallback.getBoundingClientRect();
+      const clipped = style.clip !== 'auto' || style.clipPath !== 'none';
+      if (style.display !== 'none' && style.visibility !== 'hidden' && !clipped &&
+          (bounds.width > 2 || bounds.height > 2)) {
+        problems.push(`assistive MathML duplicates visible formula: ${source}`);
+      }
+    }
     if (node.dataset.mathError || node.querySelector('[data-mml-node="merror"]')) problems.push(`math error: ${source}`);
     if (/^\\+\(|^\$/.test(node.textContent.trim())) problems.push('literal math delimiters remain in preview');
     return {source, paths: paths.length, width: box?.width, height: box?.height,
       fill: paths[0] ? getComputedStyle(paths[0]).fill : null, direction: getComputedStyle(node).direction};
   });
   const code = [...root.querySelectorAll('code')].map(node => node.textContent);
+  const headingOverflow = [...root.querySelectorAll('h1,h2,h3,h4,h5,h6')]
+    .map(node => Math.max(0, node.scrollWidth - node.clientWidth));
+  if (headingOverflow.some(amount => amount > 2)) problems.push('heading text overflows its preview column');
   for (const literal of expectedCodes) if (!code.includes(literal)) problems.push(`code text changed: ${literal}`);
   if (root.querySelector('pre mjx-container,code mjx-container')) problems.push('code was typeset as math');
+  const identifier = root.querySelector('.codehilite .n');
+  let codeContrast = null;
+  if (identifier) {
+    const rgb = value => (value.match(/[\d.]+/g) || []).map(Number);
+    const luminance = color => {
+      const channels = rgb(color).slice(0, 3).map(channel => {
+        const value = channel / 255;
+        return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+      });
+      return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+    };
+    let ancestor = identifier, background = 'rgb(255,255,255)';
+    while (ancestor) {
+      const candidate = getComputedStyle(ancestor).backgroundColor;
+      const channels = rgb(candidate);
+      if (channels.length === 3 || channels[3] > .99) {background = candidate; break;}
+      ancestor = ancestor.parentElement;
+    }
+    const foreground = getComputedStyle(identifier).color;
+    const first = luminance(foreground), second = luminance(background);
+    codeContrast = {foreground, background, ratio: (Math.max(first, second) + .05) / (Math.min(first, second) + .05)};
+    if (codeContrast.ratio < 4.5) problems.push(`code identifier contrast is ${codeContrast.ratio.toFixed(2)}:1`);
+  }
   const diagram = root.querySelector('.mermaid-diagram svg');
   if (expectedCodes.length && (!diagram || !diagram.querySelector('path'))) problems.push('offline Mermaid diagram is missing');
   if (diagram) {
@@ -205,7 +239,8 @@ ARTICLE_CHECK = r"""({selector, expectedMath, expectedCodes, alignment = true}) 
   }
   if (globalThis.__previewAuditExecuted) problems.push('document HTML executed');
   return {problems, expressions, codeBlocks: code.length, alignments,
-    diagram: !!diagram, localImage: !!image, numberedCode, mathIds: root.querySelectorAll('.math [id]').length};
+    diagram: !!diagram, localImage: !!image, numberedCode, codeContrast, headingOverflow,
+    mathIds: root.querySelectorAll('.math [id]').length};
 }"""
 
 
@@ -305,8 +340,11 @@ def run_surface_case(browser: Any, url: str, payloads: dict[str, Any], locale: s
         result["surfaces"]["split"] = article_check(page, "#preview-document", payloads["rich"])
         result["preview_width"] = page.locator(".preview-pane").bounding_box()["width"]
         page.screenshot(path=str(output / f"{key}-split.png"))
-        page.locator("#preview-document .math.display").last.scroll_into_view_if_needed()
+        page.locator("#preview-document .math.display").last.evaluate("node => node.scrollIntoView({block: 'center'})")
         page.screenshot(path=str(output / f"{key}-split-matrix.png"))
+        for feature, selector in [("code", ".code-block--numbered"), ("diagram", ".mermaid-diagram")]:
+            page.locator(f"#preview-document {selector}").evaluate("node => node.scrollIntoView({block: 'center'})")
+            page.screenshot(path=str(output / f"{key}-split-{feature}.png"))
         page.locator('button.view-mode[data-view-mode="read"]').click()
         wait_math(page, "#reading-document", payloads["rich"]["expected_math"])
         result["surfaces"]["read"] = article_check(page, "#reading-document", payloads["rich"])
@@ -317,8 +355,11 @@ def run_surface_case(browser: Any, url: str, payloads: dict[str, Any], locale: s
         if duplicate_ids:
             result["problems"].append(f"Split/Read share IDs: {duplicate_ids}")
         page.screenshot(path=str(output / f"{key}-read.png"))
-        page.locator("#reading-document .math.display").last.scroll_into_view_if_needed()
+        page.locator("#reading-document .math.display").last.evaluate("node => node.scrollIntoView({block: 'center'})")
         page.screenshot(path=str(output / f"{key}-read-matrix.png"))
+        for feature, selector in [("code", ".code-block--numbered"), ("diagram", ".mermaid-diagram")]:
+            page.locator(f"#reading-document {selector}").evaluate("node => node.scrollIntoView({block: 'center'})")
+            page.screenshot(path=str(output / f"{key}-read-{feature}.png"))
         page.locator("#workspace-export").click()
         wait_math(page, '.pv-page[data-kind="content"] .md2pdf-article', payloads["rich"]["expected_math"], frame=True)
         result["surfaces"]["export"] = article_check(
@@ -378,6 +419,9 @@ def run_stale_case(browser: Any, url: str, payloads: dict[str, Any], output: Pat
                 page.wait_for_timeout(25)
             page.locator(".document-tab .tab-activate").nth(1).click()
             expect(page.locator("#markdown-editor")).to_have_value(FRESH)
+            # Typesetting a previous tab must not hold the engine preview
+            # flight: the newer backend HTML can arrive before the asset does.
+            expect(page.locator("#preview-document")).to_contain_text("FRESH_PREVIEW_ONLY")
         if len(held) != 1:
             raise AssertionError(f"Expected one held offline MathJax request, got {len(held)}")
         held.pop().continue_()

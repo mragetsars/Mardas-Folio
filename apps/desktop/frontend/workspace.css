@@ -1070,7 +1070,7 @@ html[dir="rtl"] .settings-card .settings-sections {
 
 .preview-document h1 { border-bottom-color: var(--ui-border); }
 
-.preview-document .heading-anchor {
+:is(.preview-document, .reading-document) .heading-anchor {
   margin-inline-start: 0.35em;
   color: var(--ui-muted);
   font-size: 0.72em;
@@ -1080,8 +1080,8 @@ html[dir="rtl"] .settings-card .settings-sections {
   transition: opacity 120ms ease;
 }
 
-.preview-document :is(h1, h2, h3, h4, h5, h6):hover .heading-anchor,
-.preview-document .heading-anchor:focus-visible {
+:is(.preview-document, .reading-document) :is(h1, h2, h3, h4, h5, h6):hover .heading-anchor,
+:is(.preview-document, .reading-document) .heading-anchor:focus-visible {
   opacity: 0.58;
 }
 
@@ -1149,8 +1149,6 @@ html[dir="rtl"] .settings-card .settings-sections {
 #start-view .recent-list { gap: 10px; }
 
 #export-view .status-panel {
-  position: sticky;
-  top: 12px;
   display: grid;
   align-content: start;
 }
@@ -4212,6 +4210,7 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
 }
 
 /* Rich document content shares one responsive treatment in Split and Read. */
+:is(.preview-document, .reading-document) { overflow-wrap: anywhere; }
 :is(.preview-document, .reading-document) :is(pre, .math.display, .code-block, .mermaid-diagram) {
   min-width: 0;
   max-width: 100%;
@@ -4281,3 +4280,44 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
 :is(.preview-document, .reading-document) .md2pdf-mermaid-edge path { stroke-width: 1.8; }
 :is(.preview-document, .reading-document) .md2pdf-mermaid-edge-thick path { stroke-width: 2.8; }
 :is(.preview-document, .reading-document) .md2pdf-mermaid-edge-label { font: 700 var(--ui-text-2xs)/1 var(--app-font); unicode-bidi: plaintext; }
+
+/* Authoring uses the editor palette even when the published document chooses
+   dark code blocks. Keep the engine's Pygments colors inside the paper deck. */
+:is(.preview-document, .reading-document) .codehilite {
+  color: var(--cm-text);
+  background: var(--ui-panel-soft);
+  border-radius: var(--ui-radius-sm);
+}
+:is(.preview-document, .reading-document) .codehilite :is(pre, code) {
+  color: inherit;
+  background: transparent;
+}
+:is(.preview-document, .reading-document) .codehilite span {
+  color: inherit;
+  background: transparent;
+}
+:is(.preview-document, .reading-document) .codehilite :is(.c, .ch, .cm, .cp, .cpf, .c1, .cs) {
+  color: var(--cm-comment);
+}
+:is(.preview-document, .reading-document) .codehilite :is(.s, .sa, .sb, .sc, .dl, .sd, .s2, .sh, .si, .sx, .s1, .ss) {
+  color: var(--cm-string);
+}
+:is(.preview-document, .reading-document) .codehilite :is(.se, .sr) { color: var(--cm-code); }
+:is(.preview-document, .reading-document) .codehilite :is(.k, .kc, .kd, .kn, .kp, .kr, .ow, .nt) {
+  color: var(--cm-keyword);
+}
+:is(.preview-document, .reading-document) .codehilite :is(.m, .mb, .mf, .mh, .mi, .il, .mo) {
+  color: var(--cm-number);
+}
+:is(.preview-document, .reading-document) .codehilite :is(.nf, .fm, .nd) { color: var(--cm-function); }
+:is(.preview-document, .reading-document) .codehilite :is(.kt, .nc, .nn) { color: var(--cm-type); }
+:is(.preview-document, .reading-document) .codehilite :is(.na, .no) { color: var(--cm-key); }
+:is(.preview-document, .reading-document) .codehilite :is(.o, .p) { color: var(--cm-mark); }
+:is(.preview-document, .reading-document) .codehilite :is(.err, .gr, .gt, .gd) { color: var(--cm-invalid); }
+:is(.preview-document, .reading-document) .codehilite .gi { color: var(--cm-string); }
+:is(.preview-document, .reading-document) .codehilite .hll { background: var(--cm-active-line); }
+:is(.preview-document, .reading-document) .codehilite .linenos,
+:is(.preview-document, .reading-document) .codehilite .linenos pre {
+  color: var(--cm-gutter-text);
+  background: transparent;
+}

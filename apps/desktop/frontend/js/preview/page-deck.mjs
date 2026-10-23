@@ -576,6 +576,8 @@ export function createPageDeck(host, { onState } = {}) {
     }
     if (sequence !== state.drawSequence || document_ !== doc()) return;
     await document_.fonts?.ready;
+    await Promise.all([...article.querySelectorAll("img")].map((image) =>
+      typeof image.decode === "function" ? image.decode().catch(() => {}) : Promise.resolve()));
     if (sequence !== state.drawSequence || document_ !== doc()) return;
 
     const flowTop = article.getBoundingClientRect().top;
