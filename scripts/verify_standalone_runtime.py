@@ -263,6 +263,9 @@ def verify(root: Path, *, render: bool) -> None:
             output = temporary_root / "خروجی.pdf"
             if not output.is_file() or not output.read_bytes().startswith(b"%PDF-"):
                 raise RuntimeError("Runtime render did not create a valid PDF header.")
+    # A successful conversion must not add logs or caches to the packaged
+    # runtime. Those files otherwise break the next staging/integrity check.
+    load_and_verify_manifest(root)
 
 
 def build_parser() -> argparse.ArgumentParser:

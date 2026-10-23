@@ -12,6 +12,7 @@ import re
 import secrets
 import shutil
 import stat
+import sys
 import tempfile
 import threading
 import unicodedata
@@ -3044,6 +3045,12 @@ def _chromium_launch_args(options: PdfOptions) -> list[str]:
         "--disable-logging",
         "--log-level=3",
     ]
+    if sys.platform == "win32":
+        # Headless Shell's separate GPU process initializes its own logging
+        # before honoring these switches and writes beside the executable.
+        # Acceleration is already disabled; keeping its software service in
+        # the browser process avoids that writer in frozen Windows bundles.
+        args.append("--in-process-gpu")
     if _should_disable_chromium_sandbox(options.chromium_sandbox):
         args.append("--no-sandbox")
     return args

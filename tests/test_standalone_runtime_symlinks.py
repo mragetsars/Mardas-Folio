@@ -32,6 +32,7 @@ from runtime_manifest import (  # noqa: E402
 )
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
+from verify_standalone_runtime import verify as smoke_verify  # noqa: E402
 
 
 def _symlink(link: Path, target: str | Path, *, directory: bool = False) -> None:
@@ -39,6 +40,35 @@ def _symlink(link: Path, target: str | Path, *, directory: bool = False) -> None
         link.symlink_to(target, target_is_directory=directory)
     except (NotImplementedError, OSError) as exc:
         pytest.skip(f"symbolic links are unavailable: {exc}")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="The synthetic sidecar uses a POSIX shebang")
+@pytest.mark.parametrize("writes_log", [False, True])
+def test_runtime_smoke_checks_inventory_after_the_engine_exits(tmp_path: Path, writes_log: bool) -> None:
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    sidecar = runtime / "mardas-sidecar"
+    sidecar.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        f"writes_log = {writes_log!r}\n"
+        "for line in sys.stdin:\n"
+        "    request = json.loads(line)\n"
+        "    if writes_log:\n"
+        "        Path(__file__).with_name('debug.log').write_text('GPU diagnostic')\n"
+        "    print(json.dumps({'jsonrpc': '2.0', 'id': request['id'], 'result': {}}), flush=True)\n"
+        "    if request['method'] == 'system.shutdown':\n"
+        "        break\n",
+        encoding="utf-8",
+    )
+    sidecar.chmod(0o755)
+    _write_manifest(runtime, browser_source=None)
+    if writes_log:
+        with pytest.raises(ValueError, match=r"Runtime inventory mismatch.*debug\.log"):
+            smoke_verify(runtime, render=False)
+    else:
+        smoke_verify(runtime, render=False)
 
 
 def _staged_link_target(link: Path) -> str:

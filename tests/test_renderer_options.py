@@ -222,6 +222,19 @@ def test_chromium_launch_skips_the_gpu_process_and_its_debug_log(tmp_path):
     assert "--log-level=3" in args
 
 
+def test_windows_chromium_avoids_a_separate_gpu_log_writer(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from mardas_folio import renderer
+
+    options = renderer.PdfOptions(tmp_path / "input.md", tmp_path / "output.pdf")
+    for platform in ("win32", "linux", "darwin"):
+        monkeypatch.setattr(renderer, "sys", SimpleNamespace(platform=platform))
+        args = renderer._chromium_launch_args(options)
+        assert ("--in-process-gpu" in args) == (platform == "win32")
+        assert "--disable-gpu" in args
+
+
 def test_cli_exposes_chromium_sandbox_modes():
     from mardas_folio.cli import build_parser
 
