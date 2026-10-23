@@ -4321,3 +4321,7 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
   color: var(--cm-gutter-text);
   background: transparent;
 }
+:is(.preview-document, .reading-document) .codehilite td.linenos :is(.normal, .special) {
+  color: var(--cm-gutter-text);
+  background: transparent;
+}

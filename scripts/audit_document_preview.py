@@ -225,6 +225,11 @@ ARTICLE_CHECK = r"""({selector, expectedMath, expectedCodes, alignment = true}) 
       numberTop: numberBox?.top, codeTop: codeBox?.top,
       numberLineHeight: lineNumbers ? getComputedStyle(lineNumbers).lineHeight : null,
       codeLineHeight: listing ? getComputedStyle(listing).lineHeight : null};
+    numberedCode.gutterBackgrounds = [...numbered.querySelectorAll('td.linenos .normal,td.linenos .special')]
+      .map(node => getComputedStyle(node).backgroundColor);
+    if (numberedCode.gutterBackgrounds.some(color => color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent')) {
+      problems.push('line-number chips retain a different document palette background');
+    }
     if (!numberBox || !codeBox || Math.abs(numberBox.top - codeBox.top) > 2 ||
         numberedCode.numberLineHeight !== numberedCode.codeLineHeight) {
       problems.push('numbered code lines and gutter are misaligned');
