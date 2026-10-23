@@ -140,6 +140,7 @@
 
     <section class="view" id="export-view">
       <div class="workspace-heading"><button class="back" id="export-back" type="button" data-i18n-title="back" title="قبلی" data-i18n-aria-label="back" aria-label="قبلی"><svg class="ui-icon ui-icon-directional" aria-hidden="true"><use href="#icon-chevron-left"></use></svg></button><div><p class="eyebrow" data-i18n="quickExport">خروجی سریع PDF</p><h1 data-i18n="exportTitle">Markdown را به PDF آماده انتشار تبدیل کن</h1></div></div>
+      <div class="export-content" id="export-content">
       <div class="export-layout">
         <form class="panel form-panel" id="export-form" novalidate>
           <section class="step"><header><span>1</span><div><h2 data-i18n="sourceFile">فایل مبدأ</h2><p data-i18n="sourceFileHelp">فایل Markdown را از سیستم انتخاب کن.</p></div></header><div class="path-row"><input id="source-path" readonly data-i18n-aria-label="sourceFile" aria-label="فایل مبدأ" placeholder="report.md"><button class="button secondary compact" id="choose-source" type="button" data-i18n="browse">انتخاب</button></div></section>
@@ -155,8 +156,6 @@
               <div class="option-pane" id="option-pane" role="tabpanel" tabindex="0"></div>
             </div>
           </section>
-          <section class="step"><header><span>4</span><div><h2 data-i18n="outputFile">فایل خروجی</h2><p data-i18n="outputFileHelp">محل ذخیره PDF را مشخص کن.</p></div></header><div class="path-row"><input id="output-path" readonly data-i18n-aria-label="outputFile" aria-label="فایل خروجی" placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse">انتخاب</button></div></section>
-          <footer class="form-actions"><button class="button secondary" id="validate-button" type="button" data-i18n="checkDocument">بررسی سند</button><button class="button primary" id="export-button" type="submit" data-i18n="exportPdf">ساخت PDF</button><button class="button danger hidden" id="cancel-button" type="button" data-i18n="cancel">لغو</button></footer>
         </form>
         <div class="export-side">
         <aside class="panel export-preview-panel" aria-labelledby="export-preview-title">
@@ -197,6 +196,11 @@
         </aside>
         </div>
       </div>
+      </div>
+      <footer class="panel export-dock">
+        <div class="export-destination"><label for="output-path" data-i18n="outputFile">فایل خروجی</label><div class="path-row"><input id="output-path" readonly form="export-form" dir="ltr" data-i18n-aria-label="outputFile" aria-label="فایل خروجی" placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse">انتخاب</button></div></div>
+        <div class="form-actions"><button class="button secondary" id="validate-button" type="button" data-i18n="checkDocument">بررسی سند</button><button class="button primary" id="export-button" type="submit" form="export-form" data-i18n="exportPdf">ساخت PDF</button><button class="button danger hidden" id="cancel-button" type="button" data-i18n="cancel">لغو</button></div>
+      </footer>
     </section>
 
     <section class="view workspace-view" id="workspace-view">
@@ -247,6 +251,14 @@
             <button type="button" class="view-mode" data-view-mode="split" role="radio" aria-checked="false" data-i18n="viewSplit" data-i18n-title="splitModeHelp" title="سورس و نتیجه کنار هم">دوستونه</button>
           </div>
           <div class="document-toolbar-actions">
+            <div class="document-view-controls" role="group" data-i18n-aria-label="documentView" aria-label="نمای سند">
+              <button type="button" class="document-width-button" id="document-toggle-width" aria-pressed="false"><span id="document-width-label">تمام عرض</span></button>
+              <div class="document-text-zoom" role="group" data-i18n-aria-label="documentTextSize" aria-label="اندازه متن سند">
+                <button type="button" id="document-zoom-out" data-i18n-title="decreaseDocumentText" title="کوچک‌تر کردن متن (Ctrl+-)" aria-keyshortcuts="Control+- Meta+-"><span aria-hidden="true">A-</span></button>
+                <button type="button" id="document-zoom-reset" title="اندازه پیش‌فرض متن (Ctrl+0)" aria-keyshortcuts="Control+0 Meta+0">100%</button>
+                <button type="button" id="document-zoom-in" data-i18n-title="increaseDocumentText" title="بزرگ‌تر کردن متن (Ctrl++)" aria-keyshortcuts="Control+Plus Meta+Plus"><span aria-hidden="true">A+</span></button>
+              </div>
+            </div>
             <button type="button" id="insert-menu-button" class="toolbar-icon-button insert-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="insert-menu" data-i18n-title="insertMenu" title="درج" data-i18n-aria-label="insertMenu" aria-label="درج"><svg class="ui-icon" aria-hidden="true"><use href="#icon-insert"></use></svg><span class="toolbar-action-label" data-i18n="insertMenu">درج</span></button>
             <button class="toolbar-icon-button formatting-toggle" id="workspace-toggle-formatting" type="button" aria-controls="format-bar" aria-pressed="false" data-i18n-title="formattingTools" title="ابزارهای قالب‌بندی" aria-label="ابزارهای قالب‌بندی"><span aria-hidden="true">Aa</span><span class="toolbar-action-label" data-i18n="format">قالب‌بندی</span></button>
             <button class="toolbar-icon-button" type="button" id="format-find" data-i18n-title="find" title="جست‌وجو" aria-label="جست‌وجو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg></button>
@@ -491,11 +503,12 @@
       <section class="settings-section" data-settings-terms="theme appearance light dark system ظاهر روشن تیره">
         <h3 data-i18n="appearance">ظاهر</h3>
         <label><span data-i18n="interfaceTheme">پوسته برنامه</span><select id="setting-theme"><option value="system" data-i18n="followSystem">مطابق سیستم</option><option value="light" data-i18n="lightTheme">روشن</option><option value="dark" data-i18n="darkTheme">تیره</option></select></label>
-        <label><span data-i18n="contentSize">اندازه متن نویسندگی</span><select id="setting-content-scale"><option value="comfortable" data-i18n="comfortable">معمولی</option><option value="large" data-i18n="large">بزرگ</option><option value="extra-large" data-i18n="extraLarge">خیلی بزرگ</option></select></label>
+        <label><span data-i18n="documentTextSizePercent">اندازه متن سند (%)</span><input id="setting-document-zoom" type="number" min="60" max="200" step="1" value="100" inputmode="numeric"></label>
+        <p class="settings-help" data-i18n="documentViewHelp">اندازه متن برای نوشتن و خواندن است؛ قالب‌بندی PDF از تنظیمات خروجی پیروی می‌کند.</p>
       </section>
       <section class="settings-section" data-settings-terms="writing typewriter focus distraction نوشتن تایپ فوکوس تمرکز">
         <h3 data-i18n="writingSettings">نوشتن</h3>
-        <label><span data-i18n="writingWidth">عرض نوشتن</span><select id="setting-writing-width"><option value="comfortable" data-i18n="comfortableColumn">ستون خوانا</option><option value="wide" data-i18n="wideColumn">ستون عریض</option></select></label>
+        <label><span data-i18n="writingWidth">عرض نوشتن</span><select id="setting-writing-width"><option value="full" data-i18n="fullColumn">تمام عرض</option><option value="readable" data-i18n="comfortableColumn">ستون خوانا</option><option value="wide" data-i18n="wideColumn">ستون عریض</option></select></label>
         <label class="toggle compact-toggle"><input id="setting-typewriter" type="checkbox"><i></i><span data-i18n="typewriterMode">حالت ماشین تحریر</span></label>
         <p class="settings-help" data-i18n="typewriterHelp">خط در حال نوشتن همیشه در ارتفاع ثابتی از صفحه می‌ماند.</p>
         <label class="toggle compact-toggle"><input id="setting-focus-mode" type="checkbox"><i></i><span data-i18n="focusMode">حالت تمرکز</span></label>

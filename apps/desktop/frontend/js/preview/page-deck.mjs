@@ -34,6 +34,7 @@ import {
   stepZoom,
   visiblePageRange,
 } from "../core/page-preview.mjs";
+import { typesetPreviewMath } from "./math.mjs";
 
 /** Elements that have no business in a preview of a printed page. */
 const FORBIDDEN_TAGS =
@@ -148,7 +149,14 @@ html.pv-frame {
   background: #e5e5e5 !important;
   overflow: auto;
   scrollbar-width: thin;
+  scrollbar-color: var(--pv-scrollbar-thumb, #737373) transparent;
 }
+@supports not (scrollbar-color: gray transparent) {
+  html.pv-frame::-webkit-scrollbar { width: 10px; height: 10px; }
+  html.pv-frame::-webkit-scrollbar-track, html.pv-frame::-webkit-scrollbar-corner { background: transparent; }
+  html.pv-frame::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: var(--pv-scrollbar-thumb, #737373); background-clip: padding-box; }
+}
+@media (forced-colors: active) { html.pv-frame { scrollbar-width: auto; scrollbar-color: auto; } }
 html.pv-frame.pv-dark { background: #0a0a0a !important; }
 body.pv-frame-body {
   margin: 0 !important;
@@ -300,6 +308,7 @@ export function createPageDeck(host, { onState } = {}) {
   host.replaceChildren(frame);
 
   const state = {
+    drawSequence: 0,
     ready: false,
     geometry: normalizePageGeometry({}),
     pages: [],
@@ -323,6 +332,19 @@ export function createPageDeck(host, { onState } = {}) {
   const view = () => frame.contentWindow;
   const doc = () => frame.contentDocument;
   const scroller = () => doc()?.scrollingElement || doc()?.documentElement || null;
+
+  // The scrollbar belongs to the interface even when the printed paper uses
+  // a different palette. Only copy its chrome token into the isolated frame.
+  function syncScrollbarTheme() {
+    const root = doc()?.documentElement;
+    const owner = host.ownerDocument;
+    if (!root || !owner?.defaultView) return;
+    const thumb = owner.defaultView.getComputedStyle(owner.documentElement)
+      .getPropertyValue("--ui-scrollbar-thumb").trim();
+    if (thumb) root.style.setProperty("--pv-scrollbar-thumb", thumb);
+  }
+  const themeObserver = new MutationObserver(syncScrollbarTheme);
+  themeObserver.observe(host.ownerDocument.documentElement, { attributes: true, attributeFilter: ["data-theme", "style", "class"] });
 
   function publish() {
     const box = scroller();
@@ -482,7 +504,8 @@ export function createPageDeck(host, { onState } = {}) {
     }
   }
 
-  function draw(payload) {
+  async function draw(payload) {
+    const sequence = ++state.drawSequence;
     const document_ = doc();
     const window_ = view();
     if (!document_ || !window_) return;
@@ -546,6 +569,15 @@ export function createPageDeck(host, { onState } = {}) {
     measure.append(flowRoot);
     body.replaceChildren(canvas, measure);
 
+    // Typeset before measuring page breaks: an integral or matrix changes the
+    // line height. The very same offline component also renders Split/Read.
+    if (payload?.math?.typeset_at_export !== false) {
+      await typesetPreviewMath(article, { isCurrent: () => sequence === state.drawSequence });
+    }
+    if (sequence !== state.drawSequence || document_ !== doc()) return;
+    await document_.fonts?.ready;
+    if (sequence !== state.drawSequence || document_ !== doc()) return;
+
     const flowTop = article.getBoundingClientRect().top;
     const blocks = [];
     for (const child of article.children) {
@@ -589,6 +621,7 @@ export function createPageDeck(host, { onState } = {}) {
   }
 
   function showMessageNow(text, details) {
+    state.drawSequence += 1;
     const document_ = doc();
     if (!document_) return;
     const lines = (Array.isArray(details) ? details : []).map(String).filter(Boolean);
@@ -630,6 +663,7 @@ export function createPageDeck(host, { onState } = {}) {
     document_.open();
     document_.write(BLANK_DOCUMENT);
     document_.close();
+    syncScrollbarTheme();
     state.ready = true;
     window_.addEventListener("scroll", onScroll, { passive: true });
     const pending = state.pending;
@@ -673,7 +707,7 @@ export function createPageDeck(host, { onState } = {}) {
         state.pending = { kind: "payload", value: payload };
         return;
       }
-      draw(payload);
+      return draw(payload);
     },
 
     /**
@@ -727,6 +761,8 @@ export function createPageDeck(host, { onState } = {}) {
     },
 
     destroy() {
+      state.drawSequence += 1;
+      themeObserver.disconnect();
       view()?.removeEventListener("scroll", onScroll);
       resize?.disconnect();
       frame.remove();

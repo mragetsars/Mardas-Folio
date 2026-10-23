@@ -63,7 +63,9 @@ def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[
         "assets/app-icon.svg",
         "index.html",
         "js/main.mjs",
+        "js/preview/math.mjs",
         "js/vendor/codemirror-editor.bundle.mjs",
+        "js/vendor/mathjax/tex-svg-full.js",
         "styles.css",
         "workspace.css",
     }

@@ -120,13 +120,13 @@ Object.assign(fa,{
   previewControls:"کنترل‌های پیش‌نمایش",zoomIn:"بزرگ‌نمایی",zoomOut:"کوچک‌نمایی",
   fitWidth:"اندازه عرض صفحه",fitPage:"نمایش یک صفحه کامل",showMargins:"نمایش حاشیه‌ها",
   previousPage:"صفحه قبل",nextPage:"صفحه بعد",
-  previewMathPending:"فرمول‌ها هنگام ساخت PDF تایپ‌ست می‌شوند",
+  previewMathFailed:"این فرمول نمایش داده نشد؛ سورس TeX آن را می‌بینی.",
 });
 Object.assign(en,{
   previewControls:"Preview controls",zoomIn:"Zoom in",zoomOut:"Zoom out",
   fitWidth:"Fit page width",fitPage:"Fit whole page",showMargins:"Show margins",
   previousPage:"Previous page",nextPage:"Next page",
-  previewMathPending:"Equations are typeset when the PDF is created",
+  previewMathFailed:"This formula could not be rendered. Its TeX source is shown.",
 });
 
 // Settings surface: category descriptions and one sentence per option saying
@@ -411,7 +411,11 @@ Object.assign(en, { imageNotFound: "Image not found" });
 
 Object.assign(fa, {
   files: "فایل‌ها", quickOpen: "رفتن به فایل", toggleFiles: "نمایش یا پنهان‌کردن فایل‌ها",
-  openDocumentList: "اسناد باز", writingWidth: "عرض ستون نوشتن", comfortableColumn: "متمرکز", wideColumn: "عریض",
+  openDocumentList: "اسناد باز", writingWidth: "عرض متن سند", comfortableColumn: "ستون خوانا", wideColumn: "ستون عریض", fullColumn: "تمام عرض",
+  documentView: "نمای سند", documentTextSize: "اندازه متن سند", documentTextSizePercent: "اندازه متن سند (%)",
+  increaseDocumentText: "بزرگ‌تر کردن متن (Ctrl++)", decreaseDocumentText: "کوچک‌تر کردن متن (Ctrl+−)", resetDocumentZoom: "بازنشانی اندازه متن به ۱۰۰٪",
+  useFullWidth: "استفاده از تمام عرض فضای سند", useReadableWidth: "استفاده از ستون خوانا",
+  documentViewHelp: "اندازه متن برای نوشتن و خواندن است؛ قالب‌بندی PDF از تنظیمات خروجی پیروی می‌کند.",
   exportNeedsCurrentSave: "متن هنگام ذخیره تغییر کرد؛ برای خروجی‌گرفتن دوباره اقدام کن.",
   closeFiles: "بستن ناوبر فایل‌ها", resizeFiles: "تغییر عرض ناوبر فایل‌ها",
   documentActions: "عملیات سند", documentOutline: "ساختار سند", closeDocumentTools: "بستن ابزارهای سند",
@@ -426,7 +430,11 @@ Object.assign(fa, {
 });
 Object.assign(en, {
   files: "Files", quickOpen: "Go to file", toggleFiles: "Show or hide files",
-  openDocumentList: "Open documents", writingWidth: "Writing column width", comfortableColumn: "Comfortable", wideColumn: "Wide",
+  openDocumentList: "Open documents", writingWidth: "Document text width", comfortableColumn: "Readable column", wideColumn: "Wide column", fullColumn: "Full width",
+  documentView: "Document view", documentTextSize: "Document text size", documentTextSizePercent: "Document text size (%)",
+  increaseDocumentText: "Larger text (Ctrl++)", decreaseDocumentText: "Smaller text (Ctrl+−)", resetDocumentZoom: "Reset text size to 100%",
+  useFullWidth: "Use the full document width", useReadableWidth: "Use a readable column",
+  documentViewHelp: "Text size applies to writing and reading. PDF formatting follows the output settings.",
   exportNeedsCurrentSave: "The document changed while saving. Start export again to include the latest text.",
   closeFiles: "Close file navigator", resizeFiles: "Resize file navigator",
   documentActions: "Document actions", documentOutline: "Document outline", closeDocumentTools: "Close document tools",

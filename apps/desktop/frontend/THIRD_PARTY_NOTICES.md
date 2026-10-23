@@ -10,6 +10,11 @@ not included in the installed application.
 Exact direct and transitive versions are recorded in `apps/desktop/package-lock.json`.
 The generated runtime bundle is `frontend/js/vendor/codemirror-editor.bundle.mjs`.
 
+The desktop build also copies the publisher's vendored MathJax 3 browser component
+from `src/mardas_folio/assets/mathjax/tex-svg-full.js` for offline preview rendering.
+MathJax is distributed under the Apache License 2.0; its project and notice are at
+https://www.mathjax.org/ and `js/vendor/mathjax/NOTICE.md` in the built frontend.
+
 CodeMirror is bundled with one modification. `@codemirror/view` is patched as the bundle is
 built, by `apps/desktop/scripts/codemirror-bidi-patch.mjs`, to correct two behaviours on a line
 that changes writing direction: the drawing of a selection over it, and where the Home and End

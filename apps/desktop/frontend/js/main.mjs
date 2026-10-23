@@ -57,8 +57,11 @@ import { diagnosticLines, inlineDiagnosticsForDocument } from "./core/diagnostic
 import { bookTaskBlocked, claimBookTask } from "./core/book-task-state.mjs";
 import {
   DEFAULT_PREFERENCES,
+  DOCUMENT_ZOOM_MIN,
+  DOCUMENT_ZOOM_MAX,
   applyPreferences,
   editorModeForView,
+  nextDocumentZoom,
   previewVisibleForView,
   readPreferences,
   writePreferences,
@@ -75,6 +78,7 @@ import { createNavigationPicker } from "./core/navigation-picker.mjs";
 import { fitToolbarGroups } from "./core/toolbar-overflow.mjs";
 import { createModalManager, focusableElements } from "./core/modal-manager.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
+import { typesetPreviewMath } from "./preview/math.mjs";
 import { updaterStatus, checkForUpdates, installUpdate } from "./core/updater-api.mjs";
 import {
   bibliographyIndex,
@@ -247,6 +251,7 @@ function setLocale(value) {
   });
   editorAdapter?.setAriaLabel?.(t("markdownEditor"));
   editorAdapter?.setLocale?.(state.locale, editorStrings());
+  renderDocumentViewControls();
   const localeSetting = $("#setting-locale");
   if (localeSetting) localeSetting.value = state.locale;
   renderPresets();
@@ -270,6 +275,25 @@ function showView(name) {
   if (name !== "workspace" && state.preferences.focusMode) updatePreference({ focusMode: false });
   if (name === "workspace") applyWorkspaceLayout();
   $("#app-main")?.focus({ preventScroll: true });
+  syncExportToastPlacement();
+}
+
+
+/** Keep transient notifications above the destination and export controls.
+ * The dock can wrap when Cancel appears, the language changes, or the window
+ * is resized. Its measured top is therefore the boundary, rather than a
+ * guessed footer height that can cover the controls in a smaller window.
+ */
+function syncExportToastPlacement() {
+  const region = $("#toast-region");
+  const dock = $("#export-view .export-dock");
+  if (!region || !dock) return;
+  if (document.body.dataset.view !== "export") {
+    region.style.removeProperty("--export-toast-bottom");
+    return;
+  }
+  const top = dock.getBoundingClientRect().top;
+  region.style.setProperty("--export-toast-bottom", `${Math.ceil(Math.max(12, window.innerHeight - top + 12))}px`);
 }
 
 
@@ -354,6 +378,7 @@ function setViewMode(mode) {
 function applyInterfacePreferences({ persist = false } = {}) {
   if (persist) state.preferences = writePreferences(state.preferences);
   state.preferences = applyPreferences(document.documentElement, state.preferences);
+  renderDocumentViewControls();
   // The editor keeps its own light/dark state so CodeMirror's floating panels
   // match the workspace.
   editorAdapter?.setTheme?.(document.documentElement.dataset.theme);
@@ -368,6 +393,43 @@ function updatePreference(next, { persist = true } = {}) {
   state.preferences = { ...state.preferences, ...next };
   if (persist) state.preferences = writePreferences(state.preferences);
   applyInterfacePreferences();
+}
+
+function renderDocumentViewControls() {
+  const zoom = state.preferences.documentZoom;
+  const reset = $("#document-zoom-reset");
+  if (reset) {
+    reset.textContent = `${zoom}%`;
+    reset.setAttribute("aria-label", `${t("documentTextSize")}: ${zoom}%. ${t("resetDocumentZoom")}`);
+    reset.title = `${t("resetDocumentZoom")} (Ctrl+0)`;
+  }
+  const smaller = $("#document-zoom-out");
+  const larger = $("#document-zoom-in");
+  if (smaller) smaller.disabled = zoom <= DOCUMENT_ZOOM_MIN;
+  if (larger) larger.disabled = zoom >= DOCUMENT_ZOOM_MAX;
+  const width = $("#document-toggle-width");
+  if (width) {
+    const full = state.preferences.writingWidth === "full";
+    width.setAttribute("aria-pressed", String(!full));
+    const label = t(full ? "useReadableWidth" : "useFullWidth");
+    width.title = label;
+    width.setAttribute("aria-label", label);
+    $("#document-width-label").textContent = t(full ? "fullColumn" : state.preferences.writingWidth === "wide" ? "wideColumn" : "comfortableColumn");
+  }
+}
+
+function updateDocumentView(next) {
+  // A display adjustment does not reload the article, rerun the engine, or
+  // touch Markdown. In particular a reader can resize text while scanning a
+  // long document without losing the loaded result.
+  state.preferences = writePreferences({ ...state.preferences, ...next });
+  applyPreferences(document.documentElement, state.preferences);
+  renderDocumentViewControls();
+  editorAdapter?.refreshLayout?.();
+}
+
+function changeDocumentZoom(direction) {
+  updateDocumentView({ documentZoom: direction === 0 ? 100 : nextDocumentZoom(state.preferences.documentZoom, direction) });
 }
 
 function applyWorkspaceLayout({ persist = false } = {}) {
@@ -507,7 +569,8 @@ function createDocumentFromTemplate(templateId = "blank") {
 
 function fillSettingsForm() {
   $("#setting-theme").value = state.preferences.theme;
-  $("#setting-content-scale").value = state.preferences.contentScale;
+  const zoomSetting = $("#setting-document-zoom");
+  if (zoomSetting) zoomSetting.value = String(state.preferences.documentZoom);
   $("#setting-motion").value = state.preferences.reducedMotion;
   $("#setting-auto-preview").checked = state.preferences.autoPreview;
   $("#setting-typewriter").checked = state.preferences.typewriter;
@@ -549,8 +612,8 @@ function submitSettings(event) {
   state.preferences = writePreferences({
     ...state.preferences,
     theme: $("#setting-theme").value,
-    contentScale: $("#setting-content-scale").value,
-    writingWidth: $("#setting-writing-width")?.value || "comfortable",
+    documentZoom: Number($("#setting-document-zoom").value),
+    writingWidth: $("#setting-writing-width")?.value || "full",
     reducedMotion: $("#setting-motion").value,
     autoPreview: $("#setting-auto-preview").checked,
     typewriter: $("#setting-typewriter").checked,
@@ -806,6 +869,11 @@ function commandDefinitions() {
     { id: "view-split", symbol: "panel-right", label: t("viewSplit"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, run: () => setViewMode("split") },
     { id: "typewriter", symbol: "typewriter", label: t("typewriterMode"), keywords: "typewriter scroll centre writing ماشین تحریر", priority: 39, run: () => updatePreference({ typewriter: !state.preferences.typewriter }) },
     { id: "focus-mode", symbol: "focus", label: t("focusMode"), keywords: "focus distraction free zen تمرکز", priority: 39, run: () => updatePreference({ focusMode: !state.preferences.focusMode }) },
+    { id: "document-zoom-in", symbol: "zoom-in", label: t("increaseDocumentText"), keywords: "zoom text font larger اندازه متن بزرگ", shortcut: "Ctrl +", priority: 38, run: () => changeDocumentZoom(1) },
+    { id: "document-zoom-out", symbol: "zoom-out", label: t("decreaseDocumentText"), keywords: "zoom text font smaller اندازه متن کوچک", shortcut: "Ctrl -", priority: 38, run: () => changeDocumentZoom(-1) },
+    { id: "document-zoom-reset", symbol: "zoom-in", label: t("resetDocumentZoom"), keywords: "zoom text font reset اندازه متن", shortcut: "Ctrl 0", priority: 37, run: () => changeDocumentZoom(0) },
+    { id: "document-full-width", symbol: "focus", label: t("useFullWidth"), keywords: "document width full canvas عرض تمام", priority: 37, run: () => updateDocumentView({ writingWidth: "full" }) },
+    { id: "document-readable-width", symbol: "book", label: t("useReadableWidth"), keywords: "document width readable column عرض ستون خوانا", priority: 37, run: () => updateDocumentView({ writingWidth: "readable" }) },
     { id: "help", symbol: "help", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
     { id: "home", symbol: "home", label: t("commandHome"), keywords: "start home center", priority: 20, run: () => showView("start") },
   ];
@@ -1634,11 +1702,8 @@ function movePreviewPage(delta) {
 /**
  * A note under the preview for the things it cannot show.
  *
- * Equations are typeset by MathJax inside Chromium at export time. Rather than
- * silently showing TeX source and letting the user believe that is the output,
- * the preview says how many expressions are waiting — and, when the local
- * engine is older than this interface, that the page furniture is assumed
- * rather than measured.
+ * An older engine can only supply body HTML; in that case the page furniture
+ * is assumed rather than measured. Math is rendered locally in every preview.
  */
 function renderPreviewNote(payload) {
   exportPreviewNotePayload = payload || null;
@@ -1646,8 +1711,6 @@ function renderPreviewNote(payload) {
   if (!note) return;
   const lines = [];
   if (payload?.degraded) lines.push(t("previewEngineOutdated"));
-  const pending = payload?.math?.typeset_at_export ? Number(payload.math.expressions) || 0 : 0;
-  if (pending > 0) lines.push(`${t("previewMathPending")} (${pending})`);
   note.classList.toggle("hidden", lines.length === 0);
   note.textContent = lines.join(" · ");
 }
@@ -3265,6 +3328,7 @@ function renderFullBookPreview(html) {
   // Full renderer styles target html/body and must never escape into the desktop
   // shell. The authoring preview uses the app's isolated preview stylesheet.
   container.append(safePreviewHtml(parsed.body.innerHTML));
+  void typesetPreviewMath(container, { errorLabel: t("previewMathFailed") });
   $("#preview-detail").textContent = t("fullBookPreview");
   document.body.classList.add("book-preview-mode");
 }
@@ -3659,10 +3723,12 @@ function safePreviewHtml(value, prefix = "preview-") {
         } else {
           element.removeAttribute("href");
           element.setAttribute("aria-disabled", "true");
+          continue;
         }
       }
       if (name === "src" && !/^\s*data:image\//i.test(attribute.value)) {
         element.removeAttribute(attribute.name);
+        continue;
       }
       if (["for", "aria-labelledby", "aria-describedby"].includes(name)) {
         const rewritten = attribute.value
@@ -3674,11 +3740,17 @@ function safePreviewHtml(value, prefix = "preview-") {
       // Prefixing ids also has to prefix what points at them. A Mermaid
       // arrowhead is a `<marker id=…>` referenced by `marker-end="url(#…)"`,
       // so rewriting one without the other left every diagram without arrows.
-      if (attribute.value.includes("url(#")) {
+      if (["marker-start", "marker-mid", "marker-end", "clip-path", "mask", "fill", "stroke", "filter"].includes(name)
+        && /url\s*\(/i.test(attribute.value)) {
+        const localReference = /url\(\s*["']?#([^\s)"']+)["']?\s*\)/g;
+        if (/url\s*\(/i.test(attribute.value.replace(localReference, ""))) {
+          element.removeAttribute(attribute.name);
+          continue;
+        }
         element.setAttribute(
           attribute.name,
           attribute.value.replace(
-            /url\(#([^)"']+)\)/g,
+            localReference,
             (whole, id) => `url(#${idMap.get(id) || `${prefix}${id}`})`,
           ),
         );
@@ -3761,6 +3833,10 @@ function renderReading(model) {
     container.prepend(style);
   }
   container.scrollTop = previousScroll;
+  return typesetPreviewMath(container, {
+    isCurrent: () => activeDocument()?.id === model.id,
+    errorLabel: t("previewMathFailed"),
+  });
 }
 
 function previewSourceEntries(model = activeDocument()) {
@@ -3804,13 +3880,16 @@ function syncPreviewToEditorLine(line, { center = false } = {}) {
 function syncPreviewFromEditorScroll(scrollTop) {
   const editorElement = editorAdapter?.element || $("#markdown-editor");
   if (!editorElement || state.previewSyncing) return;
+  // Wrapped rows and Markdown widgets do not correspond one-for-one with
+  // source lines. The textarea fallback has no measured document map.
   const lineHeight = Number.parseFloat(getComputedStyle(editorElement).lineHeight) || 24;
-  const visibleLine = Math.max(1, Math.floor((Number(scrollTop) || 0) / lineHeight) + 1);
+  const visibleLine = editorAdapter?.firstVisibleLine?.()
+    ?? Math.max(1, Math.floor((Number(scrollTop) || 0) / lineHeight) + 1);
   syncPreviewToEditorLine(visibleLine);
 }
 
 function renderPreview(model) {
-  renderReading(model);
+  const reading = renderReading(model);
   document.body.classList.remove("book-preview-mode");
   const container = $("#preview-document");
   if (model && !isMarkdownModel(model)) {
@@ -3850,6 +3929,10 @@ function renderPreview(model) {
   const position = editorAdapter?.lineAtOffset(cursor.selectionStart)
     || textMetrics(cursor.value, cursor.selectionStart);
   syncPreviewToEditorLine(position.line);
+  return Promise.all([reading, typesetPreviewMath(container, {
+    isCurrent: () => activeDocument()?.id === model.id,
+    errorLabel: t("previewMathFailed"),
+  })]);
 }
 
 /**
@@ -3883,7 +3966,9 @@ async function drawWritePreview() {
     model.preview = result;
     model.previewContentVersion = model.contentVersion;
     model.diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
-    renderPreview(model);
+    // Local typesetting must not retain the engine's single-flight slot.
+    // Opening another document while MathJax starts still needs a new payload.
+    void renderPreview(model);
     renderCitations(model);
     renderProblems(model);
     $("#preview-detail").textContent = result.title || t("previewHelp");
@@ -4626,6 +4711,10 @@ function bindEvents() {
   $("#workspace-home").addEventListener("click", () => showView("start"));
   $("#workspace-toggle-files")?.addEventListener("click", () => toggleWorkspacePane("files"));
   $("#workspace-toggle-formatting")?.addEventListener("click", () => toggleWorkspacePane("formatting"));
+  $("#document-zoom-out")?.addEventListener("click", () => changeDocumentZoom(-1));
+  $("#document-zoom-in")?.addEventListener("click", () => changeDocumentZoom(1));
+  $("#document-zoom-reset")?.addEventListener("click", () => changeDocumentZoom(0));
+  $("#document-toggle-width")?.addEventListener("click", () => updateDocumentView({ writingWidth: state.preferences.writingWidth === "full" ? "readable" : "full" }));
   $("#workspace-quick-open")?.addEventListener("click", () => navigationPicker.open("files"));
   $("#navigator-new")?.addEventListener("click", createUntitledDocument);
   $("#tab-new-document")?.addEventListener("click", createUntitledDocument);
@@ -4887,7 +4976,10 @@ function bindEvents() {
       && event.target.matches("input,textarea,select,[contenteditable='true']")
       && !event.target.closest(".editor-surface");
     if (formControl) return;
-    if (key === "p" && event.shiftKey) {
+    if ($("#workspace-view").classList.contains("active") && !event.altKey && ["+", "=", "-", "0"].includes(key)) {
+      event.preventDefault();
+      changeDocumentZoom(key === "0" ? 0 : key === "-" ? -1 : 1);
+    } else if (key === "p" && event.shiftKey) {
       event.preventDefault();
       openCommandPalette();
     } else if (key === "p") {
@@ -4970,6 +5062,20 @@ function bindEvents() {
   } else {
     window.addEventListener("resize", syncFormatBarOverflow);
   }
+  let toastPlacementFrame = 0;
+  const scheduleToastPlacement = () => {
+    cancelAnimationFrame(toastPlacementFrame);
+    toastPlacementFrame = requestAnimationFrame(syncExportToastPlacement);
+  };
+  if (typeof ResizeObserver === "function") {
+    const observer = new ResizeObserver(scheduleToastPlacement);
+    for (const selector of ["#export-view", "#export-view .export-dock"]) {
+      const region = $(selector);
+      if (region) observer.observe(region);
+    }
+  }
+  window.addEventListener("resize", scheduleToastPlacement);
+  window.visualViewport?.addEventListener("resize", scheduleToastPlacement);
 }
 
 async function boot() {

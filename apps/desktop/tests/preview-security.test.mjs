@@ -49,8 +49,10 @@ test("prefixing preview ids also prefixes what points at them", () => {
   const start = main.indexOf("function safePreviewHtml");
   const end = main.indexOf("function renderPreviewMessage", start);
   const sanitizer = main.slice(start, end);
-  assert.match(sanitizer, /url\\\(#/);
+  assert.match(sanitizer, /const localReference =/);
   assert.match(sanitizer, /idMap\.get\(id\)/);
+  assert.match(sanitizer, /removeAttribute\("href"\);[\s\S]*?continue;/);
+  assert.match(sanitizer, /"marker-start", "marker-mid", "marker-end"/);
 });
 
 test("find navigation never asks the editor adapter for a computed style", () => {

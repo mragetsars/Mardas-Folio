@@ -99,6 +99,16 @@ def build_frontend(
                 shutil.copyfile(path, target)
             os.chmod(target, 0o644)
 
+        # Share the publisher's pinned offline math engine. Keeping one source
+        # asset prevents the editor and PDF from drifting to different versions.
+        if source == DEFAULT_SOURCE.resolve():
+            mathjax = ROOT / "src" / "mardas_folio" / "assets" / "mathjax"
+            target = staging / "js" / "vendor" / "mathjax"
+            target.mkdir(parents=True, exist_ok=True)
+            for name in ("tex-svg-full.js", "NOTICE.md"):
+                shutil.copyfile(mathjax / name, target / name)
+                os.chmod(target / name, 0o644)
+
         for path in sorted(staging.rglob("*"), key=lambda item: item.as_posix().casefold()):
             if path.is_file():
                 manifest_files.append(
@@ -108,6 +118,12 @@ def build_frontend(
                         "sha256": sha256(path),
                     }
                 )
+        if len(manifest_files) > MAX_FILES:
+            raise ValueError(f"Desktop frontend contains more than {MAX_FILES} files")
+        if any(item["size"] > MAX_FILE_BYTES for item in manifest_files):
+            raise ValueError("Desktop frontend file exceeds size limit")
+        if sum(item["size"] for item in manifest_files) > MAX_TOTAL_BYTES:
+            raise ValueError("Desktop frontend exceeds the total size limit")
         manifest = {
             "schema_version": 1,
             "product": "Mardas Folio desktop frontend",

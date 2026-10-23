@@ -524,6 +524,20 @@ export function createCodeMirrorEditorAdapter(
     set scrollTop(value) {
       view.scrollDOM.scrollTop = Number(value) || 0;
     },
+    refreshLayout() {
+      // A font/column adjustment changes wrapped line heights without editing
+      // the document. Retain the current document position while remeasuring.
+      view.dispatch({ effects: view.scrollSnapshot() });
+      view.requestMeasure();
+    },
+    firstVisibleLine() {
+      // Document lines may wrap across many visual rows, and block widgets
+      // have independent heights. Use CodeMirror's measured document map,
+      // whose coordinates start at documentTop rather than at scrollTop.
+      const top = (view.scrollDOM.getBoundingClientRect().top - view.documentTop) / view.scaleY;
+      const block = view.lineBlockAtHeight(Math.max(0, top));
+      return view.state.doc.lineAt(block.from).number;
+    },
     get element() {
       return view.contentDOM;
     },

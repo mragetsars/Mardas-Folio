@@ -646,6 +646,11 @@ def test_frontend_build_is_atomic_and_does_not_remove_working_directory(tmp_path
     assert survivor.read_text(encoding="utf-8") == "keep"
     assert payload["version"] == __version__
     assert __version__ in (built / "index.html").read_text(encoding="utf-8")
+    mathjax = "js/vendor/mathjax/tex-svg-full.js"
+    assert (built / mathjax).read_bytes() == (
+        ROOT / "src/mardas_folio/assets/mathjax/tex-svg-full.js"
+    ).read_bytes()
+    assert mathjax in {item["path"] for item in payload["files"]}
 
 
 def test_frontend_verifier_rejects_symlink_root(tmp_path: Path) -> None:

@@ -5,7 +5,8 @@ export const PREFERENCES_STORAGE_KEY = "mardas.desktop.preferences.v1";
 export const DEFAULT_PREFERENCES = Object.freeze({
   theme: "system",
   contentScale: "comfortable",
-  writingWidth: "comfortable",
+  writingWidth: "full",
+  documentZoom: 100,
   reducedMotion: "system",
   autoPreview: true,
   viewMode: "write",
@@ -23,6 +24,23 @@ export const DEFAULT_PREFERENCES = Object.freeze({
 
 const THEMES = new Set(["system", "light", "dark"]);
 const SCALES = new Set(["comfortable", "large", "extra-large"]);
+const WRITING_WIDTHS = new Set(["full", "readable", "wide"]);
+const LEGACY_ZOOM = { comfortable: 100, large: 112, "extra-large": 124 };
+export const DOCUMENT_ZOOM_MIN = 60;
+export const DOCUMENT_ZOOM_MAX = 200;
+
+export function normalizeDocumentZoom(value, fallback = 100) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(DOCUMENT_ZOOM_MIN, Math.min(DOCUMENT_ZOOM_MAX, Math.round(value)))
+    : fallback;
+}
+
+export function nextDocumentZoom(value, direction) {
+  const current = normalizeDocumentZoom(value);
+  // Step to the next whole ten even when an older preference was 112/124%.
+  const next = direction > 0 ? Math.floor(current / 10) * 10 + 10 : Math.ceil(current / 10) * 10 - 10;
+  return normalizeDocumentZoom(next);
+}
 const MOTION = new Set(["system", "reduce", "full"]);
 /**
  * Write formats the editable Markdown in place, Source exposes its syntax,
@@ -39,7 +57,11 @@ export function normalizePreferences(value = {}) {
   return {
     theme: THEMES.has(value?.theme) ? value.theme : DEFAULT_PREFERENCES.theme,
     contentScale: SCALES.has(value?.contentScale) ? value.contentScale : DEFAULT_PREFERENCES.contentScale,
-    writingWidth: value?.writingWidth === "wide" ? "wide" : DEFAULT_PREFERENCES.writingWidth,
+    // "comfortable" was the old implicit narrow default. Full width gives
+    // existing installations the same new canvas as fresh ones; the optional
+    // readable column has its own value so a new explicit choice is retained.
+    writingWidth: WRITING_WIDTHS.has(value?.writingWidth) ? value.writingWidth : DEFAULT_PREFERENCES.writingWidth,
+    documentZoom: normalizeDocumentZoom(value?.documentZoom, LEGACY_ZOOM[value?.contentScale] || DEFAULT_PREFERENCES.documentZoom),
     reducedMotion: MOTION.has(value?.reducedMotion) ? value.reducedMotion : DEFAULT_PREFERENCES.reducedMotion,
     autoPreview: booleanValue(value?.autoPreview, DEFAULT_PREFERENCES.autoPreview),
     viewMode: VIEW_MODES.has(value?.viewMode) ? value.viewMode : DEFAULT_PREFERENCES.viewMode,
@@ -94,6 +116,8 @@ export function applyPreferences(documentElement, value, matchMedia = globalThis
   documentElement.dataset.themePreference = normalized.theme;
   documentElement.dataset.contentScale = normalized.contentScale;
   documentElement.dataset.writingWidth = normalized.writingWidth;
+  documentElement.dataset.documentZoom = String(normalized.documentZoom);
+  documentElement.style?.setProperty("--document-text-scale", String(normalized.documentZoom / 100));
   documentElement.dataset.reducedMotion = resolvedReducedMotion(normalized.reducedMotion, matchMedia) ? "reduce" : "full";
   documentElement.dataset.focusMode = String(normalized.focusMode);
   documentElement.dataset.typewriter = String(normalized.typewriter);
