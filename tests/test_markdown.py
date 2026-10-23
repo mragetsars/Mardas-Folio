@@ -25,6 +25,33 @@ def test_table_and_math():
     assert "math display" in result.body_html
 
 
+def test_markdown_table_alignment_survives_safe_rendering_and_bidi_profiles():
+    result = render_markdown(
+        "# Table\n\n"
+        "| Left | Center | Right | Default |\n"
+        "| :--- | :----: | ----: | ------- |\n"
+        "| فارسی و English | وسط | ۱۲۳ | English |\n"
+    )
+    soup = BeautifulSoup(result.body_html, "html.parser")
+    for row in soup.select("table tr"):
+        assert [cell.get("align") for cell in row.select("th, td")] == [
+            "left", "center", "right", None
+        ]
+    assert soup.select_one("tbody td")["dir"] == "rtl"
+    assert [(entry["title"], entry["line"]) for entry in result.source_map] == [("Table", 1)]
+    assert not soup.select("[style]")
+
+
+def test_safe_table_alignment_allows_only_three_values_and_removes_raw_css():
+    result = render_markdown(
+        '<table><tr><td align="CENTER" style="position:fixed" onclick="alert(1)">A</td>'
+        '<td align="left;position:fixed">B</td><td align="justify">C</td></tr></table>'
+    )
+    soup = BeautifulSoup(result.body_html, "html.parser")
+    assert [cell.get("align") for cell in soup.select("td")] == ["center", None, None]
+    assert not soup.select("[style], [onclick]")
+
+
 def test_indented_code_blocks_are_wrapped_and_visible():
     result = render_markdown("برنامه تست:\n\n    #include \"user.h\"\n    int main(void) { return 0; }\n")
     assert "raw-code-block" in result.body_html

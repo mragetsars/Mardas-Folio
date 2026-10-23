@@ -2147,6 +2147,12 @@ def sanitize_soup(soup: BeautifulSoup) -> None:
             elif lower_attr in {"target", "rel"}:
                 if name != "a":
                     del tag.attrs[attr]
+            elif lower_attr == "align":
+                alignment = str(value or "").strip().lower()
+                if alignment in {"left", "center", "right"}:
+                    tag.attrs[attr] = alignment
+                else:
+                    del tag.attrs[attr]
         if name == "a" and tag.get("target") == "_blank":
             rel = set(str(tag.get("rel") or "").split())
             rel.update({"noopener", "noreferrer"})
@@ -3055,6 +3061,26 @@ def render_markdown(
     )
     md.enable(["table", "strikethrough"])
     fence_reference_diagnostics: list[Diagnostic] = []
+
+    def render_table_cell_open(
+        tokens: list[Any], idx: int, options: dict[str, Any], env: dict[str, Any]
+    ) -> str:
+        # markdown-it expresses the separator row's alignment as inline CSS.
+        # Keep that author intent through the HTML sanitizer using the narrow
+        # table-cell attribute it already permits, without allowing raw styles.
+        token = tokens[idx]
+        alignment = re.fullmatch(
+            r"\s*text-align:\s*(left|center|right)\s*;?\s*",
+            token.attrGet("style") or "",
+            flags=re.IGNORECASE,
+        )
+        if alignment:
+            token.attrSet("align", alignment.group(1).lower())
+            token.attrs.pop("style", None)
+        return md.renderer.renderToken(tokens, idx, options, env)
+
+    md.renderer.rules["th_open"] = render_table_cell_open
+    md.renderer.rules["td_open"] = render_table_cell_open
 
     def render_fence(tokens: list[Any], idx: int, options: dict[str, Any], env: dict[str, Any]) -> str:
         """Render fenced code blocks as complete figures, not nested inside <pre><code>.

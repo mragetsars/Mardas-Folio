@@ -1396,6 +1396,9 @@ def _layout_css(options: PdfOptions, *, cover_full_bleed: bool = False, document
         direction: rtl;
         text-align: right;
       }}
+      .md2pdf-document .table-wrap :is(th, td)[align="left"] {{ text-align: left; }}
+      .md2pdf-document .table-wrap :is(th, td)[align="center"] {{ text-align: center; }}
+      .md2pdf-document .table-wrap :is(th, td)[align="right"] {{ text-align: right; }}
       .table-wrap--numeric,
       .table-wrap--persian-number,
       .table-wrap--latin-number,
