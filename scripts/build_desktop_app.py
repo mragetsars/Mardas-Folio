@@ -5,7 +5,6 @@ import argparse
 import json
 import os
 import platform
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +17,8 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from build_desktop_frontend import build_frontend  # noqa: E402
+from build_paths import prepare_output  # noqa: E402
+from build_publish import publish_verified  # noqa: E402
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402
 from verify_desktop_installer import verify_installer  # noqa: E402
@@ -62,10 +63,7 @@ def build(args: argparse.Namespace) -> Path:
     if platform.system() != "Windows" and not args.allow_non_windows:
         raise SystemExit("The NSIS desktop installer must be built on Windows.")
     runtime = args.runtime.expanduser().resolve(strict=True)
-    output = args.output.expanduser().resolve(strict=False)
-    if args.clean:
-        shutil.rmtree(output, ignore_errors=True)
-    output.mkdir(parents=True, exist_ok=True)
+    output = prepare_output(args.output, workspace=ROOT, clean=args.clean, protected=(runtime,))
 
     frontend = build_frontend(version=__version__)
     verify_frontend(frontend, expected_version=__version__)
@@ -75,23 +73,28 @@ def build(args: argparse.Namespace) -> Path:
 
     environment = os.environ.copy()
     environment["MARDAS_DESKTOP_VERSION"] = __version__
+    from build_native_desktop import _bundle_snapshot, _produced_bundle_files
+
+    before = _bundle_snapshot()
     subprocess.run(
         ["cargo", "tauri", "build", "--bundles", "nsis", "--", "--locked"],
         cwd=TAURI_ROOT,
         env=environment,
         check=True,
     )
+    produced = _produced_bundle_files(before)
     candidates = sorted(
-        (TAURI_ROOT / "target" / "release" / "bundle" / "nsis").glob("*-setup.exe"),
+        (path for path in (TAURI_ROOT / "target" / "release" / "bundle" / "nsis").glob("*-setup.exe")
+         if path in produced and not path.is_symlink()),
         key=lambda path: path.stat().st_mtime_ns,
         reverse=True,
     )
     if not candidates:
         raise SystemExit("Tauri did not create an NSIS setup executable.")
     final = output / f"Mardas-Folio-{__version__}-windows-{architecture_tag()}-setup.exe"
-    temporary = final.with_suffix(final.suffix + ".tmp")
-    shutil.copyfile(candidates[0], temporary)
-    os.replace(temporary, final)
+    publish_verified(
+        candidates[0], final, lambda staged: verify_installer(staged, expected_version=__version__)
+    )
     payload = verify_installer(final, expected_version=__version__)
     (output / "desktop-release-manifest.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

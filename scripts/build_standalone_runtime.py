@@ -11,6 +11,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 import zipfile
 from pathlib import Path
@@ -20,6 +21,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from build_paths import prepare_output, validate_output  # noqa: E402
+from build_publish import publish_directory  # noqa: E402
+from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
 from runtime_manifest import (  # noqa: E402
     RUNTIME_FILE_TYPE,
     RUNTIME_MANIFEST_SCHEMA,
@@ -212,8 +216,6 @@ def _write_manifest(runtime_dir: Path, *, browser_source: Path | None) -> Path:
 
 def _archive_runtime(runtime_dir: Path, archive_path: Path) -> None:
     archive_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = archive_path.with_suffix(archive_path.suffix + ".tmp")
-    temporary.unlink(missing_ok=True)
     raw_epoch = os.environ.get("SOURCE_DATE_EPOCH", "946684800")
     try:
         epoch = int(raw_epoch)
@@ -222,6 +224,9 @@ def _archive_runtime(runtime_dir: Path, archive_path: Path) -> None:
     # ZIP timestamps range from 1980 through 2107 and have a two-second resolution.
     epoch = min(max(epoch, 315532800), 4_354_819_198)
     date_time = time.gmtime(epoch)[:6]
+    descriptor, name = tempfile.mkstemp(prefix=".mardas-runtime-archive-", dir=archive_path.parent)
+    os.close(descriptor)
+    temporary = Path(name)
     try:
         with zipfile.ZipFile(
             temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
@@ -265,19 +270,19 @@ def build(args: argparse.Namespace) -> tuple[Path, Path | None]:
             "`python -m pip install -e '.[desktop]'`."
         ) from exc
 
-    build_root = args.build_root.expanduser().resolve(strict=False)
-    if args.clean:
-        shutil.rmtree(build_root, ignore_errors=True)
+    # Resolve inputs before cleaning: --build-root must never erase Chromium.
+    browser_executable = args.chromium_path or _playwright_browser()
+    browser_source = _browser_root(browser_executable) if browser_executable is not None else None
+    build_root = prepare_output(
+        args.build_root, workspace=ROOT, clean=args.clean,
+        protected=(browser_source,) if browser_source is not None else (),
+    )
     dist_root = build_root / "dist"
     work_root = build_root / "work"
     dist_root.mkdir(parents=True, exist_ok=True)
     work_root.mkdir(parents=True, exist_ok=True)
 
-    browser_executable = args.chromium_path or _playwright_browser()
-    browser_source: Path | None = None
-    if browser_executable is not None:
-        browser_source = _browser_root(browser_executable)
-    elif not args.allow_missing_chromium:
+    if browser_source is None and not args.allow_missing_chromium:
         raise SystemExit(
             "Chromium was not found. Run `python -m playwright install chromium --only-shell`, "
             "or provide --chromium-path. Use --allow-missing-chromium only for protocol-only tests."
@@ -310,9 +315,14 @@ def build(args: argparse.Namespace) -> tuple[Path, Path | None]:
     if not produced.is_dir():
         raise SystemExit(f"PyInstaller did not create the expected runtime directory: {produced}")
     final_dir = build_root / f"Mardas-Folio-{__version__}-runtime-{_platform_tag()}"
-    shutil.rmtree(final_dir, ignore_errors=True)
-    shutil.move(str(produced), final_dir)
-    _write_manifest(final_dir, browser_source=browser_source)
+    validate_output(final_dir, workspace=ROOT, generated=(build_root,))
+    def verify_produced(directory: Path) -> None:
+        _write_manifest(directory, browser_source=browser_source)
+        load_and_verify_manifest(
+            directory, expected_version=__version__, require_browser=browser_source is not None
+        )
+
+    publish_directory(produced, final_dir, verify_produced)
 
     archive = None
     if not args.no_archive:

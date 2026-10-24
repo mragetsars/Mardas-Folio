@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
 from runtime_manifest import validate_local_symlink  # noqa: E402
+from build_paths import mark_output, validate_output  # noqa: E402
 from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
 
 DEFAULT_TARGET = ROOT / "apps" / "desktop" / "src-tauri" / "resources" / "sidecar"
@@ -61,7 +62,10 @@ def stage_runtime(source: Path, target: Path = DEFAULT_TARGET, *, expected_versi
     if source.is_symlink():
         raise ValueError("Standalone runtime source must not be a symlink")
     source = source.resolve(strict=True)
-    target = target.expanduser().resolve(strict=False)
+    target = validate_output(
+        target, workspace=ROOT, protected=(source,), generated=(DEFAULT_TARGET,),
+        placeholder_files=frozenset({PLACEHOLDER}),
+    )
     if not source.is_dir():
         raise ValueError(f"Standalone runtime source is not a directory: {source}")
     if source == target or source in target.parents or target in source.parents:
@@ -90,9 +94,9 @@ def stage_runtime(source: Path, target: Path = DEFAULT_TARGET, *, expected_versi
             (staging / PLACEHOLDER).write_text(
                 placeholder.read_text(encoding="utf-8"), encoding="utf-8"
             )
-        backup = target.with_name(f".{target.name}.previous")
-        if backup.exists():
-            shutil.rmtree(backup)
+        mark_output(staging, workspace=ROOT)
+        backup = Path(tempfile.mkdtemp(prefix=".mardas-sidecar-backup-", dir=target.parent))
+        backup.rmdir()
         if target.exists():
             target.replace(backup)
         try:

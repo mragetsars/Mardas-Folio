@@ -130,6 +130,24 @@ def test_spdx_document_is_deterministic_and_valid(tmp_path: Path) -> None:
     validate_spdx_document(first, expected_version="1.21.0")
 
 
+def test_deterministic_zip_streams_files_with_identical_bytes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = tmp_path / "large.bin"
+    data = b"streamed content\n" * 200_000
+    source.write_bytes(data)
+    memory_zip = tmp_path / "memory.zip"
+    streamed_zip = tmp_path / "streamed.zip"
+    deterministic_zip(memory_zip, [("large.bin", data, 0o644)], epoch=1_735_689_600)
+    original = Path.read_bytes
+
+    def bounded_reads(path: Path) -> bytes:
+        assert path != source, "Archive sources must be streamed"
+        return original(path)
+
+    monkeypatch.setattr(Path, "read_bytes", bounded_reads)
+    deterministic_zip(streamed_zip, [("large.bin", source, 0o644)], epoch=1_735_689_600)
+    assert streamed_zip.read_bytes() == memory_zip.read_bytes()
+
+
 def test_deterministic_zip_has_stable_bytes_and_no_unsafe_members(tmp_path: Path) -> None:
     members = [
         ("README.md", b"hello\n", 0o644),

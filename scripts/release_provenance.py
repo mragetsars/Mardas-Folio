@@ -683,7 +683,7 @@ def safe_zip_member(name: str) -> PurePosixPath:
 
 def deterministic_zip(
     output_path: Path,
-    members: Sequence[tuple[str, bytes, int]],
+    members: Sequence[tuple[str, bytes | Path, int]],
     *,
     epoch: int,
 ) -> None:
@@ -696,13 +696,28 @@ def deterministic_zip(
             if name in seen:
                 raise ReleaseProvenanceError(f"Duplicate ZIP member: {name}")
             seen.add(name)
-            if len(data) > MAX_BUNDLE_MEMBER_BYTES:
+            if isinstance(data, Path) and (data.is_symlink() or not data.is_file()):
+                raise ReleaseProvenanceError(f"ZIP source is missing or unsafe: {data}")
+            size = data.stat().st_size if isinstance(data, Path) else len(data)
+            if size > MAX_BUNDLE_MEMBER_BYTES:
                 raise ReleaseProvenanceError(f"ZIP member exceeds the size limit: {name}")
             info = zipfile.ZipInfo(filename=name, date_time=date_time)
             info.create_system = 3
             info.external_attr = (mode & 0xFFFF) << 16
             info.compress_type = zipfile.ZIP_DEFLATED
-            archive.writestr(info, data)
+            if isinstance(data, Path):
+                info.file_size = size
+                copied = 0
+                with data.open("rb") as source, archive.open(info, "w") as destination:
+                    while chunk := source.read(1024 * 1024):
+                        copied += len(chunk)
+                        if copied > MAX_BUNDLE_MEMBER_BYTES or copied > size:
+                            raise ReleaseProvenanceError(f"ZIP source grew during archiving: {name}")
+                        destination.write(chunk)
+                if copied != size:
+                    raise ReleaseProvenanceError(f"ZIP source changed during archiving: {name}")
+            else:
+                archive.writestr(info, data)
 
 
 def verify_offline_bundle(path: Path, *, expected_version: str) -> None:
@@ -727,6 +742,10 @@ def verify_offline_bundle(path: Path, *, expected_version: str) -> None:
             raise ReleaseProvenanceError(
                 "Offline bundle is missing required files: " + ", ".join(missing)
             )
+        if any(archive.getinfo(name).file_size > 8 * 1024 * 1024 for name in (
+            "BUNDLE-MANIFEST.json", "CHECKSUMS.sha256"
+        )):
+            raise ReleaseProvenanceError("Offline bundle metadata exceeds the size limit")
         manifest = json.loads(archive.read("BUNDLE-MANIFEST.json").decode("utf-8"))
         if manifest.get("schema_version") != BUNDLE_MANIFEST_SCHEMA:
             raise ReleaseProvenanceError("Unsupported offline bundle manifest schema")
@@ -747,10 +766,16 @@ def verify_offline_bundle(path: Path, *, expected_version: str) -> None:
             if name == "CHECKSUMS.sha256" or name in observed:
                 raise ReleaseProvenanceError("Offline bundle checksum list is recursive or duplicated")
             observed[name] = digest
+        if set(observed) != names - {"CHECKSUMS.sha256"}:
+            raise ReleaseProvenanceError("Offline bundle checksums do not exactly describe the archive")
         for name, expected in observed.items():
             if name not in names:
                 raise ReleaseProvenanceError(f"Offline bundle checksummed member is missing: {name}")
-            actual = hashlib.sha256(archive.read(name)).hexdigest()
+            digest = hashlib.sha256()
+            with archive.open(name) as source:
+                for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            actual = digest.hexdigest()
             if actual != expected:
                 raise ReleaseProvenanceError(f"Offline bundle checksum mismatch: {name}")
         wheel_names = [name for name in names if name.startswith("wheelhouse/") and name.endswith(".whl")]

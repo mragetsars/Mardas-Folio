@@ -18,6 +18,7 @@ from release_provenance import (
     ReleaseProvenanceError,
     deterministic_zip,
     normalized_label,
+    sha256_file,
     source_date_epoch,
     timestamp_from_epoch,
     verify_offline_bundle,
@@ -216,17 +217,16 @@ def _bundle_members(
     platform_label: str,
     python_version: str,
     epoch: int,
-) -> list[tuple[str, bytes, int]]:
-    members: list[tuple[str, bytes, int]] = []
+) -> list[tuple[str, bytes | Path, int]]:
+    members: list[tuple[str, bytes | Path, int]] = []
     wheel_records = []
     for wheel in sorted(wheelhouse.glob("*.whl"), key=lambda item: item.name.lower()):
         if wheel.is_symlink() or not wheel.is_file():
             raise ReleaseProvenanceError(f"Wheelhouse entry is unsafe: {wheel}")
-        data = wheel.read_bytes()
-        digest = hashlib.sha256(data).hexdigest()
+        digest = sha256_file(wheel)
         member_name = f"wheelhouse/{wheel.name}"
-        members.append((member_name, data, 0o644))
-        wheel_records.append({"name": wheel.name, "size": len(data), "sha256": digest})
+        members.append((member_name, wheel, 0o644))
+        wheel_records.append({"name": wheel.name, "size": wheel.stat().st_size, "sha256": digest})
     if not wheel_records:
         raise ReleaseProvenanceError("The offline wheelhouse is empty")
 
@@ -252,7 +252,8 @@ def _bundle_members(
     members.extend(static_members)
     checksum_lines = []
     for name, data, _mode in sorted(members, key=lambda item: item[0]):
-        checksum_lines.append(f"{hashlib.sha256(data).hexdigest()}  {name}")
+        digest = sha256_file(data) if isinstance(data, Path) else hashlib.sha256(data).hexdigest()
+        checksum_lines.append(f"{digest}  {name}")
     members.append(("CHECKSUMS.sha256", ("\n".join(checksum_lines) + "\n").encode("utf-8"), 0o644))
     return members
 

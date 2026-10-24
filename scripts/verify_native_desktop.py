@@ -100,7 +100,7 @@ def _verify_portable(path: Path, *, expected_version: str, architecture: str) ->
         if missing:
             raise ValueError("Portable archive is missing required files: " + ", ".join(missing))
         manifest = json.loads(
-            archive.read(f"{expected_root}/PORTABLE-MANIFEST.json").decode("utf-8")
+            _read_metadata(archive, f"{expected_root}/PORTABLE-MANIFEST.json").decode("utf-8")
         )
         if manifest.get("schema_version") != 1:
             raise ValueError("Portable manifest schema is unsupported")
@@ -125,14 +125,23 @@ def _verify_portable(path: Path, *, expected_version: str, architecture: str) ->
             observed_inventory_names.add(member_name)
             if member_name not in names:
                 raise ValueError(f"Portable manifest references a missing file: {relative}")
-            data = archive.read(member_name)
-            if int(item.get("size", -1)) != len(data):
+            if int(item.get("size", -1)) != archive.getinfo(member_name).file_size:
                 raise ValueError(f"Portable member size mismatch: {relative}")
-            if str(item.get("sha256", "")) != hashlib.sha256(data).hexdigest():
+            digest = hashlib.sha256()
+            with archive.open(member_name) as source:
+                for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            if str(item.get("sha256", "")) != digest.hexdigest():
                 raise ValueError(f"Portable member checksum mismatch: {relative}")
         if observed_inventory_names != expected_inventory_names:
             raise ValueError("Portable manifest does not exactly describe the archive")
     return {"portable_manifest": True, "webview2_bundled": False}
+
+
+def _read_metadata(archive: zipfile.ZipFile, name: str) -> bytes:
+    if archive.getinfo(name).file_size > 8 * 1024 * 1024:
+        raise ValueError("Portable manifest exceeds the size limit")
+    return archive.read(name)
 
 
 def verify_native_artifact(path: Path, *, expected_version: str) -> dict[str, Any]:

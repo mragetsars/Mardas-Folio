@@ -26,6 +26,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from build_paths import prepare_output
+
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -63,9 +65,7 @@ def repo_root() -> Path:
 
 
 def ensure_clean_dir(path: Path) -> None:
-    if path.exists():
-        shutil.rmtree(path)
-    path.mkdir(parents=True, exist_ok=True)
+    prepare_output(path, workspace=repo_root(), clean=True)
 
 
 def write_json(path: Path, payload: Any) -> None:

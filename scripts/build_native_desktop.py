@@ -7,7 +7,6 @@ import json
 import os
 import platform
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -21,7 +20,9 @@ for path in (SCRIPTS, ROOT / "src"):
         sys.path.insert(0, str(path))
 
 from build_desktop_frontend import build_frontend  # noqa: E402
-from release_provenance import deterministic_zip, source_date_epoch  # noqa: E402
+from build_paths import prepare_output  # noqa: E402
+from build_publish import publish_verified  # noqa: E402
+from release_provenance import deterministic_zip, sha256_file, source_date_epoch  # noqa: E402
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402
 from verify_native_desktop import verify_native_artifact  # noqa: E402
@@ -509,11 +510,9 @@ def _copy_verified(
     final = output / _normalized_name(
         bundle, platform_name=platform_name, architecture=architecture
     )
-    temporary = final.with_name(final.name + ".tmp")
-    shutil.copyfile(candidate, temporary)
-    os.replace(temporary, final)
-    verify_native_artifact(final, expected_version=__version__)
-    return final
+    return publish_verified(
+        candidate, final, lambda staged: verify_native_artifact(staged, expected_version=__version__)
+    )
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -525,17 +524,19 @@ def _portable_members(
     runtime_root: Path,
     *,
     root_name: str,
-) -> list[tuple[str, bytes, int]]:
+) -> list[tuple[str, bytes | Path, int]]:
     if executable.is_symlink() or not executable.is_file():
         raise SystemExit(f"Windows desktop executable is missing or unsafe: {executable}")
-    members: list[tuple[str, bytes, int]] = []
+    members: list[tuple[str, bytes | Path, int]] = []
     inventory: list[dict[str, object]] = []
 
-    def add(relative: str, data: bytes, mode: int) -> None:
-        inventory.append({"path": relative, "size": len(data), "sha256": _sha256_bytes(data)})
+    def add(relative: str, data: bytes | Path, mode: int) -> None:
+        size = data.stat().st_size if isinstance(data, Path) else len(data)
+        digest = sha256_file(data) if isinstance(data, Path) else _sha256_bytes(data)
+        inventory.append({"path": relative, "size": size, "sha256": digest})
         members.append((f"{root_name}/{relative}", data, mode))
 
-    add("Mardas Folio.exe", executable.read_bytes(), 0o755)
+    add("Mardas Folio.exe", executable, 0o755)
     readme = (
         "Mardas Folio portable build\r\n"
         "\r\n"
@@ -552,7 +553,7 @@ def _portable_members(
         if not path.is_file():
             continue
         relative = "sidecar/" + path.relative_to(runtime_root).as_posix()
-        add(relative, path.read_bytes(), 0o755 if os.access(path, os.X_OK) else 0o644)
+        add(relative, path, 0o755 if os.access(path, os.X_OK) else 0o644)
 
     manifest = {
         "schema_version": 1,
@@ -574,8 +575,11 @@ def _build_windows_portable(output: Path, *, architecture: str) -> Path:
     root_name = f"Mardas-Folio-{__version__}-windows-{architecture}-portable"
     final = output / f"{root_name}.zip"
     members = _portable_members(executable, RESOURCE_RUNTIME, root_name=root_name)
-    deterministic_zip(final, members, epoch=source_date_epoch())
-    verify_native_artifact(final, expected_version=__version__)
+    with tempfile.TemporaryDirectory(prefix=".mardas-portable-", dir=output) as directory:
+        staged = Path(directory) / final.name
+        deterministic_zip(staged, members, epoch=source_date_epoch())
+        verify_native_artifact(staged, expected_version=__version__)
+        os.replace(staged, final)
     return final
 
 
@@ -587,11 +591,9 @@ def _copy_signature(
     if not signature.is_file() or signature.is_symlink() or signature not in produced:
         raise SystemExit(f"Tauri did not create updater signature: {signature}")
     final = output / f"{final_payload.name}.sig"
-    temporary = final.with_name(final.name + ".tmp")
-    shutil.copyfile(signature, temporary)
-    os.replace(temporary, final)
-    verify_native_artifact(final, expected_version=__version__)
-    return final
+    return publish_verified(
+        signature, final, lambda staged: verify_native_artifact(staged, expected_version=__version__)
+    )
 
 
 def _latest_macos_updater(*, produced: frozenset[Path]) -> Path:
@@ -635,10 +637,10 @@ def _copy_updater_artifacts(
         candidate = _latest_macos_updater(produced=produced)
         stem = f"Mardas-Folio-{__version__}-macos-{architecture}-updater.tar.gz"
         payload = output / stem
-        temporary = payload.with_name(payload.name + ".tmp")
-        shutil.copyfile(candidate, temporary)
-        os.replace(temporary, payload)
-        verify_native_artifact(payload, expected_version=__version__)
+        publish_verified(
+            candidate, payload,
+            lambda staged: verify_native_artifact(staged, expected_version=__version__),
+        )
         created.append(payload)
         created.append(_copy_signature(candidate, payload, output, produced=produced))
     else:
@@ -669,10 +671,7 @@ def build(args: argparse.Namespace) -> list[Path]:
         )
 
     runtime = args.runtime.expanduser().resolve(strict=True)
-    output = args.output.expanduser().resolve(strict=False)
-    if args.clean:
-        shutil.rmtree(output, ignore_errors=True)
-    output.mkdir(parents=True, exist_ok=True)
+    output = prepare_output(args.output, workspace=ROOT, clean=args.clean, protected=(runtime,))
 
     frontend = build_frontend(version=__version__)
     verify_frontend(frontend, expected_version=__version__)

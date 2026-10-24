@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Iterable
 
 from prepare_preview_mathjax import prepare_preview_mathjax
+from build_paths import mark_output, validate_output
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT / "apps" / "desktop" / "frontend"
@@ -71,7 +72,7 @@ def build_frontend(
     version: str | None = None,
 ) -> Path:
     source = source.expanduser().resolve(strict=True)
-    output = output.expanduser().resolve(strict=False)
+    output = validate_output(output, workspace=ROOT, protected=(source,), generated=(DEFAULT_OUTPUT,))
     if not source.is_dir():
         raise ValueError(f"Desktop frontend source is not a directory: {source}")
     if source == output or source in output.parents or output in source.parents:
@@ -114,6 +115,7 @@ def build_frontend(
                     shutil.copyfile(mathjax / name, target / name)
                 os.chmod(target / name, 0o644)
 
+        mark_output(staging, workspace=ROOT)
         for path in sorted(staging.rglob("*"), key=lambda item: item.as_posix().casefold()):
             if path.is_file():
                 manifest_files.append(
@@ -143,9 +145,8 @@ def build_frontend(
         )
         os.chmod(manifest_path, 0o644)
 
-        backup = output.with_name(f".{output.name}.previous")
-        if backup.exists():
-            shutil.rmtree(backup)
+        backup = Path(tempfile.mkdtemp(prefix=".mardas-desktop-backup-", dir=output.parent))
+        backup.rmdir()
         if output.exists():
             output.replace(backup)
         try:

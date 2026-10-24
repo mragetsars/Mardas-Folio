@@ -233,7 +233,7 @@ def test_native_artifact_verifier_rejects_symlink_input(tmp_path: Path) -> None:
         verify_native_artifact(link, expected_version=version)
 
 
-def test_portable_archive_requires_exact_integrity_manifest(tmp_path: Path) -> None:
+def test_portable_archive_requires_exact_integrity_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     version = "1.29.0"
     architecture = "x86_64"
     root = f"Mardas-Folio-{version}-windows-{architecture}-portable"
@@ -265,6 +265,13 @@ def test_portable_archive_requires_exact_integrity_manifest(tmp_path: Path) -> N
             json.dumps(manifest).encode("utf-8"),
         )
 
+    original = zipfile.ZipFile.read
+
+    def metadata_reads_only(archive: zipfile.ZipFile, name: str, *args: object, **kwargs: object) -> bytes:
+        assert name.endswith("PORTABLE-MANIFEST.json"), "Payload hashes must be streamed"
+        return original(archive, name, *args, **kwargs)
+
+    monkeypatch.setattr(zipfile.ZipFile, "read", metadata_reads_only)
     payload = verify_native_artifact(path, expected_version=version)
     assert payload["kind"] == "desktop-portable"
     assert payload["webview2_bundled"] is False

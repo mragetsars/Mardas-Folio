@@ -34,8 +34,9 @@ def verify_installer(path: Path, *, expected_version: str) -> dict[str, object]:
     size = path.stat().st_size
     if size < MIN_INSTALLER_BYTES or size > MAX_INSTALLER_BYTES:
         raise ValueError(f"Desktop installer size is outside the allowed range: {size}")
-    if path.read_bytes()[:2] != b"MZ":
-        raise ValueError("Desktop installer does not contain a Windows PE header")
+    with path.open("rb") as handle:
+        if handle.read(2) != b"MZ":
+            raise ValueError("Desktop installer does not contain a Windows PE header")
     return {
         "schema_version": 1,
         "product": "Mardas Folio Windows installer",
