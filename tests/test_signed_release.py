@@ -13,6 +13,11 @@ from pathlib import Path
 
 import pytest
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 
@@ -526,7 +531,15 @@ def test_updater_rust_boundary_is_secret_driven_and_https_only() -> None:
     assert "download_and_install" in updates
     assert "desktop-update-progress" in updates
     assert "TAURI_SIGNING_PRIVATE_KEY" not in updates
-    assert 'tauri-plugin-updater = "=2.10.1"' in cargo
+    updater = tomllib.loads(cargo)["dependencies"]["tauri-plugin-updater"]
+    assert updater["version"] == "=2.14.0"
+    assert updater["default-features"] is False
+    assert set(updater["features"]) == {"rustls-tls", "system-proxy"}
+    # Releases publish raw NSIS/AppImage and macOS tar.gz payloads. The legacy
+    # Windows ZIP extractor is unused and must not reintroduce its vulnerable
+    # dependency through a future default-feature change.
+    lock = tomllib.loads((ROOT / "apps/desktop/src-tauri/Cargo.lock").read_text())
+    assert "zip" not in {package["name"] for package in lock["package"]}
     assert "updates::updater_status" in main
     assert "updates::updater_check" in main
     assert "updates::updater_install" in main
