@@ -1,12 +1,33 @@
 use serde::Serialize;
-use std::time::Duration;
-use tauri::{AppHandle, Emitter};
+use std::{
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::UpdaterExt;
 use url::Url;
 
 const DEFAULT_ENDPOINT: &str =
     "https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json";
 const UPDATE_TIMEOUT_SECS: u64 = 30;
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+static INSTALLING: AtomicBool = AtomicBool::new(false);
+
+struct InstallGuard<'a>(&'a AtomicBool);
+
+impl<'a> InstallGuard<'a> {
+    fn acquire(flag: &'a AtomicBool) -> Result<Self, String> {
+        flag.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map(|_| Self(flag))
+            .map_err(|_| "An update is already being installed.".into())
+    }
+}
+
+impl Drop for InstallGuard<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
 
 #[derive(Clone, Serialize)]
 pub struct UpdateStatus {
@@ -48,7 +69,10 @@ fn compile_time_endpoint() -> &'static str {
 }
 
 fn validated_endpoint() -> Result<Url, String> {
-    let value = compile_time_endpoint();
+    validate_endpoint(compile_time_endpoint())
+}
+
+fn validate_endpoint(value: &str) -> Result<Url, String> {
     let parsed = Url::parse(value).map_err(|error| format!("Invalid update endpoint: {error}"))?;
     if parsed.scheme() != "https" || parsed.host_str().is_none() {
         return Err("Update endpoint must use HTTPS.".to_string());
@@ -94,11 +118,19 @@ pub fn status(app: &AppHandle) -> UpdateStatus {
 
 async fn check_internal(app: &AppHandle) -> Result<Option<tauri_plugin_updater::Update>, String> {
     let (pubkey, endpoint) = update_configuration(app)?;
+    let cleanup_app = app.clone();
     app.updater_builder()
         .pubkey(pubkey)
         .endpoints(vec![endpoint])
         .map_err(|error| format!("Could not configure update endpoint: {error}"))?
         .timeout(Duration::from_secs(UPDATE_TIMEOUT_SECS))
+        // Windows updater exits directly, bypassing Tauri's normal Exit event.
+        // Run only after the package signature has verified and before install.
+        .on_before_exit(move || {
+            cleanup_app
+                .state::<crate::sidecar::ManagedSidecar>()
+                .shutdown()
+        })
         .build()
         .map_err(|error| format!("Could not initialize updater: {error}"))?
         .check()
@@ -135,18 +167,22 @@ pub async fn updater_check(app: AppHandle) -> Result<UpdateCheck, String> {
 
 #[tauri::command]
 pub async fn updater_install(app: AppHandle, expected_version: String) -> Result<bool, String> {
+    let _install_guard = InstallGuard::acquire(&INSTALLING)?;
     let expected_version = expected_version.trim().to_string();
     if expected_version.is_empty() || expected_version.len() > 128 {
         return Err("Expected update version is invalid.".to_string());
     }
 
-    let update = check_internal(&app)
+    let mut update = check_internal(&app)
         .await?
         .ok_or_else(|| "No update is currently available.".to_string())?;
 
     if update.version.to_string() != expected_version {
         return Err("The available update changed; check for updates again.".to_string());
     }
+    // Feed metadata is small; a full bundled Chromium installer is hundreds of
+    // megabytes. The metadata timeout must not cut off a healthy slow download.
+    update.timeout = Some(DOWNLOAD_TIMEOUT);
 
     let version = update.version.to_string();
     let progress_app = app.clone();
@@ -179,4 +215,32 @@ pub async fn updater_install(app: AppHandle, expected_version: String) -> Result
         .await
         .map_err(|error| format!("Could not install update: {error}"))?;
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn installer_guard_rejects_parallel_installs_and_releases_after_failure() {
+        let flag = AtomicBool::new(false);
+        let guard = InstallGuard::acquire(&flag).unwrap();
+        assert!(InstallGuard::acquire(&flag).is_err());
+        drop(guard);
+        assert!(InstallGuard::acquire(&flag).is_ok());
+    }
+
+    #[test]
+    fn updater_rejects_insecure_or_credentialed_endpoints() {
+        for endpoint in [
+            "http://example.com/latest.json",
+            "file:///tmp/latest.json",
+            "https://user:secret@example.com/latest.json",
+            "https://example.com/latest.json#fragment",
+        ] {
+            assert!(validate_endpoint(endpoint).is_err(), "{endpoint}");
+        }
+        assert!(validate_endpoint(DEFAULT_ENDPOINT).is_ok());
+        assert!(DOWNLOAD_TIMEOUT > Duration::from_secs(UPDATE_TIMEOUT_SECS));
+    }
 }

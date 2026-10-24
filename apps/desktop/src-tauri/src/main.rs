@@ -4,6 +4,7 @@
 // Debug builds keep the console so `cargo run` can still print.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod process_tree;
 mod sidecar;
 mod updates;
 
@@ -235,18 +236,36 @@ fn launch_path(path: &Path, reveal: bool) -> Result<(), String> {
         command
     };
 
-    command
+    let child = command
         .spawn()
+        .map_err(|error| format!("Could not open path: {error}"))?;
+    // Dropping Child does not reap an exited Unix process. Repeated open/reveal
+    // actions otherwise accumulate zombie xdg-open/open helper processes.
+    reap_launcher(child)
         .map(|_| ())
-        .map_err(|error| format!("Could not open path: {error}"))
+        .map_err(|error| format!("Could not monitor the file launcher: {error}"))
+}
+
+fn reap_launcher(mut child: std::process::Child) -> std::io::Result<std::thread::JoinHandle<()>> {
+    std::thread::Builder::new()
+        .name("mardas-file-launcher".into())
+        .spawn(move || {
+            let _ = child.wait();
+        })
 }
 
 #[tauri::command]
-async fn allow_document_images(app: AppHandle, path: String) -> Result<(), String> {
-    let images =
-        tauri::async_runtime::spawn_blocking(move || document_image_paths(Path::new(&path), 4096))
-            .await
-            .map_err(|error| format!("Could not inspect document images: {error}"))??;
+async fn allow_document_images(
+    app: AppHandle,
+    path: String,
+    sources: Option<Vec<String>>,
+) -> Result<(), String> {
+    let images = tauri::async_runtime::spawn_blocking(move || match sources {
+        Some(sources) => referenced_document_images(Path::new(&path), &sources, 4096),
+        None => document_image_paths(Path::new(&path), 4096),
+    })
+    .await
+    .map_err(|error| format!("Could not inspect document images: {error}"))??;
     // Grant exact files, never a directory wildcard: imported assets and nested
     // image folders work without exposing document text or sibling secrets.
     let scope = app.asset_protocol_scope();
@@ -256,6 +275,71 @@ async fn allow_document_images(app: AppHandle, path: String) -> Result<(), Strin
             .map_err(|error| format!("Could not allow document image: {error}"))?;
     }
     Ok(())
+}
+
+fn referenced_document_images(
+    document: &Path,
+    sources: &[String],
+    max_entries: usize,
+) -> Result<Vec<PathBuf>, String> {
+    use std::path::Component;
+    if !document.is_absolute() || document.is_symlink() || !document.is_file() {
+        return Err("Document must be an existing absolute regular file.".into());
+    }
+    if sources.len() > max_entries {
+        return Err("Document image references exceed the allowed size.".into());
+    }
+    let directory = document
+        .parent()
+        .ok_or("Document has no parent directory.")?
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve document directory: {error}"))?;
+    let mut images = Vec::new();
+    for source in sources {
+        let normalized = source.replace('\\', "/");
+        let relative = Path::new(&normalized);
+        if normalized.is_empty()
+            || normalized.contains('\0')
+            || normalized
+                .split('/')
+                .next()
+                .is_some_and(|part| part.contains(':'))
+            || relative
+                .components()
+                .any(|part| !matches!(part, Component::Normal(_) | Component::CurDir))
+        {
+            continue;
+        }
+        let mut image = directory.clone();
+        let mut safe = true;
+        for component in relative.components() {
+            image.push(component);
+            if image.is_symlink() {
+                safe = false;
+                break;
+            }
+        }
+        if !safe || !image.is_file() || !supported_image_path(&image) {
+            continue;
+        }
+        if let Ok(canonical) = image.canonicalize() {
+            if canonical.starts_with(&directory) {
+                images.push(canonical);
+            }
+        }
+    }
+    images.sort();
+    images.dedup();
+    Ok(images)
+}
+
+fn supported_image_path(path: &Path) -> bool {
+    path.extension().is_some_and(|extension| {
+        matches!(
+            extension.to_string_lossy().to_ascii_lowercase().as_str(),
+            "png" | "jpg" | "jpeg" | "webp" | "gif" | "svg" | "avif" | "bmp" | "ico"
+        )
+    })
 }
 
 fn document_image_paths(document: &Path, max_entries: usize) -> Result<Vec<PathBuf>, String> {
@@ -308,14 +392,7 @@ fn document_image_paths(document: &Path, max_entries: usize) -> Result<Vec<PathB
             if kind.is_dir() && depth < 8 {
                 pending.push((canonical, depth + 1));
             } else if kind.is_file() {
-                let extension = path
-                    .extension()
-                    .map(|value| value.to_string_lossy().to_ascii_lowercase())
-                    .unwrap_or_default();
-                if matches!(
-                    extension.as_str(),
-                    "png" | "jpg" | "jpeg" | "webp" | "gif" | "svg" | "avif" | "bmp" | "ico"
-                ) {
+                if supported_image_path(&path) {
                     images.push(canonical);
                 }
             }
@@ -341,25 +418,22 @@ fn reveal_path(path: String) -> Result<(), String> {
 #[tauri::command(rename_all = "snake_case")]
 async fn sidecar_request(
     app: AppHandle,
-    state: State<'_, ManagedSidecar>,
     request_id: String,
     method: String,
     params: Value,
 ) -> Result<Value, String> {
-    let process = state.inner().process(&app)?;
-    tauri::async_runtime::spawn_blocking(move || process.request_method(request_id, method, params))
-        .await
-        .map_err(|error| format!("Rendering task failed to join: {error}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<ManagedSidecar>()
+            .process(&app)?
+            .request_method(request_id, method, params)
+    })
+    .await
+    .map_err(|error| format!("Rendering task failed to join: {error}"))?
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn sidecar_cancel(
-    app: AppHandle,
-    state: State<'_, ManagedSidecar>,
-    request_id: String,
-) -> Result<Value, String> {
-    let process = state.inner().process(&app)?;
-    tauri::async_runtime::spawn_blocking(move || process.cancel(request_id))
+async fn sidecar_cancel(app: AppHandle, request_id: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<ManagedSidecar>().cancel(request_id))
         .await
         .map_err(|error| format!("Cancellation task failed to join: {error}"))?
 }
@@ -499,6 +573,77 @@ mod image_scope_tests {
         assert!(document_image_paths(&document, 2)
             .unwrap_err()
             .contains("allowed size"));
+    }
+
+    #[test]
+    fn image_grants_inspect_only_references_not_unrelated_directory_entries() {
+        let fixture = Fixture::new();
+        let document = fixture.file("book.md");
+        let referenced = fixture.file("assets/شکل یک.PNG").canonicalize().unwrap();
+        fixture.file("unrelated/private.png");
+        for index in 0..20 {
+            fixture.file(&format!("unrelated/{index}.txt"));
+        }
+        let sources = vec!["assets/شکل یک.PNG".into(), "assets/شکل یک.PNG".into()];
+        assert_eq!(
+            referenced_document_images(&document, &sources, 2).unwrap(),
+            vec![referenced]
+        );
+        assert!(referenced_document_images(&document, &[], 0)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn image_grants_reject_absolute_parent_uri_text_and_missing_sources() {
+        let fixture = Fixture::new();
+        let document = fixture.file("book.md");
+        let image = fixture.file("cover.png");
+        fixture.file("secret.txt");
+        let sources = vec![
+            "../cover.png".into(),
+            "https://example.com/cover.png".into(),
+            image.to_string_lossy().into_owned(),
+            "C:\\private\\cover.png".into(),
+            "secret.txt".into(),
+            "missing.png".into(),
+        ];
+        assert!(referenced_document_images(&document, &sources, 10)
+            .unwrap()
+            .is_empty());
+        assert!(referenced_document_images(&document, &sources, 2)
+            .unwrap_err()
+            .contains("allowed size"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn image_references_cannot_follow_symlinked_files_or_parent_folders() {
+        use std::os::unix::fs::symlink;
+        let fixture = Fixture::new();
+        let outside = Fixture::new();
+        let document = fixture.file("book.md");
+        let outside_image = outside.file("secret.png");
+        symlink(&outside_image, fixture.0.join("linked.png")).unwrap();
+        symlink(&outside.0, fixture.0.join("linked-folder")).unwrap();
+        let sources = vec!["linked.png".into(), "linked-folder/secret.png".into()];
+        assert!(referenced_document_images(&document, &sources, 2)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn completed_file_launcher_is_reaped_before_the_app_exits() {
+        unsafe extern "C" {
+            fn waitpid(pid: i32, status: *mut i32, options: i32) -> i32;
+        }
+        let child = Command::new("sh").args(["-c", "exit 0"]).spawn().unwrap();
+        let pid = child.id();
+        reap_launcher(child).unwrap().join().unwrap();
+        let mut status = 0;
+        assert_eq!(unsafe { waitpid(pid as i32, &mut status, 1) }, -1);
+        assert_eq!(std::io::Error::last_os_error().raw_os_error(), Some(10)); // ECHILD
     }
 
     #[cfg(unix)]
