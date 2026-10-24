@@ -3,8 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import tempfile
-import threading
 from dataclasses import fields
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -24,6 +22,7 @@ from .config import (
     load_project_config,
 )
 from .diagnostics import Diagnostic, has_errors
+from .file_io import FILE_WRITE_LOCK, open_atomic_output, serialized_file_write
 from .markdown import (
     MarkdownInputError,
     MarkdownRenderResult,
@@ -73,7 +72,7 @@ MAX_IMPORTED_ASSET_BYTES = 64 * 1024 * 1024
 MAX_DOCUMENT_ASSETS = 500
 MAX_DOCUMENT_ASSET_SCAN_ENTRIES = 20_000
 MAX_DOCUMENT_ASSET_DEPTH = 4
-_DOCUMENT_SAVE_LOCK = threading.Lock()
+_DOCUMENT_SAVE_LOCK = FILE_WRITE_LOCK
 _MARKDOWN_DOCUMENT_EXTENSIONS = frozenset({".md", ".markdown"})
 _TEXT_DOCUMENT_EXTENSIONS = frozenset({".bib", ".json", ".toml", ".txt", ".yaml", ".yml"})
 _ASSET_EXTENSIONS = {
@@ -165,21 +164,13 @@ def _atomic_write_text(
 ) -> os.stat_result:
     path = Path(path).expanduser().resolve(strict=False)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existing_mode = path.stat().st_mode & 0o777 if path.exists() else None
-    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    temporary = Path(temporary_name)
+    fd, temporary = open_atomic_output(path)
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
             written_stat = os.fstat(handle.fileno())
-        if existing_mode is not None:
-            os.chmod(temporary, existing_mode)
-        else:
-            current_umask = os.umask(0)
-            os.umask(current_umask)
-            os.chmod(temporary, 0o666 & ~current_umask)
         if before_replace is not None:
             before_replace()
         os.replace(temporary, path)
@@ -192,20 +183,12 @@ def _atomic_write_text(
 def _atomic_write_bytes(path: Path, payload: bytes) -> None:
     path = Path(path).expanduser().resolve(strict=False)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existing_mode = path.stat().st_mode & 0o777 if path.exists() else None
-    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    temporary = Path(temporary_name)
+    fd, temporary = open_atomic_output(path)
     try:
         with os.fdopen(fd, "wb") as handle:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        if existing_mode is not None:
-            os.chmod(temporary, existing_mode)
-        else:
-            current_umask = os.umask(0)
-            os.umask(current_umask)
-            os.chmod(temporary, 0o666 & ~current_umask)
         os.replace(temporary, path)
     except Exception:
         temporary.unlink(missing_ok=True)
@@ -549,6 +532,7 @@ def list_document_assets(
     return {"root": str(root), "assets": assets, "truncated": truncated}
 
 
+@serialized_file_write
 def import_document_asset(
     document_path: str | os.PathLike[str], source_path: str | os.PathLike[str]
 ) -> dict[str, Any]:
@@ -560,7 +544,15 @@ def import_document_asset(
             code="MARDAS-ASSET-INVALID",
             details={"path": str(selected_source)},
         )
-    source = selected_source.resolve(strict=True)
+    try:
+        source = selected_source.resolve(strict=True)
+        source_stat = source.stat()
+    except (OSError, RuntimeError) as exc:
+        raise EngineError(
+            "Selected asset could not be opened.",
+            code="MARDAS-ASSET-INVALID",
+            details={"path": str(selected_source)},
+        ) from exc
     if not source.is_file():
         raise EngineError(
             "Selected asset is not a regular file.",
@@ -573,7 +565,7 @@ def import_document_asset(
             code="MARDAS-ASSET-TYPE",
             details={"extension": source.suffix.casefold()},
         )
-    size = source.stat().st_size
+    size = source_stat.st_size
     if size > MAX_IMPORTED_ASSET_BYTES:
         raise EngineError(
             "Selected asset exceeds the import size limit.",
@@ -581,7 +573,8 @@ def import_document_asset(
             details={"size_bytes": size, "limit_bytes": MAX_IMPORTED_ASSET_BYTES},
         )
     try:
-        payload = source.read_bytes()
+        with source.open("rb") as handle:
+            payload = handle.read(MAX_IMPORTED_ASSET_BYTES + 1)
     except OSError as exc:
         raise EngineError(
             f"Could not read selected asset: {exc}",
@@ -589,14 +582,28 @@ def import_document_asset(
             details={"path": str(source)},
         ) from exc
 
-    target_dir = document.parent / "assets"
-    if target_dir.is_symlink():
+    if len(payload) > MAX_IMPORTED_ASSET_BYTES:
         raise EngineError(
-            "The document assets directory must not be a symbolic link.",
+            "Selected asset exceeds the import size limit.",
+            code="MARDAS-ASSET-TOO-LARGE",
+            details={"size_bytes": len(payload), "limit_bytes": MAX_IMPORTED_ASSET_BYTES},
+        )
+
+    target_dir = document.parent / "assets"
+    if target_dir.is_symlink() or (target_dir.exists() and not target_dir.is_dir()):
+        raise EngineError(
+            "The document assets path must be a regular directory, not a file or symbolic link.",
             code="MARDAS-ASSET-INVALID",
             details={"path": str(target_dir)},
         )
-    target_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise EngineError(
+            "The document assets directory could not be created.",
+            code="MARDAS-ASSET-IMPORT",
+            details={"path": str(target_dir)},
+        ) from exc
     stem = source.stem or "asset"
     suffix = source.suffix.casefold()
     source_digest = hashlib.sha256(payload).digest()
@@ -605,7 +612,12 @@ def import_document_asset(
     while target.exists() or target.is_symlink():
         identical = False
         if target.is_file() and not target.is_symlink() and target.stat().st_size == len(payload):
-            identical = hashlib.sha256(target.read_bytes()).digest() == source_digest
+            try:
+                with target.open("rb") as handle:
+                    candidate_data = handle.read(len(payload) + 1)
+                identical = hashlib.sha256(candidate_data).digest() == source_digest
+            except OSError:
+                pass
         if identical:
             break
         target = target_dir / f"{stem}-{counter}{suffix}"
@@ -1384,7 +1396,11 @@ class EngineService:
                         params, "expected_config_sha256"
                     ),
                     position=position,
-                    content=_optional_string(params, "content"),
+                    content=(
+                        _required_content(params)
+                        if params.get("content") is not None
+                        else None
+                    ),
                 )
             except WorkspaceError as exc:
                 raise _workspace_error(exc) from exc
@@ -1701,8 +1717,26 @@ def _string_list(value: Any, key: str) -> tuple[str, ...]:
                 code="MARDAS-INVALID-PARAMS",
                 details={"parameter": key},
             )
-        result.append(item.strip())
+        result.append(_request_string_value(item, key))
     return tuple(result)
+
+
+def _request_string_value(value: str, key: str) -> str:
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise EngineError(
+            f"{key} must contain valid UTF-8 text.",
+            code="MARDAS-INVALID-PARAMS",
+            details={"parameter": key},
+        ) from exc
+    if "\x00" in value:
+        raise EngineError(
+            f"{key} cannot contain NUL characters.",
+            code="MARDAS-INVALID-PARAMS",
+            details={"parameter": key},
+        )
+    return value.strip()
 
 
 def _required_string(params: Mapping[str, Any], key: str) -> str:
@@ -1713,7 +1747,7 @@ def _required_string(params: Mapping[str, Any], key: str) -> str:
             code="MARDAS-INVALID-PARAMS",
             details={"parameter": key},
         )
-    return value.strip()
+    return _request_string_value(value, key)
 
 
 def _required_content(params: Mapping[str, Any]) -> str:
@@ -1737,7 +1771,7 @@ def _optional_string(params: Mapping[str, Any], key: str) -> str | None:
             code="MARDAS-INVALID-PARAMS",
             details={"parameter": key},
         )
-    return value.strip()
+    return _request_string_value(value, key)
 
 
 def _mapping(value: Any, key: str) -> Mapping[str, Any]:

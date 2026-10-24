@@ -728,7 +728,7 @@ def convert_book(
         *(chapter.path for chapter in manifest.chapters),
         *(Path(path) for path in manifest.config.values.get("bibliography_sources", ())),
     ]
-    for candidate in (options.output_path, options.debug_html):
+    for candidate in (options.output_path, options.debug_html, options.quality_report):
         if candidate is None:
             continue
         if any(path is not None and _same_path(candidate, path) for path in protected):
@@ -740,7 +740,7 @@ def convert_book(
                     Diagnostic(
                         "MARDAS-E509",
                         "error",
-                        "Book output or debug HTML collides with a project source file.",
+                        "Book output, debug HTML, or quality report collides with a project source file.",
                         path=candidate,
                     ),
                 ),

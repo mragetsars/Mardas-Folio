@@ -2055,20 +2055,32 @@ def _local_image_candidates(
 
 
 def _image_file_to_data_uri(path: Path) -> str | None:
-    if not path.exists() or not path.is_file():
+    try:
+        if not path.is_file():
+            return None
+        mime_type = mimetypes.guess_type(str(path))[0] or "image/png"
+        if not mime_type.startswith("image/"):
+            return None
+        if path.stat().st_size > MAX_EMBED_IMAGE_BYTES:
+            data = None
+        else:
+            with path.open("rb") as handle:
+                data = handle.read(MAX_EMBED_IMAGE_BYTES + 1)
+    except OSError as exc:
+        warnings.warn(
+            f"Skipping image that could not be read: {path}: {exc}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         return None
-    mime_type = mimetypes.guess_type(str(path))[0] or "image/png"
-    if not mime_type.startswith("image/"):
-        return None
-    size = path.stat().st_size
-    if size > MAX_EMBED_IMAGE_BYTES:
+    if data is None or len(data) > MAX_EMBED_IMAGE_BYTES:
         warnings.warn(
             f"Skipping image larger than {MAX_EMBED_IMAGE_BYTES} bytes: {path}",
             RuntimeWarning,
             stacklevel=2,
         )
         return None
-    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    encoded = base64.b64encode(data).decode("ascii")
     return f"data:{mime_type};base64,{encoded}"
 
 
@@ -2278,6 +2290,7 @@ def embed_local_images(
     """
     soup = BeautifulSoup(body_html, "html.parser")
     root = Path(base_dir)
+    image_cache: dict[Path, str | None] = {}
     for img in soup.find_all("img"):
         src = str(img.get("src") or "").strip()
         if not src:
@@ -2288,7 +2301,9 @@ def embed_local_images(
             root,
             document_root=Path(document_root) if document_root is not None else None,
         ):
-            data_uri = _image_file_to_data_uri(candidate)
+            if candidate not in image_cache:
+                image_cache[candidate] = _image_file_to_data_uri(candidate)
+            data_uri = image_cache[candidate]
             if not data_uri:
                 continue
             img["src"] = data_uri

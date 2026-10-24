@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+import math
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -556,6 +557,35 @@ def _entry_from_mapping(item: dict[str, Any], source: Path) -> BibliographyEntry
     )
 
 
+def _csl_json_float(value: str) -> float:
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("JSON numbers must be finite")
+    return number
+
+
+def _csl_json_constant(value: str) -> Any:
+    raise ValueError(f"Non-standard JSON constant {value!r} is not accepted")
+
+
+def _validate_bibliography_text(value: Any) -> None:
+    pending = [value]
+    while pending:
+        current = pending.pop()
+        if isinstance(current, str):
+            try:
+                current.encode("utf-8")
+            except UnicodeEncodeError as exc:
+                raise ValueError("bibliography text must contain valid UTF-8 characters") from exc
+            if "\x00" in current:
+                raise ValueError("bibliography text cannot contain NUL characters")
+        elif isinstance(current, dict):
+            pending.extend(current.keys())
+            pending.extend(current.values())
+        elif isinstance(current, list):
+            pending.extend(current)
+
+
 def _parse_source(path: Path) -> list[BibliographyEntry]:
     try:
         size = path.stat().st_size
@@ -566,7 +596,13 @@ def _parse_source(path: Path) -> list[BibliographyEntry]:
             f"Bibliography source exceeds the {MAX_BIBLIOGRAPHY_SOURCE_BYTES}-byte safety limit"
         )
     try:
-        text = path.read_text(encoding="utf-8-sig")
+        with path.open("rb") as handle:
+            data = handle.read(MAX_BIBLIOGRAPHY_SOURCE_BYTES + 1)
+        if len(data) > MAX_BIBLIOGRAPHY_SOURCE_BYTES:
+            raise BibliographyParseError(
+                f"Bibliography source exceeds the {MAX_BIBLIOGRAPHY_SOURCE_BYTES}-byte safety limit"
+            )
+        text = data.decode("utf-8-sig")
     except (OSError, UnicodeError) as exc:
         raise BibliographyParseError(f"Could not read bibliography source: {exc}") from exc
 
@@ -576,11 +612,13 @@ def _parse_source(path: Path) -> list[BibliographyEntry]:
         mappings = [dict(item) for item in _BibTexParser(text).parse()]
     elif suffix == ".json":
         try:
-            payload = json.loads(text)
+            payload = json.loads(text, parse_float=_csl_json_float, parse_constant=_csl_json_constant)
         except json.JSONDecodeError as exc:
             raise BibliographyParseError(
                 f"Invalid CSL JSON: {exc.msg}", line=exc.lineno, column=exc.colno
             ) from exc
+        except (ValueError, RecursionError) as exc:
+            raise BibliographyParseError(f"Invalid CSL JSON: {exc}") from exc
         if isinstance(payload, dict) and isinstance(payload.get("items"), list):
             payload = payload["items"]
         if not isinstance(payload, list):
@@ -596,8 +634,9 @@ def _parse_source(path: Path) -> list[BibliographyEntry]:
     entries: list[BibliographyEntry] = []
     for index, item in enumerate(mappings, start=1):
         try:
+            _validate_bibliography_text(item)
             entries.append(_entry_from_mapping(item, path))
-        except ValueError as exc:
+        except (ValueError, RecursionError) as exc:
             raise BibliographyParseError(f"Invalid bibliography entry {index}: {exc}") from exc
     return entries
 

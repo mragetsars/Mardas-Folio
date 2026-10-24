@@ -9,7 +9,6 @@ import logging
 import mimetypes
 import os
 import re
-import secrets
 import shutil
 import stat
 import sys
@@ -45,6 +44,7 @@ from .appearance import (
 )
 from .brand_assets import product_logo_path
 from .diagnostics import format_diagnostic, has_errors
+from .file_io import open_atomic_output as _open_atomic_output
 from .markdown import MarkdownInputError, MarkdownRenderResult, render_markdown_file
 from .pdf_navigation import (
     NamedDestinationMap,
@@ -3257,43 +3257,13 @@ def _validate_conversion_paths(options: PdfOptions) -> None:
         pairs.append(("bibliography source", bibliography_path, "output PDF", output_path))
         if debug_html:
             pairs.append(("bibliography source", bibliography_path, "debug HTML", debug_html))
+        if quality_report:
+            pairs.append(("bibliography source", bibliography_path, "quality report", quality_report))
     for left_label, left, right_label, right in pairs:
         if _paths_refer_to_same_file(left, right):
             raise OutputPathError(
                 f"The {left_label} and {right_label} paths must reference different files."
             )
-
-
-def _open_atomic_output(path: Path) -> tuple[int, Path]:
-    """Create a collision-safe sibling temporary file while honoring the process umask."""
-    path = Path(path)
-    existing_mode: int | None = None
-    try:
-        existing_mode = stat.S_IMODE(path.stat().st_mode)
-    except FileNotFoundError:
-        pass
-
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if hasattr(os, "O_BINARY"):
-        flags |= os.O_BINARY
-    for _attempt in range(100):
-        temporary_path = path.parent / f".{path.name}.{secrets.token_hex(8)}.tmp"
-        try:
-            fd = os.open(temporary_path, flags, 0o666)
-        except FileExistsError:
-            continue
-        try:
-            if existing_mode is not None:
-                if hasattr(os, "fchmod"):
-                    os.fchmod(fd, existing_mode)
-                else:  # pragma: no cover - Windows fallback.
-                    os.chmod(temporary_path, existing_mode)
-        except Exception:
-            os.close(fd)
-            temporary_path.unlink(missing_ok=True)
-            raise
-        return fd, temporary_path
-    raise FileExistsError(f"Could not allocate an atomic temporary file for: {path}")
 
 
 def _atomic_write_pdf(writer: PdfWriter, output_path: Path) -> None:

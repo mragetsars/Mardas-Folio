@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import math
 import re
 from dataclasses import dataclass
@@ -29,6 +30,7 @@ class LoadedProjectConfig:
     path: Path | None
     root: Path
     values: dict[str, Any]
+    source_sha256: str | None = None
 
     @property
     def discovered(self) -> bool:
@@ -536,9 +538,11 @@ def load_project_config(
             LoadedProjectConfig(config_path, config_path.parent, {}), (diagnostic,)
         )
 
+    source_sha256 = None
     try:
-        size = config_path.stat().st_size
-        if size > MAX_CONFIG_BYTES:
+        with config_path.open("rb") as handle:
+            source_bytes = handle.read(MAX_CONFIG_BYTES + 1)
+        if len(source_bytes) > MAX_CONFIG_BYTES:
             diagnostic = Diagnostic(
                 "MARDAS-E110",
                 "error",
@@ -550,7 +554,8 @@ def load_project_config(
                 LoadedProjectConfig(config_path, config_path.parent, {}),
                 (diagnostic,),
             )
-        raw = tomllib.loads(config_path.read_text(encoding="utf-8-sig"))
+        source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+        raw = tomllib.loads(source_bytes.decode("utf-8-sig"))
     except (OSError, UnicodeError) as exc:
         diagnostic = Diagnostic(
             "MARDAS-E102",
@@ -559,9 +564,9 @@ def load_project_config(
             path=config_path,
         )
         return ConfigLoadResult(
-            LoadedProjectConfig(config_path, config_path.parent, {}), (diagnostic,)
+            LoadedProjectConfig(config_path, config_path.parent, {}, source_sha256), (diagnostic,)
         )
-    except tomllib.TOMLDecodeError as exc:
+    except (tomllib.TOMLDecodeError, RecursionError) as exc:
         line, column = _toml_location(exc)
         diagnostic = Diagnostic(
             "MARDAS-E103",
@@ -573,7 +578,7 @@ def load_project_config(
             hint="Fix the TOML syntax before rendering or validating the project.",
         )
         return ConfigLoadResult(
-            LoadedProjectConfig(config_path, config_path.parent, {}), (diagnostic,)
+            LoadedProjectConfig(config_path, config_path.parent, {}, source_sha256), (diagnostic,)
         )
 
     diagnostics: list[Diagnostic] = []
@@ -726,7 +731,7 @@ def load_project_config(
         validated[field.dest] = value
 
     return ConfigLoadResult(
-        LoadedProjectConfig(config_path, config_path.parent, validated),
+        LoadedProjectConfig(config_path, config_path.parent, validated, source_sha256),
         tuple(diagnostics),
     )
 

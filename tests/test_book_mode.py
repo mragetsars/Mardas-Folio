@@ -279,6 +279,40 @@ def test_convert_book_rejects_debug_html_source_collision(tmp_path: Path) -> Non
     assert [item.code for item in diagnostics] == ["MARDAS-E509"]
 
 
+@pytest.mark.parametrize("source_kind", ["config", "chapter", "bibliography"])
+def test_convert_book_rejects_quality_report_source_collision(
+    tmp_path: Path, source_kind: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_path = _write_book_project(tmp_path)
+    bibliography = tmp_path / "references.bib"
+    bibliography.write_text("@book{source, title={Preserve me}}\n", encoding="utf-8")
+    config = load_project_config(start=tmp_path, explicit_path=config_path).config
+    protected = {
+        "config": config_path,
+        "chapter": tmp_path / "chapters/02-second.md",
+        "bibliography": bibliography,
+    }
+    # Select an actual chapter regardless of the fixture's filename.
+    protected["chapter"] = config.values["book_chapters"][-1]["path"]
+    report = protected[source_kind]
+    config.values["quality_report"] = report
+    config.values["bibliography_sources"] = (bibliography,)
+    manifest, _ = load_book_manifest(config)
+    assert manifest is not None
+    bundle, _ = render_book(manifest)
+    assert bundle is not None
+    before = report.read_bytes()
+
+    def must_not_render(*args, **kwargs):
+        raise AssertionError("Source collision must be rejected before starting Chromium")
+
+    monkeypatch.setattr("mardas_folio.book.convert_render_result", must_not_render)
+    output, _bundle, diagnostics = convert_book(manifest, bundle=bundle)
+    assert output is None
+    assert [item.code for item in diagnostics] == ["MARDAS-E509"]
+    assert report.read_bytes() == before
+
+
 def test_book_resolves_cross_chapter_markdown_links(tmp_path: Path) -> None:
     chapters = tmp_path / "chapters"
     chapters.mkdir()

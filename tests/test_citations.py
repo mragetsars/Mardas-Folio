@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from bs4 import BeautifulSoup
 
 from mardas_folio.citations import (
@@ -380,3 +382,58 @@ def test_bibtex_string_macros_and_invalid_csl_json_are_diagnosed(tmp_path: Path)
     assert not library.entries
     assert [item.code for item in diagnostics] == ["MARDAS-E702"]
     assert diagnostics[0].line == 1
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "[" * 10000 + "]" * 10000,
+        '[{"id":"x","year":' + "1" * 5000 + "}]",
+        '[{"id":"x","year":NaN}]',
+        '[{"id":"x","year":Infinity}]',
+        '[{"id":"x","year":1e9999}]',
+    ],
+    ids=["deep-nesting", "large-integer", "nan", "infinity", "overflow-float"],
+)
+def test_pathological_csl_json_reports_a_diagnostic(tmp_path: Path, payload: str) -> None:
+    source = tmp_path / "references.json"
+    source.write_text(payload, encoding="utf-8")
+    library, diagnostics = load_bibliography([source])
+    assert not library.entries
+    assert [item.code for item in diagnostics] == ["MARDAS-E702"]
+    assert "Invalid CSL JSON" in diagnostics[0].message
+
+
+def test_bibliography_growth_after_stat_cannot_bypass_the_read_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mardas_folio import citations
+
+    source = tmp_path / "references.bib"
+    source.write_text("@book{x,title={X}}", encoding="utf-8")
+    original_open = Path.open
+
+    def grow_before_read(path: Path, mode="r", *args, **kwargs):
+        if path == source and mode == "rb":
+            with original_open(source, "wb") as writer:
+                writer.write(b"x" * 33)
+        return original_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(citations, "MAX_BIBLIOGRAPHY_SOURCE_BYTES", 32)
+    monkeypatch.setattr(Path, "open", grow_before_read)
+    library, diagnostics = load_bibliography([source])
+    assert not library.entries
+    assert [item.code for item in diagnostics] == ["MARDAS-E702"]
+    assert "32-byte safety limit" in diagnostics[0].message
+
+
+@pytest.mark.parametrize("escaped_text", [r"\ud800", r"\u0000"])
+def test_invalid_escaped_csl_text_is_diagnosed_before_rendering(
+    tmp_path: Path, escaped_text: str
+) -> None:
+    source = tmp_path / "references.json"
+    source.write_text('[{"id":"x","title":"' + escaped_text + '"}]', encoding="utf-8")
+    library, diagnostics = load_bibliography([source])
+    assert not library.entries
+    assert [item.code for item in diagnostics] == ["MARDAS-E702"]
+    assert "Invalid bibliography entry" in diagnostics[0].message

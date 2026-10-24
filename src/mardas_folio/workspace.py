@@ -7,7 +7,6 @@ import re
 import shutil
 import stat
 import tempfile
-import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
@@ -21,8 +20,9 @@ from .book import (
     load_book_manifest,
     render_book,
 )
-from .config import CONFIG_FILENAME, LoadedProjectConfig, default_config_text, load_project_config
+from .config import CONFIG_FILENAME, LoadedProjectConfig, default_config_text, load_project_config, tomllib
 from .diagnostics import Diagnostic, has_errors
+from .file_io import FILE_WRITE_LOCK, open_atomic_output, serialized_file_write
 from .project_commands import project_config_diagnostics, validate_book_project
 from .markdown import embed_local_images, render_markdown
 from .renderer import CancellationCallback, PdfOptions, RenderCancelledError, RenderSession, build_html
@@ -31,7 +31,7 @@ MAX_WORKSPACE_FILES = 2_000
 MAX_WORKSPACE_SCAN_ENTRIES = 20_000
 MAX_WORKSPACE_DEPTH = 32
 MAX_WORKSPACE_TEXT_BYTES = 4 * 1024 * 1024
-_WORKSPACE_SAVE_LOCK = threading.Lock()
+_WORKSPACE_SAVE_LOCK = FILE_WRITE_LOCK
 WORKSPACE_TEXT_SUFFIXES = frozenset(
     {
         ".md",
@@ -369,26 +369,25 @@ def _write_workspace_file_locked(
 
 
 
-def _atomic_replace_text(path: Path, content: str, *, mode: int | None = None) -> None:
+def _atomic_replace_text(
+    path: Path,
+    content: str,
+    *,
+    mode: int | None = None,
+    before_replace: Callable[[], None] | None = None,
+) -> None:
     """Replace one UTF-8 text file atomically and fsync the containing directory."""
 
     path = path.expanduser().resolve(strict=False)
     path.parent.mkdir(parents=True, exist_ok=True)
-    if mode is None:
-        if path.exists():
-            mode = stat.S_IMODE(path.stat().st_mode)
-        else:
-            current_umask = os.umask(0)
-            os.umask(current_umask)
-            mode = 0o666 & ~current_umask
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    temporary = Path(temporary_name)
+    descriptor, temporary = open_atomic_output(path, mode=mode)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        os.chmod(temporary, mode)
+        if before_replace is not None:
+            before_replace()
         os.replace(temporary, path)
         try:
             directory_fd = os.open(path.parent, os.O_RDONLY)
@@ -407,6 +406,8 @@ def _atomic_replace_text(path: Path, content: str, *, mode: int | None = None) -
 
 
 def _config_sha256(workspace: ProjectWorkspace) -> str:
+    if workspace.config.source_sha256 is not None:
+        return workspace.config.source_sha256
     path = workspace.config.path
     if path is None or not path.is_file():
         raise WorkspaceError(
@@ -425,8 +426,9 @@ def _validate_expected_config_sha256(
             "Studio project configuration is unavailable.",
             code="project_unavailable",
         )
-    current = _config_sha256(workspace)
-    if not expected_config_sha256 or expected_config_sha256 != current:
+    current = _file_hash(_read_bytes(path))
+    snapshot = _config_sha256(workspace)
+    if not expected_config_sha256 or expected_config_sha256 != current or snapshot != current:
         raise WorkspaceError(
             "Project configuration changed on disk. Refresh the project before changing chapters.",
             code="project_config_changed",
@@ -502,8 +504,48 @@ _TOML_TABLE_HEADER = re.compile(
 )
 
 
+def _toml_header_lines(lines: Sequence[str]) -> set[int]:
+    """Identify table headers outside comments and multiline TOML strings."""
+    headers: set[int] = set()
+    multiline: str | None = None
+    for line_number, line in enumerate(lines):
+        if multiline is None and _TOML_TABLE_HEADER.match(line.rstrip("\r\n")):
+            headers.add(line_number)
+        index = 0
+        while index < len(line):
+            if multiline is not None:
+                if multiline == '"""' and line[index] == "\\":
+                    index += 2
+                elif line.startswith(multiline, index):
+                    index += 3
+                    multiline = None
+                else:
+                    index += 1
+            elif line[index] == "#":
+                break
+            elif line[index] in {"'", '"'}:
+                quote = line[index]
+                if line.startswith(quote * 3, index):
+                    multiline = quote * 3
+                    index += 3
+                else:
+                    index += 1
+                    while index < len(line):
+                        if quote == '"' and line[index] == "\\":
+                            index += 2
+                        elif line[index] == quote:
+                            index += 1
+                            break
+                        else:
+                            index += 1
+            else:
+                index += 1
+    return headers
+
+
 def _replace_toml_section(text: str, section: str, replacement: str) -> str:
     lines = text.splitlines(keepends=True)
+    header_lines = _toml_header_lines(lines)
     escaped_section = re.escape(section)
     header = re.compile(
         rf"^\s*\[\s*(?:{escaped_section}|\"{escaped_section}\"|'{escaped_section}')"
@@ -512,13 +554,13 @@ def _replace_toml_section(text: str, section: str, replacement: str) -> str:
     start: int | None = None
     end: int | None = None
     for index, line in enumerate(lines):
-        if header.match(line.rstrip("\r\n")):
+        if index in header_lines and header.match(line.rstrip("\r\n")):
             start = index
             break
     if start is not None:
         end = len(lines)
         for index in range(start + 1, len(lines)):
-            if _TOML_TABLE_HEADER.match(lines[index].rstrip("\r\n")):
+            if index in header_lines:
                 end = index
                 break
         prefix = "".join(lines[:start]).rstrip() + "\n\n"
@@ -530,12 +572,12 @@ def _replace_toml_section(text: str, section: str, replacement: str) -> str:
     return text.rstrip() + "\n\n" + replacement.rstrip() + "\n"
 
 
-def _write_book_chapters(
+def _commit_book_chapters(
     workspace: ProjectWorkspace,
     chapters: Sequence[dict[str, str | None]],
     *,
     expected_config_sha256: str,
-) -> ProjectWorkspace:
+) -> Path:
     if not chapters:
         raise WorkspaceError(
             "A book project must keep at least one chapter.",
@@ -549,7 +591,7 @@ def _write_book_chapters(
             status=422,
         )
     config_path = _validate_expected_config_sha256(workspace, expected_config_sha256)
-    original = config_path.read_text(encoding="utf-8-sig")
+    original = _read_bytes(config_path).decode("utf-8-sig")
     replacement = _book_section_text(
         chapters,
         output=_relative_book_output(workspace),
@@ -559,17 +601,52 @@ def _write_book_chapters(
     )
     updated = _replace_toml_section(original, "book", replacement)
     try:
-        _atomic_replace_text(config_path, updated)
+        tomllib.loads(updated)
+    except tomllib.TOMLDecodeError as exc:
+        raise WorkspaceError(
+            "Chapter editing requires a [book] table in the project configuration. "
+            "Move inline or dotted book settings into that table before changing chapters.",
+            code="project_config_edit_unsupported",
+        ) from exc
+
+    def check_revision() -> None:
+        _validate_expected_config_sha256(workspace, expected_config_sha256)
+
+    try:
+        _atomic_replace_text(
+            config_path,
+            updated,
+            before_replace=check_revision,
+        )
     except OSError as exc:
         raise WorkspaceError(
             f"Project configuration could not be updated: {exc}",
             code="project_config_write_failed",
         ) from exc
-    return load_workspace(config_path)
+    return config_path
+
+
+def _write_book_chapters(
+    workspace: ProjectWorkspace,
+    chapters: Sequence[dict[str, str | None]],
+    *,
+    expected_config_sha256: str,
+) -> ProjectWorkspace:
+    path = _commit_book_chapters(
+        workspace, chapters, expected_config_sha256=expected_config_sha256
+    )
+    return load_workspace(path)
 
 
 def _validate_book_title(value: str, *, field: str = "title") -> str:
     title = str(value or "").strip()
+    try:
+        title.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise WorkspaceError(
+            f"Book {field} must contain valid UTF-8 text.",
+            code=f"invalid_book_{field}",
+        ) from exc
     if not title:
         raise WorkspaceError(
             f"Book {field} is required.",
@@ -592,12 +669,20 @@ def _safe_project_folder_name(value: str, *, fallback: str = "mardas-book") -> s
     raw = str(value or "").strip()
     if not raw:
         raw = fallback
+    try:
+        raw.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise WorkspaceError(
+            "Project folder name must contain valid UTF-8 text.",
+            code="invalid_book_folder",
+        ) from exc
     if (
         len(raw) > MAX_BOOK_PROJECT_FOLDER_CHARS
         or raw in {".", ".."}
         or raw.startswith(".")
         or raw.endswith((" ", "."))
         or any(character in raw for character in '<>:"/\\|?*\x00')
+        or any(ord(character) < 32 for character in raw)
         or Path(raw).name != raw
         or raw.upper().split(".", 1)[0] in _WINDOWS_RESERVED_NAMES
     ):
@@ -746,6 +831,7 @@ def create_book_workspace(
     return workspace
 
 
+@serialized_file_write
 def add_workspace_book_chapter(
     workspace: ProjectWorkspace,
     *,
@@ -754,6 +840,7 @@ def add_workspace_book_chapter(
     position: int | None = None,
     content: str | None = None,
 ) -> tuple[ProjectWorkspace, dict[str, object]]:
+    _validate_expected_config_sha256(workspace, expected_config_sha256)
     chapter_title = _validate_book_title(title, field="chapter_title")
     chapters = _book_chapter_entries(workspace)
     insertion = len(chapters) if position is None else int(position)
@@ -764,7 +851,14 @@ def add_workspace_book_chapter(
         )
     path, relative = _next_chapter_path(workspace, chapter_title)
     body = content if content is not None else f"# {chapter_title}\n\n"
-    if not isinstance(body, str) or len(body.encode("utf-8")) > MAX_WORKSPACE_TEXT_BYTES:
+    try:
+        body_size = len(body.encode("utf-8")) if isinstance(body, str) else None
+    except UnicodeEncodeError as exc:
+        raise WorkspaceError(
+            "Chapter content must contain valid UTF-8 text.",
+            code="invalid_book_chapter_content",
+        ) from exc
+    if body_size is None or body_size > MAX_WORKSPACE_TEXT_BYTES:
         raise WorkspaceError(
             "Chapter content is invalid or too large.",
             code="invalid_book_chapter_content",
@@ -774,7 +868,7 @@ def add_workspace_book_chapter(
     updated_entries = list(chapters)
     updated_entries.insert(insertion, {"path": relative, "title": chapter_title})
     try:
-        refreshed = _write_book_chapters(
+        config_path = _commit_book_chapters(
             workspace,
             updated_entries,
             expected_config_sha256=expected_config_sha256,
@@ -782,6 +876,9 @@ def add_workspace_book_chapter(
     except Exception:
         path.unlink(missing_ok=True)
         raise
+    # A refresh can fail after the manifest has been committed (for example,
+    # if another application moves the config). Never roll back its source.
+    refreshed = load_workspace(config_path)
     return refreshed, {
         "path": relative,
         "absolute_path": str(path),
@@ -790,6 +887,7 @@ def add_workspace_book_chapter(
     }
 
 
+@serialized_file_write
 def duplicate_workspace_book_chapter(
     workspace: ProjectWorkspace,
     *,
@@ -809,7 +907,7 @@ def duplicate_workspace_book_chapter(
             status=404,
         )
     source = _safe_workspace_file(workspace, relative_path)
-    source_content = source.read_text(encoding="utf-8-sig")
+    source_content = str(read_workspace_file(workspace, relative_path)["content"])
     source_title = chapters[source_index].get("title") or source.stem
     duplicate_title = _validate_book_title(
         title or f"{source_title} Copy", field="chapter_title"
@@ -823,6 +921,7 @@ def duplicate_workspace_book_chapter(
     )
 
 
+@serialized_file_write
 def reorder_workspace_book_chapters(
     workspace: ProjectWorkspace,
     *,
@@ -849,6 +948,7 @@ def reorder_workspace_book_chapters(
     )
 
 
+@serialized_file_write
 def remove_workspace_book_chapter(
     workspace: ProjectWorkspace,
     *,
@@ -1634,6 +1734,7 @@ def search_workspace(
     matches: list[dict[str, object]] = []
     searched_files = 0
     truncated = False
+    truncated_lines = 0
 
     for item in workspace.files:
         if cancelled and cancelled():
@@ -1658,23 +1759,30 @@ def search_workspace(
                     code="project_search_cancelled",
                     status=499,
                 )
-            clipped_line = line[:MAX_WORKSPACE_SEARCH_LINE_CHARS]
-            columns = [
-                match.start() + 1
-                for match in pattern.finditer(fold_persian_letters(clipped_line))
-            ]
-            for column in columns:
+            search_line = line[:MAX_WORKSPACE_SEARCH_LINE_CHARS] if regex else line
+            if len(search_line) < len(line):
+                truncated_lines += 1
+            # Literal search is linear, so search the entire bounded file.
+            # Stream matches instead of allocating every column on a long line.
+            for match in pattern.finditer(fold_persian_letters(search_line)):
+                if len(matches) >= limit:
+                    truncated = True
+                    break
+                start = max(0, match.start() - 100)
+                end = min(len(line), start + 300)
+                preview = line[start:end].strip()
+                if start:
+                    preview = "…" + preview
+                if end < len(line):
+                    preview += "…"
                 matches.append(
                     {
                         "path": item.path,
                         "line": line_number,
-                        "column": column,
-                        "preview": clipped_line.strip()[:300],
+                        "column": match.start() + 1,
+                        "preview": preview,
                     }
                 )
-                if len(matches) >= limit:
-                    truncated = True
-                    break
             if truncated:
                 break
         if truncated:
@@ -1687,6 +1795,8 @@ def search_workspace(
         "searched_files": searched_files,
         "matches": matches,
         "truncated": truncated,
+        "truncated_lines": truncated_lines,
+        "regex_line_limit": MAX_WORKSPACE_SEARCH_LINE_CHARS if regex else None,
         "max_results": limit,
     }
 
