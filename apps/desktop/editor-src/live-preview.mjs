@@ -656,7 +656,9 @@ const livePreviewPlugin = ViewPlugin.fromClass(
     }
 
     update(update) {
-      if (update.docChanged || update.viewportChanged || update.selectionSet) {
+      if (update.docChanged || update.viewportChanged || update.selectionSet
+        || update.startState.facet(assetResolver) !== update.state.facet(assetResolver)
+        || update.startState.facet(editorStrings) !== update.state.facet(editorStrings)) {
         this.decorations = buildDecorations(update.view);
         // Heading lines carry vertical padding, which changes their box height.
         // CodeMirror maps a click to a position through its height map, so the

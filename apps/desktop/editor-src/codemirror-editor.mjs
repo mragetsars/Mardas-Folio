@@ -530,6 +530,15 @@ export function createCodeMirrorEditorAdapter(
       view.dispatch({ effects: view.scrollSnapshot() });
       view.requestMeasure();
     },
+    refreshAssets() {
+      // Newly referenced files are granted asynchronously by the native host.
+      // Rebuild image decorations after that grant without editing the buffer
+      // or replacing its document state, selection, scroll or undo history.
+      view.dispatch({ effects: [
+        preview.reconfigure(editorModeExtension(editorMode, { resolveAsset: (source) => resolveAsset?.(source), strings: editorText })),
+        view.scrollSnapshot(),
+      ] });
+    },
     firstVisibleLine() {
       // Document lines may wrap across many visual rows, and block widgets
       // have independent heights. Use CodeMirror's measured document map,

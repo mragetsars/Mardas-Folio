@@ -95,12 +95,18 @@ export const LOCALE_STORAGE_KEY="mardas.desktop.locale";
 function localeStorage(storage){if(storage!==undefined)return storage;try{return globalThis.localStorage}catch{return null}}
 const messages={fa,en};export function supportedLocale(value){return String(value||"").toLowerCase().startsWith("fa")?"fa":"en"}
 Object.assign(fa, {
+  regexLongLineLimit: "حد بررسی عبارت منظم در هر خط (نویسه):",
+  regexLimitedLines: "خط‌های بلند با بررسی محدود",
+  useLiteralSearch: "برای جست‌وجوی کامل پاراگراف‌ها، عبارت منظم را خاموش کن.",
   studioKicker: "فضای نوشتن و انتشار",
   studioWelcome: "سند بعدی‌ات از اینجا شروع می‌شود.",
   studioDescription: "بنویس، فصل‌ها را مرتب کن و خروجی آماده انتشار بساز.",
   structuredMetadataHelp: "مشخصات ساختاریافته را در نمای سورس ویرایش کن؛ این فرم آن‌ها را حفظ می‌کند.",
 });
 Object.assign(en, {
+  regexLongLineLimit: "Regex character limit per line:",
+  regexLimitedLines: "Long lines with limited search",
+  useLiteralSearch: "Turn off regular expressions to search complete paragraphs.",
   studioKicker: "Writing & publishing studio",
   studioWelcome: "Your next document starts here.",
   studioDescription: "Write, organize your chapters, and create a publication ready to share.",
@@ -406,8 +412,26 @@ Object.assign(en, {
 });
 
 // Drawn by the editor, translated by the application.
+Object.assign(fa, {
+  updateSavingDocuments: "در حال ذخیرهٔ سندها پیش از بروزرسانی",
+  updateSaveDocuments: "ذخیرهٔ سندها پیش از بروزرسانی",
+  updateSaveDocumentsHelp: "نصب بروزرسانی ممکن است برنامه را ببندد. ابتدا تغییرهای همهٔ سندهای باز را در فایل ذخیره کن.",
+  saveAndInstallUpdate: "ذخیره و نصب بروزرسانی",
+  updatePostponed: "نصب انجام نشد؛ سندهای باز را ذخیره کن و دوباره اقدام کن.",
+  updateFinishTasks: "ابتدا عملیات جاری را تمام یا لغو کن، سپس بروزرسانی را نصب کن.",
+});
+Object.assign(en, {
+  updateSavingDocuments: "Saving documents before update",
+  updateSaveDocuments: "Save documents before updating",
+  updateSaveDocumentsHelp: "Installing an update may close the app. Save changes in all open documents to files first.",
+  saveAndInstallUpdate: "Save and install update",
+  updatePostponed: "Installation postponed. Save your open documents, then try again.",
+  updateFinishTasks: "Finish or cancel the current operation before installing an update.",
+});
 Object.assign(fa, { imageNotFound: "تصویر پیدا نشد" });
 Object.assign(en, { imageNotFound: "Image not found" });
+Object.assign(fa, { copyDocumentChanged: "متن یا سند فعال هنگام آماده‌سازی تغییر کرد؛ دوباره کپی کن." });
+Object.assign(en, { copyDocumentChanged: "The document changed while preparing the copy. Copy again to include the latest text." });
 
 Object.assign(fa, {
   files: "فایل‌ها", quickOpen: "رفتن به فایل", toggleFiles: "نمایش یا پنهان‌کردن فایل‌ها",

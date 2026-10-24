@@ -496,7 +496,13 @@ def run_writing_width(page: Any) -> list[str]:
     page.wait_for_timeout(600)
     page.keyboard.insert_text("WIDTH_HISTORY_MARKER")
     expect(mirror(page)).to_have_value(before + "WIDTH_HISTORY_MARKER")
+    full_width = editor(page).bounding_box()["width"]
+    open_settings(page)
+    page.locator("#setting-writing-width").select_option("readable")
+    page.locator('#settings-form button[type="submit"]').click()
     comfortable_width = editor(page).bounding_box()["width"]
+    if comfortable_width >= full_width - 100:
+        raise AssertionError(f"Readable column did not narrow full writing space: {full_width} -> {comfortable_width}")
     open_settings(page)
     page.locator("#setting-writing-width").select_option("wide")
     page.locator('#settings-form button[type="submit"]').click()

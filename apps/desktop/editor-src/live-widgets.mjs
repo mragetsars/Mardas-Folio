@@ -454,8 +454,8 @@ function spansActiveLine(state, active, node) {
 
 /** Read `![alt](src)` out of the source text of an Image node. */
 export function parseImage(markup) {
-  const match = /^!\[([^\]]*)\]\(\s*<?([^\s)>]+)>?(?:\s+"[^"]*")?\s*\)$/.exec(markup.trim());
-  return match ? { alt: match[1], src: match[2] } : null;
+  const match = /^!\[((?:\\.|[^\]\\])*)\]\(\s*(?:<([^>\r\n]+)>|((?:\\.|[^\s()\\]|\((?:\\.|[^()\\])*\))+))(?:\s+["'][^\r\n]*?["'])?\s*\)$/.exec(markup.trim());
+  return match ? { alt: match[1], src: match[2] || match[3] } : null;
 }
 
 /** Time budget for forcing the parse; beyond it, use whatever is ready. */

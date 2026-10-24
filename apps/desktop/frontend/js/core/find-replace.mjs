@@ -40,15 +40,77 @@ export function findLiteralMatches(text, query, { limit = 10_000 } = {}) {
 
 export function replaceAllLiteral(text, query, replacement) {
   const source = String(text ?? "");
-  const matches = findLiteralMatches(source, query);
-  if (!matches.length) return { text: source, count: 0 };
+  const needle = String(query ?? "");
+  if (!needle) return { text: source, count: 0 };
+  // The navigation list is bounded, but Replace All must reach every match.
+  // Iterate the expression directly rather than allocating an unbounded list
+  // of selection objects for a large document with many one-letter matches.
+  const expression = new RegExp(escapeRegularExpression(foldPersianLetters(needle)), "giu");
   const value = String(replacement ?? "");
   let cursor = 0;
-  let output = "";
-  for (const match of matches) {
-    output += source.slice(cursor, match.start) + value;
-    cursor = match.end;
+  let count = 0;
+  const parts = [];
+  for (const match of foldPersianLetters(source).matchAll(expression)) {
+    const start = match.index ?? 0;
+    parts.push(source.slice(cursor, start), value);
+    cursor = start + match[0].length;
+    count += 1;
   }
-  output += source.slice(cursor);
-  return { text: output, count: matches.length };
+  if (!count) return { text: source, count: 0 };
+  parts.push(source.slice(cursor));
+  return { text: parts.join(""), count };
+}
+
+/** Search offsets belong to one exact document, buffer and query. */
+export function createFindSession() {
+  let owner = null;
+  let source = null;
+  let needle = null;
+  let matches = [];
+  let index = -1;
+
+  function refresh(snapshot, { reset = false, anchor = null } = {}) {
+    const documentId = snapshot?.documentId ?? null;
+    const text = String(snapshot?.text ?? "");
+    const query = String(snapshot?.query ?? "");
+    const changed = owner !== documentId || source !== text || needle !== query;
+    if (changed) {
+      const previous = owner === documentId && needle === query ? matches[index]?.start : null;
+      owner = documentId;
+      source = text;
+      needle = query;
+      matches = findLiteralMatches(text, query);
+      const position = anchor ?? previous;
+      const next = position == null ? 0 : matches.findIndex((match) => match.start >= position);
+      index = matches.length ? (next < 0 ? 0 : next) : -1;
+    }
+    if (reset) index = matches.length ? 0 : -1;
+    if (anchor !== null && matches.length) {
+      const next = matches.findIndex((match) => match.start >= anchor);
+      index = next < 0 ? 0 : next;
+    }
+    return { matches, index };
+  }
+
+  return {
+    refresh,
+    select(snapshot, next) {
+      refresh(snapshot);
+      index = matches.length ? ((next % matches.length) + matches.length) % matches.length : -1;
+      return matches[index] ?? null;
+    },
+    move(snapshot, direction) {
+      refresh(snapshot);
+      return this.select(snapshot, index + direction);
+    },
+    current(snapshot) {
+      refresh(snapshot);
+      return matches[index] ?? null;
+    },
+    clear() {
+      owner = source = needle = null;
+      matches = [];
+      index = -1;
+    },
+  };
 }

@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ImageWidget, TableWidget, tableContentDirection } from "../editor-src/live-widgets.mjs";
+import { ImageWidget, TableWidget, parseImage, tableContentDirection } from "../editor-src/live-widgets.mjs";
+
+test("image widgets accept Markdown paths with spaces and balanced parentheses", () => {
+  assert.deepEqual(parseImage('![chart](<assets/Persian chart.png> "Title")'), { alt: "chart", src: "assets/Persian chart.png" });
+  assert.deepEqual(parseImage("![chart](assets/chart(1).png)"), { alt: "chart", src: "assets/chart(1).png" });
+  assert.deepEqual(parseImage("![chart](assets/chart\\(2\\).png)"), { alt: "chart", src: "assets/chart\\(2\\).png" });
+  assert.equal(parseImage("![chart](broken path.png)"), null);
+});
 
 /**
  * Enough of a document to build one widget and read it back.

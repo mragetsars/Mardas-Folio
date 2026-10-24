@@ -42,7 +42,8 @@ import {
   upsertFrontMatter,
 } from "./core/markdown-analysis.mjs";
 import { prefixSelectedLines, replaceSelection, wrapSelection } from "./core/editor-commands.mjs";
-import { findLiteralMatches, replaceAllLiteral } from "./core/find-replace.mjs";
+import { createFindSession, replaceAllLiteral } from "./core/find-replace.mjs";
+import { documentImageSources, localImageDestination } from "./core/document-assets.mjs";
 import { createEditorAdapter } from "./core/editor-adapter.mjs";
 import {
   captureDocumentContext,
@@ -51,6 +52,8 @@ import {
   projectContextCurrent,
 } from "./core/request-context.mjs";
 import { createSaveCoordinator } from "./core/save-coordinator.mjs";
+import { createConfirmationQueue } from "./core/confirmation-queue.mjs";
+import { saveDocumentsBeforeUpdate } from "./core/update-preparation.mjs";
 import { createSingleFlight } from "./core/single-flight.mjs";
 import { beginCancellationHandoff } from "./core/task-handoff.mjs";
 import { diagnosticLines, inlineDiagnosticsForDocument } from "./core/diagnostics.mjs";
@@ -119,6 +122,7 @@ const state = {
   sourcePath: "",
   outputPath: "",
   activeRequestId: null,
+  cancelledExportRequestId: null,
   outputResult: null,
   exportReturnView: "start",
   bookOutputPath: null,
@@ -133,8 +137,6 @@ const state = {
   assetSequence: 0,
   pendingRecovery: null,
   recoveryQueue: [],
-  findMatches: [],
-  findIndex: -1,
   activeSidebar: "outline",
   project: null,
   projectGeneration: 0,
@@ -163,13 +165,18 @@ const state = {
   updateStatus: null,
   updateCheck: null,
   updateInstalling: false,
+  updatePreparing: false,
   updateDownloaded: 0,
   updateTotal: 0,
 };
 let editorAdapter = null;
 let modalManager = null;
 let navigationPicker = null;
+const documentImageScopes = new WeakMap();
+let imageScopeTimer = null;
 const saveCoordinator = createSaveCoordinator({ isDirty: documentDirty });
+const findSession = createFindSession();
+const askConfirmation = createConfirmationQueue(presentConfirmation);
 const translator = createTranslator(state.locale);
 const t = (key) => translator.t(key);
 
@@ -187,7 +194,7 @@ function activeDocument() {
 
 function documentEditable() {
   const model = activeDocument();
-  return Boolean(model && !model.readOnly && state.preferences.viewMode !== "read");
+  return Boolean(model && !model.readOnly && !state.updateInstalling && state.preferences.viewMode !== "read");
 }
 
 function focusDocument() {
@@ -306,15 +313,17 @@ function syncExportToastPlacement() {
  * fetched, which keeps the offline guarantee the app makes on its own footer.
  */
 function resolveEditorAsset(source) {
-  const raw = String(source || "").trim();
-  if (!raw || /^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith("//")) return null;
+  const raw = localImageDestination(source);
+  if (!raw) return null;
   const model = activeDocument();
   if (!model?.path) return null;
+  const granted = documentImageScopes.get(model);
+  if (granted?.path !== model.path || !granted.sources.has(raw)) return null;
   const separator = model.path.includes("\\") ? "\\" : "/";
   const directory = model.path.slice(0, model.path.lastIndexOf(separator));
   if (!directory) return null;
 
-  const normalized = raw.replaceAll("\\", "/");
+  const normalized = raw;
   // A path that climbs out of the document directory is outside the scope the
   // native side allowed, so it would fail to load anyway.
   if (normalized.startsWith("/") || normalized.split("/").includes("..")) return null;
@@ -337,7 +346,7 @@ function resolveEditorAsset(source) {
 function applyViewMode() {
   const mode = state.preferences.viewMode;
   editorAdapter?.setMode?.(editorModeForView(mode));
-  editorAdapter?.setReadOnly?.(mode === "read");
+  editorAdapter?.setReadOnly?.(mode === "read" || state.updateInstalling);
 
   const showPreview = previewVisibleForView(mode);
   if (state.workspaceLayout.previewOpen !== showPreview) {
@@ -684,7 +693,7 @@ function updateUi() {
   }
   if (state.updateInstalling) {
     $("#update-state").dataset.state = "working";
-    $("#update-state").textContent = t("updateInstalling");
+    $("#update-state").textContent = t(state.updatePreparing ? "updateSavingDocuments" : "updateInstalling");
     const total = Number(state.updateTotal) || 0;
     const downloaded = Number(state.updateDownloaded) || 0;
     const percent = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
@@ -753,22 +762,47 @@ async function checkUpdates() {
 
 async function installAvailableUpdate() {
   if (!state.updateCheck?.available || state.updateInstalling) return;
+  if (state.activeRequestId || state.activeBookRequestId || state.activeProjectSearchRequestId) {
+    toast(t("updateFinishTasks"), "info");
+    return;
+  }
   state.updateInstalling = true;
+  state.updatePreparing = true;
   state.updateDownloaded = 0;
   state.updateTotal = 0;
+  updateAuthoringMode(activeDocument());
   updateUi();
   try {
-    await installUpdate(state.updateCheck.version);
-    state.updateInstalling = false;
+    const ready = await saveDocumentsBeforeUpdate({
+      getDocuments: () => state.documents,
+      isDirty: documentDirty,
+      confirm: () => askConfirmation({
+        title: t("updateSaveDocuments"),
+        message: t("updateSaveDocumentsHelp"),
+        confirmLabel: t("saveAndInstallUpdate"),
+      }),
+      save: (model) => saveCoordinator.save(model, () => persistDocumentModel(model)),
+    });
+    if (!ready) {
+      toast(t("updatePostponed"), "info");
+      return;
+    }
+    state.updatePreparing = false;
     updateUi();
+    await installUpdate(state.updateCheck.version);
     toast(t("updateInstalled"), "success");
   } catch (error) {
-    state.updateInstalling = false;
     $("#update-state").dataset.state = "error";
     $("#update-state").textContent = t("updateInstallFailed");
     $("#update-detail").textContent = errorText(error);
     $("#check-updates").disabled = false;
     $("#install-update").disabled = false;
+  } finally {
+    state.updateInstalling = false;
+    state.updatePreparing = false;
+    updateAuthoringMode(activeDocument());
+    if ($("#update-state").dataset.state !== "error") updateUi();
+    $("#update-progress").classList.add("hidden");
   }
 }
 
@@ -1106,6 +1140,16 @@ function working(enabled, mode = "render") {
   $("#export-button").disabled = enabled;
   $("#cancel-button").classList.toggle("hidden", !enabled);
   $("#progress-wrap").classList.toggle("hidden", !enabled);
+  $("#export-form").setAttribute("aria-busy", String(enabled));
+  for (const control of [...$("#export-form").querySelectorAll("button,input,select,textarea"), $("#choose-output")]) {
+    if (enabled) {
+      if (!("disabledBeforeExport" in control.dataset)) control.dataset.disabledBeforeExport = String(control.disabled);
+      control.disabled = true;
+    } else if ("disabledBeforeExport" in control.dataset) {
+      control.disabled = control.dataset.disabledBeforeExport === "true";
+      delete control.dataset.disabledBeforeExport;
+    }
+  }
   if (enabled) {
     $("#progress-bar").style.width = "3%";
     $("#progress-label").textContent = "3%";
@@ -1975,13 +2019,18 @@ function exportSelectionValid() {
 }
 
 async function validateExportDocument() {
-  if (!exportSelectionValid()) return;
-  await releaseEngineForJob();
-  working(true, "validate");
+  if (state.activeRequestId || !exportSelectionValid()) return;
   const id = requestId("validate");
+  const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, presetId: state.presetId, overrides: exportOverrides() });
   state.activeRequestId = id;
+  state.cancelledExportRequestId = null;
+  working(true, "validate");
   try {
-    const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, presetId: state.presetId, overrides: exportOverrides() });
+    await releaseEngineForJob();
+    if (state.cancelledExportRequestId === id) {
+      setExportStatus("idle", "readyTitle", t("operationCancelled"));
+      return;
+    }
     const result = await invoke("sidecar_request", { request_id: id, method: "validate.document", params });
     const diagnostics = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
     setExportStatus(result?.ok ? "success" : "error", result?.ok ? "validTitle" : "invalidTitle", t(result?.ok ? "validMessage" : "invalidMessage"), diagnostics);
@@ -1995,14 +2044,19 @@ async function validateExportDocument() {
 
 async function exportDocument(event) {
   event?.preventDefault();
-  if (!exportSelectionValid()) return;
-  await releaseEngineForJob();
+  if (state.activeRequestId || !exportSelectionValid()) return;
+  const id = requestId("render");
+  const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, presetId: state.presetId, overrides: exportOverrides() });
+  state.activeRequestId = id;
+  state.cancelledExportRequestId = null;
   working(true);
   hideExportResult();
-  const id = requestId("render");
-  state.activeRequestId = id;
   try {
-    const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, presetId: state.presetId, overrides: exportOverrides() });
+    await releaseEngineForJob();
+    if (state.cancelledExportRequestId === id) {
+      setExportStatus("idle", "readyTitle", t("operationCancelled"));
+      return;
+    }
     const result = await invoke("sidecar_request", { request_id: id, method: "render.document", params });
     state.outputResult = result;
     $("#progress-bar").style.width = "100%";
@@ -2023,6 +2077,7 @@ async function exportDocument(event) {
 
 async function cancelExport() {
   if (!state.activeRequestId) return;
+  state.cancelledExportRequestId = state.activeRequestId;
   try {
     await invoke("sidecar_cancel", { request_id: state.activeRequestId });
     toast(t("operationCancelled"));
@@ -2320,7 +2375,7 @@ function renderAssets(items = []) {
 function updateAuthoringMode(model) {
   const hasDocument = Boolean(model);
   const markdown = isMarkdownModel(model);
-  const editable = hasDocument && !model.readOnly && state.preferences.viewMode !== "read";
+  const editable = hasDocument && !model.readOnly && !state.updateInstalling && state.preferences.viewMode !== "read";
   $("#workspace-save").disabled = !hasDocument || model.readOnly;
   $("#workspace-save-as").disabled = !hasDocument;
   for (const element of $$('[data-editor-command], #workspace-import-asset, #import-asset, #refresh-assets')) {
@@ -2339,7 +2394,7 @@ function updateAuthoringMode(model) {
   $("#workspace-view")?.classList.toggle("plain-text-mode", hasDocument && !markdown);
   $("#insert-menu-button").disabled = !editable || !markdown;
   $("#workspace-toggle-formatting")?.toggleAttribute("disabled", !editable || !markdown);
-  editorAdapter?.setReadOnly?.(state.preferences.viewMode === "read");
+  editorAdapter?.setReadOnly?.(state.preferences.viewMode === "read" || state.updateInstalling);
 }
 
 /**
@@ -2387,7 +2442,7 @@ function editorStrings() {
  * Cancel is what focus lands on and what every way out resolves to, because
  * every one of these questions has a destructive answer and a safe one.
  */
-function askConfirmation({ title, message = "", confirmLabel, danger = false }) {
+function presentConfirmation({ title, message = "", confirmLabel, danger = false }) {
   const modal = $("#confirm-modal");
   const accept = $("#confirm-accept");
   const cancel = $("#confirm-cancel");
@@ -2462,6 +2517,7 @@ function renderWorkspace() {
   // Initial selection is applied only when the adapter sees this ID first.
   if (editor.setDocument) editor.setDocument(model.id, model.content, { initialSelection: bodyStartOffset(model.content) });
   else if (editor.value !== model.content) editor.value = model.content;
+  if (!$("#find-bar").classList.contains("hidden")) updateFindMatches();
   setTruncatableText($("#editor-title"), model.title);
   setTruncatableText($("#editor-path"), model.path || t("untitled"));
   setSaveState(documentDirty(model) ? "dirty" : "saved");
@@ -2481,11 +2537,30 @@ function renderWorkspace() {
  */
 async function allowDocumentImages(model) {
   if (!model?.path) return;
+  const path = model.path;
+  const sources = documentImageSources(model.content);
   try {
-    await invoke("allow_document_images", { path: model.path });
+    await invoke("allow_document_images", { path, sources });
+    if (model.path === path) {
+      documentImageScopes.set(model, { path, sources: new Set(sources) });
+      if (activeDocument() === model) editorAdapter?.refreshAssets?.();
+    }
   } catch {
     // Images stay as Markdown text; nothing else about the document changes.
   }
+}
+
+function scheduleDocumentImages(model) {
+  clearTimeout(imageScopeTimer);
+  if (!model?.path) return;
+  imageScopeTimer = setTimeout(() => {
+    if (!state.documents.includes(model)) return;
+    const granted = documentImageScopes.get(model);
+    const sources = documentImageSources(model.content);
+    if (granted?.path === model.path && sources.length === granted.sources.size
+      && sources.every((source) => granted.sources.has(source))) return;
+    void allowDocumentImages(model);
+  }, 220);
 }
 
 async function activateDocument(id, { focus = "editor" } = {}) {
@@ -2743,7 +2818,6 @@ function renderProjectSearchResults(result) {
   const matches = Array.isArray(result?.matches) ? result.matches : [];
   if (!matches.length) {
     list.innerHTML = `<div class="tool-empty">${t("noSearchResults")}</div>`;
-    return;
   }
   for (const match of matches) {
     const button = document.createElement("button");
@@ -2761,6 +2835,12 @@ function renderProjectSearchResults(result) {
     const notice = document.createElement("div");
     notice.className = "tool-empty search-limit-notice";
     notice.textContent = t("searchResultsLimited");
+    list.append(notice);
+  }
+  if (Number(result?.truncated_lines) > 0) {
+    const notice = document.createElement("div");
+    notice.className = "tool-empty search-limit-notice";
+    notice.textContent = `${t("regexLongLineLimit")} ${result.regex_line_limit || 2000} · ${t("regexLimitedLines")}: ${result.truncated_lines}. ${t("useLiteralSearch")}`;
     list.append(notice);
   }
 }
@@ -3605,6 +3685,8 @@ function onEditorInput() {
   const model = activeDocument();
   if (!model) return;
   updateDocumentContent(model, currentEditor().value);
+  scheduleDocumentImages(model);
+  if (!$("#find-bar").classList.contains("hidden")) updateFindMatches();
   state.validationSequence += 1;
   state.bibliographySequence += 1;
   model.diagnostics = [];
@@ -4111,21 +4193,20 @@ function goToLine(line, column = 1) {
   syncPreviewToEditorLine(Number(line) || 1, { center: true });
 }
 
-function updateFindMatches({ preserveIndex = false } = {}) {
-  const editor = currentEditor();
-  const query = $("#find-query").value;
-  const matches = findLiteralMatches(editor.value, query);
-  state.findMatches = matches;
-  if (!preserveIndex || state.findIndex >= matches.length) state.findIndex = matches.length ? 0 : -1;
-  $("#find-count").textContent = matches.length ? `${state.findIndex + 1}/${matches.length}` : "0/0";
+function findSnapshot() {
+  return { documentId: activeDocument()?.id, text: currentEditor().value, query: $("#find-query").value };
+}
+
+function updateFindMatches(options = {}) {
+  const { matches, index } = findSession.refresh(findSnapshot(), options);
+  $("#find-count").textContent = matches.length ? `${index + 1}/${matches.length}` : "0/0";
   return matches;
 }
 
-function selectFindMatch(index) {
-  const matches = state.findMatches;
-  if (!matches.length) return;
-  state.findIndex = (index + matches.length) % matches.length;
-  const match = matches[state.findIndex];
+function selectFindMatch(index, { direction = null } = {}) {
+  const snapshot = findSnapshot();
+  const match = direction === null ? findSession.select(snapshot, index) : findSession.move(snapshot, direction);
+  if (!match) return;
   const editor = currentEditor();
   editor.focus();
   editor.setSelectionRange(match.start, match.end);
@@ -4140,7 +4221,7 @@ function selectFindMatch(index) {
     const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight) || 24;
     editor.scrollTop = Math.max(0, (line - 4) * lineHeight);
   }
-  $("#find-count").textContent = `${state.findIndex + 1}/${matches.length}`;
+  updateFindMatches();
   updateEditorMetrics();
 }
 
@@ -4155,32 +4236,31 @@ function openFind({ replace = false } = {}) {
   const editor = currentEditor();
   const selected = editor.value.slice(editor.selectionStart, editor.selectionEnd);
   if (selected && !selected.includes("\n")) $("#find-query").value = selected;
-  updateFindMatches();
+  updateFindMatches({ reset: true });
   $("#find-query").focus();
   $("#find-query").select();
 }
 
 function closeFind() {
   $("#find-bar").classList.add("hidden");
-  state.findMatches = [];
-  state.findIndex = -1;
+  findSession.clear();
   currentEditor().focus();
 }
 
 function moveFind(direction) {
-  if (!state.findMatches.length) updateFindMatches();
-  if (state.findMatches.length) selectFindMatch(state.findIndex + direction);
+  selectFindMatch(null, { direction });
 }
 
 function replaceCurrentMatch() {
   if (!documentEditable()) return;
   const editor = currentEditor();
-  if (!state.findMatches.length) return;
-  const match = state.findMatches[state.findIndex];
+  const match = findSession.current(findSnapshot());
+  if (!match) return;
   const replacement = $("#replace-query").value;
   applyEditorResult(replaceSelection(editor.value, match.start, match.end, replacement));
-  updateFindMatches();
-  if (state.findMatches.length) selectFindMatch(Math.min(state.findIndex, state.findMatches.length - 1));
+  updateFindMatches({ anchor: match.start + replacement.length });
+  const { index } = findSession.refresh(findSnapshot());
+  if (index >= 0) selectFindMatch(index);
 }
 
 function replaceAllMatches() {
@@ -4440,14 +4520,27 @@ async function copyToClipboard(text, { html = null } = {}) {
 /** Copy the rendered document as HTML, for pasting into a word processor. */
 async function copyAsHtml() {
   const model = activeDocument();
-  const html = model?.preview?.body_html;
-  if (!html) {
+  if (!model || !isMarkdownModel(model) || !model.content.trim()) {
     toast(t("previewEmpty"));
     return;
   }
-  const plain = document.createElement("div");
-  plain.append(safePreviewHtml(html));
-  if (await copyToClipboard(plain.textContent || "", { html })) toast(t("copied"), "success");
+  const context = requestContext(model);
+  try {
+    const result = model.preview && model.previewContentVersion === model.contentVersion
+      ? model.preview
+      : await previewDocumentText({ path: model.path, content: model.content, options: previewOptions() });
+    if (!contextIsCurrent(context)) {
+      toast(t("copyDocumentChanged"));
+      return;
+    }
+    const article = document.createElement("div");
+    article.append(safePreviewHtml(`${result.body_html || ""}${result.reference_lists_html || ""}${result.bibliography_html || ""}`, "clipboard-"));
+    await typesetPreviewMath(article, { isCurrent: () => contextIsCurrent(context), errorLabel: t("previewMathFailed") });
+    if (!contextIsCurrent(context)) return;
+    if (await copyToClipboard(article.textContent || "", { html: article.innerHTML })) toast(t("copied"), "success");
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
 }
 
 async function pasteAsPlainText() {
@@ -4484,7 +4577,7 @@ function openEditorContextMenu(event) {
 
   const items = [
     { key: "copy", label: t("copy"), enabled: hasSelection, run: () => copyToClipboard(selectionOrDocument()) },
-    { key: "copyHtml", label: t("copyAsHtml"), enabled: Boolean(model?.preview), run: copyAsHtml },
+    { key: "copyHtml", label: t("copyAsHtml"), enabled: isMarkdownModel(model) && Boolean(model?.content.trim()), run: copyAsHtml },
     { key: "copyPlain", label: t("copyAsPlainText"), enabled: true, run: () => copyToClipboard(selectionOrDocument()) },
     { key: "paste", label: t("pasteAsPlainText"), enabled: editable, run: pasteAsPlainText },
     { separator: true },
@@ -4512,6 +4605,7 @@ function openEditorContextMenu(event) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "context-menu-item";
+    button.dataset.contextAction = item.key;
     button.setAttribute("role", "menuitem");
     button.textContent = item.label;
     button.disabled = !item.enabled;
@@ -4808,7 +4902,7 @@ function bindEvents() {
     if ($("#auto-preview").checked) refreshPreview();
   });
   $("#frontmatter-form").addEventListener("submit", applyFrontMatter);
-  $("#find-query").addEventListener("input", () => { updateFindMatches(); if (state.findMatches.length) selectFindMatch(0); });
+  $("#find-query").addEventListener("input", () => { if (updateFindMatches({ reset: true }).length) selectFindMatch(0); });
   $("#find-query").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); moveFind(event.shiftKey ? -1 : 1); } if (event.key === "Escape") closeFind(); });
   $("#find-previous").addEventListener("click", () => moveFind(-1));
   $("#find-next").addEventListener("click", () => moveFind(1));
@@ -4857,6 +4951,21 @@ function bindEvents() {
     event.preventDefault();
     toggleFormatOverflowMenu(false);
     $("#format-overflow-button").focus();
+  });
+  $("#editor-context-menu").addEventListener("keydown", (event) => {
+    if (event.key === "Escape" || event.key === "Tab") {
+      event.preventDefault();
+      closeEditorContextMenu();
+      focusDocument();
+      return;
+    }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const items = [...event.currentTarget.querySelectorAll("button:not([disabled])")];
+    const index = items.indexOf(document.activeElement);
+    const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+      : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
   });
   // A command run from the menu has done what the user opened it for.
   $("#format-overflow-menu").addEventListener("click", (event) => {

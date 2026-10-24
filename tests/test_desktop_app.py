@@ -560,7 +560,8 @@ def test_the_application_asks_its_own_questions() -> None:
     code = re.sub(r"//[^\n]*", "", code)
     for banned in ("globalThis.confirm", "window.confirm", "globalThis.alert", "window.alert"):
         assert banned not in code, f"{banned} is still used"
-    assert "function askConfirmation(" in main
+    assert "const askConfirmation = createConfirmationQueue(presentConfirmation)" in main
+    assert "function presentConfirmation(" in main
     # Cancel is the safe answer to all three questions, so it is where focus
     # lands and what every way out of the dialog resolves to.
     assert 'initialFocus: "#confirm-cancel"' in main
@@ -1095,7 +1096,11 @@ def test_editor_images_load_through_a_bounded_asset_scope() -> None:
     assert "kind.is_symlink()" in inventory
     assert "canonical.starts_with(&directory)" in inventory
     assert "kind.is_file()" in inventory
-    assert '"png" | "jpg" | "jpeg" | "webp" | "gif" | "svg"' in inventory
+    assert "supported_image_path" in inventory
+    supported_images = main_rs.split("fn supported_image_path", 1)[1].split("fn document_image_paths", 1)[0]
+    assert '"png" | "jpg" | "jpeg" | "webp" | "gif" | "svg"' in supported_images
+    assert "Some(sources) => referenced_document_images" in grant
+    assert "sources: Option<Vec<String>>" in grant
     assert "canonicalize()" in main_rs, "resolve the directory before trusting it"
 
     main_js = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
@@ -1103,4 +1108,6 @@ def test_editor_images_load_through_a_bounded_asset_scope() -> None:
     # Remote sources and parent-directory escapes are refused in the interface
     # too, so a document cannot pull the webview off the machine.
     assert "normalized.split(\"/\").includes(\"..\")" in main_js
-    assert "/^[a-z][a-z0-9+.-]*:/i" in main_js
+    assets_js = (DESKTOP / "frontend" / "js" / "core" / "document-assets.mjs").read_text(encoding="utf-8")
+    assert "/^[a-z][a-z0-9+.-]*:/i" in assets_js
+    assert 'invoke("allow_document_images", { path, sources })' in main_js

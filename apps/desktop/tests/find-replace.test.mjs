@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { findLiteralMatches, replaceAllLiteral } from "../frontend/js/core/find-replace.mjs";
+import { createFindSession, findLiteralMatches, replaceAllLiteral } from "../frontend/js/core/find-replace.mjs";
 
 test("find and replace treats regular-expression characters literally", () => {
   assert.deepEqual(findLiteralMatches("a+b A+B", "a+b"), [{ start: 0, end: 3 }, { start: 4, end: 7 }]);
@@ -64,4 +64,34 @@ test("letters that only look alike are left alone", () => {
   // And the fold must not disturb anything outside the Persian block.
   assert.equal(findLiteralMatches("Throughput", "THROUGHPUT").length, 1);
   assert.deepEqual(findLiteralMatches("x🎉y", "🎉"), [{ start: 1, end: 3 }]);
+});
+
+test("Replace All reaches matches beyond the bounded navigation list", () => {
+  const source = "فارسي ".repeat(10_025);
+  assert.equal(findLiteralMatches(source, "فارسی").length, 10_000);
+  assert.deepEqual(replaceAllLiteral(source, "فارسی", "$&"), {
+    text: "$& ".repeat(10_025), count: 10_025,
+  });
+});
+
+test("a find session retires offsets from edited buffers and other documents", () => {
+  const session = createFindSession();
+  const snapshot = { documentId: "a", text: "first cat and cat", query: "cat" };
+  assert.deepEqual(session.select(snapshot, 1), { start: 14, end: 17 });
+  assert.deepEqual(session.current({ ...snapshot, text: "prefix first cat and cat" }), { start: 21, end: 24 });
+  assert.deepEqual(session.current({ ...snapshot, documentId: "b", text: "cat at start" }), { start: 0, end: 3 });
+  assert.equal(session.current({ ...snapshot, documentId: "b", text: "unrelated document" }), null);
+});
+
+test("replacement advances past its inserted text and wraps predictably", () => {
+  const session = createFindSession();
+  const before = { documentId: "a", text: "cat cat cat", query: "cat" };
+  session.select(before, 1);
+  const after = { ...before, text: "cat catapult cat" };
+  assert.equal(session.refresh(after, { anchor: 12 }).index, 2);
+  assert.deepEqual(session.current(after), { start: 13, end: 16 });
+  assert.deepEqual(session.move(after, 1), { start: 0, end: 3 });
+  assert.deepEqual(session.move(after, -1), { start: 13, end: 16 });
+  session.clear();
+  assert.equal(session.refresh(after).index, 0);
 });
