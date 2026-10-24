@@ -83,12 +83,26 @@ for raw_line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
         raise SystemExit(f"Installed dependency is not an exact registry pin: {line!r}")
 PY
 
+audit_status=0
 python -m pip_audit \
   --strict \
   --no-deps \
   --disable-pip \
   --requirement "$requirements" \
   --format json \
-  --output "$audit_result"
+  --output "$audit_result" || audit_status=$?
+# pip-audit returns 1 for vulnerabilities. Keep its complete report so CI can
+# publish the findings, while still failing the gate. Never publish a partial
+# report from a failed network or resolver operation.
+python - "$audit_result" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if not isinstance(report, dict) or not isinstance(report.get("dependencies"), list):
+    raise SystemExit("Dependency audit did not produce a complete JSON report.")
+PY
 mv -f -- "$audit_result" "$output"
 echo "Dependency audit written to $output"
+exit "$audit_status"

@@ -146,10 +146,10 @@ def test_python_build_backend_is_security_fixed_and_reproducible() -> None:
     metadata = tomllib.loads(_read("pyproject.toml"))
 
     assert metadata["build-system"]["requires"] == [
-        "setuptools==83.0.0",
+        "setuptools==84.1.0",
         "wheel==0.47.0",
     ]
-    assert "setuptools==83.0.0" in metadata["project"]["optional-dependencies"]["dev"]
+    assert "setuptools==84.1.0" in metadata["project"]["optional-dependencies"]["dev"]
     assert "wheel==0.47.0" in metadata["project"]["optional-dependencies"]["dev"]
 
 
@@ -463,6 +463,19 @@ def test_dependency_audit_success_publishes_atomically(tmp_path: Path) -> None:
     assert audit_temp != output
     assert audit_temp.name.startswith(".pip-audit-result.")
     assert not audit_temp.exists()
+    assert not list(output.parent.glob(".pip-audit-result.*"))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="The security audit is a POSIX Bash CI job")
+def test_dependency_audit_preserves_findings_while_failing_the_gate(tmp_path: Path) -> None:
+    payload = '{"dependencies": [{"name": "sample", "vulns": [{"id": "CVE-example"}]}]}\n'
+    completed, output, _, observed = _run_security_audit_harness(
+        tmp_path, audit_exit=1, audit_payload=payload
+    )
+
+    assert completed.returncode == 1
+    assert observed == "absent"
+    assert output.read_text(encoding="utf-8") == payload
     assert not list(output.parent.glob(".pip-audit-result.*"))
 
 

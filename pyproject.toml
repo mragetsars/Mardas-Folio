@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools==83.0.0", "wheel==0.47.0"]
+requires = ["setuptools==84.1.0", "wheel==0.47.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -20,7 +20,7 @@ dependencies = [
   "soupsieve>=2.9.0",
   "playwright>=1.45.0",
   "PyYAML>=6.0.0",
-  "pypdf>=6.19.0",
+  "pypdf>=6.21.2",
   "tomli>=2.0.1; python_version < '3.11'"
 ]
 
@@ -35,7 +35,9 @@ dev = [
   "urllib3>=2.8.0",
   "build>=1.2.0",
   "packaging>=24.0",
-  "setuptools==83.0.0",
+  "setuptools==84.1.0",
+  "certifi>=2026.10.19",
+  "filelock>=4.2.1; python_version >= '3.11'",
   "wheel==0.47.0"
 ]
 desktop = [
@@ -44,7 +46,7 @@ desktop = [
 
 artwork = [
   "CairoSVG>=2.9.1",
-  "Pillow>=12.3.0"
+  "Pillow>=13.0.0"
 ]
 
 [project.scripts]
