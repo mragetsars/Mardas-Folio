@@ -10,6 +10,8 @@ import tempfile
 from pathlib import Path
 from typing import Iterable
 
+from prepare_preview_mathjax import prepare_preview_mathjax
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT / "apps" / "desktop" / "frontend"
 DEFAULT_OUTPUT = ROOT / "apps" / "desktop" / "dist"
@@ -106,7 +108,10 @@ def build_frontend(
             target = staging / "js" / "vendor" / "mathjax"
             target.mkdir(parents=True, exist_ok=True)
             for name in ("tex-svg-full.js", "NOTICE.md"):
-                shutil.copyfile(mathjax / name, target / name)
+                if name == "tex-svg-full.js":
+                    (target / name).write_bytes(prepare_preview_mathjax((mathjax / name).read_bytes()))
+                else:
+                    shutil.copyfile(mathjax / name, target / name)
                 os.chmod(target / name, 0o644)
 
         for path in sorted(staging.rglob("*"), key=lambda item: item.as_posix().casefold()):

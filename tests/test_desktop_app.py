@@ -23,6 +23,7 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 from build_desktop_frontend import build_frontend  # noqa: E402
+from prepare_preview_mathjax import prepare_preview_mathjax  # noqa: E402
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402
 from verify_desktop_installer import MIN_INSTALLER_BYTES, verify_installer  # noqa: E402
@@ -647,10 +648,17 @@ def test_frontend_build_is_atomic_and_does_not_remove_working_directory(tmp_path
     assert payload["version"] == __version__
     assert __version__ in (built / "index.html").read_text(encoding="utf-8")
     mathjax = "js/vendor/mathjax/tex-svg-full.js"
-    assert (built / mathjax).read_bytes() == (
+    original_mathjax = (
         ROOT / "src/mardas_folio/assets/mathjax/tex-svg-full.js"
     ).read_bytes()
+    assert (built / mathjax).read_bytes() == prepare_preview_mathjax(original_mathjax)
     assert mathjax in {item["path"] for item in payload["files"]}
+
+
+def test_preview_mathjax_patch_requires_review_when_vendor_asset_changes() -> None:
+    original = (ROOT / "src/mardas_folio/assets/mathjax/tex-svg-full.js").read_bytes()
+    with pytest.raises(ValueError, match="Pinned MathJax asset changed"):
+        prepare_preview_mathjax(original + b"\n")
 
 
 def test_frontend_verifier_rejects_symlink_root(tmp_path: Path) -> None:

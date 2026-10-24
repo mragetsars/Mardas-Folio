@@ -300,6 +300,9 @@ def initialise(browser: Any, url: str, payloads: dict[str, Any], locale: str, th
     page = context.new_page()
     page.set_default_timeout(20_000)
     page.on("pageerror", lambda error: errors.append(str(error)))
+    # Match Tauri's freezePrototype bootstrap, which ordinary Chromium does not
+    # enable. MathJax must render with this hardening still in place.
+    page.add_init_script("Object.freeze(Object.prototype)")
     page.add_init_script(BRIDGE)
     page.add_init_script(
         "localStorage.setItem('mardas.desktop.locale', " + json.dumps(locale) + ");"

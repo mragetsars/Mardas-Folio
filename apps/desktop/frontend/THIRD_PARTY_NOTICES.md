@@ -14,6 +14,10 @@ The desktop build also copies the publisher's vendored MathJax 3 browser compone
 from `src/mardas_folio/assets/mathjax/tex-svg-full.js` for offline preview rendering.
 MathJax is distributed under the Apache License 2.0; its project and notice are at
 https://www.mathjax.org/ and `js/vendor/mathjax/NOTICE.md` in the built frontend.
+The desktop copy contains a guarded compatibility patch in
+`scripts/prepare_preview_mathjax.py`: ten class prototype `toString` assignments
+explicitly create their own writable property before assignment so MathJax runs
+with Tauri's frozen `Object.prototype`. The publisher's original asset is unchanged.
 
 CodeMirror is bundled with one modification. `@codemirror/view` is patched as the bundle is
 built, by `apps/desktop/scripts/codemirror-bidi-patch.mjs`, to correct two behaviours on a line
