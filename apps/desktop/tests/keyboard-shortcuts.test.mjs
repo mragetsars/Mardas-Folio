@@ -19,6 +19,31 @@ test("Latin shortcuts retain logical letters and shifted command intent", () => 
   assert.equal(authoringShortcutKey({ key: "\\", code: "Backslash", ctrlKey: true }), "\\");
 });
 
+test("native Windows virtual keys cover missing code without overriding explicit codes", () => {
+  // Observed through real Windows input with a Persian keyboard layout.
+  const native = { key: "س", code: "", keyCode: 83, ctrlKey: true,
+    shiftKey: false, altKey: false, metaKey: false, isComposing: false };
+  assert.equal(authoringShortcutKey(native), "s");
+  assert.equal(authoringShortcutKey({ ...native, code: "KeyP" }), "p");
+  assert.equal(authoringShortcutKey({ ...native, code: "UnknownCode" }), "س");
+  assert.equal(authoringShortcutKey({ ...native, key: "p" }), "p");
+  const palette = { ...native, key: "\\", keyCode: 80, shiftKey: true };
+  assert.equal(authoringShortcutKey(palette), "p");
+  assert.equal(authoringShortcutKey({ ...palette, code: "KeyP" }), "p");
+  assert.equal(authoringShortcutKey({ ...palette, code: "Backslash" }), "\\");
+  assert.equal(authoringShortcutKey({ ...palette, keyCode: 220 }), "\\");
+  assert.equal(authoringShortcutKey({ ...palette, key: "+", keyCode: 187 }), "+");
+  for (const keyCode of [0, 64, 91, 229, 999, 83.5, "83"]) {
+    assert.equal(authoringShortcutKey({ ...native, keyCode }), keyCode === 229 ? null : "س");
+  }
+  for (const [keyCode, expected] of [[48, "0"], [189, "-"], [187, "="], [220, "\\"]]) {
+    assert.equal(authoringShortcutKey({ ...native, key: "۰", keyCode }), expected);
+  }
+  assert.equal(authoringShortcutKey({ ...native, isComposing: true }), null);
+  assert.equal(authoringShortcutKey({ ...native, altKey: true }), null);
+  assert.equal(authoringShortcutKey({ ...native, getModifierState: () => true }), null);
+});
+
 test("typing, AltGraph and IME composition cannot invoke app commands", () => {
   for (const extra of [
     { ctrlKey: false }, { altKey: true }, { isComposing: true }, { keyCode: 229 },
