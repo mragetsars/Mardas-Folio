@@ -158,7 +158,7 @@ def run(dist: Path, output: Path):
                     actual_size = current["readerSize"] if view == "read" else current["proseSize"]
                     assert abs(actual_size - expected_size) < .1, (view, zoom, current)
                     if view == "split":
-                        assert abs(current["previewSize"] - 16 * zoom / 100) < .1, current
+                        assert abs(current["previewSize"] - 18 * zoom / 100) < .1, current
                     assert current["uiSize"] == before["uiSize"], current
                     assert not current["horizontalOverflow"], current
                     assert page.locator("#markdown-editor").input_value() == original

@@ -168,8 +168,28 @@ ARTICLE_CHECK = r"""({selector, expectedMath, expectedCodes, alignment = true}) 
   });
   const code = [...root.querySelectorAll('code')].map(node => node.textContent);
   const headingOverflow = [...root.querySelectorAll('h1,h2,h3,h4,h5,h6')]
-    .map(node => Math.max(0, node.scrollWidth - node.clientWidth));
+    .map(node => {
+      // Source navigation lives in the gutter. Its positioned button is not
+      // heading text, and may legitimately extend past the heading's box.
+      const controls = [...node.querySelectorAll('.document-source-jump')];
+      const displays = controls.map(control => control.style.display);
+      controls.forEach(control => { control.style.display = 'none'; });
+      const overflow = Math.max(0, node.scrollWidth - node.clientWidth);
+      controls.forEach((control, index) => { control.style.display = displays[index]; });
+      return overflow;
+    });
   if (headingOverflow.some(amount => amount > 2)) problems.push('heading text overflows its preview column');
+  const canvas = root.getBoundingClientRect();
+  const sourceNavigation = [];
+  for (const control of root.querySelectorAll('.document-source-jump')) {
+    const bounds = control.getBoundingClientRect();
+    sourceNavigation.push({left: bounds.left, right: bounds.right,
+      canvasLeft: canvas.left, canvasRight: canvas.right,
+      headingDirection: getComputedStyle(control.parentElement).direction});
+    if (bounds.left < canvas.left - 1 || bounds.right > canvas.right + 1) {
+      problems.push('source navigation control extends outside the document canvas');
+    }
+  }
   for (const literal of expectedCodes) if (!code.includes(literal)) problems.push(`code text changed: ${literal}`);
   if (root.querySelector('pre mjx-container,code mjx-container')) problems.push('code was typeset as math');
   const identifier = root.querySelector('.codehilite .n');
@@ -244,7 +264,7 @@ ARTICLE_CHECK = r"""({selector, expectedMath, expectedCodes, alignment = true}) 
   }
   if (globalThis.__previewAuditExecuted) problems.push('document HTML executed');
   return {problems, expressions, codeBlocks: code.length, alignments,
-    diagram: !!diagram, localImage: !!image, numberedCode, codeContrast, headingOverflow,
+    diagram: !!diagram, localImage: !!image, numberedCode, codeContrast, headingOverflow, sourceNavigation,
     mathIds: root.querySelectorAll('.math [id]').length};
 }"""
 
@@ -332,6 +352,15 @@ def article_check(page: Any, selector: str, fixture: dict[str, Any], *, frame: b
     return page.evaluate(ARTICLE_CHECK, args)
 
 
+def show_side_preview(page: Any) -> None:
+    page.locator('button.view-mode[data-view-mode="source"]').click()
+    toggle = page.locator("#workspace-toggle-preview")
+    if toggle.get_attribute("aria-pressed") != "true":
+        toggle.click()
+    expect(toggle).to_have_attribute("aria-pressed", "true")
+    expect(page.locator("#preview-pane")).to_be_visible()
+
+
 def run_surface_case(browser: Any, url: str, payloads: dict[str, Any], locale: str, theme: str,
                      width: int, output: Path) -> dict[str, Any]:
     result: dict[str, Any] = {"problems": [], "page_errors": [], "external_requests": [], "surfaces": {}}
@@ -342,7 +371,7 @@ def run_surface_case(browser: Any, url: str, payloads: dict[str, Any], locale: s
         page.goto(url, wait_until="networkidle")
         page.locator("#workflow-open").click()
         page.locator(".document-tab .tab-activate").nth(0).click()
-        page.locator('button.view-mode[data-view-mode="split"]').click()
+        show_side_preview(page)
         expect(page.locator("#preview-document")).to_contain_text("PREVIEW_RICH_ONLY")
         wait_math(page, "#preview-document", payloads["rich"]["expected_math"])
         result["surfaces"]["split"] = article_check(page, "#preview-document", payloads["rich"])
@@ -418,7 +447,7 @@ def run_stale_case(browser: Any, url: str, payloads: dict[str, Any], output: Pat
         else:
             page.locator("#workflow-open").click()
             page.locator(".document-tab .tab-activate").nth(0).click()
-            page.locator('button.view-mode[data-view-mode="split"]').click()
+            show_side_preview(page)
             # A serialized preview may still await MathJax for a previously
             # activated tab. Switching documents must win once that load ends.
             for _ in range(200):

@@ -13,7 +13,9 @@ test("full-book preview sanitizes body content without injecting renderer head s
   const start = main.indexOf("function renderFullBookPreview");
   const end = main.indexOf("async function previewActiveBook", start);
   const implementation = main.slice(start, end);
-  assert.match(implementation, /safePreviewHtml\(parsed\.body\.innerHTML\)/);
+  assert.match(implementation, /safePreviewHtml\((?:parsed\.body|content)\.innerHTML, "book-review-"\)/);
+  assert.match(implementation, /#book-review-document/);
+  assert.doesNotMatch(implementation, /setViewMode|#preview-document/);
   assert.doesNotMatch(implementation, /parsed\.head|querySelectorAll\(["']style|createElement\(["']style/);
 
   const sanitizerStart = main.indexOf("function safePreviewHtml");

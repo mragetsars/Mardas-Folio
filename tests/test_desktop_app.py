@@ -386,15 +386,21 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     assert sidebar_toggle.get("aria-pressed") == "false"
     assert sidebar_toggle.get("aria-controls")
 
-    # The preview pane is not a standalone switch any more. Showing source and
-    # showing the preview were separate toggles whose combinations included
-    # states nobody wants, so one radio group names the arrangements instead.
+    # Editing representation and reading are activities. Side preview is an
+    # independent layout choice and must not masquerade as a fourth activity.
     modes = soup.select("[data-view-mode]")
-    assert [button.get("data-view-mode") for button in modes] == ["write", "source", "read", "split"]
+    assert [button.get("data-view-mode") for button in modes] == ["write", "source", "read"]
     assert all(button.get("role") == "radio" for button in modes)
     assert sum(button.get("aria-checked") == "true" for button in modes) == 1
     group = soup.select_one(".view-modes")
     assert group is not None and group.get("role") == "radiogroup"
+    preview_toggle = soup.select_one("#workspace-toggle-preview")
+    assert preview_toggle is not None
+    assert preview_toggle.get("aria-controls") == "preview-pane"
+    assert preview_toggle.get("aria-pressed") == "false"
+    assert preview_toggle not in group.select("button")
+    assert soup.select_one("#reading-document.document-content") is not None
+    assert soup.select_one("#preview-document.document-content") is not None
 
     files = soup.select_one("#file-navigator")
     assert files is not None and files.get("data-i18n-aria-label") == "files"
@@ -494,6 +500,9 @@ def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
     templates = (DESKTOP / "frontend" / "js" / "core" / "templates.mjs").read_text(
         encoding="utf-8"
     )
+    document_renderer = (DESKTOP / "frontend" / "js" / "core" / "document-renderer.mjs").read_text(
+        encoding="utf-8"
+    )
 
     sprite = re.search(
         r'<svg class="ui-icon-sprite".*?</svg>', index, re.S
@@ -504,7 +513,7 @@ def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
 
     # Every reference resolves. A `<use href="#icon-x">` with no symbol behind
     # it renders as nothing at all, which looks like a blank button.
-    for source in (index, main, templates):
+    for source in (index, main, templates, document_renderer):
         for name in re.findall(r'href="#icon-([a-z0-9-]+)"', source):
             assert name in symbols, f"#icon-{name} has no symbol"
     for name in re.findall(r'spriteIcon\("([a-z0-9-]+)"\)', main):
@@ -535,7 +544,8 @@ def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
     # `>\u00d7</button>` inside a template string both count: a multiplication
     # sign standing in for a close button is the same defect as a shaded block
     # standing in for a table.
-    for source, label in ((main, "main.mjs"), (templates, "templates.mjs")):
+    for source, label in ((main, "main.mjs"), (templates, "templates.mjs"),
+                          (document_renderer, "document-renderer.mjs")):
         for body in re.findall(r'(?:icon|textContent) *[:=] *"([^"]{1,4})"', source):
             assert not _pictographs(body), f"{label} still writes the glyph {body!r}"
         for body in re.findall(r">([^<>{}`\n]{1,4})</button>", source):

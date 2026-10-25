@@ -141,7 +141,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
 
         # Manual preview can be disabled; Copy as HTML must still use the
         # current buffer and retain the selection when its menu is dismissed.
-        page.locator('button[data-view-mode="split"]').click()
+        page.locator('button[data-view-mode="source"]').click()
+        if page.locator('#workspace-toggle-preview').get_attribute('aria-pressed') != 'true':
+            page.locator('#workspace-toggle-preview').click()
         page.locator("label:has(#auto-preview)").click()
         expect(page.locator("#auto-preview")).not_to_be_checked()
         editor.click()

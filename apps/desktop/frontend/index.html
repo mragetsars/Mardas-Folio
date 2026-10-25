@@ -106,9 +106,9 @@
         <section class="launcher-col launcher-col-start" aria-labelledby="launcher-start-title">
           <h2 class="launcher-heading" id="launcher-start-title" data-i18n="chooseWorkflow">از کجا شروع کنیم؟</h2>
           <div class="action-list">
-            <button class="action-row" id="workflow-quick" type="button">
-              <span class="action-glyph" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg></span>
-              <span class="action-copy"><strong data-i18n="quickExport">خروجی سریع PDF</strong><small data-i18n="quickExportHelp">یک فایل، چند انتخاب ساده، خروجی نهایی.</small></span>
+            <button class="action-row" id="workflow-new" type="button">
+              <span class="action-glyph" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg></span>
+              <span class="action-copy"><strong data-i18n="newDocument">سند جدید</strong><small data-i18n="startWritingHelp">یک سند Markdown خالی بساز و نوشتن را شروع کن.</small></span>
             </button>
             <button class="action-row" id="workflow-open" type="button">
               <span class="action-glyph" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-file"></use></svg></span>
@@ -121,6 +121,10 @@
             <button class="action-row" id="workflow-book" type="button">
               <span class="action-glyph" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-book"></use></svg></span>
               <span class="action-copy"><strong data-i18n="newBookProject">پروژه کتاب جدید</strong><small data-i18n="newBookProjectHelp">کتاب، پایان‌نامه یا گزارش چندفصلی بساز.</small></span>
+            </button>
+            <button class="action-row" id="workflow-quick" type="button">
+              <span class="action-glyph" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg></span>
+              <span class="action-copy"><strong data-i18n="quickExport">خروجی سریع PDF</strong><small data-i18n="quickExportHelp">یک فایل، چند انتخاب ساده، خروجی نهایی.</small></span>
             </button>
           </div>
         </section>
@@ -146,6 +150,7 @@
           <section class="step"><header><span>1</span><div><h2 data-i18n="sourceFile">فایل مبدأ</h2><p data-i18n="sourceFileHelp">فایل Markdown را از سیستم انتخاب کن.</p></div></header><div class="path-row"><input id="source-path" readonly data-i18n-aria-label="sourceFile" aria-label="فایل مبدأ" placeholder="report.md"><button class="button secondary compact" id="choose-source" type="button" data-i18n="browse">انتخاب</button></div></section>
           <section class="step"><header><span>2</span><div><h2 id="preset-grid-title" data-i18n="documentPreset">نوع خروجی</h2><p data-i18n="documentPresetHelp">یک preset انتخاب کن؛ جزئیات مناسب خودکار تنظیم می‌شوند.</p></div></header><div class="preset-grid" id="preset-grid" role="radiogroup" aria-labelledby="preset-grid-title"></div></section>
           <section class="step step-settings"><header><span>3</span><div><h2 data-i18n="documentSettings">تنظیمات سند</h2><p data-i18n="documentSettingsHelp">هر گزینه یک‌بار و در یک جا. خالی‌گذاشتن یعنی از preset، mardas.toml یا مقدار پیش‌فرض ارث ببرد.</p></div></header>
+            <p class="settings-scope-note" data-i18n="exportSettingsScope">این انتخاب‌ها برای همین خروجی PDF هستند و فایل Markdown را تغییر نمی‌دهند.</p>
             <div class="settings-toolbar">
               <label class="option-search"><span class="sr-only" id="option-search-label" data-i18n="searchOptions">جست‌وجوی تنظیمات خروجی</span><input id="option-search" type="search" autocomplete="off" data-i18n-placeholder="searchOptions" placeholder="جست‌وجوی تنظیمات خروجی"></label>
               <label class="toggle compact-toggle expert-toggle"><input id="show-expert" type="checkbox"><i></i><span data-i18n="showExpert">گزینه‌های پیشرفته</span></label>
@@ -234,7 +239,7 @@
       <div class="authoring-grid">
         <aside class="file-navigator" id="file-navigator" data-i18n-aria-label="files" aria-label="فایل‌ها">
           <header class="navigator-heading"><strong data-i18n="files">فایل‌ها</strong><div><button class="toolbar-icon-button" id="navigator-new" type="button" data-i18n-title="newDocument" title="سند جدید" aria-label="سند جدید"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg></button><button class="toolbar-icon-button" id="navigator-open" type="button" data-i18n-title="openDocuments" title="باز کردن" aria-label="باز کردن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg></button><button class="toolbar-icon-button" id="navigator-close" type="button" data-i18n-title="closeFiles" title="بستن فایل‌ها" aria-label="بستن فایل‌ها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></div></header>
-          <div class="navigator-content"><section class="navigator-section"><h2 data-i18n="openDocumentList">اسناد باز</h2><div class="open-document-list" id="open-document-list" data-i18n-aria-label="openDocumentList" aria-label="اسناد باز"></div></section><section class="navigator-section navigator-project-section" id="navigator-project-section"><header><h2 data-i18n="projectFiles">فایل‌های پروژه</h2></header><strong class="navigator-project-name" id="navigator-project-name"></strong><div class="navigator-project-files" id="navigator-project-files"></div></section></div>
+          <div class="navigator-content"><section class="navigator-section"><h2 data-i18n="openDocumentList">اسناد باز</h2><div class="open-document-list" id="open-document-list" data-i18n-aria-label="openDocumentList" aria-label="اسناد باز"></div></section><section class="navigator-section navigator-project-section hidden" id="navigator-project-section"><header><h2 data-i18n="projectFiles">فایل‌های پروژه</h2></header><strong class="navigator-project-name" id="navigator-project-name"></strong><div class="navigator-project-files" id="navigator-project-files"><div class="project-file-tree" id="project-file-tree"></div></div></section></div>
           <footer class="navigator-footer"><button class="button secondary compact" id="navigator-open-project" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg><span data-i18n="openProject">باز کردن پروژه</span></button><span class="navigator-quick-hint"><span data-i18n="quickOpen">رفتن به فایل</span><kbd>Ctrl P</kbd></span></footer>
         </aside>
         <div class="pane-resizer file-resizer" id="file-resizer" role="separator" aria-orientation="vertical" aria-controls="file-navigator" aria-valuemin="208" aria-valuemax="360" aria-valuenow="248" data-i18n-aria-label="resizeFiles" aria-label="عرض فایل‌ها" tabindex="0"></div>
@@ -248,7 +253,10 @@
             <button type="button" class="view-mode" data-view-mode="write" role="radio" aria-checked="true" data-i18n="viewWrite" data-i18n-title="writeModeHelp" title="نوشتن با نمایش قالب‌بندی در همان متن">نوشتن</button>
             <button type="button" class="view-mode" data-view-mode="source" role="radio" aria-checked="false" data-i18n="viewSource" data-i18n-title="sourceModeHelp" title="ویرایش مستقیم Markdown">سورس</button>
             <button type="button" class="view-mode" data-view-mode="read" role="radio" aria-checked="false" data-i18n="viewRead" data-i18n-title="readModeHelp" title="مرور سند بدون تغییر متن">خواندن</button>
-            <button type="button" class="view-mode" data-view-mode="split" role="radio" aria-checked="false" data-i18n="viewSplit" data-i18n-title="splitModeHelp" title="سورس و نتیجه کنار هم">دوستونه</button>
+          </div>
+          <div class="view-layout-actions">
+            <button type="button" id="workspace-toggle-preview" class="view-mode" aria-pressed="false" aria-controls="preview-pane" data-i18n="sidePreview" data-i18n-title="sidePreviewHelp" title="نمایش همان سند کنار متن قابل ویرایش">پیش‌نمایش کنار متن</button>
+            <button type="button" class="toolbar-icon-button" id="document-mode-help" aria-haspopup="dialog" data-i18n-title="viewGuide" data-i18n-aria-label="viewGuide" title="راهنمای نماها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-help"></use></svg></button>
           </div>
           <div class="document-toolbar-actions">
             <div class="document-view-controls" role="group" data-i18n-aria-label="documentView" aria-label="نمای سند">
@@ -350,17 +358,18 @@
             <textarea id="markdown-editor" spellcheck="true" wrap="off" data-i18n-aria-label="markdownEditor" aria-label="ویرایشگر Markdown"></textarea>
           </div>
           <div class="reading-surface" id="reading-surface">
+            <header class="pane-header content-view-header"><div><strong data-i18n="documentContentView">نمایش سند</strong><small data-content-status role="status"></small></div><div class="preview-actions"><label class="toggle compact-toggle"><input id="reading-auto-preview" data-content-auto type="checkbox" checked><i></i><span data-i18n="liveUpdates">به‌روزرسانی خودکار</span></label><button class="icon-button" id="refresh-reading" type="button" data-i18n-title="refreshContent" data-i18n-aria-label="refreshContent" title="به‌روزرسانی نمایش"><svg class="ui-icon" aria-hidden="true"><use href="#icon-refresh"></use></svg></button></div></header>
             <div class="reading-loading" id="reading-loading" role="status" aria-live="polite"><i></i><span data-i18n="renderingPreview">در حال ساخت پیش‌نمایش</span></div>
-            <article class="reading-document" id="reading-document" dir="auto" data-i18n-aria-label="readingView" aria-label="نمای خواندن" tabindex="0"></article>
+            <article class="reading-document document-content" id="reading-document" dir="auto" data-i18n-aria-label="readingView" aria-label="نمای خواندن" tabindex="0"></article>
           </div>
         </section>
 
         <div class="pane-resizer preview-resizer" id="preview-resizer" role="separator" aria-orientation="vertical" aria-controls="preview-pane" aria-valuemin="340" aria-valuemax="760" aria-valuenow="500" aria-label="Preview width" data-i18n-aria-label="resizePreview" tabindex="0"></div>
 
         <section class="preview-pane" id="preview-pane">
-          <header class="pane-header" data-i18n-title="previewScope" title="صفحه‌بندی، جلد، سرصفحه و واترمارک هنگام ساخت PDF اعمال می‌شوند."><div><strong data-i18n="preview">پیش‌نمایش</strong><small id="preview-detail" data-i18n="previewHelp">فقط محتوا</small></div><div class="preview-actions"><label class="toggle compact-toggle"><input id="auto-preview" type="checkbox" checked><i></i><span data-i18n="automatic">خودکار</span></label><button class="icon-button" id="refresh-preview" type="button" data-i18n-title="refresh" title="بازخوانی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-refresh"></use></svg></button></div></header>
+          <header class="pane-header content-view-header" data-i18n-title="previewScope" title="صفحه‌بندی PDF در بخش خروجی بررسی می‌شود."><div><strong data-i18n="documentContentView">نمایش سند</strong><small id="preview-detail" data-content-status role="status"></small></div><div class="preview-actions"><label class="toggle compact-toggle"><input id="auto-preview" data-content-auto type="checkbox" checked><i></i><span data-i18n="liveUpdates">به‌روزرسانی خودکار</span></label><button class="icon-button" id="refresh-preview" type="button" data-i18n-title="refreshContent" data-i18n-aria-label="refreshContent" title="به‌روزرسانی نمایش"><svg class="ui-icon" aria-hidden="true"><use href="#icon-refresh"></use></svg></button></div></header>
           <div class="preview-loading hidden" id="preview-loading" role="status" aria-live="polite"><i></i><span data-i18n="renderingPreview">در حال ساخت پیش‌نمایش</span></div>
-          <article class="preview-document" id="preview-document" dir="auto"><div class="empty-preview"><strong data-i18n="previewEmpty">برای مشاهده پیش‌نمایش، نوشتن را شروع کن.</strong></div></article>
+          <article class="preview-document document-content" id="preview-document" dir="auto"><div class="empty-preview"><strong data-i18n="previewEmpty">برای مشاهده پیش‌نمایش، نوشتن را شروع کن.</strong></div></article>
         </section>
         <div class="pane-resizer sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-controls="author-sidebar" aria-valuemin="248" aria-valuemax="420" aria-valuenow="296" aria-label="Sidebar width" data-i18n-aria-label="resizeSidebar" tabindex="0"></div>
 
@@ -376,7 +385,7 @@
             <button id="sidebar-tab-problems" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-problems" tabindex="-1" data-i18n-title="problems" data-sidebar="problems"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-alert"></use></svg></span><span class="sidebar-tab-label" data-i18n="problems">اشکال‌ها</span><span class="sidebar-tab-badge hidden" id="sidebar-problem-badge">0</span></button>
           </nav>
           <section class="sidebar-panel" id="sidebar-panel-project" role="tabpanel" aria-labelledby="sidebar-tab-project" aria-hidden="true" data-panel="project">
-            <header><strong data-i18n="projectFiles">فایل‌های پروژه</strong><button class="text-button" id="refresh-project" type="button" data-i18n="refreshProject">بازخوانی پروژه</button></header>
+            <header class="project-inspector-heading"><strong data-i18n="projectInspectorTitle">تنظیمات و جست‌وجوی پروژه</strong><button class="text-button" id="refresh-project" type="button" data-i18n="refreshProject">بازخوانی پروژه</button></header>
             <div class="project-empty" id="project-empty">
               <p data-i18n="noProject">پروژه‌ای باز نیست.</p>
               <small data-i18n="chooseProjectHelp">پوشه‌ای را انتخاب کن که mardas.toml دارد.</small>
@@ -385,6 +394,8 @@
             <div class="project-tools hidden" id="project-tools">
               <strong id="project-name"></strong>
               <small id="project-path"></small>
+              <p class="sidebar-help" data-i18n="projectDefaultsHelp">پیش‌فرض‌های پروژه برای سندهای این مجموعه‌اند؛ مشخصات هر سند می‌توانند آن‌ها را تغییر دهند.</p>
+              <button class="button secondary compact" id="project-open-settings" type="button" data-i18n="editProjectDefaults">ویرایش پیش‌فرض‌های پروژه</button>
               <div class="project-search-box">
                 <input id="project-search-query" type="search" data-i18n-placeholder="searchProject" data-i18n-aria-label="projectSearch" aria-label="جست‌وجوی پروژه" placeholder="جست‌وجو در همه فایل‌ها">
                 <button class="button secondary compact" id="run-project-search" type="button" data-i18n="find">جست‌وجو</button>
@@ -394,8 +405,6 @@
                 <label><input id="project-search-case" type="checkbox"><span data-i18n="caseSensitive">حساس به بزرگی حروف</span></label>
               </div>
               <div class="tool-list project-search-results" id="project-search-results"></div>
-              <hr>
-              <div class="tool-list project-file-tree" id="project-file-tree"></div>
             </div>
           </section>
           <section class="sidebar-panel" id="sidebar-panel-book" role="tabpanel" aria-labelledby="sidebar-tab-book" aria-hidden="true" data-panel="book">
@@ -432,6 +441,7 @@
           <section class="sidebar-panel" id="sidebar-panel-frontmatter" role="tabpanel" aria-labelledby="sidebar-tab-frontmatter" aria-hidden="true" data-panel="frontmatter">
             <header><strong data-i18n="frontMatter">مشخصات سند</strong></header>
             <form class="frontmatter-form" id="frontmatter-form">
+              <p class="sidebar-help" data-i18n="documentMetadataScope">این مشخصات بخشی از سندند و با ذخیرهٔ آن در همین فایل نگه داشته می‌شوند.</p>
               <p class="sidebar-help hidden" id="structured-metadata-note" role="status" data-i18n="structuredMetadataHelp">مشخصات ساختاریافته را در نمای سورس ویرایش کن؛ این فرم آن‌ها را حفظ می‌کند.</p>
               <label><span data-i18n="title">عنوان</span><input name="title" type="text"></label>
               <label><span data-i18n="subtitle">زیرعنوان</span><input name="subtitle" type="text"></label>
@@ -506,18 +516,18 @@
         <label><span data-i18n="documentTextSizePercent">اندازه متن سند (%)</span><input id="setting-document-zoom" type="number" min="60" max="200" step="1" value="100" inputmode="numeric"></label>
         <p class="settings-help" data-i18n="documentViewHelp">اندازه متن برای نوشتن و خواندن است؛ قالب‌بندی PDF از تنظیمات خروجی پیروی می‌کند.</p>
       </section>
-      <section class="settings-section" data-settings-terms="writing typewriter focus distraction نوشتن تایپ فوکوس تمرکز">
+      <section class="settings-section" data-settings-terms="writing reading preview automatic typewriter focus distraction نوشتن خواندن پیش نمایش خودکار تایپ فوکوس تمرکز">
         <h3 data-i18n="writingSettings">نوشتن</h3>
         <label><span data-i18n="writingWidth">عرض نوشتن</span><select id="setting-writing-width"><option value="full" data-i18n="fullColumn">تمام عرض</option><option value="readable" data-i18n="comfortableColumn">ستون خوانا</option><option value="wide" data-i18n="wideColumn">ستون عریض</option></select></label>
         <label class="toggle compact-toggle"><input id="setting-typewriter" type="checkbox"><i></i><span data-i18n="typewriterMode">حالت ماشین تحریر</span></label>
         <p class="settings-help" data-i18n="typewriterHelp">خط در حال نوشتن همیشه در ارتفاع ثابتی از صفحه می‌ماند.</p>
         <label class="toggle compact-toggle"><input id="setting-focus-mode" type="checkbox"><i></i><span data-i18n="focusMode">حالت تمرکز</span></label>
         <p class="settings-help" data-i18n="focusModeHelp">نوار کناری، برگه‌ها و ابزارها پنهان می‌شوند تا فقط سند بماند.</p>
+        <label class="toggle compact-toggle"><input id="setting-auto-preview" type="checkbox"><i></i><span data-i18n="automaticPreview">پیش‌نمایش خودکار</span></label>
       </section>
-      <section class="settings-section" data-settings-terms="accessibility motion animation preview دسترسی حرکت پیش نمایش">
+      <section class="settings-section" data-settings-terms="accessibility motion animation دسترسی حرکت">
         <h3 data-i18n="accessibility">دسترسی‌پذیری</h3>
         <label><span data-i18n="motion">حرکت و پویانمایی</span><select id="setting-motion"><option value="system" data-i18n="followSystem">مطابق سیستم</option><option value="reduce" data-i18n="reduceMotion">کاهش حرکت</option><option value="full" data-i18n="fullMotion">حرکت کامل</option></select></label>
-        <label class="toggle compact-toggle"><input id="setting-auto-preview" type="checkbox"><i></i><span data-i18n="automaticPreview">پیش‌نمایش خودکار</span></label>
       </section>
       <section class="settings-section" data-settings-terms="language onboarding reset language زبان راهنما بازنشانی">
         <h3 data-i18n="languageAndHelp">زبان و راهنما</h3>
@@ -546,6 +556,19 @@
   </form>
 </div>
 
+<div class="modal hidden" id="view-guide-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="view-guide-title" aria-describedby="view-guide-intro">
+  <div class="modal-card help-card">
+    <div class="modal-heading"><h2 id="view-guide-title" data-i18n="viewGuide">راهنمای نماها</h2><button class="icon-button" id="close-view-guide" type="button" data-i18n-title="close" data-i18n-aria-label="close" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></div>
+    <p id="view-guide-intro" data-i18n="viewGuideIntro"></p>
+    <div class="help-grid">
+      <section><h3 data-i18n="viewWrite">نوشتن</h3><p data-i18n="writeActivityHelp"></p></section>
+      <section><h3 data-i18n="viewSource">سورس</h3><p data-i18n="sourceActivityHelp"></p></section>
+      <section><h3 data-i18n="viewRead">خواندن</h3><p data-i18n="readActivityHelp"></p></section>
+      <section><h3 data-i18n="sidePreview">پیش‌نمایش کنار متن</h3><p data-i18n="sideActivityHelp"></p></section>
+      <section><h3 data-i18n="exportPdf">ساخت PDF</h3><p data-i18n="pdfActivityHelp"></p></section>
+    </div>
+  </div>
+</div>
 <div class="modal hidden" id="help-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="help-title">
   <div class="modal-card help-card">
     <div class="modal-heading"><div><p class="eyebrow" data-i18n="gettingStarted">شروع کار</p><h2 id="help-title" data-i18n="help">راهنما</h2></div><button class="icon-button" id="close-help" type="button" data-i18n-title="close" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></div>
@@ -596,6 +619,13 @@
   </div>
 </div>
 
+<div class="modal hidden book-review-modal" id="book-review-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="book-review-title" aria-describedby="book-review-scope">
+  <div class="modal-card book-review-card">
+    <header class="modal-heading book-review-heading"><div><p class="eyebrow" id="book-review-scope" data-i18n="bookReviewScope">کل کتاب · فصل‌های ذخیره‌شده</p><h2 id="book-review-title" data-i18n="bookPreviewTitle">مرور کل کتاب</h2><small id="book-review-project"></small></div><button class="icon-button" id="close-book-review" type="button" data-i18n-title="close" title="بستن" data-i18n-aria-label="close" aria-label="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></header>
+    <article class="book-review-document document-content" id="book-review-document" tabindex="0" dir="auto"></article>
+    <footer class="book-review-footer"><p data-i18n="bookReviewContentHelp">مرور محتوا؛ صفحه‌بندی نهایی را در خروجی PDF بررسی کن.</p><button class="button primary compact" id="book-review-done" type="button" data-i18n="bookReviewClose">بازگشت به ویرایش</button></footer>
+  </div>
+</div>
 <div class="modal hidden" id="book-project-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="book-project-modal-title">
   <form class="modal-card book-project-form" id="book-project-form">
     <h2 id="book-project-modal-title" data-i18n="newBookProject">پروژه کتاب جدید</h2>

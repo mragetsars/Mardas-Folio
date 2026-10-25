@@ -10,10 +10,14 @@ In development. This entry records the current source changes; it does not
 announce a published or signed release.
 
 ### Changed
+- Separated Write, Source and Read activities from the optional side-preview layout. Reading and side preview now share content rendering and typography, preserve position across view changes, and show paused or stale content explicitly.
+- Moved the complete project file tree into the file navigator, added a primary New Document action, and clarified document metadata, project defaults and PDF-only settings. Plain text resources have their own language and command boundary.
+- Made whole-book review a separate saved-chapter scope. Review, checks and export save changed project inputs first or stop on cancellation/conflict; content review preserves chapter order and references without publication cover or watermark decoration.
 - Rebuilt the desktop interface around a shared indigo, pearl and graphite visual system: a new writing-studio start screen, clearer workflow and template cards, consistent workspace controls, sidebars, dialogs, menus, settings and export surfaces, with light/dark and Persian/English layouts.
 - Aligned the browser Studio with the desktop visual system and added accessible Editor, Settings and Preview panel selection at narrow widths, preserving saved interface themes and bilingual document direction.
 - Bounded asset and project discovery while walking instead of materializing the whole tree, pruned generated directories, and made discovery cancellable. Chapter read, save and search use structural project loading; full-book validation and rendering run only when requested.
-- Require pypdf 6.19.0 and Soup Sieve 2.9.0 to include the current resource-exhaustion fixes. Development audit tooling requires urllib3 2.8.0, and the PDF compatibility matrix follows the supported floor. Optional artwork tooling has its own extra with CairoSVG 2.9.1 and Pillow 12.3.0.
+- Require pypdf 6.21.2 and Soup Sieve 2.9.0, with matching PDF compatibility coverage. Build tooling pins setuptools 84.1.0; reviewed development dependencies include updated certifi/filelock. Optional artwork tooling requires CairoSVG 2.9.1 and Pillow 13.0.0 (Python 3.11+).
+- Updated native TLS/Tokio and the official updater to 2.14 with its compatible Tauri dependencies. Removed unused legacy ZIP extraction while retaining raw NSIS/AppImage and macOS tar.gz update payloads; upstream maintenance/glib warnings remain documented.
 
 ### Fixed
 - Rejected DNS hostnames that merely begin with `127.` and checked the Studio HTML Host before exposing the workspace token. Invalid, deeply nested and non-finite JSON and incorrect Markdown/asset types now produce structured input errors.

@@ -94,7 +94,8 @@ test("one view mode decides both the rendering and the preview pane", () => {
   // Two independent toggles allowed states nobody wants, such as a rendered
   // editor beside a rendered preview showing the same thing twice.
   assert.equal(DEFAULT_PREFERENCES.viewMode, "write");
-  assert.equal(normalizePreferences({ viewMode: "split" }).viewMode, "split");
+  assert.equal(normalizePreferences({ viewMode: "split" }).viewMode, "source");
+  assert.equal(normalizePreferences({ viewMode: "split" }).sidePreview, true);
   assert.equal(normalizePreferences({ viewMode: "nonsense" }).viewMode, "write");
   assert.equal(normalizePreferences({}).viewMode, "write");
 
@@ -105,6 +106,9 @@ test("one view mode decides both the rendering and the preview pane", () => {
   assert.equal(previewVisibleForView("write"), false);
   assert.equal(previewVisibleForView("source"), false);
   assert.equal(previewVisibleForView("split"), true);
+  assert.equal(previewVisibleForView("write", true), true);
+  assert.equal(previewVisibleForView("source", true), true);
+  assert.equal(previewVisibleForView("read", true), false);
 });
 
 test("block widgets come from a state field, never from a view plugin", () => {

@@ -143,8 +143,17 @@ def replace_content(page: Any, value: str) -> None:
 
 
 def mode(page: Any, name: str) -> None:
-    page.locator(f'[data-view-mode="{name}"][role="radio"]').click()
-    expect(page.locator(".editor-pane")).to_have_attribute("data-view-mode", name)
+    activity = "source" if name == "split" else name
+    page.locator(f'[data-view-mode="{activity}"][role="radio"]').click()
+    expect(page.locator(".editor-pane")).to_have_attribute("data-view-mode", activity)
+    # Old audit cases name a complete arrangement. The product now keeps the
+    # activity and side-pane preference independent; configure both explicitly.
+    if activity != "read":
+        toggle = page.locator("#workspace-toggle-preview")
+        wanted = name == "split"
+        if (toggle.get_attribute("aria-pressed") == "true") != wanted:
+            toggle.click()
+        expect(toggle).to_have_attribute("aria-pressed", str(wanted).lower())
 
 
 def navigator_item(page: Any, index: int) -> Any:
@@ -312,8 +321,8 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     expect(mirror(page)).to_have_value(CONTENT_B)
     checks.append("reading-cannot-edit-and-mode-changes-preserve-history")
 
-    # A slow render of new content must not present an old cached result as
-    # the document currently being read. Release the fixture asynchronously.
+    # A slow render may retain the previous article for continuity, but it
+    # must explicitly identify that article as stale until the new one arrives.
     page.evaluate("globalThis.__auditPreviewHeld = true")
     editor(page).click()
     page.keyboard.press("Control+End")
@@ -322,7 +331,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     mode(page, "read")
     page.wait_for_function("() => globalThis.__auditPreviewResolvers.length > 0")
     expect(page.locator("#reading-loading")).to_be_visible()
-    expect(page.locator("#reading-document")).not_to_contain_text("UNIQUE_BETA")
+    expect(page.locator("#reading-surface [data-content-status]")).to_have_attribute("data-stale", "true")
     page.evaluate("""() => {
         globalThis.__auditPreviewHeld = false;
         globalThis.__auditPreviewResolvers.splice(0).forEach(resolve => resolve());
@@ -430,9 +439,9 @@ def run_preview_references(page: Any) -> list[str]:
     mode(page, "source")
     replace_content(page, before + "\nSVG_REFERENCE_FIXTURE\n")
     mode(page, "split")
-    expect(page.locator("#preview-document svg")).to_have_count(1)
+    expect(page.locator("#preview-document svg:not(.ui-icon)")).to_have_count(1)
     mode(page, "read")
-    expect(page.locator("#reading-document svg")).to_be_visible()
+    expect(page.locator("#reading-document svg:not(.ui-icon)")).to_be_visible()
     for surface, prefix in (("#preview-document", "preview-"),
                             ("#reading-document", "reading-")):
         root = page.locator(surface)
@@ -591,14 +600,19 @@ def run_book_preview(page: Any) -> list[str]:
         page.locator("#workspace-toggle-files").click()
     page.locator("#navigator-open-project").click()
     page.locator('[data-sidebar="book"]').click()
+    prior_mode = page.locator(".editor-pane").get_attribute("data-view-mode")
+    prior_preview = page.locator("#preview-document").text_content()
     page.locator("#book-preview").click()
-    expect(page.locator("#preview-pane")).to_be_visible()
-    expect(page.locator("#preview-document")).to_contain_text("FULL_BOOK_UNIQUE")
-    expect(page.locator(".editor-pane")).to_have_attribute("data-view-mode", "split")
+    expect(page.locator("#book-review-modal")).to_be_visible()
+    expect(page.locator("#book-review-document")).to_contain_text("FULL_BOOK_UNIQUE")
+    expect(page.locator(".editor-pane")).to_have_attribute("data-view-mode", prior_mode)
     page.wait_for_timeout(400)  # The superseded per-document preview timer.
-    expect(page.locator("#preview-document")).to_contain_text("FULL_BOOK_UNIQUE")
+    expect(page.locator("#book-review-document")).to_contain_text("FULL_BOOK_UNIQUE")
+    assert page.locator("#preview-document").text_content() == prior_preview
     expect(mirror(page)).to_have_value(before)
-    return ["explicit-full-book-preview-is-visible-and-not-replaced-by-document-timer"]
+    page.keyboard.press("Escape")
+    expect(page.locator("#book-review-modal")).to_be_hidden()
+    return ["whole-book-review-has-independent-scope-and-preserves-chapter-mode-and-preview"]
 
 
 def run_authoring(page: Any, locale: str) -> list[str]:

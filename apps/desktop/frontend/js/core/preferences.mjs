@@ -10,6 +10,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   reducedMotion: "system",
   autoPreview: true,
   viewMode: "write",
+  sidePreview: false,
   /**
    * Keeps the caret's line at a fixed height while writing.
    *
@@ -44,8 +45,8 @@ export function nextDocumentZoom(value, direction) {
 const MOTION = new Set(["system", "reduce", "full"]);
 /**
  * Write formats the editable Markdown in place, Source exposes its syntax,
- * Read uses a separate noneditable article, and Split compares source/result.
- * The comparison pane follows this choice rather than an independent toggle.
+ * Read is noneditable. Side preview is a separate layout choice for either
+ * editing representation. Legacy Split preferences migrate to Source + preview.
  */
 const VIEW_MODES = new Set(["write", "source", "read", "split"]);
 
@@ -64,7 +65,8 @@ export function normalizePreferences(value = {}) {
     documentZoom: normalizeDocumentZoom(value?.documentZoom, LEGACY_ZOOM[value?.contentScale] || DEFAULT_PREFERENCES.documentZoom),
     reducedMotion: MOTION.has(value?.reducedMotion) ? value.reducedMotion : DEFAULT_PREFERENCES.reducedMotion,
     autoPreview: booleanValue(value?.autoPreview, DEFAULT_PREFERENCES.autoPreview),
-    viewMode: VIEW_MODES.has(value?.viewMode) ? value.viewMode : DEFAULT_PREFERENCES.viewMode,
+    viewMode: value?.viewMode === "split" ? "source" : VIEW_MODES.has(value?.viewMode) ? value.viewMode : DEFAULT_PREFERENCES.viewMode,
+    sidePreview: booleanValue(value?.sidePreview, value?.viewMode === "split"),
     typewriter: booleanValue(value?.typewriter, DEFAULT_PREFERENCES.typewriter),
     focusMode: booleanValue(value?.focusMode, DEFAULT_PREFERENCES.focusMode),
     onboardingComplete: booleanValue(value?.onboardingComplete, DEFAULT_PREFERENCES.onboardingComplete),
@@ -130,6 +132,6 @@ export function editorModeForView(viewMode) {
 }
 
 /** Whether a view mode shows the engine preview pane. */
-export function previewVisibleForView(viewMode) {
-  return viewMode === "split";
+export function previewVisibleForView(viewMode, sidePreview = false) {
+  return viewMode === "split" || (viewMode !== "read" && sidePreview);
 }

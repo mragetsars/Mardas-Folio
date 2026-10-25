@@ -127,8 +127,8 @@ test("publishing and recent-document cards keep explicit layout hooks", () => {
 test("settings scrolling and preview anchors are deliberately constrained", () => {
   assert.match(workspaceStyles, /\.settings-card \{[\s\S]*?grid-template-rows: auto auto minmax\(0, 1fr\) auto auto;[\s\S]*?overflow: hidden;/);
   assert.match(workspaceStyles, /\.settings-card \.settings-sections \{[\s\S]*?overflow: auto;/);
-  assert.match(workspaceStyles, /:is\(\.preview-document, \.reading-document\) \.heading-anchor \{[\s\S]*?opacity: 0;/);
-  assert.match(workspaceStyles, /:is\(\.preview-document, \.reading-document\) :is\(h1, h2, h3, h4, h5, h6\):hover \.heading-anchor/);
+  assert.match(workspaceStyles, /\.document-content \.heading-anchor \{[\s\S]*?opacity: 0;/);
+  assert.match(workspaceStyles, /\.document-content :is\(h1, h2, h3, h4, h5, h6\):hover \.heading-anchor/);
 });
 
 

@@ -66,9 +66,9 @@ export function createModalManager(documentRef = globalThis.document) {
     }
   }
 
-  function open(modal, { initialFocus = null, escape = true, onClose = null } = {}) {
+  function open(modal, { initialFocus = null, returnFocus = null, escape = true, onClose = null } = {}) {
     if (!modal || openStack.includes(modal)) return;
-    previousFocus.set(modal, documentRef?.activeElement || null);
+    previousFocus.set(modal, returnFocus || documentRef?.activeElement || null);
     optionsByModal.set(modal, { escape: escape !== false, onClose });
     modal.classList?.remove("hidden");
     modal.setAttribute?.("aria-hidden", "false");

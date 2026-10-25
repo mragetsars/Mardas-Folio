@@ -45,6 +45,8 @@ import { prefixSelectedLines, replaceSelection, wrapSelection } from "./core/edi
 import { createFindSession, replaceAllLiteral } from "./core/find-replace.mjs";
 import { documentImageSources, localImageDestination } from "./core/document-assets.mjs";
 import { createEditorAdapter } from "./core/editor-adapter.mjs";
+import { mountDocumentContent } from "./core/document-renderer.mjs";
+import { interpolatePosition } from "./core/content-position.mjs";
 import {
   captureDocumentContext,
   captureProjectContext,
@@ -54,6 +56,7 @@ import {
 import { createSaveCoordinator } from "./core/save-coordinator.mjs";
 import { createConfirmationQueue } from "./core/confirmation-queue.mjs";
 import { saveDocumentsBeforeUpdate } from "./core/update-preparation.mjs";
+import { prepareBookFiles } from "./core/book-preparation.mjs";
 import { createSingleFlight } from "./core/single-flight.mjs";
 import { beginCancellationHandoff } from "./core/task-handoff.mjs";
 import { diagnosticLines, inlineDiagnosticsForDocument } from "./core/diagnostics.mjs";
@@ -194,11 +197,20 @@ function activeDocument() {
 
 function documentEditable() {
   const model = activeDocument();
-  return Boolean(model && !model.readOnly && !state.updateInstalling && state.preferences.viewMode !== "read");
+  return Boolean(model && !model.readOnly && !state.updateInstalling && !state.bookPreparing && effectiveViewMode() !== "read");
+}
+
+function effectiveViewMode() {
+  return activeDocument() && !isMarkdownModel(activeDocument()) ? "source" : state.preferences.viewMode;
+}
+
+function contentViewVisible() {
+  return effectiveViewMode() === "read" || (isMarkdownModel(activeDocument())
+    && previewVisibleForView(effectiveViewMode(), state.preferences.sidePreview));
 }
 
 function focusDocument() {
-  if (state.preferences.viewMode === "read") $("#reading-document")?.focus({ preventScroll: true });
+  if (effectiveViewMode() === "read") $("#reading-document")?.focus({ preventScroll: true });
   else currentEditor().focus();
 }
 
@@ -338,17 +350,15 @@ function resolveEditorAsset(source) {
 /**
  * Apply the current view mode.
  *
- * The mode is the single source of truth for two things that used to be
- * toggled apart: whether the editor renders formatting, and whether the engine
- * preview pane is on screen. Write is the default because the app is for
- * writing; Split is for checking the published result against the source.
+ * Activity and layout are independent: Write/Source choose editing, Read
+ * reviews the same content. Side preview compares either editing view with it.
  */
 function applyViewMode() {
-  const mode = state.preferences.viewMode;
+  const mode = effectiveViewMode();
   editorAdapter?.setMode?.(editorModeForView(mode));
-  editorAdapter?.setReadOnly?.(mode === "read" || state.updateInstalling);
+  editorAdapter?.setReadOnly?.(Boolean(activeDocument()?.readOnly) || mode === "read" || state.updateInstalling || Boolean(state.bookPreparing));
 
-  const showPreview = previewVisibleForView(mode);
+  const showPreview = isMarkdownModel(activeDocument()) && previewVisibleForView(mode, state.preferences.sidePreview);
   if (state.workspaceLayout.previewOpen !== showPreview) {
     state.workspaceLayout = { ...state.workspaceLayout, previewOpen: showPreview };
     applyWorkspaceLayout({ persist: true });
@@ -359,6 +369,13 @@ function applyViewMode() {
     button.setAttribute("aria-checked", String(selected));
     button.tabIndex = selected ? 0 : -1;
     button.classList.toggle("selected", selected);
+    button.disabled = !activeDocument() || (mode === "source" && !isMarkdownModel(activeDocument()) && button.dataset.viewMode !== "source");
+  }
+  const sidePreview = $("#workspace-toggle-preview");
+  if (sidePreview) {
+    sidePreview.hidden = mode === "read";
+    sidePreview.disabled = !isMarkdownModel(activeDocument());
+    sidePreview.setAttribute("aria-pressed", String(showPreview));
   }
   const surface = $(".editor-pane");
   if (surface) surface.dataset.viewMode = mode;
@@ -367,21 +384,40 @@ function applyViewMode() {
   $("#workspace-view")?.setAttribute("data-view-mode", mode);
   updateAuthoringMode(activeDocument());
   if (isMarkdownModel(activeDocument())) loadFrontMatterForm(activeDocument());
-  if (showPreview || mode === "read") {
-    renderReading(activeDocument());
-    schedulePreview(120);
-  }
+  renderContentStatus();
 }
 
 function setViewMode(mode) {
+  const previousMode = effectiveViewMode();
+  if (activeDocument() && !isMarkdownModel(activeDocument()) && mode !== "source") return;
+  if (mode === previousMode) return;
+  const previousLine = previousMode === "read" ? readingSourceLine() : null;
+  if (mode === "read" && previousMode !== "read" && activeDocument()) {
+    pendingReadingLine = { id: activeDocument().id, line: editorAdapter?.firstVisibleLine?.() || 1 };
+  }
+  // Keep command-palette/deep-link compatibility with the old combined mode.
+  if (mode === "split") {
+    updatePreference({ viewMode: "source", sidePreview: true });
+    schedulePreview(120, { entering: true });
+    editorAdapter?.focus?.();
+    return;
+  }
   if (mode === "read" && activeDocument() && !isMarkdownModel(activeDocument())) mode = "source";
-  if (state.preferences.viewMode === mode) return;
   if (state.preferences.viewMode === "read" && readingDocumentId) {
     readingScroll.set(readingDocumentId, $("#reading-document")?.scrollTop || 0);
   }
   updatePreference({ viewMode: mode });
+  if (mode === "read") renderReading(activeDocument());
+  else if (previousLine !== null) requestAnimationFrame(() => editorAdapter?.scrollToLine?.(previousLine));
+  if (contentViewVisible()) schedulePreview(120, { entering: true });
   if (mode === "read") $("#reading-document")?.focus({ preventScroll: true });
   else editorAdapter?.focus?.();
+}
+
+function toggleSidePreview() {
+  updatePreference({ sidePreview: !state.preferences.sidePreview });
+  if (contentViewVisible()) schedulePreview(120, { entering: true });
+  focusDocument();
 }
 
 function applyInterfacePreferences({ persist = false } = {}) {
@@ -394,8 +430,7 @@ function applyInterfacePreferences({ persist = false } = {}) {
   editorAdapter?.setTypewriter?.(state.preferences.typewriter);
   $("#workspace-focus")?.setAttribute("aria-pressed", String(state.preferences.focusMode));
   applyViewMode();
-  const autoPreview = $("#auto-preview");
-  if (autoPreview) autoPreview.checked = Boolean(state.preferences.autoPreview);
+  for (const autoPreview of $$('[data-content-auto]')) autoPreview.checked = Boolean(state.preferences.autoPreview);
 }
 
 function updatePreference(next, { persist = true } = {}) {
@@ -862,6 +897,7 @@ function onboardingBack() {
 
 function commandDefinitions() {
   const hasDocument = Boolean(activeDocument());
+  const canRender = hasDocument && isMarkdownModel(activeDocument());
   const canEdit = documentEditable() && isMarkdownModel(activeDocument());
   return [
     ...[
@@ -874,18 +910,18 @@ function commandDefinitions() {
     ...[1, 2, 3, 4, 5, 6].map((level) => ({ id: `format-heading-${level}`, symbol: "outline", label: `${t("heading")} ${level}`, keywords: `heading h${level} عنوان`, priority: 43, enabled: canEdit, run: () => editorCommand(`heading-${level}`) })),
     { id: "insert-image", symbol: "image", label: t("insertImage"), keywords: "image photo تصویر عکس", priority: 45, enabled: canEdit, run: () => importAsset() },
     { id: "quick-open", symbol: "folder", label: t("quickOpen"), keywords: "switch file document فایل سند", shortcut: "Ctrl P", priority: 94, run: () => navigationPicker.open("files") },
-    { id: "go-heading", symbol: "outline", label: t("goToHeading"), keywords: "heading outline section عنوان بخش", shortcut: "Ctrl Shift O", priority: 59, enabled: hasDocument, run: () => navigationPicker.open("headings") },
+    { id: "go-heading", symbol: "outline", label: t("goToHeading"), keywords: "heading outline section عنوان بخش", shortcut: "Ctrl Shift O", priority: 59, enabled: canRender, run: () => navigationPicker.open("headings") },
     { id: "files-pane", symbol: "panel-left", label: t("toggleFiles"), keywords: "files explorer navigator فایل", priority: 38, run: () => toggleWorkspacePane("files") },
     { id: "inspector-pane", symbol: "outline", label: t("toggleSidebar"), keywords: "outline inspector properties ساختار مشخصات", priority: 38, run: () => toggleWorkspacePane("sidebar") },
-    { id: "formatting-pane", symbol: "pencil", label: t("toggleFormatting"), keywords: "format toolbar tools قالب بندی", priority: 38, run: () => toggleWorkspacePane("formatting") },
+    { id: "formatting-pane", symbol: "pencil", label: t("toggleFormatting"), keywords: "format toolbar tools قالب بندی", priority: 38, enabled: canEdit, run: () => toggleWorkspacePane("formatting") },
     { id: "new", symbol: "plus", label: t("commandNewDocument"), keywords: "new document markdown", shortcut: "Ctrl N", priority: 100, run: () => createUntitledDocument() },
     { id: "open", symbol: "file", label: t("commandOpenDocument"), keywords: "open file markdown", shortcut: "Ctrl O", priority: 95, run: () => chooseAuthoringFiles() },
     { id: "project", symbol: "folder", label: t("commandOpenProject"), keywords: "open folder workspace project", priority: 80, run: () => chooseProjectDirectory() },
     { id: "book", symbol: "book", label: t("commandNewBook"), keywords: "book thesis chapters project", priority: 75, run: () => openNewBookModal() },
     { id: "save", symbol: "save", label: t("commandSave"), keywords: "save write", shortcut: "Ctrl S", priority: 90, enabled: hasDocument, run: () => saveActiveDocument() },
     { id: "save-as", symbol: "save-as", label: t("commandSaveAs"), keywords: "save as copy", shortcut: "Ctrl Shift S", priority: 70, enabled: hasDocument, run: () => saveActiveDocument({ saveAs: true }) },
-    { id: "validate", symbol: "quality", label: t("commandValidate"), keywords: "check problems diagnostics", priority: 65, enabled: hasDocument, run: () => validateActiveDocument() },
-    { id: "export", symbol: "export", label: t("commandExport"), keywords: "pdf publish render", priority: 85, enabled: hasDocument, run: () => exportActiveDocument() },
+    { id: "validate", symbol: "quality", label: t("commandValidate"), keywords: "check problems diagnostics", priority: 65, enabled: canRender, run: () => validateActiveDocument() },
+    { id: "export", symbol: "export", label: t("commandExport"), keywords: "pdf publish render", priority: 85, enabled: canRender, run: () => exportActiveDocument() },
     { id: "find", symbol: "search", label: t("commandFind"), keywords: "find replace search", shortcut: "Ctrl F", priority: 60, enabled: hasDocument, run: () => openFind({ replace: false }) },
     { id: "settings", symbol: "settings", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
     { id: "support-bundle", symbol: "archive", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
@@ -897,10 +933,11 @@ function commandDefinitions() {
     { id: "insert-math-block", symbol: "maths-block", label: t("insertMathBlock"), keywords: "math display block equation فرمول", priority: 44, enabled: canEdit, run: () => editorCommand("math-block") },
     { id: "insert-diagram", symbol: "diagram", label: t("insertDiagram"), keywords: "mermaid diagram graph chart نمودار", priority: 43, enabled: canEdit, run: () => editorCommand("mermaid") },
     { id: "insert-highlight", symbol: "highlight", label: t("insertHighlight"), keywords: "highlight mark هایلایت", priority: 43, enabled: canEdit, run: () => editorCommand("highlight") },
-    { id: "view-write", symbol: "pencil", label: t("viewWrite"), keywords: "write live formatted wysiwyg نوشتن", priority: 42, run: () => setViewMode("write") },
-    { id: "view-source", symbol: "source", label: t("viewSource"), keywords: "source raw markdown سورس", priority: 41, run: () => setViewMode("source") },
-    { id: "view-read", symbol: "book", label: t("viewRead"), keywords: "reading readonly خواندن مطالعه", priority: 41, enabled: hasDocument, run: () => setViewMode("read") },
-    { id: "view-split", symbol: "panel-right", label: t("viewSplit"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, run: () => setViewMode("split") },
+    { id: "view-write", symbol: "pencil", label: t("viewWrite"), keywords: "write live formatted wysiwyg نوشتن", priority: 42, enabled: canRender, run: () => setViewMode("write") },
+    { id: "view-source", symbol: "source", label: t("viewSource"), keywords: "source raw markdown سورس", priority: 41, enabled: hasDocument, run: () => setViewMode("source") },
+    { id: "view-read", symbol: "book", label: t("viewRead"), keywords: "reading readonly خواندن مطالعه", priority: 41, enabled: canRender, run: () => setViewMode("read") },
+    { id: "view-split", symbol: "panel-right", label: t("sidePreview"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, enabled: canRender && effectiveViewMode() !== "read", run: toggleSidePreview },
+    { id: "view-guide", symbol: "help", label: t("viewGuide"), keywords: "view mode source read preview راهنمای نما", priority: 40, run: () => modalManager.open($("#view-guide-modal")) },
     { id: "typewriter", symbol: "typewriter", label: t("typewriterMode"), keywords: "typewriter scroll centre writing ماشین تحریر", priority: 39, run: () => updatePreference({ typewriter: !state.preferences.typewriter }) },
     { id: "focus-mode", symbol: "focus", label: t("focusMode"), keywords: "focus distraction free zen تمرکز", priority: 39, run: () => updatePreference({ focusMode: !state.preferences.focusMode }) },
     { id: "document-zoom-in", symbol: "zoom-in", label: t("increaseDocumentText"), keywords: "zoom text font larger اندازه متن بزرگ", shortcut: "Ctrl +", priority: 38, run: () => changeDocumentZoom(1) },
@@ -2145,7 +2182,7 @@ function renderDocumentTabs() {
   renderFileNavigator();
 }
 
-function renderFileNavigator({ includeProject = false } = {}) {
+function renderFileNavigator() {
   const list = $("#open-document-list");
   if (!list) return;
   list.replaceChildren();
@@ -2169,30 +2206,6 @@ function renderFileNavigator({ includeProject = false } = {}) {
       }
     });
     list.append(button);
-  }
-  if (!includeProject) return;
-  const section = $("#navigator-project-section");
-  const projectFiles = $("#navigator-project-files");
-  if (!section || !projectFiles) return;
-  section.classList.toggle("hidden", !state.project);
-  projectFiles.replaceChildren();
-  setTruncatableText($("#navigator-project-name"), state.project?.name || t("projectFiles"));
-  for (const file of state.project?.files || []) {
-    if (!["markdown", "text", "config", "toml", "bibliography", "json"].includes(file.kind)) continue;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "navigator-project-file";
-    button.textContent = file.path;
-    button.title = file.path;
-    button.dir = "auto";
-    button.addEventListener("click", async () => {
-      await openProjectRelativeFile(file.path);
-      if (matchMedia("(max-width: 1100px)").matches) {
-        state.workspaceLayout.filesOpen = false;
-        applyWorkspaceLayout();
-      }
-    });
-    projectFiles.append(button);
   }
 }
 
@@ -2268,7 +2281,7 @@ function loadFrontMatterForm(model) {
       || /[\r\n]/.test(String(value ?? ""))
       || (input instanceof HTMLSelectElement && value !== undefined && ![...input.options].some((option) => option.value === String(value))));
     input.value = structured ? "" : value ?? (name === "lang" || name === "dir" ? "auto" : "");
-    input.disabled = Boolean(model?.readOnly) || state.preferences.viewMode === "read" || structured;
+    input.disabled = !documentEditable() || structured;
     input.title = structured ? t("structuredMetadataHelp") : "";
     frontMatterFormBaseline.set(name, input.value);
     hasStructuredFields ||= structured;
@@ -2277,7 +2290,7 @@ function loadFrontMatterForm(model) {
   const tocPresent = rawLines.some((line) => /^(?:toc|"toc"|'toc'):/.test(line));
   const tocStructured = tocPresent && typeof fields.toc !== "boolean";
   toc.checked = fields.toc === true;
-  toc.disabled = Boolean(model?.readOnly) || state.preferences.viewMode === "read" || tocStructured;
+  toc.disabled = !documentEditable() || tocStructured;
   toc.title = tocStructured ? t("structuredMetadataHelp") : "";
   frontMatterFormBaseline.set("toc", toc.checked);
   $("#structured-metadata-note")?.classList.toggle("hidden", !(hasStructuredFields || tocStructured));
@@ -2329,7 +2342,12 @@ function renderProblems(model) {
   const list = $("#problem-list");
   list.replaceChildren();
   if (!diagnostics.length) {
-    list.innerHTML = `<div class="tool-empty">${t("noProblems")}</div>`;
+    const pending = isMarkdownModel(model) && model?.validationContentVersion !== model?.contentVersion
+      && model?.previewContentVersion !== model?.contentVersion;
+    const note = document.createElement("div");
+    note.className = "tool-empty";
+    note.textContent = t(pending ? "contentChecksPending" : "noProblems");
+    list.append(note);
     return;
   }
   for (const diagnostic of diagnostics) {
@@ -2375,26 +2393,28 @@ function renderAssets(items = []) {
 function updateAuthoringMode(model) {
   const hasDocument = Boolean(model);
   const markdown = isMarkdownModel(model);
-  const editable = hasDocument && !model.readOnly && !state.updateInstalling && state.preferences.viewMode !== "read";
+  editorAdapter?.setAriaLabel?.(t(markdown ? "markdownEditor" : "textResourceEditor"));
+  const editable = hasDocument && !model.readOnly && !state.updateInstalling && !state.bookPreparing && effectiveViewMode() !== "read";
   $("#workspace-save").disabled = !hasDocument || model.readOnly;
   $("#workspace-save-as").disabled = !hasDocument;
   for (const element of $$('[data-editor-command], #workspace-import-asset, #import-asset, #refresh-assets')) {
     element.disabled = !editable || !markdown;
   }
-  for (const selector of ["#workspace-validate", "#workspace-export", "#refresh-preview", "#auto-preview"]) {
+  for (const selector of ["#workspace-validate", "#workspace-export", "#refresh-preview", "#auto-preview", "#refresh-reading", "#reading-auto-preview"]) {
     $(selector).disabled = !hasDocument || !markdown;
   }
-  for (const name of ["frontmatter", "assets", "citations"]) {
+  for (const name of ["outline", "frontmatter", "assets", "citations"]) {
     const button = $(`[data-sidebar="${name}"]`);
     if (button) button.disabled = !hasDocument || !markdown;
   }
+  applySidebarContext();
   $("#frontmatter-form")?.querySelectorAll("input,select,button").forEach((element) => {
     element.disabled = !editable || !markdown;
   });
   $("#workspace-view")?.classList.toggle("plain-text-mode", hasDocument && !markdown);
   $("#insert-menu-button").disabled = !editable || !markdown;
   $("#workspace-toggle-formatting")?.toggleAttribute("disabled", !editable || !markdown);
-  editorAdapter?.setReadOnly?.(state.preferences.viewMode === "read" || state.updateInstalling);
+  editorAdapter?.setReadOnly?.(Boolean(model?.readOnly) || effectiveViewMode() === "read" || state.updateInstalling || Boolean(state.bookPreparing));
 }
 
 /**
@@ -2508,10 +2528,11 @@ function renderWorkspace() {
     renderCitations(null);
     renderProblems(null);
     updateAuthoringMode(null);
+    applyViewMode();
+    renderPreviewMessage(t("previewEmpty"));
     return;
   }
   editor.disabled = model.readOnly;
-  if (!isMarkdownModel(model) && state.preferences.viewMode === "read") updatePreference({ viewMode: "source" });
   updateAuthoringMode(model);
   // The adapter owns each document's undo history, selection and scroll.
   // Initial selection is applied only when the adapter sees this ID first.
@@ -2527,6 +2548,7 @@ function renderWorkspace() {
   if (isMarkdownModel(model)) loadFrontMatterForm(model);
   renderCitations(isMarkdownModel(model) ? model : null);
   renderProblems(model);
+  applyViewMode();
   renderPreview(model);
 }
 
@@ -2578,7 +2600,7 @@ async function activateDocument(id, { focus = "editor" } = {}) {
   if (focus === "tab") {
     const tab = $$(".document-tab").find((element) => element.dataset.documentId === id);
     tab?.querySelector(".tab-activate")?.focus({ preventScroll: true });
-  } else if (state.preferences.viewMode === "read") $("#reading-document")?.focus({ preventScroll: true });
+  } else if (effectiveViewMode() === "read") $("#reading-document")?.focus({ preventScroll: true });
   else currentEditor().focus();
   schedulePreview(80);
   if (model.path) refreshAssets();
@@ -2714,35 +2736,58 @@ async function refreshActiveProject() {
 }
 
 function renderProjectWorkspace() {
-  renderFileNavigator({ includeProject: true });
+  renderFileNavigator();
   const empty = $("#project-empty");
   const tools = $("#project-tools");
   const list = $("#project-file-tree");
-  if (!empty || !tools || !list) return;
+  const section = $("#navigator-project-section");
+  const defaults = $("#project-open-settings");
+  if (!empty || !tools || !list || !section) return;
   const project = state.project;
   empty.classList.toggle("hidden", Boolean(project));
   tools.classList.toggle("hidden", !project);
+  section.classList.toggle("hidden", !project);
   list.replaceChildren();
+  if (defaults) {
+    defaults.disabled = !project?.config;
+    defaults.onclick = project?.config ? () => openProjectRelativeFile(project.config) : null;
+  }
   if (!project) {
+    setTruncatableText($("#navigator-project-name"), "");
     $("#project-search-results")?.replaceChildren();
     return;
   }
+  setTruncatableText($("#navigator-project-name"), project.name || t("projectWorkspace"));
   setTruncatableText($("#project-name"), project.name || t("projectWorkspace"));
   setTruncatableText($("#project-path"), project.path || "");
   const files = Array.isArray(project.files) ? project.files : [];
   for (const file of files) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "tool-item";
+    button.className = "tool-item navigator-project-file";
     button.dataset.kind = file.kind || "text";
+    button.dataset.projectPath = file.path;
     button.innerHTML = `<span></span>`;
     button.querySelector("span").textContent = file.chapter_title
       ? `${file.chapter_title} — ${file.path}`
       : file.path;
+    button.title = file.path;
+    button.dir = "auto";
+    const current = activeDocument();
+    const selected = current?.projectPath === project.path && current?.projectRelativePath === file.path;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-current", selected ? "page" : "false");
     if (["markdown", "text", "config", "toml", "bibliography", "json"].includes(file.kind)) {
-      button.addEventListener("click", () => openProjectRelativeFile(file.path));
+      button.addEventListener("click", async () => {
+        await openProjectRelativeFile(file.path);
+        if (matchMedia("(max-width: 1100px)").matches) {
+          state.workspaceLayout.filesOpen = false;
+          applyWorkspaceLayout();
+        }
+      });
     } else {
       button.disabled = true;
+      button.title = `${file.path}\n${t("unsupportedProjectFile")}`;
     }
     list.append(button);
   }
@@ -3089,6 +3134,8 @@ function invalidateBookTaskForProjectChange() {
   const requestId = state.activeBookRequestId;
   const completion = state.activeBookCompletion;
   state.bookRequestSequence += 1;
+  state.bookPreparing = false;
+  updateAuthoringMode(activeDocument());
   state.activeBookRequestId = null;
   state.activeBookCompletion = null;
   setBookOperationStatus("");
@@ -3129,19 +3176,59 @@ async function runBookTask(startTask, {
   successMessage = "",
   onSuccess = null,
   showProblems = false,
+  beforePrepare = null,
 } = {}) {
-  const task = claimBookTask(state, startTask);
+  const projectPath = state.project?.path;
+  const projectIdentity = pathKey(projectPath);
+  let projectContext = currentProjectContext();
+  // Claim before any picker, confirmation or save can yield to another click.
+  const task = claimBookTask(state, () => ({
+    requestId: null,
+    promise: Promise.resolve().then(async () => {
+      const isCurrent = () => sequence === state.bookRequestSequence
+        && pathKey(state.project?.path) === projectIdentity;
+      if (!projectIdentity || !isCurrent()) return null;
+      if (beforePrepare && !await beforePrepare()) return null;
+      const prepared = await prepareBookFiles({
+        projectPath, getDocuments: () => state.documents, isDirty: documentDirty, isCurrent,
+        confirm: () => askConfirmation({
+          title: t("bookSaveChangesTitle"), message: t("bookSaveChangesHelp"),
+          confirmLabel: t("bookSaveAndContinue"),
+        }),
+        save: (model) => saveCoordinator.save(model,
+          () => persistDocumentModel(model, { refreshProjectOnSave: false })),
+      });
+      if (!prepared || !isCurrent()) return null;
+      // mardas.toml can change chapter order or bibliography settings. Refresh
+      // once after every open project input has reached disk.
+      const refreshed = await refreshProject(projectPath);
+      if (!isCurrent()) return null;
+      applyProjectPayload(refreshed);
+      projectContext = currentProjectContext();
+      const started = startTask();
+      state.activeBookRequestId = started.requestId || null;
+      setBookOperationStatus(t("bookOperationRunning"), { running: true });
+      state.bookPreparing = false;
+      updateAuthoringMode(activeDocument());
+      return started.promise;
+    }),
+  }));
   if (!task) {
     toast(t("bookOperationAlreadyRunning"), "warning");
     syncBookOperationControls();
     return null;
   }
-  const projectContext = currentProjectContext();
   const sequence = ++state.bookRequestSequence;
   const taskPromise = task.promise;
-  setBookOperationStatus(t("bookOperationRunning"), { running: true });
+  state.bookPreparing = true;
+  updateAuthoringMode(activeDocument());
+  setBookOperationStatus(t("bookOperationRunning"));
   try {
     const result = await taskPromise;
+    if (!result) {
+      if (sequence === state.bookRequestSequence) setBookOperationStatus("");
+      return null;
+    }
     if (sequence !== state.bookRequestSequence || !projectContextIsCurrent(projectContext)) {
       return null;
     }
@@ -3182,6 +3269,8 @@ async function runBookTask(startTask, {
     return null;
   } finally {
     if (sequence === state.bookRequestSequence) {
+      state.bookPreparing = false;
+      updateAuthoringMode(activeDocument());
       state.activeBookRequestId = null;
       state.activeBookCompletion = null;
       $("#book-cancel-operation")?.classList.add("hidden");
@@ -3397,20 +3486,35 @@ async function validateActiveBook() {
 }
 
 function renderFullBookPreview(html) {
-  setViewMode("split");
-  // This explicit request shows the whole book. Retire the per-document
-  // preview scheduled by the mode change so it cannot immediately replace it.
-  clearTimeout(state.previewTimer);
-  state.previewSequence += 1;
   const parsed = new DOMParser().parseFromString(String(html || ""), "text/html");
-  const container = $("#preview-document");
+  const content = (parsed.querySelector(".md2pdf-article") || parsed.body).cloneNode(true);
+  // This is a review of the saved chapters, not the publication layout. Keep
+  // the ordered contents/references while leaving cover and watermark in PDF.
+  content.querySelectorAll(":scope > .md2pdf-cover, :scope > .md2pdf-watermark")
+    .forEach((element) => element.remove());
+  const dialog = $("#book-review-modal");
+  const container = $("#book-review-document");
+  const token = requestId("book-review");
+  container.dataset.reviewToken = token;
+  container.dir = parsed.body.getAttribute("dir") || parsed.documentElement.getAttribute("dir") || "auto";
+  container.lang = parsed.documentElement.lang || "";
   container.replaceChildren();
   // Full renderer styles target html/body and must never escape into the desktop
-  // shell. The authoring preview uses the app's isolated preview stylesheet.
-  container.append(safePreviewHtml(parsed.body.innerHTML));
-  void typesetPreviewMath(container, { errorLabel: t("previewMathFailed") });
-  $("#preview-detail").textContent = t("fullBookPreview");
-  document.body.classList.add("book-preview-mode");
+  // shell. Whole-book review does not replace the active chapter's comparison
+  // pane or change its editing mode.
+  container.append(safePreviewHtml(content.innerHTML, "book-review-"));
+  $("#book-review-project").textContent = bookProject()?.title || state.project?.name || t("bookProject");
+  $("#close-book-review").onclick = () => modalManager.close(dialog);
+  $("#book-review-done").onclick = () => modalManager.close(dialog);
+  modalManager.open(dialog, {
+    initialFocus: "#close-book-review",
+    returnFocus: $("#book-preview"),
+    onClose: () => { container.replaceChildren(); delete container.dataset.reviewToken; },
+  });
+  void typesetPreviewMath(container, {
+    isCurrent: () => container.dataset.reviewToken === token && modalManager.isOpen(dialog),
+    errorLabel: t("previewMathFailed"),
+  });
 }
 
 async function previewActiveBook() {
@@ -3426,19 +3530,16 @@ async function exportActiveBook() {
   const book = bookProject();
   if (!project?.path || !book) return;
   let outputPath;
-  try {
-    outputPath = await invoke("pick_pdf_output", {
-      suggested_path: `${project.path}/${book.output || "dist/book.pdf"}`,
-    });
-  } catch (error) {
-    toast(errorText(error), "error");
-    return;
-  }
-  if (!outputPath) return;
   await runBookTask(() => startBookExport({
     projectPath: project.path,
     outputPath,
   }), {
+    beforePrepare: async () => {
+      outputPath = await invoke("pick_pdf_output", {
+        suggested_path: `${project.path}/${book.output || "dist/book.pdf"}`,
+      });
+      return Boolean(outputPath);
+    },
     successMessage: t("bookExported"),
     onSuccess: (result) => {
       state.outputResult = result;
@@ -3549,7 +3650,7 @@ async function saveActiveDocument({ saveAs = false, force = false } = {}) {
   );
 }
 
-async function persistDocumentModel(model, { saveAs = false, force = false } = {}) {
+async function persistDocumentModel(model, { saveAs = false, force = false, refreshProjectOnSave = true } = {}) {
   if (!state.documents.includes(model)) return false;
   if (model.readOnly && !saveAs) {
     toast(t("readOnlyDocument"), "error");
@@ -3622,7 +3723,7 @@ async function persistDocumentModel(model, { saveAs = false, force = false } = {
     } else {
       renderDocumentTabs();
     }
-    if (isProjectSave && model.projectRelativePath === "mardas.toml") {
+    if (refreshProjectOnSave && isProjectSave && model.projectRelativePath === "mardas.toml") {
       void refreshActiveProject();
     }
     return true;
@@ -3644,7 +3745,7 @@ async function persistDocumentModel(model, { saveAs = false, force = false } = {
         confirmLabel: t("forceSave"),
         danger: true,
       });
-      if (overwrite) return persistDocumentModel(model, { saveAs: false, force: true });
+      if (overwrite) return persistDocumentModel(model, { saveAs: false, force: true, refreshProjectOnSave });
       return false;
     }
     if (activeDocument()?.id === model.id) {
@@ -3728,11 +3829,25 @@ function scheduleRecovery(model = activeDocument()) {
   state.recoveryTimers.set(model.id, timer);
 }
 
-function schedulePreview(delay = 650) {
+function renderContentStatus() {
+  const model = activeDocument();
+  const stale = Boolean(model?.preview && model.previewContentVersion !== model.contentVersion);
+  const label = stale ? t("contentPreviewStale") : !state.preferences.autoPreview
+    ? t("contentPreviewPaused") : t("contentPreviewScope");
+  for (const status of $$('[data-content-status]')) {
+    status.textContent = label;
+    status.dataset.stale = String(stale);
+    status.title = t("previewScope");
+  }
+}
+
+function schedulePreview(delay = 650, { entering = false } = {}) {
   // Retire whatever is on screen or in flight: its result is already stale.
   state.previewSequence += 1;
   clearTimeout(state.previewTimer);
   const model = activeDocument();
+  renderContentStatus();
+  if (!contentViewVisible()) return;
   if (!model || !isMarkdownModel(model) || !model.content.trim()) {
     if (model) model.preview = null;
     renderPreview(model);
@@ -3740,11 +3855,14 @@ function schedulePreview(delay = 650) {
     $("#reading-loading")?.classList.add("hidden");
     return;
   }
-  if (!$("#auto-preview")?.checked && state.preferences.viewMode !== "read") {
+  // Opening a content view is an explicit request for the current document.
+  // Pausing only stops subsequent typing updates in either visible surface.
+  if (!state.preferences.autoPreview && !entering && model.preview) {
     $("#preview-loading")?.classList.add("hidden");
     $("#reading-loading")?.classList.add("hidden");
     return;
   }
+  renderPreview(model);
   state.previewTimer = setTimeout(() => void refreshPreview(), delay);
 }
 
@@ -3870,8 +3988,27 @@ function renderPreviewMessage(title, detail = "") {
 const readingScroll = new Map();
 let readingDocumentId = null;
 
+let pendingReadingLine = null;
+
+function contentAnchors(container, model) {
+  const frame = container.getBoundingClientRect();
+  const anchors = [{ line: 1, top: 0 }];
+  for (const heading of container.querySelectorAll("h1[data-source-line],h2[data-source-line],h3[data-source-line],h4[data-source-line],h5[data-source-line],h6[data-source-line]")) {
+    const line = Number(heading.dataset.sourceLine);
+    if (line > anchors.at(-1).line) anchors.push({ line, top: heading.getBoundingClientRect().top - frame.top + container.scrollTop });
+  }
+  anchors.push({ line: model.content.split("\n").length + 1, top: container.scrollHeight });
+  return anchors;
+}
+
+function readingSourceLine() {
+  const container = $("#reading-document");
+  const model = activeDocument();
+  return model && container ? Math.round(interpolatePosition(contentAnchors(container, model), container.scrollTop, "top", "line")) : 1;
+}
+
 function renderReading(model) {
-  if (state.preferences.viewMode !== "read") return;
+  if (effectiveViewMode() !== "read") return;
   const container = $("#reading-document");
   if (!container) return;
   if (readingDocumentId !== model?.id) {
@@ -3881,43 +4018,26 @@ function renderReading(model) {
     }
     container.scrollTop = readingScroll.get(readingDocumentId) || 0;
   }
-  if (!model?.content.trim() || !isMarkdownModel(model)) {
+  if (!model?.preview) {
     container.replaceChildren();
     const empty = document.createElement("p");
     empty.className = "empty-preview";
-    empty.textContent = t("previewEmpty");
+    empty.textContent = model?.content.trim() ? t("renderingPreview") : t("previewEmpty");
     container.append(empty);
     return;
   }
-  if (!model.preview || model.previewContentVersion !== model.contentVersion) {
-    container.replaceChildren();
-    const note = document.createElement("p");
-    note.className = "empty-preview";
-    note.textContent = t("renderingPreview");
-    container.append(note);
-    return;
-  }
-  const previousScroll = readingScroll.get(model.id) || container.scrollTop;
-  // Namespacing belongs to the sanitizer so SVG, ARIA and footnote references
-  // follow their targets within this article, including hidden sibling views.
-  const fragment = safePreviewHtml(`${model.preview.body_html || ""}${model.preview.reference_lists_html || ""}${model.preview.bibliography_html || ""}`, "reading-");
-  const entries = new Map(previewSourceEntries(model).map((entry) => [entry.id, entry.line]));
-  for (const heading of fragment.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
-    if (!heading.hasAttribute("dir")) heading.dir = "auto";
-    const id = heading.dataset.previewSourceId || heading.id.replace(/^reading-/, "");
-    const line = Number(heading.dataset.sourceLine) || entries.get(id);
-    if (line) heading.dataset.sourceLine = String(line);
-  }
-  container.replaceChildren(fragment);
-  if (model.preview.pygments_css) {
-    const style = document.createElement("style");
-    style.textContent = model.preview.pygments_css;
-    container.prepend(style);
-  }
+  const previousScroll = readingScroll.get(model.id) ?? container.scrollTop;
+  const payload = model.preview;
+  mountDocumentContent(container, payload, {
+    sanitize: safePreviewHtml, prefix: "reading-", sourceEntries: previewSourceEntries(model),
+  });
   container.scrollTop = previousScroll;
-  return typesetPreviewMath(container, {
-    isCurrent: () => activeDocument()?.id === model.id,
-    errorLabel: t("previewMathFailed"),
+  const current = () => activeDocument()?.id === model.id && model.preview === payload;
+  return typesetPreviewMath(container, { isCurrent: current, errorLabel: t("previewMathFailed") }).then(() => {
+    if (current() && pendingReadingLine?.id === model.id) {
+      container.scrollTop = interpolatePosition(contentAnchors(container, model), pendingReadingLine.line);
+      pendingReadingLine = null;
+    }
   });
 }
 
@@ -3971,50 +4091,25 @@ function syncPreviewFromEditorScroll(scrollTop) {
 }
 
 function renderPreview(model) {
-  const reading = renderReading(model);
-  document.body.classList.remove("book-preview-mode");
+  renderContentStatus();
+  if (effectiveViewMode() === "read") return renderReading(model);
+  if (!contentViewVisible()) return;
   const container = $("#preview-document");
-  if (model && !isMarkdownModel(model)) {
-    renderPreviewMessage(t("plainTextMode"));
-    return;
-  }
   if (!model?.preview) {
     renderPreviewMessage(t("previewEmpty"));
     return;
   }
-  container.replaceChildren();
-  if (model.preview.pygments_css) {
-    const style = document.createElement("style");
-    style.textContent = model.preview.pygments_css;
-    container.append(style);
-  }
-  container.append(safePreviewHtml(`${model.preview.body_html || ""}${model.preview.reference_lists_html || ""}${model.preview.bibliography_html || ""}`));
-  const sourceEntries = previewSourceEntries(model);
-  const byId = new Map(sourceEntries.map((entry) => [entry.id, entry]));
-  container.querySelectorAll("h1,h2,h3,h4,h5,h6").forEach((heading) => {
-    const sourceId = heading.dataset.previewSourceId || heading.id.replace(/^preview-/, "");
-    const sourceLine = Number(heading.dataset.sourceLine) || byId.get(sourceId)?.line || 0;
-    if (!sourceLine) return;
-    heading.dataset.sourceLine = String(sourceLine);
-    heading.classList.add("preview-source-link");
-    heading.title = `Line ${sourceLine}`;
-    heading.tabIndex = 0;
-    heading.setAttribute("role", "button");
-    heading.addEventListener("click", () => goToLine(sourceLine));
-    heading.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      goToLine(sourceLine);
-    });
+  const payload = model.preview;
+  mountDocumentContent(container, payload, {
+    sanitize: safePreviewHtml, sourceEntries: previewSourceEntries(model),
+    onSourceJump: (line) => goToLine(line),
+    sourceJumpLabel: (line) => `${t("goToSourceLine")} ${line}`,
   });
-  const cursor = currentEditor();
-  const position = editorAdapter?.lineAtOffset(cursor.selectionStart)
-    || textMetrics(cursor.value, cursor.selectionStart);
-  syncPreviewToEditorLine(position.line);
-  return Promise.all([reading, typesetPreviewMath(container, {
-    isCurrent: () => activeDocument()?.id === model.id,
+  syncPreviewFromEditorScroll(currentEditor().scrollTop || 0);
+  return typesetPreviewMath(container, {
+    isCurrent: () => activeDocument()?.id === model.id && model.preview === payload,
     errorLabel: t("previewMathFailed"),
-  })]);
+  });
 }
 
 /**
@@ -4053,7 +4148,7 @@ async function drawWritePreview() {
     void renderPreview(model);
     renderCitations(model);
     renderProblems(model);
-    $("#preview-detail").textContent = result.title || t("previewHelp");
+    renderContentStatus();
   } catch (error) {
     if (sequence !== state.previewSequence || !contextIsCurrent(context)) return;
     const payload = errorPayload(error);
@@ -4077,6 +4172,7 @@ async function validateActiveDocument() {
     const result = await validateDocumentText({ path: model.path, content: model.content, options: previewOptions() });
     if (sequence !== state.validationSequence || !contextIsCurrent(context)) return;
     model.diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
+    model.validationContentVersion = model.contentVersion;
     renderProblems(model);
     activateSidebar("problems");
     toast(result.ok ? t("validMessage") : t("invalidMessage"), result.ok ? "success" : "error");
@@ -4145,24 +4241,34 @@ function insertAssetReference(asset, model = activeDocument()) {
   }
 }
 
+function applySidebarContext() {
+  const documentOnly = ["outline", "frontmatter", "assets", "citations"];
+  const name = !isMarkdownModel(activeDocument()) && documentOnly.includes(state.activeSidebar)
+    ? (state.project ? "project" : "problems") : state.activeSidebar;
+  for (const button of $$("[data-sidebar]")) {
+    const active = button.dataset.sidebar === name;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  }
+  for (const panel of $$("[data-panel]")) {
+    const active = panel.dataset.panel === name;
+    panel.classList.toggle("active", active);
+    panel.setAttribute("aria-hidden", String(!active));
+    panel.inert = !active;
+  }
+  return name;
+}
+
 function activateSidebar(name) {
+  if ($(`[data-sidebar="${name}"]`)?.disabled) return;
   if (!state.workspaceLayout.sidebarOpen) {
     state.workspaceLayout.sidebarOpen = true;
     if (matchMedia("(max-width: 1100px)").matches) state.workspaceLayout.filesOpen = false;
     applyWorkspaceLayout({ persist: true });
   }
   state.activeSidebar = name;
-  $$("[data-sidebar]").forEach((button) => {
-    const active = button.dataset.sidebar === name;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-    button.tabIndex = active ? 0 : -1;
-  });
-  $$("[data-panel]").forEach((panel) => {
-    const active = panel.dataset.panel === name;
-    panel.classList.toggle("active", active);
-    panel.setAttribute("aria-hidden", String(!active));
-  });
+  applySidebarContext();
   if (name === "assets") refreshAssets();
   if (name === "frontmatter") loadFrontMatterForm(activeDocument());
   if (name === "project") renderProjectWorkspace();
@@ -4170,7 +4276,7 @@ function activateSidebar(name) {
 }
 
 function goToLine(line, column = 1) {
-  if (state.preferences.viewMode === "read") {
+  if (effectiveViewMode() === "read") {
     const target = $("#reading-document")?.querySelector(`[data-source-line="${Number(line) || 1}"]`);
     if (target) {
       target.scrollIntoView({ block: "start", behavior: "instant" });
@@ -4228,7 +4334,7 @@ function selectFindMatch(index, { direction = null } = {}) {
 function openFind({ replace = false } = {}) {
   // Search selects the actual Markdown, and replacement requires an explicit
   // visible editing surface rather than changing a hidden reader buffer.
-  if (state.preferences.viewMode === "read") setViewMode("source");
+  if (effectiveViewMode() === "read") setViewMode("source");
   $("#find-bar").classList.remove("hidden");
   $("#replace-query").classList.toggle("hidden", !replace);
   $("#replace-one").classList.toggle("hidden", !replace);
@@ -4585,8 +4691,8 @@ function openEditorContextMenu(event) {
     { key: "citation", label: t("insertCitation"), enabled: editable, run: () => editorCommand("citation") },
     { key: "table", label: t("insertTable"), enabled: editable, run: () => editorCommand("table") },
     { separator: true },
-    { key: "validate", label: t("checkDocument"), enabled: Boolean(model), run: validateActiveDocument },
-    { key: "export", label: t("exportPdf"), enabled: Boolean(model), run: exportActiveDocument },
+    { key: "validate", label: t("checkDocument"), enabled: isMarkdownModel(model), run: validateActiveDocument },
+    { key: "export", label: t("exportPdf"), enabled: isMarkdownModel(model), run: exportActiveDocument },
     { key: "reveal", label: t("showInFolder"), enabled: Boolean(model?.path), run: () => invoke("reveal_path", { path: model.path }).catch(() => {}) },
   ];
 
@@ -4725,6 +4831,10 @@ async function engineHealth() {
 }
 
 function bindEvents() {
+  $("#workspace-toggle-preview").addEventListener("click", toggleSidePreview);
+  $("#document-mode-help").addEventListener("click", () => modalManager.open($("#view-guide-modal")));
+  $("#close-view-guide").addEventListener("click", () => modalManager.close($("#view-guide-modal")));
+  $("#workflow-new").addEventListener("click", createUntitledDocument);
   $("#home-button").addEventListener("click", () => showView("start"));
   $("#command-button").addEventListener("click", openCommandPalette);
   $("#help-button").addEventListener("click", openHelp);
@@ -4735,7 +4845,8 @@ function bindEvents() {
     button.addEventListener("keydown", (event) => {
       if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
       event.preventDefault();
-      const buttons = $$("button[data-view-mode]");
+      const buttons = $$("button[data-view-mode]").filter((item) => !item.disabled);
+      if (buttons.length < 2) return;
       const index = buttons.indexOf(button);
       const rtl = document.documentElement.dir === "rtl";
       const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1
@@ -4897,9 +5008,11 @@ function bindEvents() {
   // parameter, which it compared against a sequence number and always found
   // unequal — the button returned without ever rendering anything.
   $("#refresh-preview").addEventListener("click", () => void refreshPreview());
-  $("#auto-preview").addEventListener("change", () => {
-    updatePreference({ autoPreview: $("#auto-preview").checked });
-    if ($("#auto-preview").checked) refreshPreview();
+  $("#refresh-reading").addEventListener("click", () => void refreshPreview());
+  for (const checkbox of $$('[data-content-auto]')) checkbox.addEventListener("change", () => {
+    updatePreference({ autoPreview: checkbox.checked });
+    if (checkbox.checked && contentViewVisible()) void refreshPreview();
+    else schedulePreview();
   });
   $("#frontmatter-form").addEventListener("submit", applyFrontMatter);
   $("#find-query").addEventListener("input", () => { if (updateFindMatches({ reset: true }).length) selectFindMatch(0); });

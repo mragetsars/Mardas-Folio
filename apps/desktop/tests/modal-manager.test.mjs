@@ -99,6 +99,28 @@ test("Escape uses the modal close callback for control-specific ARIA cleanup", a
   delete globalThis.CustomEvent;
 });
 
+test("an asynchronous dialog returns to its original action after intermediate confirmation", async () => {
+  const documentRef = new Document();
+  const opener = new Element("book-preview");
+  const confirmation = new Element("confirmation-accept");
+  const closeButton = new Element("close-review");
+  opener.document = confirmation.document = closeButton.document = documentRef;
+  closeButton.closest = () => null;
+  const modal = new Element("book-review", [closeButton]);
+  modal.document = documentRef;
+  // Preparing the review included a save confirmation, so current focus no
+  // longer identifies the action which owns the eventual review dialog.
+  documentRef.activeElement = confirmation;
+  const manager = createModalManager(documentRef);
+  manager.open(modal, { returnFocus: opener });
+  await new Promise((resolve) => queueMicrotask(resolve));
+  assert.equal(documentRef.activeElement, closeButton);
+  manager.close(modal);
+  await new Promise((resolve) => queueMicrotask(resolve));
+  assert.equal(documentRef.activeElement, opener);
+  manager.destroy();
+});
+
 test("a dialog opens at its own beginning, not wherever focus lands", async () => {
   // The help dialog is taller than the window and its last control is a Close
   // button at the far end. Focusing that scrolled the card 273px down, past

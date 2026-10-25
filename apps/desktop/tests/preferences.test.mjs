@@ -5,6 +5,8 @@ import {
   applyPreferences,
   normalizePreferences,
   nextDocumentZoom,
+  editorModeForView,
+  previewVisibleForView,
   readPreferences,
   writePreferences,
 } from "../frontend/js/core/preferences.mjs";
@@ -89,4 +91,32 @@ test("document text zoom exposes its own scale without altering the interface or
   assert.equal(dataset.contentScale, "comfortable");
   assert.equal(dataset.writingWidth, "full");
   assert.deepEqual([...properties], [["--document-text-scale", "1.5"]]);
+});
+
+test("legacy Split migrates to editable Source with an independent side preview", () => {
+  const store = storage({
+    "mardas.desktop.preferences.v1": JSON.stringify({ viewMode: "split", documentZoom: 125, autoPreview: false }),
+  });
+  const migrated = readPreferences(store);
+  assert.equal(migrated.viewMode, "source");
+  assert.equal(migrated.sidePreview, true);
+  assert.equal(migrated.documentZoom, 125);
+  assert.equal(migrated.autoPreview, false);
+  writePreferences(migrated, store);
+  assert.deepEqual(readPreferences(store), migrated);
+});
+
+test("side preview is a remembered layout choice for either editing representation", () => {
+  const store = storage();
+  for (const viewMode of ["write", "source", "read", "write"]) {
+    const current = writePreferences({ ...readPreferences(store), viewMode, sidePreview: true }, store);
+    assert.equal(current.sidePreview, true);
+    assert.equal(previewVisibleForView(current.viewMode, current.sidePreview), viewMode !== "read");
+    assert.equal(editorModeForView(current.viewMode), viewMode === "write" ? "live" : "source");
+  }
+  assert.equal(writePreferences({ viewMode: "source", sidePreview: false }, store).sidePreview, false);
+  assert.equal(readPreferences(store).viewMode, "source");
+  for (const sidePreview of [null, "true", 1, {}]) {
+    assert.equal(normalizePreferences({ viewMode: "write", sidePreview }).sidePreview, false);
+  }
 });
