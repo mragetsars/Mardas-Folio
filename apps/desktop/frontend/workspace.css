@@ -4051,7 +4051,8 @@ body[data-view="workspace"] .editor-pane > .reading-surface { grid-row: 5; min-w
 body[data-view="workspace"] .editor-pane[data-view-mode="read"] .editor-surface,
 body[data-view="workspace"] .editor-pane[data-view-mode="read"] .format-bar,
 body[data-view="workspace"] .editor-pane[data-view-mode="read"] .find-bar { display: none; }
-body[data-view="workspace"] .editor-pane[data-view-mode="read"] .formatting-toggle { visibility: hidden; }
+body[data-view="workspace"] .editor-pane[data-view-mode="read"] :is(.formatting-toggle, .insert-menu-button),
+body[data-view="workspace"] .workspace-view.plain-text-mode :is(.formatting-toggle, .insert-menu-button, .format-bar) { display: none; }
 .reading-surface { position: relative; display: none; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; background: var(--ui-page); }
 body[data-view="workspace"] .editor-pane[data-view-mode="read"] .reading-surface { display: grid; }
 .reading-document { grid-row: 2; width: 100%; max-width: var(--writing-column, 100%); height: 100%; min-height: 0; margin-inline: auto; padding: 44px 36px 35vh; overflow: auto; }

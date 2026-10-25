@@ -192,6 +192,10 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     page.locator("#workflow-open").click()
                     expect(page.locator("#markdown-editor")).to_have_value(SAMPLE)
                     expect(page.locator('button[data-view-mode]')).to_have_count(3)
+                    expect(page.locator("#insert-menu-button")).to_be_visible()
+                    expect(page.locator("#workspace-toggle-formatting")).to_be_visible()
+                    page.locator("#workspace-toggle-formatting").click()
+                    expect(page.locator("#format-bar")).to_be_visible()
                     _append(page, "\nHIDDEN_WORK_MARKER\n")
                     page.wait_for_timeout(900)
                     assert _preview_count(calls) == baseline, "Hidden source view generated backend previews"
@@ -223,6 +227,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                         side = page.locator("#preview-document").evaluate(ARTICLE)
                         _activity(page, "read")
                         _wait_content(page, "#reading-document")
+                        expect(page.locator("#insert-menu-button")).to_be_hidden()
+                        expect(page.locator("#workspace-toggle-formatting")).to_be_hidden()
+                        expect(page.locator("#format-bar")).to_be_hidden()
                         read = page.locator("#reading-document").evaluate(ARTICLE)
                         differences = [
                             {"sample": sample, "property": property_name, "side": value,
@@ -323,6 +330,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     page.locator("#navigator-open").click()
                     expect(page.locator("#markdown-editor")).to_have_value(config.read_text())
                     expect(page.locator("#workspace-view")).to_have_attribute("data-view-mode", "source")
+                    expect(page.locator("#insert-menu-button")).to_be_hidden()
+                    expect(page.locator("#workspace-toggle-formatting")).to_be_hidden()
+                    expect(page.locator("#format-bar")).to_be_hidden()
                     assert page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).viewMode") == "read"
                     expect(page.locator('button[data-view-mode="read"]')).to_be_disabled()
                     expect(page.locator("#sidebar-panel-frontmatter")).to_be_hidden()
