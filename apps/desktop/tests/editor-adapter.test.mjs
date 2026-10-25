@@ -116,3 +116,31 @@ test("fallback reading mode blocks editing independently of a disabled editor", 
   editor.destroy();
   delete globalThis.HTMLTextAreaElement;
 });
+
+test("view navigation scrolls without moving the fallback selection or editing the document", () => {
+  globalThis.HTMLTextAreaElement = FakeTextArea;
+  globalThis.getComputedStyle = () => ({ lineHeight: "20" });
+  const element = new FakeTextArea();
+  let changes = 0;
+  let selections = 0;
+  const editor = createEditorAdapter(element, {
+    onChange: () => { changes += 1; },
+    onSelectionChange: () => { selections += 1; },
+  });
+  editor.setDocument("a", "first\nsecond\nthird\nfourth");
+  editor.setSelectionRange(2, 4);
+  assert.deepEqual(editor.scrollToLine(3), { line: 3, offset: 13 });
+  assert.equal(element.scrollTop, 40);
+  assert.equal(editor.selectionStart, 2);
+  assert.equal(editor.selectionEnd, 4);
+  assert.equal(element.focused, false);
+  assert.equal(editor.value, "first\nsecond\nthird\nfourth");
+  assert.equal(changes, 0);
+  assert.equal(selections, 0);
+  assert.equal(editor.scrollToLine(999).line, 4);
+  assert.equal(editor.scrollToLine(Number.NaN).line, 1);
+  assert.equal(editor.scrollToLine(-1).line, 1);
+  editor.destroy();
+  delete globalThis.HTMLTextAreaElement;
+  delete globalThis.getComputedStyle;
+});

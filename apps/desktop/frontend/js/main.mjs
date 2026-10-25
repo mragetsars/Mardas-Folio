@@ -2515,7 +2515,7 @@ function renderWorkspace() {
   updateAuthoringMode(model);
   // The adapter owns each document's undo history, selection and scroll.
   // Initial selection is applied only when the adapter sees this ID first.
-  if (editor.setDocument) editor.setDocument(model.id, model.content, { initialSelection: bodyStartOffset(model.content) });
+  if (editor.setDocument) editor.setDocument(model.id, model.content, { initialSelection: bodyStartOffset(model.content), kind: isMarkdownModel(model) ? "markdown" : "text" });
   else if (editor.value !== model.content) editor.value = model.content;
   if (!$("#find-bar").classList.contains("hidden")) updateFindMatches();
   setTruncatableText($("#editor-title"), model.title);

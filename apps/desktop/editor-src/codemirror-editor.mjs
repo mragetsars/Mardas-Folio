@@ -315,6 +315,7 @@ export function createCodeMirrorEditorAdapter(
   let editorLocale = locale === "fa" ? "fa" : "en";
   let appearanceMode = theme === "dark" || theme === "light" ? theme : documentTheme();
   let editorMode = normalizeEditorMode(mode);
+  let markdownDocument = true;
   let typewriterEnabled = Boolean(typewriter);
   let activeDocumentId = null;
   let retainedDocuments = new Set();
@@ -324,14 +325,14 @@ export function createCodeMirrorEditorAdapter(
   const preview = new Compartment();
   const writingRhythm = new Compartment();
   const selectionTools = new Compartment();
+  const documentLanguage = new Compartment();
 
   const accessExtensions = () => [
     EditorState.readOnly.of(disabled || readerMode),
     EditorView.editable.of(!disabled && !readerMode),
   ];
 
-  const extensions = [
-        basicSetup,
+  const markdownExtensions = [
         // `markdown()` defaults to CommonMark, so tables, task lists and
         // strikethrough were never in the syntax tree even though the
         // publishing engine renders all three. GFM is the dialect this app
@@ -341,58 +342,46 @@ export function createCodeMirrorEditorAdapter(
           codeLanguages: CODE_LANGUAGES,
           extensions: [frontmatter, mathAndFootnotes],
         }),
-        // Prose has to wrap. A horizontal scrollbar under a paragraph forces
-        // the reader to pan back and forth for every line, which is unusable
-        // for writing; only code fences keep their own horizontal overflow.
-        EditorView.lineWrapping,
-        appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
-        preview.of(editorModeExtension(editorMode, { resolveAsset, strings: editorText })),
-        writingRhythm.of(typewriterExtension(typewriterEnabled)),
-        selectionTools.of(selectionToolbarExtension(editorLocale, editorMode === "live")),
-        authoringToolsTheme,
-        // The read-only facet prevents ordinary typing. This also protects
-        // transactions from custom commands, history and rendered widgets.
-        readOnlyDocumentGuard,
-        EditorState.allowMultipleSelections.of(true),
-        // Formatting keys are bound above everything else. Bound on the window
-        // instead, they could not see that CodeMirror had already acted on the
-        // same key — which is how Ctrl+I came to expand the selection to its
-        // parent syntax node *and* wrap the result in underscores.
-        Prec.highest(keymap.of(completionKeymap)),
         Prec.highest(keymap.of([
           ...markdownCommandKeymap(),
-          ...APPLICATION_OWNED_KEYS,
-          // Accept the same redo gesture on every desktop platform and keep
-          // undo/redo in CodeMirror even when the relevant history is empty.
-          { key: "Mod-z", run: undo, shift: redo, preventDefault: true },
-          // Ahead of the continuation rule: an empty item is a request to
-          // leave the list, not to carry it further down the page. It has to
-          // sit in this keymap rather than beside `markdownKeymap` — a second
-          // binding for the same key in the same keymap never got a turn.
           { key: "Enter", run: exitEmptyBlock },
         ])),
-        // Enter continues the construct the caret is in, and Backspace at the
-        // head of one removes its markup. Without this the editor had no
-        // Enter binding at all: pressing it inside a list produced a bare
-        // line, so every bullet after the first had to be typed by hand, and
-        // an empty bullet had to be deleted character by character instead of
-        // being dismissed by pressing Enter again. It is the one editing
-        // behaviour every Markdown editor is expected to have, and it ships
-        // with the language package.
-        // Above `basicSetup`'s own Enter binding. At default precedence both
-        // ran: pressing Enter on an empty bullet removed the marker *and*
-        // then inserted a fresh one, so a list could not be left by pressing
-        // Enter twice — it grew a blank line and another bullet.
         Prec.high(keymap.of(markdownKeymap)),
-        // Pasting a URL over selected text makes a link out of it rather than
-        // replacing the text with the address.
         pasteURLAsLink,
-        tabEscapeHatch(onLeaveEditor),
         autocompletion({
           activateOnTyping: true,
           maxRenderedOptions: 80,
           override: [completionSource(getCompletions, () => editorLocale)],
         }),
+  ];
+  const previewExtensions = (resolver = resolveAsset) => editorModeExtension(markdownDocument ? editorMode : "source", { resolveAsset: resolver, strings: editorText });
+  const selectionExtensions = () => selectionToolbarExtension(editorLocale, markdownDocument && editorMode === "live");
+  const extensions = [
+        basicSetup,
+        documentLanguage.of(markdownExtensions),
+        // Prose has to wrap. A horizontal scrollbar under a paragraph forces
+        // the reader to pan back and forth for every line, which is unusable
+        // for writing; only code fences keep their own horizontal overflow.
+        EditorView.lineWrapping,
+        appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
+        preview.of(previewExtensions()),
+        writingRhythm.of(typewriterExtension(typewriterEnabled)),
+        selectionTools.of(selectionExtensions()),
+        authoringToolsTheme,
+        // The read-only facet prevents ordinary typing. This also protects
+        // transactions from custom commands, history and rendered widgets.
+        readOnlyDocumentGuard,
+        EditorState.allowMultipleSelections.of(true),
+        // App navigation and history belong to all text documents. Markdown
+        // commands, completions and paste rules live in documentLanguage.
+        Prec.highest(keymap.of(completionKeymap)),
+        Prec.highest(keymap.of([
+          ...APPLICATION_OWNED_KEYS,
+          // Accept the same redo gesture on every desktop platform and keep
+          // undo/redo in CodeMirror even when the relevant history is empty.
+          { key: "Mod-z", run: undo, shift: redo, preventDefault: true },
+        ])),
+        tabEscapeHatch(onLeaveEditor),
         readOnly.of(accessExtensions()),
         // No `dir` on the content element.
         //
@@ -404,10 +393,10 @@ export function createCodeMirrorEditorAdapter(
         // and any line with nothing strong in it inherited that. Without the
         // attribute it inherits the editor's direction, which is the answer
         // the fallback was reaching for.
-        EditorView.contentAttributes.of({
+        EditorView.contentAttributes.of(() => ({
           "aria-label": textarea.getAttribute("aria-label") || "Markdown editor",
-          spellcheck: textarea.spellcheck ? "true" : "false",
-        }),
+          spellcheck: markdownDocument && textarea.spellcheck ? "true" : "false",
+        })),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) textarea.value = update.state.doc.toString();
           if (suppressCallbacks) return;
@@ -426,9 +415,10 @@ export function createCodeMirrorEditorAdapter(
     view.dispatch({ effects: [
       readOnly.reconfigure(accessExtensions()),
       appearance.reconfigure(mardasEditorAppearance(appearanceMode === "dark")),
-      preview.reconfigure(editorModeExtension(editorMode, { resolveAsset, strings: editorText })),
+      documentLanguage.reconfigure(markdownDocument ? markdownExtensions : []),
+      preview.reconfigure(previewExtensions()),
       writingRhythm.reconfigure(typewriterExtension(typewriterEnabled)),
-      selectionTools.reconfigure(selectionToolbarExtension(editorLocale, editorMode === "live")),
+      selectionTools.reconfigure(selectionExtensions()),
       ...(scrollSnapshot ? [scrollSnapshot] : []),
     ] });
   }
@@ -475,8 +465,12 @@ export function createCodeMirrorEditorAdapter(
         suppressCallbacks = false;
       }
     },
-    setDocument(id, content, { initialSelection = 0 } = {}) {
+    setDocument(id, content, { initialSelection = 0, kind = "markdown" } = {}) {
       const next = String(content ?? "");
+      const nextMarkdown = kind === "markdown";
+      const kindChanged = nextMarkdown !== markdownDocument;
+      markdownDocument = nextMarkdown;
+      mount.dataset.documentKind = markdownDocument ? "markdown" : "text";
       if (id === activeDocumentId) {
         if (next !== adapter.value) {
           suppressCallbacks = true;
@@ -488,6 +482,7 @@ export function createCodeMirrorEditorAdapter(
             suppressCallbacks = false;
           }
         }
+        if (kindChanged) restorePresentation(view.scrollSnapshot());
         return;
       }
       if (activeDocumentId !== null && retainedDocuments.has(activeDocumentId)) {
@@ -535,7 +530,7 @@ export function createCodeMirrorEditorAdapter(
       // Rebuild image decorations after that grant without editing the buffer
       // or replacing its document state, selection, scroll or undo history.
       view.dispatch({ effects: [
-        preview.reconfigure(editorModeExtension(editorMode, { resolveAsset: (source) => resolveAsset?.(source), strings: editorText })),
+        preview.reconfigure(previewExtensions((source) => resolveAsset?.(source))),
         view.scrollSnapshot(),
       ] });
     },
@@ -546,6 +541,15 @@ export function createCodeMirrorEditorAdapter(
       const top = (view.scrollDOM.getBoundingClientRect().top - view.documentTop) / view.scaleY;
       const block = view.lineBlockAtHeight(Math.max(0, top));
       return view.state.doc.lineAt(block.from).number;
+    },
+    scrollToLine(line) {
+      // Switching views moves the viewport, not the insertion point. Keeping
+      // selection out of this transaction also preserves the document history.
+      const document = view.state.doc;
+      const safeLine = Math.max(1, clampOffset(line, document.lines));
+      const offset = document.line(safeLine).from;
+      view.dispatch({ effects: EditorView.scrollIntoView(offset, { y: "start", yMargin: 24 }) });
+      return { line: safeLine, offset };
     },
     get element() {
       return view.contentDOM;
@@ -630,6 +634,7 @@ export function createCodeMirrorEditorAdapter(
       return true;
     },
     setAriaLabel(value) {
+      textarea.setAttribute("aria-label", String(value || "Markdown editor"));
       view.contentDOM.setAttribute("aria-label", String(value || "Markdown editor"));
     },
     setLocale(locale, nextStrings) {
@@ -641,8 +646,8 @@ export function createCodeMirrorEditorAdapter(
       // they are built from a facet the extension carries.
       view.dispatch({
         effects: [
-          preview.reconfigure(editorModeExtension(editorMode, { resolveAsset, strings: editorText })),
-          selectionTools.reconfigure(selectionToolbarExtension(editorLocale, editorMode === "live")),
+          preview.reconfigure(previewExtensions()),
+          selectionTools.reconfigure(selectionExtensions()),
         ],
       });
     },
@@ -661,8 +666,8 @@ export function createCodeMirrorEditorAdapter(
       editorMode = next;
       view.dispatch({
         effects: [
-          preview.reconfigure(editorModeExtension(next, { resolveAsset, strings: editorText })),
-          selectionTools.reconfigure(selectionToolbarExtension(editorLocale, next === "live")),
+          preview.reconfigure(previewExtensions()),
+          selectionTools.reconfigure(selectionExtensions()),
         ],
       });
       mount.dataset.mode = next;
@@ -699,6 +704,7 @@ export function createCodeMirrorEditorAdapter(
       if (disabled || readerMode) return false;
       if (name === "undo") return undo(view);
       if (name === "redo") return redo(view);
+      if (!markdownDocument) return false;
       return runMarkdownCommand(view, name);
     },
     get typewriter() {

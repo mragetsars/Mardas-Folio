@@ -100,6 +100,15 @@ export function createEditorAdapter(element, { onChange, onSelectionChange, onSc
     setSelectionRange(start, end = start, direction) {
       element.setSelectionRange(start, end, direction);
     },
+    scrollToLine(line) {
+      const lines = element.value.split("\n");
+      const number = Number(line);
+      const safeLine = Math.max(1, Math.min(Number.isFinite(number) ? Math.trunc(number) : 1, lines.length));
+      const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight) || 24;
+      element.scrollTop = Math.max(0, (safeLine - 1) * lineHeight);
+      const offset = lines.slice(0, safeLine - 1).reduce((total, value) => total + value.length + 1, 0);
+      return { line: safeLine, offset };
+    },
     goToLine(line, column = 1, contextLines = 3) {
       const lines = element.value.split("\n");
       const safeLine = Math.max(1, Math.min(Number(line) || 1, lines.length));
