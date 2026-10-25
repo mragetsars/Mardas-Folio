@@ -1,5 +1,6 @@
 /* Writing tools live beside the text; publication tools stay in Inspector. */
 body[data-view="workspace"] .editor-pane { container-type: inline-size; container-name: writer; }
+.document-activity-controls { flex-wrap: wrap; max-width: 100%; }
 body[data-view="workspace"] .file-navigator { grid-template-rows: 40px 38px minmax(0, 1fr) auto; }
 .navigator-tabs { display: flex; gap: 4px; padding: 4px 8px; border-bottom: 1px solid var(--ui-border); }
 .navigator-tabs button { flex: 1; min-height: 28px; padding: 3px 12px; border: 0; border-radius: var(--ui-radius-pill); background: transparent; color: var(--ui-muted); font: 550 var(--ui-text-xs)/1.4 var(--app-font); cursor: pointer; }

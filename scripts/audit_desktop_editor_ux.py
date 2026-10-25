@@ -157,6 +157,8 @@ def mode(page: Any, name: str) -> None:
 
 
 def navigator_item(page: Any, index: int) -> Any:
+    if page.locator("#navigator-tab-files").get_attribute("aria-selected") != "true":
+        page.locator("#navigator-tab-files").click()
     return page.locator("#open-document-list button[data-document-id]").nth(index)
 
 
@@ -348,7 +350,8 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     mode(page, "source")
     page.locator("#workspace-toggle-sidebar").click()
     expect(page.locator("#author-sidebar")).to_be_visible()
-    page.locator("#workspace-toggle-formatting").click()
+    if page.locator("#workspace-toggle-formatting").get_attribute("aria-pressed") != "true":
+        page.locator("#workspace-toggle-formatting").click()
     expect(page.locator(".format-bar")).to_be_visible()
     layout_before = {
         "files": page.locator("#file-navigator").is_visible(),
@@ -389,8 +392,12 @@ def run_narrow_panes(page: Any) -> list[str]:
     for selector in ("#file-resizer", "#sidebar-resizer"):
         page.locator(selector).focus()
         page.keyboard.press("End")
-    for button in page.locator(".document-toolbar button").all():
-        expect(button).to_be_visible()
+    page.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+    # Overflow groups can move between the strip and its menu after a resize.
+    # Keep node identities rather than live nth() locators whose indices move.
+    for button in page.locator(".document-toolbar button").element_handles():
+        if not button.is_visible() or not button.evaluate("el => Boolean(el.closest('.document-toolbar'))"):
+            continue
         button.evaluate("el => el.scrollIntoView({block:'nearest'})")
         geometry = button.evaluate("""el => {
           const r=el.getBoundingClientRect(), pane=el.closest('.editor-pane').getBoundingClientRect();
