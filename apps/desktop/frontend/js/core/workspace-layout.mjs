@@ -7,7 +7,8 @@ export const DEFAULT_WORKSPACE_LAYOUT = Object.freeze({
   filesWidth: 248,
   sidebarOpen: false,
   previewOpen: false,
-  formattingOpen: false,
+  formattingOpen: true,
+  navigatorTab: "files",
   sidebarWidth: 296,
   previewWidth: 500,
 });
@@ -39,6 +40,7 @@ export function normalizeWorkspaceLayout(value = {}) {
     filesOpen: booleanValue(value?.filesOpen, DEFAULT_WORKSPACE_LAYOUT.filesOpen),
     filesWidth: clampWorkspaceWidth("files", value?.filesWidth),
     formattingOpen: booleanValue(value?.formattingOpen, DEFAULT_WORKSPACE_LAYOUT.formattingOpen),
+    navigatorTab: value?.navigatorTab === "outline" ? "outline" : "files",
     sidebarOpen: booleanValue(value?.sidebarOpen, DEFAULT_WORKSPACE_LAYOUT.sidebarOpen),
     previewOpen: booleanValue(value?.previewOpen, DEFAULT_WORKSPACE_LAYOUT.previewOpen),
     sidebarWidth: clampWorkspaceWidth("sidebar", value?.sidebarWidth),

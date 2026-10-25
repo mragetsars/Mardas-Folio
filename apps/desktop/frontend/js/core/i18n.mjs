@@ -44,6 +44,25 @@ Object.assign(fa,{
   updateInstallFailed:"نصب بروزرسانی ناموفق بود",commandCheckUpdates:"بررسی بروزرسانی نرم‌افزار",
   lineShort:"خط",columnShort:"ستون",wordsLabel:"واژه",charactersLabel:"نویسه",sidecarUnavailableDetail:"موتور محلی در دسترس نیست",localRuntime:"محلی"
 });
+
+Object.assign(fa, {
+  writingAppearance: "ظاهر متن", writingDensity: "فاصلهٔ متن", writingFont: "قلم متن", documentNavigation: "ناوبری سند",
+  densityCompact: "فشرده", densityComfortable: "معمولی", densityRelaxed: "بازتر",
+  fontDocument: "قلم برنامه", fontSystem: "قلم سیستم", fontSerif: "قلم کتابی",
+  writingAppearanceHelp: "قلم و فاصله برای نوشتن و خواندن‌اند؛ اندازه در همهٔ نماها تغییر می‌کند. فایل و تنظیم PDF تغییر نمی‌کنند. Ctrl + چرخ ماوس هم اندازهٔ متن را عوض می‌کند.",
+  writerLayout: "چیدمان نوشتن", writerLayoutHelp: "متن و ساختار سند، بدون پیش‌نمایش تکراری و پنل ابزارها",
+  resetWritingAppearance: "بازنشانی ظاهر متن", filterOutline: "یافتن عنوان…", expandOutline: "بازکردن همهٔ عنوان‌ها",
+  collapseOutline: "بستن زیرعنوان‌ها", followOutline: "دنبال‌کردن بخش جاری", noOutlineMatches: "عنوانی پیدا نشد.",
+});
+Object.assign(en, {
+  writingAppearance: "Text appearance", writingDensity: "Text spacing", writingFont: "Text font", documentNavigation: "Document navigation",
+  densityCompact: "Compact", densityComfortable: "Comfortable", densityRelaxed: "Relaxed",
+  fontDocument: "App font", fontSystem: "System font", fontSerif: "Book font",
+  writingAppearanceHelp: "Font and spacing apply to Write and Read; text size applies to every view. Markdown and PDF settings stay the same. Ctrl + mouse wheel also resizes text.",
+  writerLayout: "Writer layout", writerLayoutHelp: "Document and outline, with side preview and inspector closed",
+  resetWritingAppearance: "Reset text appearance", filterOutline: "Find a heading…", expandOutline: "Expand all headings",
+  collapseOutline: "Collapse subheadings", followOutline: "Follow current section", noOutlineMatches: "No matching headings.",
+});
 Object.assign(en,{
   skipToContent:"Skip to main content",commandPalette:"Command Palette",help:"Help",settings:"Settings",switchLanguage:"Switch language",
   templates:"Templates",startFromTemplate:"Start from a ready template",learnTemplates:"Template help",

@@ -9,6 +9,9 @@
   <link rel="icon" href="./assets/app-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./workspace.css">
+  <link rel="stylesheet" href="./authoring.css">
+  <link rel="stylesheet" href="./outline-navigator.css">
+  <link rel="stylesheet" href="./writer-workspace.css">
 </head>
 <body>
 <a class="skip-link" href="#app-main" data-i18n="skipToContent">رفتن به محتوای اصلی</a>
@@ -238,8 +241,21 @@
 
       <div class="authoring-grid">
         <aside class="file-navigator" id="file-navigator" data-i18n-aria-label="files" aria-label="فایل‌ها">
-          <header class="navigator-heading"><strong data-i18n="files">فایل‌ها</strong><div><button class="toolbar-icon-button" id="navigator-new" type="button" data-i18n-title="newDocument" title="سند جدید" aria-label="سند جدید"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg></button><button class="toolbar-icon-button" id="navigator-open" type="button" data-i18n-title="openDocuments" title="باز کردن" aria-label="باز کردن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg></button><button class="toolbar-icon-button" id="navigator-close" type="button" data-i18n-title="closeFiles" title="بستن فایل‌ها" aria-label="بستن فایل‌ها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></div></header>
-          <div class="navigator-content"><section class="navigator-section"><h2 data-i18n="openDocumentList">اسناد باز</h2><div class="open-document-list" id="open-document-list" data-i18n-aria-label="openDocumentList" aria-label="اسناد باز"></div></section><section class="navigator-section navigator-project-section hidden" id="navigator-project-section"><header><h2 data-i18n="projectFiles">فایل‌های پروژه</h2></header><strong class="navigator-project-name" id="navigator-project-name"></strong><div class="navigator-project-files" id="navigator-project-files"><div class="project-file-tree" id="project-file-tree"></div></div></section></div>
+          <header class="navigator-heading"><strong data-i18n="documentNavigation">ناوبری سند</strong><div><button class="toolbar-icon-button" id="navigator-new" type="button" data-i18n-title="newDocument" title="سند جدید" aria-label="سند جدید"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg></button><button class="toolbar-icon-button" id="navigator-open" type="button" data-i18n-title="openDocuments" title="باز کردن" aria-label="باز کردن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg></button><button class="toolbar-icon-button" id="navigator-close" type="button" data-i18n-title="closeFiles" title="بستن فایل‌ها" aria-label="بستن فایل‌ها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></div></header>
+          <nav class="navigator-tabs" role="tablist" data-i18n-aria-label="documentNavigation" aria-label="ناوبری سند">
+            <button id="navigator-tab-files" type="button" role="tab" aria-selected="true" aria-controls="navigator-panel-files" data-navigator-tab="files" data-i18n="files">فایل‌ها</button>
+            <button id="navigator-tab-outline" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-outline" tabindex="-1" data-navigator-tab="outline" data-i18n="outline">ساختار</button>
+          </nav>
+          <div class="navigator-content" id="navigator-panel-files" role="tabpanel" aria-labelledby="navigator-tab-files"><section class="navigator-section"><h2 data-i18n="openDocumentList">اسناد باز</h2><div class="open-document-list" id="open-document-list" data-i18n-aria-label="openDocumentList" aria-label="اسناد باز"></div></section><section class="navigator-section navigator-project-section hidden" id="navigator-project-section"><header><h2 data-i18n="projectFiles">فایل‌های پروژه</h2></header><strong class="navigator-project-name" id="navigator-project-name"></strong><div class="navigator-project-files" id="navigator-project-files"><div class="project-file-tree" id="project-file-tree"></div></div></section></div>
+          <section class="navigator-outline-panel" id="sidebar-panel-outline" role="tabpanel" aria-labelledby="navigator-tab-outline" hidden>
+            <header><strong data-i18n="documentOutline">ساختار سند</strong><span id="outline-count">0</span></header>
+            <div class="outline-controls"><input id="outline-filter" type="search" data-i18n-placeholder="filterOutline" data-i18n-aria-label="filterOutline" aria-label="یافتن عنوان">
+              <button id="outline-expand-all" type="button" class="toolbar-icon-button" data-i18n-title="expandOutline" data-i18n-aria-label="expandOutline" aria-label="بازکردن عنوان‌ها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
+              <button id="outline-collapse-all" type="button" class="toolbar-icon-button" data-i18n-title="collapseOutline" data-i18n-aria-label="collapseOutline" aria-label="بستن زیرعنوان‌ها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-up"></use></svg></button>
+            </div>
+            <label class="outline-follow"><input id="outline-follow" type="checkbox"><span data-i18n="followOutline">دنبال‌کردن بخش جاری</span></label>
+            <div class="outline-navigator" id="outline-list"></div>
+          </section>
           <footer class="navigator-footer"><button class="button secondary compact" id="navigator-open-project" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg><span data-i18n="openProject">باز کردن پروژه</span></button><span class="navigator-quick-hint"><span data-i18n="quickOpen">رفتن به فایل</span><kbd>Ctrl P</kbd></span></footer>
         </aside>
         <div class="pane-resizer file-resizer" id="file-resizer" role="separator" aria-orientation="vertical" aria-controls="file-navigator" aria-valuemin="208" aria-valuemax="360" aria-valuenow="248" data-i18n-aria-label="resizeFiles" aria-label="عرض فایل‌ها" tabindex="0"></div>
@@ -256,27 +272,10 @@
             <button type="button" class="view-mode" data-view-mode="read" role="radio" aria-checked="false" data-i18n="viewRead" data-i18n-title="readModeHelp" title="مرور سند بدون تغییر متن">خواندن</button>
           </div>
           <div class="view-layout-actions">
-            <button type="button" id="workspace-toggle-preview" class="view-mode" aria-pressed="false" aria-controls="preview-pane" data-i18n="sidePreview" data-i18n-title="sidePreviewHelp" title="نمایش همان سند کنار متن قابل ویرایش">پیش‌نمایش کنار متن</button>
+            <button type="button" id="workspace-toggle-preview" class="view-mode" aria-pressed="false" aria-controls="preview-pane" data-i18n-aria-label="sidePreview" data-i18n-title="sidePreviewHelp" title="نمایش همان سند کنار متن قابل ویرایش"><svg class="ui-icon side-preview-icon" aria-hidden="true"><use href="#icon-panel-right"></use></svg><span data-i18n="sidePreview">پیش‌نمایش کنار متن</span></button>
             <button type="button" class="toolbar-icon-button" id="document-mode-help" aria-haspopup="dialog" data-i18n-title="viewGuide" data-i18n-aria-label="viewGuide" title="راهنمای نماها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-help"></use></svg></button>
           </div>
           </div>
-          <div class="document-toolbar-actions">
-            <div class="document-view-controls" role="group" data-i18n-aria-label="documentView" aria-label="نمای سند">
-              <button type="button" class="document-width-button" id="document-toggle-width" aria-pressed="false"><span id="document-width-label">تمام عرض</span></button>
-              <div class="document-text-zoom" role="group" data-i18n-aria-label="documentTextSize" aria-label="اندازه متن سند">
-                <button type="button" id="document-zoom-out" data-i18n-title="decreaseDocumentText" title="کوچک‌تر کردن متن (Ctrl+-)" aria-keyshortcuts="Control+- Meta+-"><span aria-hidden="true">A-</span></button>
-                <button type="button" id="document-zoom-reset" title="اندازه پیش‌فرض متن (Ctrl+0)" aria-keyshortcuts="Control+0 Meta+0">100%</button>
-                <button type="button" id="document-zoom-in" data-i18n-title="increaseDocumentText" title="بزرگ‌تر کردن متن (Ctrl++)" aria-keyshortcuts="Control+Plus Meta+Plus"><span aria-hidden="true">A+</span></button>
-              </div>
-            </div>
-            <button type="button" id="insert-menu-button" class="toolbar-icon-button insert-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="insert-menu" data-i18n-title="insertMenu" title="درج" data-i18n-aria-label="insertMenu" aria-label="درج"><svg class="ui-icon" aria-hidden="true"><use href="#icon-insert"></use></svg><span class="toolbar-action-label" data-i18n="insertMenu">درج</span></button>
-            <button class="toolbar-icon-button formatting-toggle" id="workspace-toggle-formatting" type="button" aria-controls="format-bar" aria-pressed="false" data-i18n-title="formattingTools" title="ابزارهای قالب‌بندی" aria-label="ابزارهای قالب‌بندی"><span aria-hidden="true">Aa</span><span class="toolbar-action-label" data-i18n="format">قالب‌بندی</span></button>
-            <button class="toolbar-icon-button" type="button" id="format-find" data-i18n-title="find" title="جست‌وجو" aria-label="جست‌وجو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg></button>
-            <button class="toolbar-icon-button" id="workspace-focus" type="button" aria-pressed="false" data-i18n-title="focusMode" title="حالت تمرکز" aria-label="حالت تمرکز"><svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg></button>
-            <button class="toolbar-icon-button" id="workspace-toggle-sidebar" type="button" aria-controls="author-sidebar" aria-pressed="false" data-i18n-title="toggleDocumentTools" title="ابزارهای سند" aria-label="ابزارهای سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-panel-right"></use></svg></button>
-          </div>
-        </div>
-        <button class="button secondary compact focus-exit" id="exit-focus-mode" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg><span data-i18n="exitFocusMode">خروج از تمرکز</span><kbd>Esc</kbd></button>
         <div class="format-bar" id="format-bar" role="toolbar" data-i18n-aria-label="formattingTools" aria-label="ابزارهای قالب‌بندی">
               <div class="format-group">
                 <button type="button" id="heading-menu-button" class="format-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="heading-menu" data-i18n-title="heading" title="عنوان">H<svg class="ui-icon format-caret" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
@@ -309,6 +308,33 @@
                 <button type="button" id="format-overflow-button" aria-haspopup="true" aria-expanded="false" aria-controls="format-overflow-menu" data-i18n-title="moreTools" title="ابزارهای بیشتر" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more"></use></svg></button>
               </div>
               </div>
+          <div class="document-toolbar-actions">
+            <div class="document-view-controls" role="group" data-i18n-aria-label="documentView" aria-label="نمای سند">
+              <button type="button" class="document-width-button" id="document-toggle-width" aria-pressed="false"><span id="document-width-label">تمام عرض</span></button>
+              <div class="document-text-zoom" role="group" data-i18n-aria-label="documentTextSize" aria-label="اندازه متن سند">
+                <button type="button" id="document-zoom-out" data-i18n-title="decreaseDocumentText" title="کوچک‌تر کردن متن (Ctrl+-)" aria-keyshortcuts="Control+- Meta+-"><span aria-hidden="true">A-</span></button>
+                <button type="button" id="document-zoom-reset" title="اندازه پیش‌فرض متن (Ctrl+0)" aria-keyshortcuts="Control+0 Meta+0">100%</button>
+                <button type="button" id="document-zoom-in" data-i18n-title="increaseDocumentText" title="بزرگ‌تر کردن متن (Ctrl++)" aria-keyshortcuts="Control+Plus Meta+Plus"><span aria-hidden="true">A+</span></button>
+              </div>
+            </div>
+            <button type="button" id="writing-appearance-button" class="toolbar-icon-button" aria-expanded="false" aria-controls="writing-appearance" data-i18n-title="writingAppearance" data-i18n-aria-label="writingAppearance" aria-label="ظاهر متن"><span aria-hidden="true">Aa</span></button>
+            <button type="button" id="workspace-writing-layout" class="toolbar-icon-button" data-i18n-title="writerLayoutHelp" data-i18n-aria-label="writerLayout" aria-label="چیدمان نوشتن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-pencil"></use></svg><span data-i18n="writerLayout">چیدمان نوشتن</span></button>
+            <button type="button" id="insert-menu-button" class="toolbar-icon-button insert-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="insert-menu" data-i18n-title="insertMenu" title="درج" data-i18n-aria-label="insertMenu" aria-label="درج"><svg class="ui-icon" aria-hidden="true"><use href="#icon-insert"></use></svg><span class="toolbar-action-label" data-i18n="insertMenu">درج</span></button>
+            <button class="toolbar-icon-button formatting-toggle" id="workspace-toggle-formatting" type="button" aria-controls="format-bar" aria-pressed="false" data-i18n-title="formattingTools" title="ابزارهای قالب‌بندی" aria-label="ابزارهای قالب‌بندی"><span aria-hidden="true">Aa</span><span class="toolbar-action-label" data-i18n="format">قالب‌بندی</span></button>
+            <button class="toolbar-icon-button" type="button" id="format-find" data-i18n-title="find" title="جست‌وجو" aria-label="جست‌وجو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg></button>
+            <button class="toolbar-icon-button" id="workspace-focus" type="button" aria-pressed="false" data-i18n-title="focusMode" title="حالت تمرکز" aria-label="حالت تمرکز"><svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg></button>
+            <button class="toolbar-icon-button" id="workspace-toggle-sidebar" type="button" aria-controls="author-sidebar" aria-pressed="false" data-i18n-title="toggleDocumentTools" title="ابزارهای سند" aria-label="ابزارهای سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-panel-right"></use></svg></button>
+          </div>
+        </div>
+        <button class="button secondary compact focus-exit" id="exit-focus-mode" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg><span data-i18n="exitFocusMode">خروج از تمرکز</span><kbd>Esc</kbd></button>
+        <section class="popover-menu writing-appearance hidden" id="writing-appearance" role="group" data-i18n-aria-label="writingAppearance" aria-label="ظاهر متن">
+          <header><strong data-i18n="writingAppearance">ظاهر متن</strong><button id="writing-appearance-close" type="button" class="toolbar-icon-button" data-i18n-aria-label="close" aria-label="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></header>
+          <label><span data-i18n="writingFont">قلم متن</span><select id="writing-font"><option value="document" data-i18n="fontDocument">قلم برنامه</option><option value="system" data-i18n="fontSystem">قلم سیستم</option><option value="serif" data-i18n="fontSerif">قلم کتابی</option></select></label>
+          <label><span data-i18n="writingDensity">فاصلهٔ متن</span><select id="writing-density"><option value="compact" data-i18n="densityCompact">فشرده</option><option value="comfortable" data-i18n="densityComfortable">معمولی</option><option value="relaxed" data-i18n="densityRelaxed">بازتر</option></select></label>
+          <label><span data-i18n="documentTextSize">اندازه متن سند</span><input id="writing-zoom" type="range" min="60" max="200" step="10"><output id="writing-zoom-label" for="writing-zoom">100%</output></label>
+          <p data-i18n="writingAppearanceHelp">این تنظیم فقط ظاهر متن در محیط کار را تغییر می‌دهد.</p>
+          <button id="writing-appearance-reset" type="button" class="text-button" data-i18n="resetWritingAppearance">بازنشانی ظاهر متن</button>
+        </section>
         <div class="popover-menu format-overflow-menu hidden" id="format-overflow-menu" role="group" data-i18n-aria-label="moreTools" aria-label="ابزارهای بیشتر"></div>
         <!-- Every block construct the engine publishes, in one menu.
              Quote, callout, table, code block and divider used to be five more
@@ -380,8 +406,8 @@
           <nav class="sidebar-tabs" role="tablist" data-i18n-aria-label="documentTools" aria-label="ابزارهای سند" aria-orientation="horizontal">
             <button id="sidebar-tab-project" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-project" tabindex="-1" data-i18n-title="projectWorkspace" data-sidebar="project"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-folder"></use></svg></span><span class="sidebar-tab-label" data-i18n="projectWorkspace">پروژه</span></button>
             <button id="sidebar-tab-book" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-book" tabindex="-1" data-i18n-title="bookProject" data-sidebar="book"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-book"></use></svg></span><span class="sidebar-tab-label" data-i18n="bookProject">کتاب</span></button>
-            <button class="active" id="sidebar-tab-outline" type="button" role="tab" aria-selected="true" aria-controls="sidebar-panel-outline" tabindex="0" data-i18n-title="outline" data-sidebar="outline"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-outline"></use></svg></span><span class="sidebar-tab-label" data-i18n="outline">ساختار</span></button>
-            <button id="sidebar-tab-frontmatter" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-frontmatter" tabindex="-1" data-i18n-title="frontMatter" data-sidebar="frontmatter"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-metadata"></use></svg></span><span class="sidebar-tab-label" data-i18n="frontMatter">مشخصات</span></button>
+
+            <button id="sidebar-tab-frontmatter" type="button" role="tab" aria-selected="true" aria-controls="sidebar-panel-frontmatter" tabindex="-1" data-i18n-title="frontMatter" data-sidebar="frontmatter"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-metadata"></use></svg></span><span class="sidebar-tab-label" data-i18n="frontMatter">مشخصات</span></button>
             <button id="sidebar-tab-assets" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-assets" tabindex="-1" data-i18n-title="assets" data-sidebar="assets"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-image"></use></svg></span><span class="sidebar-tab-label" data-i18n="assets">فایل‌ها</span></button>
             <button id="sidebar-tab-citations" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-citations" tabindex="-1" data-i18n-title="citations" data-sidebar="citations"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-citation"></use></svg></span><span class="sidebar-tab-label" data-i18n="citations">منابع</span></button>
             <button id="sidebar-tab-problems" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-problems" tabindex="-1" data-i18n-title="problems" data-sidebar="problems"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-alert"></use></svg></span><span class="sidebar-tab-label" data-i18n="problems">اشکال‌ها</span><span class="sidebar-tab-badge hidden" id="sidebar-problem-badge">0</span></button>
@@ -435,10 +461,6 @@
               </div>
               <div class="tool-list book-chapter-list" id="book-chapter-list"></div>
             </div>
-          </section>
-          <section class="sidebar-panel active" id="sidebar-panel-outline" role="tabpanel" aria-labelledby="sidebar-tab-outline" aria-hidden="false" data-panel="outline">
-            <header><strong data-i18n="documentOutline">ساختار سند</strong><span id="outline-count">0</span></header>
-            <div class="tool-list" id="outline-list"></div>
           </section>
           <section class="sidebar-panel" id="sidebar-panel-frontmatter" role="tabpanel" aria-labelledby="sidebar-tab-frontmatter" aria-hidden="true" data-panel="frontmatter">
             <header><strong data-i18n="frontMatter">مشخصات سند</strong></header>

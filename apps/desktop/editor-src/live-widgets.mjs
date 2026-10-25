@@ -25,7 +25,7 @@
  * is drawn; the one exception is the task checkbox, which is a control the user
  * clicks, and which edits exactly the characters between its brackets.
  */
-import { RangeSetBuilder, StateField } from "@codemirror/state";
+import { Facet, RangeSetBuilder, StateField } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 
@@ -107,6 +107,81 @@ const LINE_HEIGHT = 26;
  * constants exists to prevent. */
 const TABLE_BLOCK_PADDING = 27;
 const FRONT_MATTER_BLOCK_PADDING = 16;
+
+/** The host supplies its existing offline renderer; the bundle owns no URL. */
+export const mathRenderer = Facet.define({
+  combine: (values) => values.length ? values[0] : null,
+});
+
+export class MathWidget extends WidgetType {
+  constructor(markup, from, to, display, renderMath) {
+    super();
+    this.markup = markup;
+    this.from = from;
+    this.to = to;
+    this.display = display;
+    this.renderMath = renderMath;
+  }
+
+  eq(other) {
+    return other.markup === this.markup && other.from === this.from
+      && other.to === this.to && other.display === this.display
+      && other.renderMath === this.renderMath;
+  }
+
+  get estimatedHeight() {
+    return this.display ? 64 : -1;
+  }
+
+  toDOM(view) {
+    const wrapper = document.createElement(this.display ? "div" : "span");
+    wrapper.className = `cm-md-math-preview${this.display ? " cm-md-math-block-preview" : ""}`;
+    const formula = document.createElement("span");
+    formula.className = `math ${this.display ? "display" : "inline"}`;
+    formula.textContent = this.markup;
+    formula.dir = "ltr";
+    wrapper.append(formula);
+    const isCurrent = () => wrapper.isConnected && wrapper.dataset.disposed !== "true"
+      && view.dom.contains(wrapper)
+      && view.state.doc.sliceString(this.from, this.to) === this.markup;
+    wrapper.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const contentStart = this.display ? Math.max(2, this.markup.indexOf("\n") + 1) : 1;
+      view.dispatch({ selection: { anchor: Math.min(this.to, this.from + contentStart) }, scrollIntoView: true });
+      view.focus();
+    });
+    // A widget is only created when CodeMirror actually draws it. Wait until
+    // that draw has attached it, then use the shared renderer's bounded queue
+    // and cache. A removed/edited widget cannot accept a late typeset result.
+    requestAnimationFrame(() => {
+      if (!isCurrent()) return;
+      Promise.resolve().then(() => this.renderMath(wrapper, { isCurrent }))
+        .catch(() => {
+          if (isCurrent()) formula.dataset.mathError = "true";
+        }).finally(() => {
+          if (!isCurrent()) return;
+          // MathJax's error SVG can be an empty coloured rectangle. The
+          // editable source is a useful fallback; a broken drawing is not.
+          if (formula.dataset.mathError === "true") {
+            formula.textContent = this.markup;
+            formula.removeAttribute("data-math-rendered");
+          }
+          view.requestMeasure();
+        });
+    });
+    return wrapper;
+  }
+
+  destroy(dom) {
+    dom.dataset.disposed = "true";
+  }
+
+  ignoreEvent() {
+    return false;
+  }
+}
 
 export class TableWidget extends WidgetType {
   constructor(markup, from, to) {
@@ -503,6 +578,14 @@ function buildBlockDecorations(state) {
         ]);
         return false;
       }
+      if (node.name === "BlockMath" && state.facet(mathRenderer)
+          && node.to - node.from <= 16 * 1024 && !spansActiveLine(state, active, node)) {
+        items.push([node.from, node.to, Decoration.replace({
+          widget: new MathWidget(state.doc.sliceString(node.from, node.to), node.from, node.to, true, state.facet(mathRenderer)),
+          block: true,
+        })]);
+        return false;
+      }
       // `Title` over `=====` is one heading occupying two lines. The rule
       // underneath is scaffolding, and hiding only its characters leaves an
       // empty line holding the height of one. Replacing from the end of the
@@ -561,7 +644,8 @@ export function createBlockWidgetField() {
       // character document, for a result identical to the one discarded.
       if (!transaction.docChanged) {
         const key = activeLineKey(transaction.state);
-        if (key === renderedFor) return value;
+        if (key === renderedFor
+            && transaction.startState.facet(mathRenderer) === transaction.state.facet(mathRenderer)) return value;
         renderedFor = key;
       } else {
         renderedFor = activeLineKey(transaction.state);

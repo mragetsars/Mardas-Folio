@@ -19,6 +19,7 @@
  */
 
 import { EditorSelection } from "@codemirror/state";
+import { syntaxTree } from "@codemirror/language";
 
 /** Line prefixes that identify each block command, for toggling off. */
 const BLOCK_PATTERNS = Object.freeze({
@@ -58,6 +59,26 @@ function eachSelectedLine(state, range, callback) {
  */
 function inlineCommand(before, after = before, placeholderKey = "") {
   return (state) => {
+    // A pressed toolbar toggle also works with just a caret inside its span.
+    // The document remains Markdown: remove the surrounding marks rather than
+    // inserting a second placeholder into already formatted text.
+    const inlineNode = { "**": "StrongEmphasis", _: "Emphasis", "~~": "Strikethrough", "`": "InlineCode" }[before];
+    if (inlineNode && before === after && state.selection.ranges.length === 1) {
+      const range = state.selection.main;
+      for (let node = syntaxTree(state).resolveInner(range.from, 1); node; node = node.parent) {
+        if (node.name !== inlineNode || range.from <= node.from || range.to >= node.to) continue;
+        const first = node.firstChild;
+        const last = node.lastChild;
+        if (!first || !last || first === last || first.from !== node.from || last.to !== node.to
+          || !first.name.endsWith("Mark") || !last.name.endsWith("Mark")
+          || range.from < first.to || range.to > last.from) continue;
+        return {
+          changes: [{ from: first.from, to: first.to, insert: "" }, { from: last.from, to: last.to, insert: "" }],
+          selection: EditorSelection.range(range.anchor - (first.to - first.from), range.head - (first.to - first.from)),
+          scrollIntoView: true,
+        };
+      }
+    }
     const changes = [];
     const ranges = [];
     let drift = 0;

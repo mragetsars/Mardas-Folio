@@ -49,12 +49,12 @@ const token = (name, fallback) => `var(--cm-${name}, ${fallback})`;
  */
 export const mardasHighlightStyle = HighlightStyle.define([
   // Markdown structure.
-  { tag: tags.heading1, color: token("heading", "#111111"), fontWeight: "700", fontSize: "1.45em" },
-  { tag: tags.heading2, color: token("heading", "#111111"), fontWeight: "700", fontSize: "1.25em" },
-  { tag: tags.heading3, color: token("heading", "#111111"), fontWeight: "650", fontSize: "1.1em" },
+  { tag: tags.heading1, color: token("heading", "#111111"), fontWeight: "700", fontSize: "1.6em" },
+  { tag: tags.heading2, color: token("heading", "#111111"), fontWeight: "700", fontSize: "1.3em" },
+  { tag: tags.heading3, color: token("heading", "#111111"), fontWeight: "650", fontSize: "1.15em" },
   { tag: tags.heading4, color: token("heading", "#111111"), fontWeight: "650" },
-  { tag: tags.heading5, color: token("heading", "#111111"), fontWeight: "650" },
-  { tag: tags.heading6, color: token("heading", "#111111"), fontWeight: "650" },
+  { tag: tags.heading5, color: token("heading", "#111111"), fontWeight: "650", fontSize: ".9em" },
+  { tag: tags.heading6, color: token("heading", "#111111"), fontWeight: "650", fontSize: ".85em" },
   { tag: tags.heading, color: token("heading", "#111111"), fontWeight: "650" },
   { tag: tags.strong, color: token("strong", "#000000"), fontWeight: "700" },
   { tag: tags.emphasis, color: token("emphasis", "#111111"), fontStyle: "italic" },
@@ -67,7 +67,7 @@ export const mardasHighlightStyle = HighlightStyle.define([
   // and the panel around it are what say "code". The colours below stay,
   // because inside a parsed language they do encode syntax.
   { tag: tags.monospace, color: token("text", "#111111") },
-  { tag: tags.quote, color: token("quote", "#525252"), fontStyle: "italic" },
+  { tag: tags.quote, color: token("quote", "#525252") },
   // The grammar tags every descendant of a list with `tags.list`, not just the
   // bullet, so colouring this painted whole paragraphs of prose in the accent
   // and made a feature list unreadable next to the plain text above it. List

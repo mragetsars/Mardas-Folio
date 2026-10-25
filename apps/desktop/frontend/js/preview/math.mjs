@@ -119,13 +119,20 @@ export function typesetPreviewMath(container, {
         if (!isCurrent() || !container.contains(element)) break;
         element.dir = "ltr";
         element.setAttribute("aria-label", source);
-        element.replaceChildren(container.ownerDocument.importNode(node, true));
+        const invalid = Boolean(node.querySelector("[data-mjx-error]"));
+        // MathJax can paint an empty error rectangle for malformed TeX.
+        // Preserve readable source rather than replacing it with that box.
+        element.replaceChildren(invalid
+          ? container.ownerDocument.createTextNode(source)
+          : container.ownerDocument.importNode(node, true));
         element.dataset.mathRendered = "true";
-        if (node.querySelector("[data-mjx-error]")) {
+        if (invalid) {
           element.dataset.mathError = "true";
           element.title = errorLabel;
+          failed += 1;
+        } else {
+          rendered += 1;
         }
-        rendered += 1;
       } catch {
         element.dataset.mathError = "true";
         element.title = errorLabel;

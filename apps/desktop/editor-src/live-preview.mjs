@@ -21,6 +21,8 @@ import {
   EntityWidget,
   ImageWidget,
   TaskWidget,
+  MathWidget,
+  mathRenderer,
   blockWidgetRanges,
   createBlockWidgetField,
   parseImage,
@@ -89,6 +91,11 @@ const footnoteDefLine = Decoration.line({ class: "cm-md-footnote-def" });
 /* `[ref]: url "title"` likewise. */
 const linkReferenceLine = Decoration.line({ class: "cm-md-link-reference" });
 const mathBlockLine = Decoration.line({ class: "cm-md-math-block" });
+// A Markdown paragraph separator is still a real, navigable source line. It
+// needs a little breathing room, not a second full row of prose. Keep this a
+// line decoration (never a replacement) so typing, selection and undo use the
+// original buffer and blank lines inside code/math retain their full height.
+const proseSpacerLine = Decoration.line({ class: "cm-md-prose-spacer" });
 
 /**
  * The named character references Markdown documents actually use, plus the
@@ -325,14 +332,20 @@ function buildDecorations(view) {
   const active = activeLines(state);
   const marks = [];
   const lines = [];
+  const verbatimRanges = [];
 
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(state).iterate({
       from,
       to,
       enter: (node) => {
+        if (node.name === "Frontmatter" || node.name === "HTMLBlock") {
+          verbatimRanges.push([node.from, node.to]);
+          return false;
+        }
         // Keep fenced code monospaced even when the surrounding prose is not.
         if (node.name === "FencedCode" || node.name === "CodeBlock") {
+          verbatimRanges.push([node.from, node.to]);
           const opener = state.doc.lineAt(node.from).from;
           const closer = state.doc.lineAt(node.to).from;
           eachLine(state, node, (at) => {
@@ -342,7 +355,11 @@ function buildDecorations(view) {
           return;
         }
         if (node.name === "BlockMath") {
-          eachLine(state, node, (at) => lines.push({ at, deco: mathBlockLine }));
+          verbatimRanges.push([node.from, node.to]);
+          eachLine(state, node, (at) => {
+            lines.push({ at, deco: mathBlockLine });
+          });
+          if (nodeIsActive(state, active, node)) return false;
           return;
         }
         // A definition line is metadata the author still edits, so it is
@@ -405,6 +422,17 @@ function buildDecorations(view) {
           // field in live-widgets.mjs: replacing it takes a line break with
           // it, and a view plugin is not allowed to do that.
           // fall through: the HeaderMark inside still needs hiding
+        }
+
+        if (node.name === "InlineMath" && state.facet(mathRenderer) && node.to - node.from <= 16 * 1024) {
+          const editing = state.selection.ranges.some((range) => range.empty
+            ? range.from >= node.from && range.from <= node.to
+            : range.from < node.to && range.to > node.from);
+          if (editing) return false;
+          marks.push([node.from, node.to, Decoration.replace({
+            widget: new MathWidget(state.doc.sliceString(node.from, node.to), node.from, node.to, false, state.facet(mathRenderer)),
+          })]);
+          return false;
         }
 
         if (node.from === node.to) return;
@@ -600,6 +628,12 @@ function buildDecorations(view) {
     for (let pos = from; pos <= to; ) {
       const line = state.doc.lineAt(pos);
       lines.push({ at: line.from, deco: lineDirection(line.text) });
+      // Leave the final insertion row full size, including a new empty
+      // document. All other blank prose rows stay individually editable.
+      if (line.number < state.doc.lines && !line.text.trim()
+          && !verbatimRanges.some(([from, to]) => line.from >= from && line.from <= to)) {
+        lines.push({ at: line.from, deco: proseSpacerLine });
+      }
       pos = line.to + 1;
     }
   }
@@ -658,6 +692,7 @@ const livePreviewPlugin = ViewPlugin.fromClass(
     update(update) {
       if (update.docChanged || update.viewportChanged || update.selectionSet
         || update.startState.facet(assetResolver) !== update.state.facet(assetResolver)
+        || update.startState.facet(mathRenderer) !== update.state.facet(mathRenderer)
         || update.startState.facet(editorStrings) !== update.state.facet(editorStrings)) {
         this.decorations = buildDecorations(update.view);
         // Heading lines carry vertical padding, which changes their box height.
@@ -777,13 +812,14 @@ export function normalizeEditorMode(value) {
  * answers a direction like any other, so the exclusion cost correctness for a
  * risk that was not there.
  */
-export function editorModeExtension(mode, { resolveAsset, strings } = {}) {
+export function editorModeExtension(mode, { resolveAsset, strings, renderMath } = {}) {
   const perLineDirection = EditorView.perLineTextDirection.of(true);
   return normalizeEditorMode(mode) === "live"
     ? [
         createBlockWidgetField(),
         assetResolver.of(resolveAsset || (() => null)),
         editorStrings.of(strings || {}),
+        mathRenderer.of(typeof renderMath === "function" ? renderMath : null),
         livePreviewPlugin,
         perLineDirection,
       ]

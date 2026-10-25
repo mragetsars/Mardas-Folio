@@ -191,7 +191,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     page.locator("#workspace-toggle-sidebar").click()
     expect(page.locator("#author-sidebar")).to_be_visible()
     expect(page.locator("#file-navigator")).to_be_visible()
-    page.locator('[data-sidebar="outline"]').click()
+    page.locator('#navigator-tab-outline').click()
     expect(page.locator("#outline-list")).to_contain_text("بخش دوم")
     inspector_width = page.locator(".editor-pane").bounding_box()["width"]
     page.locator("#inspector-close").click()
@@ -200,6 +200,8 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     if page.locator(".editor-pane").bounding_box()["width"] <= inspector_width:
         raise AssertionError("Closing the inspector did not reclaim document width")
     checks.append("independent-explorer-inspector-and-space-reclamation")
+
+    page.locator('#navigator-tab-files').click()
 
     navigator_item(page, 0).click()
     expect(mirror(page)).to_have_value(CONTENT_A)
@@ -289,7 +291,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     navigator_item(page, 1).click()
     expect(page.locator("#reading-document")).to_contain_text("UNIQUE_BETA")
     page.locator("#workspace-toggle-sidebar").click()
-    page.locator('[data-sidebar="outline"]').click()
+    page.locator('#navigator-tab-outline').click()
     page.locator("#outline-list button").last.focus()
     page.keyboard.press("Enter")
     expect(editor(page)).to_be_hidden()

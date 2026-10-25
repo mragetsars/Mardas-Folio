@@ -37,6 +37,8 @@ import {
 import { mathAndFootnotes } from "./markdown-extras.mjs";
 import { frontmatter } from "./markdown-frontmatter.mjs";
 import { typewriterExtension } from "./typewriter.mjs";
+import { markdownFormattingState } from "./formatting-state.mjs";
+import { moveAcrossCompressedSpacer } from "./vertical-navigation.mjs";
 
 const MAX_COMPLETIONS = 500;
 
@@ -287,6 +289,7 @@ export function createCodeMirrorEditorAdapter(
     strings,
     onSelectionChange,
     resolveAsset,
+    renderMath,
     theme,
     mode,
     locale = "en",
@@ -344,6 +347,8 @@ export function createCodeMirrorEditorAdapter(
         }),
         Prec.highest(keymap.of([
           ...markdownCommandKeymap(),
+          { key: "ArrowDown", run: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, true), shift: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, true, true) },
+          { key: "ArrowUp", run: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, false), shift: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, false, true) },
           { key: "Enter", run: exitEmptyBlock },
         ])),
         Prec.high(keymap.of(markdownKeymap)),
@@ -354,7 +359,7 @@ export function createCodeMirrorEditorAdapter(
           override: [completionSource(getCompletions, () => editorLocale)],
         }),
   ];
-  const previewExtensions = (resolver = resolveAsset) => editorModeExtension(markdownDocument ? editorMode : "source", { resolveAsset: resolver, strings: editorText });
+  const previewExtensions = (resolver = resolveAsset) => editorModeExtension(markdownDocument ? editorMode : "source", { resolveAsset: resolver, strings: editorText, renderMath });
   const selectionExtensions = () => selectionToolbarExtension(editorLocale, markdownDocument && editorMode === "live");
   const extensions = [
         basicSetup,
@@ -524,6 +529,9 @@ export function createCodeMirrorEditorAdapter(
       // the document. Retain the current document position while remeasuring.
       view.dispatch({ effects: view.scrollSnapshot() });
       view.requestMeasure();
+    },
+    getFormattingState() {
+      return markdownDocument ? markdownFormattingState(view.state) : {};
     },
     refreshAssets() {
       // Newly referenced files are granted asynchronously by the native host.

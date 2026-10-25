@@ -7,6 +7,8 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   contentScale: "comfortable",
   writingWidth: "full",
   documentZoom: 100,
+  writingDensity: "comfortable",
+  writingFont: "document",
   reducedMotion: "system",
   autoPreview: true,
   viewMode: "write",
@@ -26,6 +28,12 @@ export const DEFAULT_PREFERENCES = Object.freeze({
 const THEMES = new Set(["system", "light", "dark"]);
 const SCALES = new Set(["comfortable", "large", "extra-large"]);
 const WRITING_WIDTHS = new Set(["full", "readable", "wide"]);
+const WRITING_DENSITIES = { compact: [1.5, 4], comfortable: [1.65, 8], relaxed: [1.85, 14] };
+const WRITING_FONTS = {
+  document: 'var(--app-font)',
+  system: '"Segoe UI Variable", "Segoe UI", Tahoma, sans-serif',
+  serif: 'Georgia, "Noto Naskh Arabic", "Vazirmatn", serif',
+};
 const LEGACY_ZOOM = { comfortable: 100, large: 112, "extra-large": 124 };
 export const DOCUMENT_ZOOM_MIN = 60;
 export const DOCUMENT_ZOOM_MAX = 200;
@@ -63,6 +71,8 @@ export function normalizePreferences(value = {}) {
     // readable column has its own value so a new explicit choice is retained.
     writingWidth: WRITING_WIDTHS.has(value?.writingWidth) ? value.writingWidth : DEFAULT_PREFERENCES.writingWidth,
     documentZoom: normalizeDocumentZoom(value?.documentZoom, LEGACY_ZOOM[value?.contentScale] || DEFAULT_PREFERENCES.documentZoom),
+    writingDensity: Object.hasOwn(WRITING_DENSITIES, value?.writingDensity) ? value.writingDensity : DEFAULT_PREFERENCES.writingDensity,
+    writingFont: Object.hasOwn(WRITING_FONTS, value?.writingFont) ? value.writingFont : DEFAULT_PREFERENCES.writingFont,
     reducedMotion: MOTION.has(value?.reducedMotion) ? value.reducedMotion : DEFAULT_PREFERENCES.reducedMotion,
     autoPreview: booleanValue(value?.autoPreview, DEFAULT_PREFERENCES.autoPreview),
     viewMode: value?.viewMode === "split" ? "source" : VIEW_MODES.has(value?.viewMode) ? value.viewMode : DEFAULT_PREFERENCES.viewMode,
@@ -120,6 +130,11 @@ export function applyPreferences(documentElement, value, matchMedia = globalThis
   documentElement.dataset.writingWidth = normalized.writingWidth;
   documentElement.dataset.documentZoom = String(normalized.documentZoom);
   documentElement.style?.setProperty("--document-text-scale", String(normalized.documentZoom / 100));
+  documentElement.dataset.writingDensity = normalized.writingDensity;
+  const [lineHeight, paragraphGap] = WRITING_DENSITIES[normalized.writingDensity];
+  documentElement.style?.setProperty("--writing-line-height", String(lineHeight));
+  documentElement.style?.setProperty("--writing-paragraph-gap", `${paragraphGap}px`);
+  documentElement.style?.setProperty("--writing-font-family", WRITING_FONTS[normalized.writingFont]);
   documentElement.dataset.reducedMotion = resolvedReducedMotion(normalized.reducedMotion, matchMedia) ? "reduce" : "full";
   documentElement.dataset.focusMode = String(normalized.focusMode);
   documentElement.dataset.typewriter = String(normalized.typewriter);

@@ -194,7 +194,8 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     expect(page.locator('button[data-view-mode]')).to_have_count(3)
                     expect(page.locator("#insert-menu-button")).to_be_visible()
                     expect(page.locator("#workspace-toggle-formatting")).to_be_visible()
-                    page.locator("#workspace-toggle-formatting").click()
+                    if page.locator("#workspace-toggle-formatting").get_attribute("aria-pressed") != "true":
+                        page.locator("#workspace-toggle-formatting").click()
                     expect(page.locator("#format-bar")).to_be_visible()
                     _append(page, "\nHIDDEN_WORK_MARKER\n")
                     page.wait_for_timeout(900)

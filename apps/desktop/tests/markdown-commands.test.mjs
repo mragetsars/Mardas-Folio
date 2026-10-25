@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import { EditorSelection, EditorState } from "@codemirror/state";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 
 import {
   MARKDOWN_COMMANDS,
@@ -55,6 +56,22 @@ test("pressing bold on bold text removes the emphasis", () => {
   const inside = "hello **world**";
   const start = inside.indexOf("**");
   assert.equal(apply("bold", inside, start, inside.length).text, "hello world");
+});
+
+test("a pressed inline format can be removed at its caret without adding a placeholder", () => {
+  for (const [command, text, expected, from] of [
+    ["bold", "hello **world**", "hello world", 10],
+    ["bold", "hello __world__", "hello world", 10],
+    ["italic", "hello _world_", "hello world", 9],
+    ["code", "hello ``world``", "hello world", 10],
+  ]) {
+    const state = EditorState.create({ doc: text, selection: EditorSelection.cursor(from),
+      extensions: [markdown({ base: markdownLanguage })] });
+    const next = state.update(MARKDOWN_COMMANDS[command](state)).state;
+    assert.equal(next.doc.toString(), expected);
+    assert.equal(next.selection.main.empty, true);
+    assert.equal(next.doc.sliceString(next.selection.main.head - 1, next.selection.main.head), "o");
+  }
 });
 
 test("a list applies, converts and clears across every selected line", () => {

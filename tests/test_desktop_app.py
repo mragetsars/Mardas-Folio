@@ -376,10 +376,15 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     preview_loading = soup.select_one("#preview-loading")
     assert preview_loading is not None and preview_loading.get("role") == "status"
     tabs = sidebar.select(".sidebar-tabs [data-sidebar]")
-    assert len(tabs) == 7
+    assert len(tabs) == 6
     assert all(tab.get("role") == "tab" for tab in tabs)
     assert all(tab.get("aria-controls") for tab in tabs)
-    assert len(sidebar.select("[role='tabpanel']")) == 7
+    assert len(sidebar.select("[role='tabpanel']")) == 6
+    navigator = soup.select_one("#file-navigator")
+    assert navigator is not None
+    assert [tab.get("data-navigator-tab") for tab in navigator.select("[role='tab']")] == ["files", "outline"]
+    assert navigator.select_one("#outline-list") is not None
+    assert sidebar.select_one("#outline-list") is None
 
     sidebar_toggle = soup.select_one("#workspace-toggle-sidebar")
     assert sidebar_toggle is not None
@@ -428,7 +433,7 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     assert 'previewResizer.setAttribute("aria-valuenow"' in main
     assert 'document.body.dataset.view = name' in main
     assert soup.select_one("#mardas-ui-icons") is not None
-    assert len(sidebar.select(".sidebar-tab-icon .ui-icon")) == 7
+    assert len(sidebar.select(".sidebar-tab-icon .ui-icon")) == 6
     assert 'body[data-view="workspace"] main' in workspace_css
     assert 'var(--files-track) var(--files-divider) minmax(0, 1fr)' in workspace_css
     assert 'var(--preview-divider) var(--preview-track) var(--sidebar-divider) var(--sidebar-track)' in workspace_css

@@ -1,0 +1,69 @@
+/* Long-form authoring rhythm. This layer follows workspace.css so the
+   surrounding application and the document can evolve independently. */
+:root {
+  --editor-prose-size: 17px;
+  --writing-line-height: 1.65;
+  --writing-paragraph-gap: 12px;
+  --writing-font-family: var(--app-font);
+}
+
+body[data-view="workspace"] .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-content {
+  font-family: var(--writing-font-family);
+  font-size: calc(var(--editor-prose-size) * var(--document-text-scale, 1));
+  line-height: var(--writing-line-height);
+  padding-block-start: 24px;
+}
+
+/* Blank Markdown rows remain DOM lines, with a caret, selection and a real
+   height. They are never display:none or replaced by decorative widgets. */
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-prose-spacer {
+  font-size: min(1em, max(12px, calc(var(--writing-paragraph-gap) * var(--document-text-scale, 1))));
+  line-height: max(12px, calc(var(--writing-paragraph-gap) * var(--document-text-scale, 1)));
+  min-height: max(12px, calc(var(--writing-paragraph-gap) * var(--document-text-scale, 1)));
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-heading {
+  line-height: 1.4;
+}
+.codemirror-mount .cm-editor[data-editor-mode="live"] :is(.cm-md-h1, .cm-md-h2) { line-height: 1.4; }
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-list-line { padding-block: 0; }
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-line { font-style: normal; }
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line { font-size: calc(14px * var(--document-text-scale, 1)); }
+.cm-md-math-preview { display: inline-block; max-width: 100%; direction: ltr; unicode-bidi: isolate; cursor: text; }
+.cm-md-math-preview .math { direction: ltr; unicode-bidi: isolate; font-family: "Cambria Math", serif; }
+.cm-md-math-preview .math.inline { display: inline; }
+.cm-md-math-block-preview { display: block; padding-block: 10px; }
+.cm-md-math-block-preview .math { display: block; overflow: auto; text-align: center; }
+.cm-md-math-preview mjx-container { display: inline-block; margin: 0; line-height: 0; text-indent: 0; }
+.cm-md-math-preview mjx-container > svg { overflow: visible; }
+.cm-md-math-preview [data-math-error] { color: var(--ui-danger); font-family: var(--app-mono); white-space: pre-wrap; text-decoration: underline dotted; text-underline-offset: 3px; }
+
+/* Read, side preview and whole-book review share this exact content layer.
+   Column width may wrap text differently; their typography is the same. */
+.document-content {
+  font-family: var(--writing-font-family);
+  font-size: calc(var(--editor-prose-size) * var(--document-text-scale, 1));
+  line-height: var(--writing-line-height);
+}
+.document-content :is(h1, h2, h3, h4, h5, h6) {
+  line-height: 1.4;
+  margin-block: 1em .45em;
+}
+.document-content h1 { font-size: 1.6em; }
+.document-content h2 { font-size: 1.3em; }
+.document-content h3 { font-size: 1.15em; }
+.document-content p { margin-block: 0 var(--writing-paragraph-gap); }
+.document-content :is(ul, ol) { margin-block: 0 var(--writing-paragraph-gap); }
+.document-content li { margin-block: .1em; }
+.document-content blockquote { margin-block: var(--writing-paragraph-gap); }
+.document-content blockquote p:last-child { margin-block-end: 0; }
+.document-content :is(.reading-document, .preview-document) { padding-block-start: 24px; }
+
+body[data-view="workspace"] :is(.reading-document, .preview-document) { padding-block-start: 24px; }
+html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-mode="live"] .cm-content,
+html[data-focus-mode="true"] body[data-view="workspace"] .reading-document { padding-block-start: 70px; }
+
+@media (max-width: 640px) {
+  body[data-view="workspace"] .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-content,
+  body[data-view="workspace"] :is(.reading-document, .preview-document) { padding-block-start: 20px; }
+}

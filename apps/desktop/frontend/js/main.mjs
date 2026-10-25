@@ -54,6 +54,8 @@ import {
   projectContextCurrent,
 } from "./core/request-context.mjs";
 import { createSaveCoordinator } from "./core/save-coordinator.mjs";
+import { createOutlineNavigator } from "./core/outline-navigator.mjs";
+import { createDocumentMetrics } from "./core/document-metrics.mjs";
 import { createConfirmationQueue } from "./core/confirmation-queue.mjs";
 import { saveDocumentsBeforeUpdate } from "./core/update-preparation.mjs";
 import { prepareBookFiles } from "./core/book-preparation.mjs";
@@ -140,7 +142,7 @@ const state = {
   assetSequence: 0,
   pendingRecovery: null,
   recoveryQueue: [],
-  activeSidebar: "outline",
+  activeSidebar: "frontmatter",
   project: null,
   projectGeneration: 0,
   projectRequestSequence: 0,
@@ -173,6 +175,9 @@ const state = {
   updateTotal: 0,
 };
 let editorAdapter = null;
+let outlineNavigator = null;
+let outlineLocale = null;
+const documentMetrics = createDocumentMetrics();
 let modalManager = null;
 let navigationPicker = null;
 const documentImageScopes = new WeakMap();
@@ -354,6 +359,10 @@ function resolveEditorAsset(source) {
  * reviews the same content. Side preview compares either editing view with it.
  */
 function applyViewMode() {
+  toggleHeadingMenu(false);
+  toggleInsertMenu(false);
+  toggleFormatOverflowMenu(false);
+  toggleWritingAppearance(false);
   const mode = effectiveViewMode();
   editorAdapter?.setMode?.(editorModeForView(mode));
   editorAdapter?.setReadOnly?.(Boolean(activeDocument()?.readOnly) || mode === "read" || state.updateInstalling || Boolean(state.bookPreparing));
@@ -440,6 +449,11 @@ function updatePreference(next, { persist = true } = {}) {
 }
 
 function renderDocumentViewControls() {
+  if ($("#writing-font")) $("#writing-font").value = state.preferences.writingFont;
+  if ($("#writing-density")) $("#writing-density").value = state.preferences.writingDensity;
+  for (const selector of ["#writing-font", "#writing-density"]) if ($(selector)) $(selector).disabled = effectiveViewMode() === "source";
+  if ($("#writing-zoom")) $("#writing-zoom").value = String(state.preferences.documentZoom);
+  if ($("#writing-zoom-label")) $("#writing-zoom-label").textContent = `${state.preferences.documentZoom}%`;
   const zoom = state.preferences.documentZoom;
   const reset = $("#document-zoom-reset");
   if (reset) {
@@ -501,6 +515,40 @@ function applyWorkspaceLayout({ persist = false } = {}) {
   if (sidebarButton) sidebarButton.setAttribute("aria-pressed", String(state.workspaceLayout.sidebarOpen));
   if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.sidebarWidth));
   if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.previewWidth));
+  applyNavigatorContext();
+}
+
+function applyNavigatorContext() {
+  const markdown = isMarkdownModel(activeDocument());
+  const tab = markdown ? state.workspaceLayout.navigatorTab : "files";
+  for (const button of $$("[data-navigator-tab]")) {
+    const active = button.dataset.navigatorTab === tab;
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+    button.disabled = button.dataset.navigatorTab === "outline" && !markdown;
+  }
+  for (const [name, selector] of [["files", "#navigator-panel-files"], ["outline", "#sidebar-panel-outline"]]) {
+    const panel = $(selector);
+    if (panel) { panel.hidden = tab !== name; panel.inert = tab !== name; }
+  }
+  $(".navigator-footer")?.classList.toggle("hidden", tab === "outline");
+}
+
+function activateNavigator(name) {
+  if (name === "outline" && !isMarkdownModel(activeDocument())) return;
+  state.workspaceLayout.navigatorTab = name;
+  state.workspaceLayout.filesOpen = true;
+  if (matchMedia("(max-width: 1100px)").matches) state.workspaceLayout.sidebarOpen = false;
+  applyWorkspaceLayout({ persist: true });
+}
+
+function useWriterLayout() {
+  if (!isMarkdownModel(activeDocument())) return;
+  state.workspaceLayout = { ...state.workspaceLayout, filesOpen: true, navigatorTab: "outline", sidebarOpen: false, formattingOpen: true };
+  updatePreference({ viewMode: "write", sidePreview: false });
+  applyWorkspaceLayout({ persist: true });
+  requestAnimationFrame(syncFormatBarOverflow);
+  focusDocument();
 }
 
 function toggleWorkspacePane(name) {
@@ -2230,39 +2278,34 @@ function updateLineGutter() {
 }
 
 function updateEditorMetrics() {
-  const editor = currentEditor();
-  const metrics = textMetrics(editor.value, editor.selectionStart);
+  const model = activeDocument();
+  const position = editorAdapter?.lineAtOffset?.() || textMetrics(model?.content || "", currentEditor().selectionStart);
+  const metrics = documentMetrics(model, position);
   $("#cursor-status").textContent = `${t("lineShort")} ${metrics.line}, ${t("columnShort")} ${metrics.column}`;
   $("#word-status").textContent = `${metrics.words} ${t("wordsLabel")} · ${metrics.characters} ${t("charactersLabel")}`;
-  const headings = $$("#outline-list [data-source-line]");
-  const current = headings.filter((item) => Number(item.dataset.sourceLine) <= metrics.line).at(-1);
-  for (const item of headings) {
-    item.classList.toggle("active", item === current);
-    if (item === current) item.setAttribute("aria-current", "location");
-    else item.removeAttribute("aria-current");
+  outlineNavigator?.setActiveLine(metrics.line, { scroll: true });
+  updateFormattingState();
+}
+
+function updateFormattingState() {
+  const flags = editorAdapter?.getFormattingState?.() || {};
+  for (const button of $$('[data-editor-command]')) {
+    const command = button.dataset.editorCommand;
+    if (Object.hasOwn(flags, command) && typeof flags[command] === "boolean") button.setAttribute("aria-pressed", String(flags[command]));
+    else button.removeAttribute("aria-pressed");
   }
 }
 
 function renderOutline(model) {
   const outline = extractOutline(model?.content || "");
   $("#outline-count").textContent = String(outline.length);
-  const list = $("#outline-list");
-  list.replaceChildren();
-  if (!outline.length) {
-    list.innerHTML = `<div class="tool-empty">${t("noOutline")}</div>`;
-    return;
+  if (!outlineNavigator) outlineNavigator = createOutlineNavigator({ container: $("#outline-list"), onNavigate: (line) => goToLine(line) });
+  if (outlineLocale !== state.locale) {
+    outlineLocale = state.locale;
+    outlineNavigator.setLabels({ empty: t("noOutline"), noMatches: t("noOutlineMatches"), label: t("documentOutline"), expand: t("expandOutline"), collapse: t("collapseOutline") });
   }
-  for (const item of outline) {
-    const button = document.createElement("button");
-    button.className = "tool-item";
-    button.type = "button";
-    button.dataset.level = String(item.level);
-    button.dataset.sourceLine = String(item.line);
-    button.innerHTML = `<span class="level">H${item.level}</span><span></span>`;
-    button.querySelector("span:last-child").textContent = item.title;
-    button.addEventListener("click", () => goToLine(item.line));
-    list.append(button);
-  }
+  outlineNavigator.setItems(outline, { documentId: model?.id || "empty" });
+  applyNavigatorContext();
 }
 
 const frontMatterFormBaseline = new Map();
@@ -4261,6 +4304,7 @@ function applySidebarContext() {
 }
 
 function activateSidebar(name) {
+  if (name === "outline") { activateNavigator("outline"); return; }
   if ($(`[data-sidebar="${name}"]`)?.disabled) return;
   if (!state.workspaceLayout.sidebarOpen) {
     state.workspaceLayout.sidebarOpen = true;
@@ -4488,6 +4532,11 @@ function toggleInsertMenu(force) {
   togglePopoverMenu("#insert-menu", "#insert-menu-button", force);
 }
 
+function toggleWritingAppearance(force) {
+  togglePopoverMenu("#writing-appearance", "#writing-appearance-button", force);
+  if (!$("#writing-appearance").classList.contains("hidden")) $("#writing-font")?.focus();
+}
+
 /* ---- The format bar keeps every control reachable -------------------------
  *
  * Nineteen controls in seven groups do not fit a narrow editor sheet. The bar
@@ -4511,16 +4560,7 @@ function formatBarParts() {
 function toggleFormatOverflowMenu(force) {
   const parts = formatBarParts();
   if (!parts) return;
-  const open = force === undefined ? parts.menu.classList.contains("hidden") : force;
-  parts.menu.classList.toggle("hidden", !open);
-  parts.trigger?.setAttribute("aria-expanded", String(open));
-  if (!open) return;
-  const box = parts.trigger.getBoundingClientRect();
-  parts.menu.style.top = `${box.bottom + 4}px`;
-  parts.menu.style.insetInlineStart = `${document.documentElement.dir === "rtl"
-    ? Math.max(8, window.innerWidth - box.right)
-    : Math.max(8, box.left)}px`;
-  parts.menu.querySelector("button")?.focus();
+  togglePopoverMenu("#format-overflow-menu", "#format-overflow-button", force);
 }
 
 /**
@@ -4831,6 +4871,9 @@ async function engineHealth() {
 }
 
 function bindEvents() {
+  // Fixed popovers belong to the viewport. Keeping them inside a size-query
+  // container would change their containing block and clip them over a pane.
+  for (const menu of $$(".popover-menu, #editor-context-menu")) document.body.append(menu);
   $("#workspace-toggle-preview").addEventListener("click", toggleSidePreview);
   $("#document-mode-help").addEventListener("click", () => modalManager.open($("#view-guide-modal")));
   $("#close-view-guide").addEventListener("click", () => modalManager.close($("#view-guide-modal")));
@@ -4916,6 +4959,49 @@ function bindEvents() {
   $("#workspace-home").addEventListener("click", () => showView("start"));
   $("#workspace-toggle-files")?.addEventListener("click", () => toggleWorkspacePane("files"));
   $("#workspace-toggle-formatting")?.addEventListener("click", () => toggleWorkspacePane("formatting"));
+  $("#workspace-writing-layout")?.addEventListener("click", useWriterLayout);
+  $("#writing-appearance-button")?.addEventListener("click", () => toggleWritingAppearance());
+  $("#writing-appearance-close")?.addEventListener("click", () => {
+    toggleWritingAppearance(false); $("#writing-appearance-button").focus();
+  });
+  $("#writing-font")?.addEventListener("change", (event) => updateDocumentView({ writingFont: event.target.value }));
+  $("#writing-density")?.addEventListener("change", (event) => updateDocumentView({ writingDensity: event.target.value }));
+  $("#writing-zoom")?.addEventListener("input", (event) => updateDocumentView({ documentZoom: Number(event.target.value) }));
+  $("#writing-appearance-reset")?.addEventListener("click", () => updateDocumentView({ documentZoom: 100, writingDensity: "comfortable", writingFont: "document" }));
+  $("#writing-appearance")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault(); event.stopPropagation();
+    toggleWritingAppearance(false); $("#writing-appearance-button").focus();
+  });
+  const navigatorTabs = $$("[data-navigator-tab]");
+  for (const button of navigatorTabs) {
+    button.addEventListener("click", () => activateNavigator(button.dataset.navigatorTab));
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const tabs = navigatorTabs.filter((tab) => !tab.disabled);
+      const backwards = event.key === (document.documentElement.dir === "rtl" ? "ArrowRight" : "ArrowLeft");
+      const index = tabs.indexOf(button);
+      const next = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs.at(-1) : tabs[(index + (backwards ? -1 : 1) + tabs.length) % tabs.length];
+      if (next) { activateNavigator(next.dataset.navigatorTab); next.focus(); }
+    });
+  }
+  $("#outline-filter")?.addEventListener("input", (event) => {
+    outlineNavigator?.setFilter(event.target.value);
+    $("#outline-collapse-all").disabled = Boolean(event.target.value);
+  });
+  $("#outline-expand-all")?.addEventListener("click", () => outlineNavigator?.expandAll());
+  $("#outline-collapse-all")?.addEventListener("click", () => outlineNavigator?.collapseAll());
+  $("#outline-follow")?.addEventListener("change", (event) => outlineNavigator?.setFollow(event.target.checked));
+  let lastTextWheel = 0;
+  document.addEventListener("wheel", (event) => {
+    if (!(event.ctrlKey || event.metaKey) || !event.deltaY || !event.target.closest(".editor-surface,.reading-document,.preview-document,#book-review-document")) return;
+    event.preventDefault();
+    const now = Date.now();
+    if (now - lastTextWheel < 80) return;
+    lastTextWheel = now;
+    changeDocumentZoom(event.deltaY < 0 ? 1 : -1);
+  }, { passive: false });
   $("#document-zoom-out")?.addEventListener("click", () => changeDocumentZoom(-1));
   $("#document-zoom-in")?.addEventListener("click", () => changeDocumentZoom(1));
   $("#document-zoom-reset")?.addEventListener("click", () => changeDocumentZoom(0));
@@ -4937,6 +5023,7 @@ function bindEvents() {
   $("#reading-document")?.addEventListener("scroll", (event) => {
     if (readingDocumentId && state.preferences.viewMode === "read" && event.currentTarget.getClientRects().length) {
       readingScroll.set(readingDocumentId, event.currentTarget.scrollTop);
+      outlineNavigator?.setActiveLine(readingSourceLine(), { scroll: true });
     }
   });
   $("#document-actions-menu")?.addEventListener("click", (event) => {
@@ -5107,6 +5194,7 @@ function bindEvents() {
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.closest("#heading-menu, #heading-menu-button")) toggleHeadingMenu(false);
     if (!target?.closest("#insert-menu, #insert-menu-button")) toggleInsertMenu(false);
+    if (!target?.closest("#writing-appearance, #writing-appearance-button")) toggleWritingAppearance(false);
     if (!target?.closest("#format-overflow-menu, #format-overflow-button")) {
       toggleFormatOverflowMenu(false);
     }
@@ -5348,6 +5436,7 @@ async function boot() {
     onContextMenu: openEditorContextMenu,
     onLeaveEditor: moveFocusOutOfEditor,
     resolveAsset: resolveEditorAsset,
+    renderMath: (container, { isCurrent } = {}) => typesetPreviewMath(container, { isCurrent, errorLabel: t("previewMathFailed") }),
     getCompletions: () => activeDocument()?.projectPath === state.project?.path
       ? state.bibliographyEntries
       : [],

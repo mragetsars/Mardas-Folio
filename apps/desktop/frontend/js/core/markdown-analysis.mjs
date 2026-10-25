@@ -228,16 +228,27 @@ export function extractOutline(text) {
   // heading; without this the outline and preview navigation pick it up as H1.
   const bodyStart = (frontMatterRange(text)?.end ?? -1) + 1;
   let fence = null;
+  let paragraph = [];
+  let containerParagraph = false;
+  let htmlBlock = null;
+  const listStart = /^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]+|$)/;
+  const interruptingList = /^ {0,3}(?:[-+*]|1[.)])(?:[ \t]+|$)/;
   lines.forEach((line, index) => {
     if (index < bodyStart) return;
+    if (htmlBlock) {
+      if (htmlBlock === "blank" ? !line.trim() : htmlBlock.test(line)) htmlBlock = null;
+      return;
+    }
     const marker = fenceMarker(line);
     if (!fence && marker) {
       // CommonMark does not allow a backtick in the info string of a backtick
       // fence. Tilde info strings have no equivalent restriction.
       if (marker.character !== "`" || !marker.trailing.includes("`")) {
         fence = marker;
+        paragraph = [];
+        containerParagraph = false;
+        return;
       }
-      return;
     }
     if (fence) {
       const closesFence = marker
@@ -247,9 +258,63 @@ export function extractOutline(text) {
       if (closesFence) fence = null;
       return;
     }
-    const match = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
-    if (!match) return;
-    outline.push({ level: match[1].length, title: stripMarkdown(match[2]), line: index + 1 });
+    if (!line.trim()) {
+      paragraph = [];
+      containerParagraph = false;
+      return;
+    }
+    const match = /^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (match) {
+      outline.push({ level: match[1].length, title: stripMarkdown(match[2]), line: index + 1 });
+      paragraph = [];
+      containerParagraph = false;
+      return;
+    }
+    const underline = /^ {0,3}(=+|-+)[ \t]*$/.exec(line);
+    if (underline && paragraph.length && !containerParagraph) {
+      outline.push({
+        level: underline[1][0] === "=" ? 1 : 2,
+        title: stripMarkdown(paragraph.map((entry) => entry.text.trim()).join(" ")),
+        line: paragraph[0].line,
+      });
+      paragraph = [];
+      return;
+    }
+    // A dash underline takes precedence over a thematic break only when it
+    // follows paragraph text. Separate rules and lazy list/quote continuations
+    // must never manufacture headings from a divider.
+    if (/^ {0,3}(?:(?:\*[ \t]*){3,}|(?:_[ \t]*){3,}|(?:-[ \t]*){3,})$/.test(line)) {
+      paragraph = [];
+      containerParagraph = false;
+      return;
+    }
+    let htmlEnd = null;
+    const rawTag = /^ {0,3}<(script|pre|style|textarea)(?=[\s>]|$)/i.exec(line);
+    if (rawTag) htmlEnd = new RegExp(`</${rawTag[1]}\\s*>`, "i");
+    else if (/^ {0,3}<!--/.test(line)) htmlEnd = /-->/;
+    else if (/^ {0,3}<\?/.test(line)) htmlEnd = /\?>/;
+    else if (/^ {0,3}<!\[CDATA\[/.test(line)) htmlEnd = /\]\]>/;
+    else if (/^ {0,3}<![A-Z]/.test(line)) htmlEnd = />/;
+    const blockTag = /^ {0,3}<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[\s/>]|$)/i.test(line);
+    const completeTag = !paragraph.length && !containerParagraph && /^ {0,3}<\/?[a-z][^>]*>[ \t]*$/i.test(line);
+    if (htmlEnd || blockTag || completeTag) {
+      paragraph = [];
+      containerParagraph = false;
+      htmlBlock = htmlEnd ? (htmlEnd.test(line) ? null : htmlEnd) : "blank";
+      return;
+    }
+    const startsContainer = /^ {0,3}>/.test(line)
+      || (paragraph.length ? interruptingList : listStart).test(line);
+    if (startsContainer) {
+      paragraph = [];
+      containerParagraph = true;
+      return;
+    }
+    if (containerParagraph) return;
+    // Indented code cannot start a paragraph, but indentation on subsequent
+    // lines can be a continuation of an existing Setext heading paragraph.
+    if (!paragraph.length && /^(?: {4}|\t)/.test(line)) return;
+    paragraph.push({ text: line, line: index + 1 });
   });
   return outline;
 }

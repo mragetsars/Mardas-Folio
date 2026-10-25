@@ -99,6 +99,58 @@ test("outline accepts longer closers and rejects non-closing trailing content", 
   ]);
 });
 
+test("outline includes Setext headings with their title source lines", () => {
+  const outline = extractOutline("Document title\n===\n\nFirst **section**\n---\n\n# Final\n");
+  assert.deepEqual(outline, [
+    { level: 1, title: "Document title", line: 1 },
+    { level: 2, title: "First section", line: 4 },
+    { level: 1, title: "Final", line: 7 },
+  ]);
+});
+
+test("Setext headings collect a complete multiline paragraph and preserve CRLF line locations", () => {
+  const outline = extractOutline("  First line\r\n    and second line\r\n  ---\r\n\r\nEnd\r\n=\r\n");
+  assert.deepEqual(outline, [
+    { level: 2, title: "First line and second line", line: 1 },
+    { level: 1, title: "End", line: 5 },
+  ]);
+});
+
+test("Setext headings in front matter and fenced code stay outside the outline", () => {
+  const source = ["---", "title: Metadata", "note: |", "  Not a heading", "  ===", "---", "", "~~~markdown",
+    "Fake title", "---", "~~~", "", "Real title", "---"].join("\n");
+  assert.deepEqual(extractOutline(source), [{ level: 2, title: "Real title", line: 13 }]);
+});
+
+test("thematic rules and lazy list or quote continuations do not become Setext headings", () => {
+  const source = ["---", "", "- list item", "continuation", "---", "", "> quotation", "continuation", "---",
+    "", "* * *", "---", "", "# ATX title", "---", "", "--"].join("\n");
+  assert.deepEqual(extractOutline(source), [{ level: 1, title: "ATX title", line: 14 }]);
+});
+
+test("Setext headings do not consume indented code or HTML block contents", () => {
+  const source = ["    Code text", "---", "", "<div>", "Not a title", "---", "</div>", "",
+    "Actual title", "---"].join("\n");
+  assert.deepEqual(extractOutline(source), [{ level: 2, title: "Actual title", line: 9 }]);
+});
+
+test("HTML comments and raw blocks cannot create headings but following text can", () => {
+  const source = ["Before comment", "<!--", "# Hidden ATX", "Hidden Setext", "---", "-->",
+    "Actual title", "---", "", "<script>", "Other fake title", "===", "</script>",
+    "Next title", "==="].join("\n");
+  assert.deepEqual(extractOutline(source), [
+    { level: 2, title: "Actual title", line: 7 },
+    { level: 1, title: "Next title", line: 14 },
+  ]);
+});
+
+test("short non-rule text may itself be a Setext heading, while a bare underline has no title", () => {
+  assert.deepEqual(extractOutline("===\n---\n\n--\n---\n\n=\n"), [
+    { level: 2, title: "===", line: 1 },
+    { level: 2, title: "--", line: 4 },
+  ]);
+});
+
 test("citation and cursor metrics are deterministic", () => {
   assert.deepEqual(extractCitationKeys("See [@doe2024; @smith]. mail@example.com"), ["doe2024", "smith"]);
   assert.deepEqual(textMetrics("one two\nthree", 10), { line: 2, column: 3, words: 3, characters: 13 });
