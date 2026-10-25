@@ -23,7 +23,7 @@ function contrast(foreground, background) {
 }
 
 /**
- * Read a custom property out of a declaration block, following one hop.
+ * Resolve custom properties with theme inheritance and token references.
  *
  * These assertions deliberately resolve the palette that is actually declared
  * instead of pinning hex literals. Pinning values meant a palette change failed
@@ -31,10 +31,9 @@ function contrast(foreground, background) {
  * nobody anything useful; what has to hold is that the tokens exist and that
  * the resulting text clears WCAG AA.
  *
- * A role now usually names a step of the shared ramp — `--ui-panel-soft:
- * var(--neutral-50)` — rather than repeating its hex, which is the point of
- * having a ramp. The ramp itself is declared once, in `:root`, so a `var()`
- * is resolved against `:root` whichever block it was read from.
+ * A role may reference a shared ramp or another semantic role. Root values
+ * remain inherited unless the theme overrides them; references resolve in
+ * that effective palette, just as they do in the browser.
  */
 function declarations(css, selector) {
   const start = css.indexOf(selector);
@@ -47,10 +46,12 @@ function declarations(css, selector) {
 
 function tokens(css, selector) {
   const ramp = declarations(css, ":root {");
-  const block = declarations(css, selector);
-  const resolve = (value) => {
+  const block = { ...ramp, ...declarations(css, selector) };
+  const resolve = (value, visited = new Set()) => {
     const reference = /^var\(\s*(--[a-z0-9-]+)\s*\)$/.exec(value);
-    return reference ? ramp[reference[1]] : value;
+    if (!reference) return value;
+    assert.ok(!visited.has(reference[1]), `cyclic token reference: ${reference[1]}`);
+    return resolve(block[reference[1]], new Set([...visited, reference[1]]));
   };
   return Object.fromEntries(
     Object.entries(block)
@@ -90,10 +91,12 @@ test("workspace surface tokens keep small UI text above AA contrast", () => {
     ["light muted on soft panel", light["--ui-muted"], light["--ui-panel-soft"]],
     ["light muted on panel", light["--ui-muted"], light["--ui-panel"]],
     ["light accent on panel", light["--ui-accent"], light["--ui-panel"]],
+    ["light accent on selection", light["--ui-accent"], light["--ui-accent-soft"]],
     ["light text on panel", light["--ui-text"], light["--ui-panel"]],
     ["dark muted on soft panel", dark["--ui-muted"], dark["--ui-panel-soft"]],
     ["dark muted on panel", dark["--ui-muted"], dark["--ui-panel"]],
     ["dark accent on panel", dark["--ui-accent"], dark["--ui-panel"]],
+    ["dark accent on selection", dark["--ui-accent"], dark["--ui-accent-soft"]],
     ["dark text on panel", dark["--ui-text"], dark["--ui-panel"]],
   ];
 
@@ -105,12 +108,15 @@ test("workspace surface tokens keep small UI text above AA contrast", () => {
 });
 
 test("text drawn on the accent fill stays legible in both themes", () => {
-  // The light accent is dark and takes white; the dark accent is a light orange
-  // where white would fall to 2.2:1, so it takes ink instead.
+  // Accent text and filled actions have independent roles. Readability must
+  // hold on the actual filled action, including its hover state.
   for (const selector of [":root {", 'html[data-theme="dark"] {']) {
     const palette = tokens(workspaceStyles, selector);
-    const ratio = contrast(palette["--ui-on-accent"], palette["--ui-accent"]);
-    assert.ok(ratio >= 4.5, `${selector} on-accent contrast is ${ratio.toFixed(2)}:1`);
+    for (const surface of ["--ui-accent-fill", "--ui-accent-fill-hover"]) {
+      assert.ok(palette["--ui-on-accent"] && palette[surface], `${selector} ${surface}: token missing`);
+      const ratio = contrast(palette["--ui-on-accent"], palette[surface]);
+      assert.ok(ratio >= 4.5, `${selector} on ${surface} contrast is ${ratio.toFixed(2)}:1`);
+    }
   }
 });
 

@@ -73,13 +73,13 @@ def test_studio_light_mode_uses_layered_surface_colors() -> None:
     html = _gui_html()
 
     light_mode_rule = _css_rule(html, "body.light-mode")
-    assert "--bg:#f1f3f8" in light_mode_rule
-    assert "--bg-soft:#f7f8fc" in light_mode_rule
+    assert "--bg:#f3f3f3" in light_mode_rule
+    assert "--bg-soft:#f7f7f7" in light_mode_rule
     assert "--panel:#ffffff" in light_mode_rule
     assert "--editor:#ffffff" in light_mode_rule
-    assert "--preview:#edf0f5" in light_mode_rule
-    assert "--border-strong:#bdc7da" in light_mode_rule
-    assert "--border:#dce1eb" in light_mode_rule
+    assert "--preview:#f3f3f3" in light_mode_rule
+    assert "--border-strong:#b8b8b8" in light_mode_rule
+    assert "--border:#e1e1e1" in light_mode_rule
 
     light_brand_rule = _css_rule(html, "body.light-mode .brand-mark")
     assert "background:transparent" in light_brand_rule
@@ -311,13 +311,13 @@ def test_studio_uses_monochromatic_accent_controls() -> None:
 
     dark_root = _css_rule(html, ":root")
     light_root = _css_rule(html, "body.light-mode")
-    assert "--accent-2:#c6c1ff" in dark_root
-    assert "--accent-3:#bab5ff" in dark_root
-    assert "--accent-2:#4038ad" in light_root
-    assert "--accent-3:#665ddd" in light_root
+    assert "--accent-2:#ffc46f" in dark_root
+    assert "--accent-3:#ff9f00" in dark_root
+    assert "--accent-2:#7d3d00" in light_root
+    assert "--accent-3:#ff9f00" in light_root
 
     primary_rule = _css_rule(html, ".btn-primary")
-    assert "background:var(--accent)" in primary_rule
+    assert "background:var(--accent-fill)" in primary_rule
     assert "linear-gradient" not in primary_rule
 
     checked_switch_rule = _css_rule(html, ".switch input:checked")

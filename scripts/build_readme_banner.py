@@ -30,7 +30,7 @@ def build_banner(source: Path = DEFAULT_SOURCE, output: Path = DEFAULT_OUTPUT) -
     output = output.expanduser().resolve(strict=False)
     output.parent.mkdir(parents=True, exist_ok=True)
     svg = source.read_text(encoding="utf-8")
-    html = f'<html><body style="margin:0;padding:0;background:#f5ead8">{svg}</body></html>'
+    html = f'<html><body style="margin:0;padding:0;background:#f3f3f3">{svg}</body></html>'
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()

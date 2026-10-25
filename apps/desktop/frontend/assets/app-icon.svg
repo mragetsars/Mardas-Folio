@@ -1,11 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Mardas Folio">
-  <title>Mardas Folio</title>
-  <!-- The letter F in four-fold rotational symmetry: one glyph, rotated about
-       the centre, closing into a symmetric pinwheel with a square void. -->
-  <g transform="translate(64 64) scale(0.86)" fill="#C67139">
-    <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-    <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-    <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-    <g transform="rotate(270) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="brand-title">
+  <title id="brand-title">Mardas Folio</title>
+  <path fill="#FF9F00" d="M144 0H368C468 0 512 44 512 144V368C512 468 468 512 368 512H144C44 512 0 468 0 368V144C0 44 44 0 144 0Z" />
+  <g id="mark" transform="translate(256 256) scale(2.72)" fill="#FFFFFF">
+    <g transform="rotate(0) translate(14 -60)">
+      <path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z" />
+    </g>
+    <g transform="rotate(90) translate(14 -60)">
+      <path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z" />
+    </g>
+    <g transform="rotate(180) translate(14 -60)">
+      <path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z" />
+    </g>
+    <g transform="rotate(270) translate(14 -60)">
+      <path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z" />
+    </g>
   </g>
 </svg>

@@ -1,8 +1,10 @@
 # Mardas Folio
 
+![Mardas Folio](./assets/readme/mardas-folio.png)
+
 > Desktop Markdown authoring and publishing for Persian, English, and mixed RTL/LTR technical documents
 
-![Language](https://img.shields.io/badge/Language-Python-blue) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-orange) ![Version](https://img.shields.io/badge/Version-v2.0.3-success) ![License](https://img.shields.io/badge/License-MIT-informational)
+![Language](https://img.shields.io/badge/Python-3.10%2B-9b4d00?style=flat-square&labelColor=292929) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-9b4d00?style=flat-square&labelColor=292929) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-9b4d00?style=flat-square&labelColor=292929) ![Version](https://img.shields.io/badge/Version-v2.0.3-9b4d00?style=flat-square&labelColor=292929) ![License](https://img.shields.io/badge/License-MIT-9b4d00?style=flat-square&labelColor=292929)
 
 ## Overview
 
@@ -16,7 +18,11 @@ Markdown -> Structured HTML -> Chromium PDF
 
 The project ships three process interfaces around one engine — a native desktop application, a command-line interface for automation, and a JSON-RPC sidecar that the desktop shell speaks to over standard streams.
 
-![Mardas Folio](./assets/readme/mardas-folio.png)
+## Design
+
+Warm orange, quiet surfaces, and room for the document. The workspace draws on the classic orange era of Samsung Notes and the [One UI design principles](https://developer.samsung.com/one-ui/index.html): clear hierarchy, rounded groups, comfortable contrast, and controls that belong to the current task. Light and dark themes, app icons, and repository artwork share the same visual language. The original Mardas mark remains the product identity.
+
+Write and Source edit the same Markdown file; Read presents its content without editing. The optional side preview shares Read's rendering and typography. Document width and text zoom change the workspace view, while publishing settings control the PDF. See the [design system and verification record](./docs/NOTES_DESIGN_SYSTEM.fa.md).
 
 ## Features
 

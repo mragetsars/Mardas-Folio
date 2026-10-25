@@ -3,8 +3,9 @@
   <!-- The letter F in four-fold rotational symmetry: one glyph, rotated about
        the centre, closing into a symmetric pinwheel with a square void.
        Geometry is shared verbatim with mardas-folio-app-icon.svg; only the
-       colour and the tile differ between the variants. -->
-  <g id="mark" transform="translate(256 256) scale(2.72)" fill="#C67139">
+       colour and the tile differ between the variants. Orange is the shared
+       Notes-inspired brand seed; the original four-fold F remains our mark. -->
+  <g id="mark" transform="translate(256 256) scale(2.72)" fill="#FF9F00">
     <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
     <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
     <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>

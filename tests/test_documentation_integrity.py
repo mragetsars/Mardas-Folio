@@ -55,10 +55,8 @@ def _png_dimensions(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", data[16:24])
 
 
-#: The identity's two load-bearing values. Terracotta is the accent every
-#: surface shares; ink is the dark anchor behind it.
-BRAND_TERRACOTTA = "#C67139"
-BRAND_INK = "#2E2B25"
+#: The brand seed is shared by the app tile, mark and repository artwork.
+BRAND_ORANGE = "#FF9F00"
 
 
 def test_project_logo_assets_are_packaged_and_documented():
@@ -86,18 +84,14 @@ def test_project_logo_assets_are_packaged_and_documented():
         assert asset.exists(), f"missing logo asset: {asset}"
         svg_text = asset.read_text(encoding="utf-8")
         assert svg_text.startswith("<svg")
-        # Every mark the project ships is drawn in the one palette. The mark
-        # and the application icon used to carry two different ones -- teal
-        # and navy on the documents, orange on the taskbar -- so the guard is
-        # now that they agree, not merely that each has some colour.
+        # The original glyph remains recognizable across transparent branding
+        # and the Notes-inspired orange app tile.
         if asset in (mark, app_icon):
-            assert BRAND_TERRACOTTA in svg_text
+            assert BRAND_ORANGE in svg_text
             assert "#088A83" not in svg_text, "the retired teal is back"
-            assert "#f97316" not in svg_text, "the retired orange is back"
-        # Only the packaged icon has a tile behind the glyph, so ink appears
-        # there and nowhere else.
+            assert "#C67139" not in svg_text, "the retired terracotta is back"
         if asset == app_icon:
-            assert BRAND_INK in svg_text
+            assert "#FFFFFF" in svg_text
         if asset == gui_mark_mask:
             # A CSS `mask` shorthand leaves mask-mode at match-source, which
             # Chromium resolves to luminance for an SVG referenced as an
@@ -112,6 +106,8 @@ def test_project_logo_assets_are_packaged_and_documented():
     # the generator has to name the canonical icon rather than any other SVG.
     icon_generator = (ROOT / "scripts/generate_desktop_icons.py").read_text(encoding="utf-8")
     assert f'"{app_icon.name}"' in icon_generator
+    assert (ROOT / "apps/desktop/frontend/assets/app-icon.svg").read_bytes() == app_icon.read_bytes()
+    assert guide_logo_png.read_bytes() == logo.read_bytes()
 
     # Every variant is the same drawing: one F glyph in four-fold rotational
     # symmetry. The reversed mark differs from the colour mark only in its

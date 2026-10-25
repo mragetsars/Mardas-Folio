@@ -34,7 +34,7 @@ def test_project_version_metadata_matches() -> None:
     version = _project_version()
 
     assert f'__version__ = "{version}"' in _read("src/mardas_folio/__init__.py")
-    assert f"Version-v{version}-success" in _read("README.md")
+    assert re.search(rf"Version-v{re.escape(version)}-[a-zA-Z0-9]+[?)]", _read("README.md"))
     assert f'version: "{version}"' in _read("docs/guides/GUIDE.en.md")
     assert f'version: "{version}"' in _read("docs/guides/GUIDE.fa.md")
     assert re.search(

@@ -97,8 +97,16 @@ DOCK_CHECK = r"""() => {
     if (box.left < -0.75 || box.right > innerWidth + 0.75 || box.top < -0.75 || box.bottom > innerHeight + 0.75) {
       problems.push(`${selector} is not wholly inside viewport`);
     }
-    for (const x of [box.left + 3, (box.left + box.right) / 2, box.right - 3]) {
-      for (const y of [box.top + 3, (box.top + box.bottom) / 2, box.bottom - 3]) {
+    // Sample the painted control, including rounded/pill-shaped actions.
+    // A bounding-box corner outside the border radius correctly hits its
+    // parent and is not evidence that another surface covers the button.
+    const style = getComputedStyle(node);
+    const radius = Math.min(box.width / 2, box.height / 2,
+      Math.max(...['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius']
+        .map(name => parseFloat(style[name]) || 0)));
+    const inset = Math.max(3, Math.ceil(radius * (1 - Math.SQRT1_2)) + 1);
+    for (const x of [box.left + inset, (box.left + box.right) / 2, box.right - inset]) {
+      for (const y of [box.top + inset, (box.top + box.bottom) / 2, box.bottom - inset]) {
         const hit = document.elementFromPoint(x, y);
         if (!hit || (hit !== node && !node.contains(hit))) {
           problems.push(`${selector} is covered at ${Math.round(x)},${Math.round(y)} by ${hit?.id || hit?.className || 'viewport'}`);
@@ -141,8 +149,13 @@ FOCUS_CHECK = r"""() => {
       box.bottom > Math.min(content.bottom, pane.bottom) + 1) {
     problems.push('keyboard-focused metadata control is vertically clipped');
   }
-  for (const x of [box.left + 3, box.right - 3]) {
-    for (const y of [box.top + 3, box.bottom - 3]) {
+  const style = getComputedStyle(target);
+  const radius = Math.min(box.width / 2, box.height / 2,
+    Math.max(...['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius']
+      .map(name => parseFloat(style[name]) || 0)));
+  const inset = Math.max(3, Math.ceil(radius * (1 - Math.SQRT1_2)) + 1);
+  for (const x of [box.left + inset, box.right - inset]) {
+    for (const y of [box.top + inset, box.bottom - inset]) {
       const hit = document.elementFromPoint(x, y);
       if (!hit || (hit !== target && !target.contains(hit))) {
         problems.push(`keyboard-focused metadata control is covered by ${hit?.id || hit?.className || 'viewport'}`);

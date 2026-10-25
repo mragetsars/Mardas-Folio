@@ -9,12 +9,12 @@
     old name out of the source tree, which is why this one has a source file
     the guard can read.
   -->
-  <rect width="1200" height="600" fill="#e6d9c0"/>
-  <rect x="24" y="24" width="1152" height="552" rx="26" fill="#f5ead8"/>
+  <rect width="1200" height="600" fill="#F3F3F3"/>
+  <rect x="24" y="24" width="1152" height="552" rx="26" fill="#FFFFFF"/>
 
   <g transform="translate(64 56)">
-    <rect width="96" height="96" rx="21" fill="#2e2b25"/>
-    <g transform="translate(48 48) scale(0.51)" fill="#c67139">
+    <rect width="96" height="96" rx="21" fill="#FF9F00"/>
+    <g transform="translate(48 48) scale(0.51)" fill="#FFFFFF">
       <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
       <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
       <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
@@ -23,91 +23,91 @@
   </g>
 
   <text x="186" y="86" font-family="Figtree,'DejaVu Sans',sans-serif" font-size="15"
-        font-weight="700" letter-spacing="0.1em" fill="#8c491a">MARKDOWN TO PDF ENGINE</text>
+        font-weight="700" letter-spacing="0.1em" fill="#9B4D00">MARKDOWN TO PDF ENGINE</text>
   <text x="186" y="136" font-family="Figtree,'DejaVu Sans',sans-serif" font-size="48"
-        font-weight="700" letter-spacing="-1.1" fill="#201e1d">Mardas Folio</text>
+        font-weight="700" letter-spacing="-1.1" fill="#181818">Mardas Folio</text>
   <text x="186" y="168" font-family="Figtree,'DejaVu Sans',sans-serif" font-size="19"
-        fill="#645c50">Markdown to structured print pipeline</text>
+        fill="#626262">Markdown to structured print pipeline</text>
 
-  <line x1="64" y1="206" x2="1136" y2="206" stroke="#dcd3c4" stroke-width="1"/>
+  <line x1="64" y1="206" x2="1136" y2="206" stroke="#E3E3E3" stroke-width="1"/>
 
   <g transform="translate(66 246)">
-    <rect width="188" height="196" rx="16" fill="#f9f4ed" stroke="#dcd3c4"/>
-    <circle cx="94.0" cy="52" r="27" fill="#ffe1d0"/>
+    <rect width="188" height="196" rx="24" fill="#F7F7F7" stroke="#E3E3E3"/>
+    <circle cx="94.0" cy="52" r="27" fill="#FFF0D8"/>
     <text x="94.0" y="59" text-anchor="middle" font-size="17" font-weight="700"
-          font-family="'IBM Plex Mono','DejaVu Sans Mono',monospace" fill="#8c491a">MD</text>
+          font-family="'IBM Plex Mono','DejaVu Sans Mono',monospace" fill="#9B4D00">MD</text>
     <text x="94.0" y="110" text-anchor="middle" font-size="23" font-weight="700"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#201e1d">Markdown</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#181818">Markdown</text>
     <text x="94.0" y="140" text-anchor="middle" font-size="14"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#645c50">front matter</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#626262">front matter</text>
     <text x="94.0" y="162" text-anchor="middle" font-size="14"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#645c50">images + tables</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#626262">images + tables</text>
   </g>
   <path d="M259.5 344 H277.5 M271.5 338 L278.5 344 L271.5 350"
-        stroke="#c67139" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        stroke="#9B4D00" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   <g transform="translate(287 246)">
-    <rect width="188" height="196" rx="16" fill="#f9f4ed" stroke="#dcd3c4"/>
-    <circle cx="94.0" cy="52" r="27" fill="#ffe1d0"/>
+    <rect width="188" height="196" rx="24" fill="#F7F7F7" stroke="#E3E3E3"/>
+    <circle cx="94.0" cy="52" r="27" fill="#FFF0D8"/>
     <text x="94.0" y="59" text-anchor="middle" font-size="17" font-weight="700"
-          font-family="'IBM Plex Mono','DejaVu Sans Mono',monospace" fill="#8c491a">¶</text>
+          font-family="'IBM Plex Mono','DejaVu Sans Mono',monospace" fill="#9B4D00">¶</text>
     <text x="94.0" y="110" text-anchor="middle" font-size="23" font-weight="700"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#201e1d">Parser</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#181818">Parser</text>
     <text x="94.0" y="140" text-anchor="middle" font-size="14"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#645c50">TOC + callouts</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#626262">TOC + callouts</text>
     <text x="94.0" y="162" text-anchor="middle" font-size="14"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#645c50">RTL / LTR hooks</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#626262">RTL / LTR hooks</text>
   </g>
   <path d="M480.5 344 H498.5 M492.5 338 L499.5 344 L492.5 350"
-        stroke="#c67139" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        stroke="#9B4D00" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   <g transform="translate(508 246)">
-    <rect width="188" height="196" rx="16" fill="#f9f4ed" stroke="#dcd3c4"/>
-    <circle cx="94.0" cy="52" r="27" fill="#ffe1d0"/>
+    <rect width="188" height="196" rx="24" fill="#F7F7F7" stroke="#E3E3E3"/>
+    <circle cx="94.0" cy="52" r="27" fill="#FFF0D8"/>
     <text x="94.0" y="59" text-anchor="middle" font-size="17" font-weight="700"
-          font-family="'IBM Plex Mono','DejaVu Sans Mono',monospace" fill="#8c491a">&lt;/&gt;</text>
+          font-family="'IBM Plex Mono','DejaVu Sans Mono',monospace" fill="#9B4D00">&lt;/&gt;</text>
     <text x="94.0" y="110" text-anchor="middle" font-size="23" font-weight="700"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#201e1d">HTML</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#181818">HTML</text>
     <text x="94.0" y="140" text-anchor="middle" font-size="14"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#645c50">semantic blocks</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#626262">semantic blocks</text>
     <text x="94.0" y="162" text-anchor="middle" font-size="14"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#645c50">safe embedded assets</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#626262">safe embedded assets</text>
   </g>
   <path d="M701.5 344 H719.5 M713.5 338 L720.5 344 L713.5 350"
-        stroke="#c67139" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        stroke="#9B4D00" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   <g transform="translate(729 246)">
-    <rect width="188" height="196" rx="16" fill="#f9f4ed" stroke="#dcd3c4"/>
-    <circle cx="94.0" cy="52" r="27" fill="#ffe1d0"/>
+    <rect width="188" height="196" rx="24" fill="#F7F7F7" stroke="#E3E3E3"/>
+    <circle cx="94.0" cy="52" r="27" fill="#FFF0D8"/>
     <text x="94.0" y="59" text-anchor="middle" font-size="17" font-weight="700"
-          font-family="'IBM Plex Mono','DejaVu Sans Mono',monospace" fill="#8c491a">◐</text>
+          font-family="'IBM Plex Mono','DejaVu Sans Mono',monospace" fill="#9B4D00">◐</text>
     <text x="94.0" y="110" text-anchor="middle" font-size="23" font-weight="700"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#201e1d">Appearance</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#181818">Appearance</text>
     <text x="94.0" y="140" text-anchor="middle" font-size="14"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#645c50">style + palette</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#626262">style + palette</text>
     <text x="94.0" y="162" text-anchor="middle" font-size="14"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#645c50">print CSS</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#626262">print CSS</text>
   </g>
   <path d="M922.5 344 H940.5 M934.5 338 L941.5 344 L934.5 350"
-        stroke="#c67139" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        stroke="#9B4D00" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   <g transform="translate(950 246)">
-    <rect width="188" height="196" rx="16" fill="#f0fae1" stroke="#aebf92"/>
-    <circle cx="94.0" cy="52" r="27" fill="#e1eecc"/>
+    <rect width="188" height="196" rx="24" fill="#FFF7EA" stroke="#EAD1AA"/>
+    <circle cx="94.0" cy="52" r="27" fill="#FFF0D8"/>
     <text x="94.0" y="59" text-anchor="middle" font-size="17" font-weight="700"
-          font-family="'IBM Plex Mono','DejaVu Sans Mono',monospace" fill="#3d472b">PDF</text>
+          font-family="'IBM Plex Mono','DejaVu Sans Mono',monospace" fill="#9B4D00">PDF</text>
     <text x="94.0" y="110" text-anchor="middle" font-size="23" font-weight="700"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#201e1d">PDF</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#181818">PDF</text>
     <text x="94.0" y="140" text-anchor="middle" font-size="14"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#645c50">Chromium</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#626262">Chromium</text>
     <text x="94.0" y="162" text-anchor="middle" font-size="14"
-          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#645c50">tagged + outlined</text>
+          font-family="Figtree,'DejaVu Sans',sans-serif" fill="#626262">linked + outlined</text>
   </g>
 
   <g transform="translate(64 474)">
-    <rect width="1072" height="86" rx="18" fill="#f0fae1" stroke="#ccdbb2"/>
-    <circle cx="58" cy="43" r="24" fill="#e1eecc"/>
-    <path d="M50 43 l6 7 12 -14" stroke="#56633f" stroke-width="3.4" fill="none"
+    <rect width="1072" height="86" rx="18" fill="#FFF7EA" stroke="#EAD1AA"/>
+    <circle cx="58" cy="43" r="24" fill="#FFF0D8"/>
+    <path d="M50 43 l6 7 12 -14" stroke="#9B4D00" stroke-width="3.4" fill="none"
           stroke-linecap="round" stroke-linejoin="round"/>
     <text x="102" y="38" font-family="Figtree,'DejaVu Sans',sans-serif" font-size="18"
-          font-weight="700" fill="#201e1d">MathJax &#183; Mermaid &#183; code captions &#183; safe HTML &#183; PDF navigation</text>
+          font-weight="700" fill="#181818">MathJax &#183; Mermaid &#183; code captions &#183; safe HTML &#183; PDF navigation</text>
     <text x="102" y="64" font-family="Figtree,'DejaVu Sans',sans-serif" font-size="15"
-          fill="#56633f">Every stage is gated: the publication check fails the build rather than degrading the document.</text>
+          fill="#9B4D00">Every stage is gated: the publication check fails the build rather than degrading the document.</text>
   </g>
 </svg>

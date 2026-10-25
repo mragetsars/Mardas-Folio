@@ -1060,8 +1060,8 @@ def test_gui_microinteractions_use_stable_numeric_and_soft_cards():
     assert '.choice-copy{color:color-mix' in html
     assert 'body:not(.light-mode) .choice-copy{color:var(--muted)}' in html
     assert '.format-btn{height:30px' in html
-    assert '--muted:#bec6da' in html
-    assert '--faint:#a6b1c7' in html
+    assert '--muted:#d0d0d0' in html
+    assert '--faint:#adadad' in html
     assert '.editor-formatbar{gap:6px' in html
     assert 'border-color:transparent;background:transparent' in html
 
@@ -1069,24 +1069,23 @@ def test_gui_uses_thin_scrollbars_and_brand_interface_surfaces():
     html = GUI_HTML.read_text(encoding="utf-8")
 
     assert '*::-webkit-scrollbar' in html
-    assert '--scroll-thumb:#4c5874' in html
-    assert '--scroll-thumb:#bdc7da' in html
-    assert '--bg:#141823' in html
-    assert '--panel-2:#202638' in html
+    assert '--scroll-thumb:#686868' in html
+    assert '--scroll-thumb:#8c8c8c' in html
+    assert '--bg:#101010' in html
+    assert '--panel-2:#242424' in html
     assert '--panel:#ffffff' in html
-    assert '--preview:#edf0f5' in html
+    assert '--preview:#f3f3f3' in html
 
 
 def test_gui_export_button_keeps_contrast_on_hover_and_active():
     html = GUI_HTML.read_text(encoding="utf-8")
 
-    # White ink is only safe on the light theme's dark accent; the dark theme
-    # lightens the accent, where white falls to about 2:1. Both states carry the
-    # per-theme ink instead of a fixed colour.
-    assert '.btn-primary:hover{color:var(--on-accent)' in html
-    assert '.btn-primary:active{color:var(--on-accent)' in html
-    assert '--on-accent:#171a2a' in html
-    assert '--on-accent:#ffffff' in html
+    # The bright brand fill has its own dark ink in both themes; readable
+    # foreground accents are separate from filled button backgrounds.
+    assert '.btn-primary:hover{color:var(--on-accent-fill)' in html
+    assert '.btn-primary:active{color:var(--on-accent-fill)' in html
+    assert '--on-accent-fill:#241600' in html
+    assert '--accent-fill:#ff9f00' in html
     assert '.btn-primary:focus-visible' in html
 
 

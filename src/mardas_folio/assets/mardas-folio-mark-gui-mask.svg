@@ -1,17 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="mask-title">
-  <title id="mask-title">Mardas Folio monochrome mark mask</title>
-  <!-- The mark as a CSS mask, so a surface paints it in its own currentColor
-       and it follows the theme instead of fighting it.
-
-       Filled #FFFFFF rather than black on purpose: the `mask` shorthand
-       leaves mask-mode at match-source, which Chromium resolves to luminance
-       for an SVG referenced as an image. A black silhouette has luminance 0
-       and masks away to nothing. White reads as fully opaque under luminance
-       and under alpha both. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="brand-title">
+  <title id="brand-title">Mardas Folio monochrome mark mask</title>
   <g id="mark" transform="translate(256 256) scale(2.72)" fill="#FFFFFF">
-    <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-    <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-    <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-    <g transform="rotate(270) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
+    <g transform="rotate(0) translate(14 -60)">
+      <path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z" />
+    </g>
+    <g transform="rotate(90) translate(14 -60)">
+      <path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z" />
+    </g>
+    <g transform="rotate(180) translate(14 -60)">
+      <path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z" />
+    </g>
+    <g transform="rotate(270) translate(14 -60)">
+      <path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z" />
+    </g>
   </g>
 </svg>

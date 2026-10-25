@@ -1,87 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400">
-  <!--
-    Repository banner, 1200 x 400.
-
-    Paper ground, ink wordmark, one terracotta blob bleeding off the lower
-    left. The pipeline line stays because it is the product's whole promise:
-    Markdown in, a Chromium-rendered PDF out, and nothing in between that
-    needs installing.
-
-    Rules from the identity, kept here so the next edit keeps them:
-      - the mark's tile sits on ink or paper, never on terracotta at this size
-      - blobs are cut by the frame; they never float fully inside it
-      - no screenshots; the product's own preview does that job in the README
-  -->
-  <defs>
-    <clipPath id="frame"><rect width="1200" height="400" rx="0"/></clipPath>
-  </defs>
-
-  <g clip-path="url(#frame)">
-    <rect width="1200" height="400" fill="#f5ead8"/>
-
-    <!-- The blob, cut by the lower-left corner. -->
-    <circle cx="40" cy="392" r="196" fill="#c67139" opacity="0.14"/>
-    <circle cx="1168" cy="24" r="120" fill="#7a8a5e" opacity="0.12"/>
-
-    <!-- Mark: the ink tile with the four-fold F, as packaged. -->
-    <g transform="translate(72 88)">
-      <rect width="96" height="96" rx="21" fill="#2e2b25"/>
-      <g transform="translate(48 48) scale(0.51)" fill="#c67139">
-        <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-        <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-        <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-        <g transform="rotate(270) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
-      </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="banner-title banner-description">
+  <title id="banner-title">Mardas Folio — room for your writing</title>
+  <desc id="banner-description">An orange Mardas mark, a calm writing surface and a bilingual note. Local Markdown authoring and PDF publishing.</desc>
+  <!-- Shared Notes-inspired identity: warm orange, neutral ink, soft focus
+       blocks. This is original project artwork, not a Samsung screenshot. -->
+  <rect width="1200" height="400" fill="#F3F3F3"/>
+  <g transform="translate(48 44)">
+    <path d="M21 0H51C65 0 72 7 72 21V51C72 65 65 72 51 72H21C7 72 0 65 0 51V21C0 7 7 0 21 0Z" fill="#FF9F00"/>
+    <g transform="translate(36 36) scale(0.383)" fill="#FFFFFF">
+      <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
+      <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
+      <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
+      <g transform="rotate(270) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
     </g>
-
-    <!-- Wordmark and version -->
-    <text x="196" y="140" font-family="Figtree, 'DejaVu Sans', system-ui, sans-serif"
-          font-size="60" font-weight="700" letter-spacing="-1.6">
-      <tspan fill="#201e1d">Mardas</tspan><tspan dx="14" fill="#c67139">Folio</tspan>
-    </text>
-    <text x="196" y="172" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace"
-          font-size="15" fill="#645c50" letter-spacing="0.06em">v2.0.3 · MIT</text>
-
-    <!-- Tagline -->
-    <text x="72" y="248" font-family="Figtree, 'DejaVu Sans', system-ui, sans-serif"
-          font-size="21" fill="#474238">Markdown authoring and PDF publishing for Persian, English,</text>
-    <text x="72" y="278" font-family="Figtree, 'DejaVu Sans', system-ui, sans-serif"
-          font-size="21" fill="#474238">and mixed RTL / LTR technical documents.</text>
-
-    <!-- The pipeline: the product's whole promise, on ink. -->
-    <g transform="translate(72 312)">
-      <rect width="612" height="44" rx="22" fill="#2e2b25"/>
-      <text x="24" y="29" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace"
-            font-size="15" fill="#f5ead8" letter-spacing="0.02em">Markdown</text>
-      <text x="130" y="29" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace"
-            font-size="15" fill="#c0b6a5">&#8594;</text>
-      <text x="158" y="29" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace"
-            font-size="15" fill="#f5ead8" letter-spacing="0.02em">Structured HTML</text>
-      <text x="344" y="29" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace"
-            font-size="15" fill="#c0b6a5">&#8594;</text>
-      <text x="372" y="29" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace"
-            font-size="15" fill="#f6a06b" letter-spacing="0.02em">Chromium PDF</text>
+  </g>
+  <g font-family="'Segoe UI', 'DejaVu Sans', sans-serif">
+    <text x="140" y="84" fill="#181818" font-size="36" font-weight="700" letter-spacing="-1">Mardas Folio</text>
+    <text x="141" y="110" fill="#626262" font-size="15">Your documents. Your device.</text>
+    <text x="48" y="188" fill="#181818" font-size="42" font-weight="700" letter-spacing="-1.3">Make room for your writing.</text>
+    <text x="48" y="231" fill="#545454" font-size="19">Markdown authoring and PDF publishing</text>
+    <text x="48" y="259" fill="#545454" font-size="19">for Persian, English, and everything in between.</text>
+    <g transform="translate(48 307)" font-size="14" font-weight="600">
+      <rect width="158" height="42" rx="21" fill="#FFFFFF"/>
+      <text x="79" y="27" text-anchor="middle" fill="#393939">Markdown → PDF</text>
+      <rect x="170" width="122" height="42" rx="21" fill="#FFFFFF"/>
+      <text x="231" y="27" text-anchor="middle" fill="#393939">RTL + LTR</text>
+      <rect x="304" width="130" height="42" rx="21" fill="#FFF0D8"/>
+      <text x="369" y="27" text-anchor="middle" fill="#9B4D00">Works offline</text>
     </g>
-
-    <!-- Capability chips -->
-    <g font-family="Figtree, 'DejaVu Sans', system-ui, sans-serif" font-size="15" font-weight="600">
-      <g transform="translate(716 312)">
-        <rect width="150" height="44" rx="22" fill="#ffe1d0"/>
-        <text x="75" y="29" text-anchor="middle" fill="#643312">Bidirectional</text>
-      </g>
-      <g transform="translate(880 312)">
-        <rect width="112" height="44" rx="22" fill="#e1eecc"/>
-        <text x="56" y="29" text-anchor="middle" fill="#3d472b">Offline</text>
-      </g>
-      <g transform="translate(1006 312)">
-        <rect width="122" height="44" rx="22" fill="#eee7db"/>
-        <text x="61" y="29" text-anchor="middle" fill="#474238">No LaTeX</text>
-      </g>
-    </g>
-
-    <!-- The repository path: the only place the URL appears in the identity. -->
-    <text x="1128" y="140" text-anchor="end"
-          font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace"
-          font-size="14" fill="#82796a">github.com/mragetsars/Mardas-Folio</text>
+  </g>
+  <!-- A quiet note card, with a folder behind it: content is the focus. -->
+  <rect x="798" y="69" width="350" height="292" rx="28" fill="#E8E8E8"/>
+  <rect x="760" y="40" width="360" height="304" rx="28" fill="#FFFFFF"/>
+  <g font-family="'Segoe UI', 'DejaVu Sans', sans-serif">
+    <path d="M784 65H799L804 70H816V84H784Z" fill="#FF9F00"/>
+    <text x="828" y="81" fill="#626262" font-size="13" font-weight="600">My documents</text>
+    <circle cx="1091" cy="74" r="2" fill="#626262"/>
+    <circle cx="1091" cy="81" r="2" fill="#626262"/>
+    <circle cx="1091" cy="67" r="2" fill="#626262"/>
+    <text x="790" y="129" fill="#181818" font-size="24" font-weight="700">A little more clarity.</text>
+    <text x="1090" y="170" direction="rtl" unicode-bidi="plaintext" fill="#393939" font-size="21">جایی برای نوشته‌های تو</text>
+    <rect x="790" y="192" width="270" height="7" rx="3.5" fill="#EEEEEE"/>
+    <rect x="790" y="211" width="294" height="7" rx="3.5" fill="#EEEEEE"/>
+    <rect x="790" y="230" width="216" height="7" rx="3.5" fill="#EEEEEE"/>
+    <rect x="790" y="273" width="112" height="38" rx="19" fill="#FF9F00"/>
+    <text x="846" y="297" text-anchor="middle" fill="#241600" font-size="13" font-weight="700">Create PDF</text>
+    <text x="1090" y="296" text-anchor="end" fill="#626262" font-size="12">Saved locally</text>
   </g>
 </svg>
