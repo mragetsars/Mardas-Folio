@@ -14,7 +14,7 @@ body[data-view="workspace"] .file-navigator { grid-template-rows: 40px 38px minm
 .outline-controls input { width: 100%; min-width: 0; min-height: 30px; padding: 4px 9px; border: 1px solid var(--ui-border); border-radius: 8px; color: var(--ui-text); background: var(--ui-panel); font: inherit; font-size: var(--ui-text-xs); }
 .outline-controls .toolbar-icon-button { width: 28px; height: 30px; min-height: 30px; }
 .outline-follow { display: flex; align-items: center; gap: 6px; margin: 2px 10px 5px; color: var(--ui-muted); font-size: var(--ui-text-2xs); }
-.outline-follow input { accent-color: var(--ui-accent); }
+.outline-follow input { flex: 0 0 16px; width: 16px; height: 16px; min-height: 16px; margin: 0; padding: 0; accent-color: var(--ui-accent); }
 .navigator-outline-panel .outline-navigator { flex: 1; }
 .file-navigator .navigator-footer { grid-row: 4; }
 .document-toolbar .format-bar { display: none; min-width: 0; min-height: 32px; max-width: 100%; padding: 0; border: 0; background: transparent; }

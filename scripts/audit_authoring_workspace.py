@@ -125,6 +125,10 @@ def _outline(page: Any) -> dict[str, Any]:
     expect(page.locator("#preview-pane")).to_be_hidden()
     expect(page.locator("#navigator-tab-outline")).to_have_attribute("aria-selected", "true")
     expect(page.locator("#outline-filter")).to_be_visible()
+    follow = page.locator("#outline-follow").bounding_box()
+    assert follow and follow["width"] <= 24 and follow["height"] <= 24, (
+        "Outline follow checkbox must not inherit full-width form-field sizing"
+    )
     heading = page.locator("#outline-list .outline-heading")
     expect(heading).to_have_count(25)
     expect(page.locator("#outline-list .level")).to_have_count(0)
