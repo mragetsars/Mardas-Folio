@@ -190,6 +190,8 @@ globalThis.__TAURI__ = {
             assert target and target.startswith("#book-review-")
             expect(page.locator("#book-review-document").locator(target)).to_have_count(1)
             reviewed = page.locator("#book-review-document").inner_text()
+            assert page.locator("#book-review-document .md2pdf-toc ol").evaluate_all("nodes => nodes.length > 0 && nodes.every(node => getComputedStyle(node).listStyleType === 'none')")
+            assert page.locator("#book-review-document .md2pdf-toc .toc-item > a").evaluate_all("nodes => nodes.length > 0 && nodes.every(node => parseFloat(getComputedStyle(node).columnGap) > 0)")
             assert reviewed.index("LATEST_SECOND_DIRECT_OPEN") < reviewed.index("LATEST_FIRST_CHAPTER")
             assert "LATEST_PROJECT_RESOURCE" in config.read_text(encoding="utf-8")
             assert "LATEST_FIRST_CHAPTER" in first.read_text(encoding="utf-8")

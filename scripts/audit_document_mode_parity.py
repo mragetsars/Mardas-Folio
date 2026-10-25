@@ -150,6 +150,8 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         markdown = fixture_root / "parity-document.md"
         config = fixture_root / "settings.toml"
         locked = fixture_root / "locked.md"
+        other = fixture_root / "other.md"
+        other.write_text("# Other document\n\nOther content.\n", encoding="utf-8")
         project_config = fixture_root / "mardas.toml"
         markdown.write_text(SAMPLE, encoding="utf-8")
         config.write_text('title = "Configuration text"\n', encoding="utf-8")
@@ -299,6 +301,18 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     page.locator("#refresh-preview").click()
                     expect(page.locator("#preview-document")).to_contain_text("MANUAL_REFRESH_TOKEN")
                     scenario["checks"].append("paused edits are visibly stale while explicit view entry and refresh use current content")
+
+                    _activity(page, "source")
+                    _append(page, "\nSTALE_TAB_ENTRY_TOKEN\n")
+                    page.evaluate("path => {__modeFixture.pick = path}", str(other))
+                    page.locator("#navigator-open").click()
+                    expect(page.locator("#markdown-editor")).to_have_value(other.read_text())
+                    _activity(page, "read")
+                    expect(page.locator("#reading-document")).to_contain_text("Other content.")
+                    page.locator(".tab-activate").filter(has_text="parity-document.md").click()
+                    expect(page.locator("#reading-document")).to_contain_text("STALE_TAB_ENTRY_TOKEN")
+                    assert not page.locator("#reading-auto-preview").is_checked()
+                    scenario["checks"].append("tab entry refreshes stale content even while typing updates remain paused")
 
                     _activity(page, "read")
                     if page.locator("#workspace-toggle-sidebar").get_attribute("aria-pressed") == "false":

@@ -4188,6 +4188,10 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
 .document-content pre { padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-sm); background: var(--ui-panel-soft); font-size: .85em; }
 .document-content pre code { font-size: inherit; background: none; color: inherit; }
 .document-content table { margin-block: 1em; }
+.document-content .md2pdf-toc ol { list-style: none; }
+.document-content .md2pdf-toc .toc-item > a { display: flex; align-items: baseline; gap: .6em; }
+.document-content .md2pdf-toc .toc-number { flex: 0 0 auto; unicode-bidi: isolate; }
+.document-content .md2pdf-toc .toc-title { min-width: 0; overflow-wrap: anywhere; }
 .document-content table:not(.codehilitetable):not(.highlighttable) { font-size: .9em; }
 .document-content :is(th, td) { padding: 8px 12px; border: 1px solid var(--ui-border); }
 .document-content th { background: var(--ui-panel-soft); text-align: start; }
@@ -4358,6 +4362,7 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
 
 /* Editing activity is separate from the optional comparison layout. */
 .document-toolbar { flex-wrap: wrap; }
+.document-activity-controls { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .view-layout-actions { display: inline-flex; align-items: center; gap: 3px; padding-inline-start: 8px; border-inline-start: 1px solid var(--ui-border); }
 .view-layout-actions [aria-pressed="true"] { color: var(--ui-accent); background: var(--ui-accent-soft); }
 .content-view-header { min-height: 44px; flex-shrink: 0; }

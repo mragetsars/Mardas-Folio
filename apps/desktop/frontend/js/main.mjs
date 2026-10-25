@@ -2602,7 +2602,7 @@ async function activateDocument(id, { focus = "editor" } = {}) {
     tab?.querySelector(".tab-activate")?.focus({ preventScroll: true });
   } else if (effectiveViewMode() === "read") $("#reading-document")?.focus({ preventScroll: true });
   else currentEditor().focus();
-  schedulePreview(80);
+  schedulePreview(80, { entering: true });
   if (model.path) refreshAssets();
 }
 
