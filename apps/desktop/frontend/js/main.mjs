@@ -56,6 +56,7 @@ import {
 import { createSaveCoordinator } from "./core/save-coordinator.mjs";
 import { createOutlineNavigator } from "./core/outline-navigator.mjs";
 import { createDocumentMetrics } from "./core/document-metrics.mjs";
+import { authoringShortcutKey } from "./core/keyboard-shortcuts.mjs";
 import { createConfirmationQueue } from "./core/confirmation-queue.mjs";
 import { saveDocumentsBeforeUpdate } from "./core/update-preparation.mjs";
 import { prepareBookFiles } from "./core/book-preparation.mjs";
@@ -5278,9 +5279,8 @@ function bindEvents() {
       if (!modalManager.hasOpenModal()) openHelp();
       return;
     }
-    const modifier = event.ctrlKey || event.metaKey;
-    if (!modifier) return;
-    const key = event.key.toLowerCase();
+    const key = authoringShortcutKey(event);
+    if (!key) return;
     if (modalManager.hasOpenModal()) return;
     const formControl = event.target instanceof Element
       && event.target.matches("input,textarea,select,[contenteditable='true']")
