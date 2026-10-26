@@ -81,7 +81,10 @@ def run(dist: Path, output: Path) -> dict:
                     page.wait_for_function("Boolean(window.adapter)")
                     page.evaluate("locale=>{document.documentElement.dir=locale==='fa'?'rtl':'ltr';document.documentElement.dataset.theme='dark'}", locale)
                     for mode in ("live", "source"):
-                        for punctuation in ("—", "–", "…", "“", "’"):
+                        variants = [(value, "100%", 1) for value in ("—", "–", "…", "“", "’")]
+                        variants.append(("—", "680px", 1.25))
+                        for punctuation, column, scale in variants:
+                            page.evaluate("v=>{document.documentElement.style.setProperty('--writing-column',v.column);document.documentElement.style.setProperty('--document-text-scale',v.scale)}", {"column": column, "scale": str(scale)})
                             text = PARAGRAPH.replace("—", punctuation)
                             ipa = text.index("bɪɡ ˈdeɪtə")
                             ranges = [(60, len(text)-30, "wrapped"), (ipa, ipa+10, "IPA"), (ipa+1, ipa+8, "partial-IPA")]
@@ -93,7 +96,7 @@ def run(dist: Path, output: Path) -> dict:
                                     page.evaluate("async()=>{await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))}")
                                     page.wait_for_timeout(80)
                                     geometry = page.evaluate(GEOMETRY, {"from": start, "to": end})
-                                    details = {"locale":locale,"width":width,"mode":mode,"punctuation":punctuation,"range":label,"direction":direction}
+                                    details = {"locale":locale,"width":width,"mode":mode,"column":column,"scale":scale,"punctuation":punctuation,"range":label,"direction":direction}
                                     assert geometry["source"] == text, (details, "source DOM mismatch")
                                     assert geometry["selection"] == text[start:end], (details, "logical selection mismatch")
                                     assert geometry["glyphs"] > 0 and not geometry["missing"], (details, geometry)
