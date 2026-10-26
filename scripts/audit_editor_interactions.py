@@ -148,6 +148,25 @@ def run(dist: Path, output: Path) -> dict:
                     preview.click()
                     expect(page.locator("#preview-pane")).to_be_visible()
                     expect(preview).to_have_attribute("aria-expanded", "true")
+                    toolbar = page.locator(".cm-selection-toolbar:visible")
+                    if toolbar.count():
+                        page.wait_for_function("""()=>{
+                          const t=document.querySelector('.cm-selection-toolbar');
+                          if(!t || !t.getClientRects().length)return true;
+                          const a=t.getBoundingClientRect(),b=document.querySelector('.cm-editor').getBoundingClientRect();
+                          return a.left>=b.left-1&&a.right<=b.right+1;
+                        }""")
+                    page.locator(".cm-md-table tbody code").first.click()
+                    page.keyboard.type("CELL_ENTRY_")
+                    expect(buffer).to_have_value(
+                        SAMPLE.replace("| `--title`", "| CELL_ENTRY_`--title`")
+                    )
+                    page.keyboard.press("Control+z")
+                    expect(buffer).to_have_value(SAMPLE)
+                    page.keyboard.press("Control+End")
+                    case["checks"].append(
+                        "selection toolbar stays in its pane; table click replaces a prior range with a precise cell caret"
+                    )
                     expect(
                         page.locator(
                             '#preview-document .md2pdf-image-placeholder[data-md2pdf-blocked-reason="remote"]'

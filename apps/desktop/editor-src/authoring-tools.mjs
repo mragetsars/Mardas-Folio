@@ -6,7 +6,7 @@ import { pickedCompletion } from "@codemirror/autocomplete";
 import { isolateHistory } from "@codemirror/commands";
 import { syntaxTree } from "@codemirror/language";
 import { EditorSelection, EditorState, Prec, StateEffect, StateField, Transaction } from "@codemirror/state";
-import { EditorView, getTooltip, keymap, showTooltip } from "@codemirror/view";
+import { EditorView, getTooltip, keymap, showTooltip, tooltips } from "@codemirror/view";
 import { runMarkdownCommand } from "./markdown-commands.mjs";
 
 const BLOCKS = Object.freeze([
@@ -210,7 +210,12 @@ export function selectionToolbarExtension(locale = "en", enabled = true) {
     },
     provide: (field) => showTooltip.from(field),
   });
-  return [field, Prec.highest(keymap.of([{
+  return [tooltips({
+    // The writing pane is a size container. Portal fixed-position tooltips
+    // outside it, while keeping their available space inside the editor.
+    parent: typeof document === 'undefined' ? undefined : document.body,
+    tooltipSpace: (view) => view.dom.getBoundingClientRect(),
+  }), field, Prec.highest(keymap.of([{
     key: "Alt-F10",
     preventDefault: true,
     run(view) {

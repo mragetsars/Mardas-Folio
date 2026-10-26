@@ -251,6 +251,17 @@ export class TableWidget extends WidgetType {
         });
         if (alignments[column]) element.style.textAlign = alignments[column];
         element.dir = "auto";
+        if (view) element.addEventListener('mousedown', (event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const position = this.from + (cell?.from ?? sourceRow.to) - offset;
+          view.dispatch({ selection: {
+            anchor: event.shiftKey ? view.state.selection.main.anchor : position,
+            head: position,
+          }, scrollIntoView: true });
+          view.focus();
+        });
         row.append(element);
       }
       if (head) {
