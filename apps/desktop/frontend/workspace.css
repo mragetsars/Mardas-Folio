@@ -26,7 +26,7 @@
   --terracotta-700: #9a3412;
   --terracotta-800: #7c2d12;
   --ui-brand: #ff9f00;
-  --ui-bg: #f3f3f3;
+  --ui-bg: #f2f2f2;
   --ui-panel: #ffffff;
   --ui-panel-soft: #f7f7f7;
   --ui-panel-muted: #ededed;
@@ -144,9 +144,10 @@
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  --ui-bg: #101010;
-  --ui-panel: #1c1c1c;
-  --ui-panel-soft: #202020;
+  /* One UI separates a black canvas from quiet, elevated gray focus blocks. */
+  --ui-bg: #000000;
+  --ui-panel: #171717;
+  --ui-panel-soft: #1f1f1f;
   --ui-panel-muted: #2c2c2c;
   --ui-panel-active: #363636;
   --ui-border: #363636;
@@ -201,8 +202,8 @@ html[data-theme="dark"] {
   --cm-search: rgba(251, 191, 36, 0.26);
   --cm-search-border: rgba(251, 191, 36, 0.55);
   --cm-search-active: rgba(251, 191, 36, 0.45);
-  --ui-page: #1c1c1c;
-  --ui-desk: #101010;
+  --ui-page: #000000;
+  --ui-desk: #000000;
 }
 
 html,
@@ -949,29 +950,6 @@ html[dir="rtl"] .settings-card .settings-sections {
   transform: translateX(-50%);
   background: var(--ui-border-strong);
   opacity: 0.55;
-}
-
-.pane-resizer::after {
-  content: "";
-  position: absolute;
-  z-index: 2;
-  left: 50%;
-  top: 50%;
-  width: 2px;
-  height: 32px;
-  transform: translate(-50%, -50%);
-  border-radius: var(--ui-radius-pill);
-  background: var(--ui-border-strong);
-  opacity: 0;
-  transition: height 120ms ease, opacity 120ms ease, background-color 120ms ease;
-}
-
-.pane-resizer:hover::after,
-.pane-resizer:focus-visible::after,
-.pane-resizer.is-dragging::after {
-  height: 40px;
-  background: var(--ui-accent-fill);
-  opacity: 1;
 }
 
 .pane-resizer:is(:hover, :focus-visible, .is-dragging)::before {
@@ -3486,7 +3464,7 @@ html[dir="rtl"] .studio-kicker, html[dir="rtl"] .launcher-heading { letter-spaci
 
 .format-bar button { min-height: 28px; height: 28px; }
 
-.editor-surface, .codemirror-mount, .codemirror-mount .cm-editor { background: var(--ui-page); }
+.editor-surface.professional-editor, .codemirror-mount, .codemirror-mount .cm-editor { background: var(--ui-page); }
 
 .codemirror-mount .cm-content { padding-block: 26px 80px; }
 

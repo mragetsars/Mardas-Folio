@@ -69,6 +69,16 @@ def run(dist: Path, output: Path) -> dict:
                     buffer = page.locator("#markdown-editor")
                     editor = page.locator(".cm-content")
                     expect(buffer).to_have_value(SAMPLE)
+                    surfaces = page.evaluate("""() => ({
+                      paper:getComputedStyle(document.querySelector('.editor-surface')).backgroundColor,
+                      shell:getComputedStyle(document.documentElement).getPropertyValue('--ui-bg').trim(),
+                      panel:getComputedStyle(document.documentElement).getPropertyValue('--ui-panel').trim()
+                    })""")
+                    assert surfaces["paper"] == (
+                        "rgb(0, 0, 0)" if theme == "dark" else "rgb(255, 255, 255)"
+                    ), surfaces
+                    assert surfaces["panel"] != surfaces["shell"], surfaces
+                    case["surfaces"] = surfaces
                     expect(page.locator(".cm-md-image-missing")).to_be_visible()
                     assert (
                         page.locator(".cm-md-image-missing code")
@@ -198,13 +208,14 @@ def run(dist: Path, output: Path) -> dict:
                         page.mouse.move(x + (48 if locale == "fa" else -48), y, steps=4)
                         assert int(handle.get_attribute("aria-valuenow")) != before
                         visual = handle.evaluate(
-                            "e=>({background:getComputedStyle(e).backgroundColor,line:getComputedStyle(e,'::before').width,hit:e.getBoundingClientRect().width})"
+                            "e=>({background:getComputedStyle(e).backgroundColor,line:getComputedStyle(e,'::before').width,grip:getComputedStyle(e,'::after').content,hit:e.getBoundingClientRect().width})"
                         )
                         assert (
                             visual["background"] == "rgba(0, 0, 0, 0)"
                             and float(visual["line"][:-2]) <= 2
                         ), visual
                         assert visual["hit"] >= 10, visual
+                        assert visual["grip"] in ("none", "normal"), visual
                         page.keyboard.press("Escape")
                         assert int(handle.get_attribute("aria-valuenow")) == before
                         assert page.locator("html").get_attribute("data-pane-resizing") is None

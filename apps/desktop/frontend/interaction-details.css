@@ -19,7 +19,6 @@ body[data-view="workspace"] .authoring-grid .pane-resizer:focus-visible { outlin
 @container writer (max-width: 620px) {
   .document-toolbar .panel-toggle > span { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .pane-resizer::after { transition: none; } }
 .cm-md-table code { font-family: var(--editor-code-font, ui-monospace, monospace); font-size: .92em; padding: .1em .3em; border-radius: 4px; background: var(--ui-panel-muted); }
 .cm-md-table .cm-md-live-link { color: var(--cm-link); text-decoration: underline; text-underline-offset: .15em; }
 .document-content .md2pdf-image-placeholder { display: inline-flex; flex-direction: column; vertical-align: middle; gap: 2px; box-sizing: border-box; max-width: min(100%, 320px); padding: 7px 10px; margin: 3px; border: 1px dashed var(--ui-border-strong); border-radius: 8px; background: var(--ui-panel-soft); font-size: .78em; line-height: 1.5; }
