@@ -58,6 +58,13 @@
  * asserts the text it replaces, so an upgrade that touches either function
  * fails the build rather than silently dropping the fix.  Reported upstream;
  * remove this once a release carries it.
+ *
+ * Further guarded corrections keep the bidi model and paint aligned:
+ * printable General Punctuation retains its Unicode neutral/numeric class
+ * rather than falling through to strong Latin, and continuation rectangles
+ * respect the content's padded text area (including CSS scaling) and the
+ * paragraph's own direction rather than the interface direction. These are
+ * checked against actual glyph geometry in audit_bidi_selection.py.
  */
 import { readFile } from "node:fs/promises";
 
@@ -157,6 +164,34 @@ const WRAPPED_REPLACEMENT = `function wrappedLine(view, pos, side, inside) {
 const REPLACEMENTS = [
   ["moveToLineBoundary", BOUNDARY_ORIGINAL, BOUNDARY_REPLACEMENT],
   ["wrappedLine", WRAPPED_ORIGINAL, WRAPPED_REPLACEMENT],
+  // CodeMirror's compact table defaults every unlisted character to strong L.
+  // General Punctuation is not strong Latin text: an em dash before /IPA/
+  // otherwise joins the Latin span in the model while the browser keeps it
+  // with Persian. Its reversed endpoints then draw a zero-width selection.
+  // Exact printable General Punctuation classes from Unicode 17 DerivedBidiClass:
+  // https://www.unicode.org/Public/17.0.0/ucd/extracted/DerivedBidiClass.txt
+  ["charType", "0x2000 <= ch && ch <= 0x200c ? 256 /* T.NI */ :", `0x2000 <= ch && ch <= 0x200c ? 256 /* T.NI */ :
+                        0x2010 <= ch && ch <= 0x2027 || 0x2035 <= ch && ch <= 0x2043 || 0x2045 <= ch && ch <= 0x205f ? 256 /* T.NI */ :
+                            ch == 0x202f || ch == 0x2044 ? 128 /* T.CS */ :
+                                0x2030 <= ch && ch <= 0x2034 ? 64 /* T.ET */ :`],
+  // The content box includes the writing margins. Continuation rectangles
+  // must start at its text area, just like the actual selected glyphs do.
+  ["rectanglesForRange", `let leftSide = contentRect.left +
+        (lineStyle ? parseInt(lineStyle.paddingLeft) + Math.min(0, parseInt(lineStyle.textIndent)) : 0);
+    let rightSide = contentRect.right - (lineStyle ? parseInt(lineStyle.paddingRight) : 0);`, `let contentStyle = window.getComputedStyle(content);
+    let leftSide = contentRect.left +
+        ((parseFloat(contentStyle.paddingLeft) || 0) +
+         (lineStyle ? (parseFloat(lineStyle.paddingLeft) || 0) + Math.min(0, parseFloat(lineStyle.textIndent) || 0) : 0)) * view.scaleX;
+    let rightSide = contentRect.right -
+        ((parseFloat(contentStyle.paddingRight) || 0) +
+         (lineStyle ? (parseFloat(lineStyle.paddingRight) || 0) : 0)) * view.scaleX;`],
+  // Continuation edges belong to the paragraph's base direction. Using the
+  // editor's UI direction can fill over unselected RTL text when a soft row
+  // begins inside a Latin run (or vice versa).
+  ["rectanglesForRange", `function drawForLine(from, to, line) {
+        let top`, `function drawForLine(from, to, line) {
+        let ltr = view.textDirectionAt(line.from) == Direction.LTR;
+        let top`],
 ];
 
 const VIEW_MODULE = /@codemirror[/\\]view[/\\]dist[/\\]index\.js$/;
@@ -179,7 +214,7 @@ export function applyPatch(source) {
 }
 
 /** The functions this patch rewrites, for the test suite to name. */
-export const PATCHED_FUNCTIONS = REPLACEMENTS.map(([name]) => name);
+export const PATCHED_FUNCTIONS = [...new Set(REPLACEMENTS.map(([name]) => name))];
 
 /** An esbuild plugin that rewrites them as the bundle is built. */
 export function codeMirrorBidiPatch() {

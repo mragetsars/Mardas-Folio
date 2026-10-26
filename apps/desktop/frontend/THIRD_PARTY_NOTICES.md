@@ -20,10 +20,10 @@ explicitly create their own writable property before assignment so MathJax runs
 with Tauri's frozen `Object.prototype`. The publisher's original asset is unchanged.
 
 CodeMirror is bundled with one modification. `@codemirror/view` is patched as the bundle is
-built, by `apps/desktop/scripts/codemirror-bidi-patch.mjs`, to correct two behaviours on a line
-that changes writing direction: the drawing of a selection over it, and where the Home and End
-keys place the caret on it. The patch replaces two internal functions and is documented in full
-at that path.
+built, by `apps/desktop/scripts/codemirror-bidi-patch.mjs`, to correct selection geometry and
+Home/End movement on mixed-direction lines, Unicode classification of printable General
+Punctuation, and selection continuation bounds inside the writing margins. The guarded patch
+modifies four internal functions and is documented in full at that path.
 
 ## MIT License
 

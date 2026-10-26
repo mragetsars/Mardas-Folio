@@ -45,7 +45,7 @@ test("the patch still matches the pinned @codemirror/view", async () => {
     "the patch no longer matches; re-derive it, or drop it if fixed upstream.",
   );
   assert.notEqual(patched, source);
-  assert.deepEqual(PATCHED_FUNCTIONS, ["moveToLineBoundary", "wrappedLine"]);
+  assert.deepEqual(PATCHED_FUNCTIONS, ["moveToLineBoundary", "wrappedLine", "charType", "rectanglesForRange"]);
 });
 
 test("neither patched function hit-tests the editor's horizontal edges", async () => {
@@ -53,7 +53,7 @@ test("neither patched function hit-tests the editor's horizontal edges", async (
 
   // Probing the far left and right edges is the defect both shared: on a line
   // whose direction changes, the outermost glyphs belong to an interior run.
-  for (const name of PATCHED_FUNCTIONS) {
+  for (const name of ["moveToLineBoundary", "wrappedLine"]) {
     const body = functionBody(patched, name);
     assert.doesNotMatch(body, /editorRect\.right - 1/, `${name} still probes the right edge`);
     assert.doesNotMatch(body, /editorRect\.left \+ 1/, `${name} still probes the left edge`);
@@ -61,6 +61,28 @@ test("neither patched function hit-tests the editor's horizontal edges", async (
   }
   // The row search decides membership vertically, from a row midpoint.
   assert.match(functionBody(patched, "visualRowBounds"), /coords\.top \+ coords\.bottom\) \/ 2/);
+});
+
+test("typographic punctuation keeps Unicode neutral and numeric classes", async () => {
+  const patched = applyPatch(await readFile(viewModule, "utf8"));
+  // The branch under test needs only the upstream low/Arabic tables for
+  // characters outside this range, which these samples deliberately exclude.
+  const classify = new Function(`const LowTypes=[],ArabicTypes=[]; ${functionBody(patched, "charType")}; return charType;`)();
+  for (const value of ["—", "–", "‘", "’", "“", "”", "…", "†", "•", "⁂", " "]) {
+    assert.equal(classify(value.charCodeAt(0)), 256, value);
+  }
+  for (const value of ["‰", "‱", "′", "″"]) assert.equal(classify(value.charCodeAt(0)), 64, value);
+  for (const value of [" ", "⁄"]) assert.equal(classify(value.charCodeAt(0)), 128, value);
+  for (const value of ["ɪ", "ɡ", "ə"]) assert.equal(classify(value.charCodeAt(0)), 1, value);
+});
+
+test("selection continuation uses each paragraph direction and scaled writing margins", async () => {
+  const patched = applyPatch(await readFile(viewModule, "utf8"));
+  const body = functionBody(patched, "rectanglesForRange");
+  assert.match(body, /let ltr = view\.textDirectionAt\(line\.from\) == Direction\.LTR/);
+  assert.match(body, /parseFloat\(contentStyle\.paddingLeft\)/);
+  assert.match(body, /parseFloat\(contentStyle\.paddingRight\)/);
+  assert.match(body, /\) \* view\.scaleX/);
 });
 
 test("the patch refuses to apply to source it does not recognise", () => {
