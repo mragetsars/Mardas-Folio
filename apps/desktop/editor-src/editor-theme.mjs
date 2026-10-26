@@ -139,8 +139,11 @@ export function mardasEditorTheme(dark = false) {
         borderLeftWidth: "2px",
       },
       "&.cm-focused .cm-cursor": { borderLeftColor: token("cursor", "#c2410c") },
-      "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
-        backgroundColor: token("selection", "rgba(194, 65, 12, 0.16)"),
+      ".cm-selectionBackground": {
+        backgroundColor: token("selection-inactive", "rgba(128, 128, 128, 0.16)"),
+      },
+      "&.cm-focused .cm-selectionBackground": {
+        backgroundColor: token("selection", "rgba(128, 128, 128, 0.25)"),
       },
       ".cm-selectionMatch": {
         backgroundColor: token("selection-match", "rgba(17, 17, 17, 0.1)"),

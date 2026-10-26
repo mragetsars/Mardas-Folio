@@ -20,6 +20,7 @@ import {
   BulletWidget,
   EntityWidget,
   ImageWidget,
+  ImagePlaceholderWidget,
   TaskWidget,
   MathWidget,
   mathRenderer,
@@ -48,7 +49,7 @@ export const assetResolver = Facet.define({
  * passes in the asset resolver.
  */
 export const editorStrings = Facet.define({
-  combine: (values) => Object.assign({ imageNotFound: "Image not found" }, ...values),
+  combine: (values) => Object.assign({ imageNotFound: "Image not found", remoteImageNotLoaded: "Remote image not loaded" }, ...values),
 });
 
 /**
@@ -444,17 +445,18 @@ function buildDecorations(view) {
         if (node.name === "Image") {
           const parsed = parseImage(state.doc.sliceString(node.from, node.to));
           const url = parsed ? state.facet(assetResolver)(parsed.src) : null;
-          if (url) {
+          if (parsed) {
             marks.push([
               node.from,
               node.to,
               Decoration.replace({
-                widget: new ImageWidget(
+                widget: url ? new ImageWidget(
                   url,
                   parsed.alt,
                   parsed.src,
                   state.facet(editorStrings).imageNotFound,
-                ),
+                ) : new ImagePlaceholderWidget(parsed.src, parsed.alt,
+                  /^(?:https?:)?\/\//i.test(parsed.src) ? state.facet(editorStrings).remoteImageNotLoaded : state.facet(editorStrings).imageNotFound),
               }),
             ]);
           }

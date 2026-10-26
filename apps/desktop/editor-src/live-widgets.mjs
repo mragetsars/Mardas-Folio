@@ -28,6 +28,11 @@
 import { Facet, RangeSetBuilder, StateField } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
+import { markdownLanguage } from "@codemirror/lang-markdown";
+import { appendTableInline } from "./table-inline.mjs";
+import { mathAndFootnotes } from "./markdown-extras.mjs";
+
+const tableParser = markdownLanguage.parser.configure([mathAndFootnotes]);
 
 /**
  * The only nodes that can hold another block, and so the only ones worth
@@ -63,8 +68,6 @@ function splitRow(line) {
   cells.push(current);
   return cells.map((cell) => cell.trim());
 }
-
-const isAlignmentRow = (cells) => cells.every((cell) => /^:?-{1,}:?$/.test(cell.trim()));
 
 /** The table's column order belongs to its content, not the interface locale. */
 export function tableContentDirection(markup) {
@@ -184,15 +187,17 @@ export class MathWidget extends WidgetType {
 }
 
 export class TableWidget extends WidgetType {
-  constructor(markup, from, to) {
+  constructor(markup, from, to, renderMath = null, syntax = null) {
     super();
     this.markup = markup;
     this.from = from;
     this.to = to;
+    this.renderMath = renderMath;
+    this.syntax = syntax;
   }
 
   eq(other) {
-    return other.markup === this.markup && other.from === this.from;
+    return other.markup === this.markup && other.from === this.from && other.renderMath === this.renderMath;
   }
 
   rows() {
@@ -206,26 +211,48 @@ export class TableWidget extends WidgetType {
     return Math.max(1, rows - 1) * (LINE_HEIGHT + 8) + 16 + TABLE_BLOCK_PADDING;
   }
 
-  toDOM() {
+  toDOM(view) {
     const wrapper = document.createElement("div");
     wrapper.className = "cm-md-table";
     const table = document.createElement("table");
     wrapper.dir = table.dir = tableContentDirection(this.markup);
     let body = null;
 
-    const rows = this.rows();
-    let rendered = 0;
-    rows.forEach((cells, index) => {
-      if (index === 1 && isAlignmentRow(cells)) return;
-      const head = rendered === 0;
+    // Keep the real tree for tables inside lists and blockquotes: parsing the
+    // sliced text again would mistake their continuation prefixes for cells.
+    const parsed = this.syntax || tableParser.parse(this.markup).topNode.firstChild;
+    const offset = this.syntax ? this.from : 0;
+    const rows = [];
+    let delimiter = null;
+    for (let child = parsed?.firstChild; child; child = child.nextSibling) {
+      if (child.name === 'TableHeader' || child.name === 'TableRow') rows.push(child);
+      else if (child.name === 'TableDelimiter') delimiter = child;
+    }
+    const alignments = (delimiter ? splitRow(this.markup.slice(delimiter.from - offset, delimiter.to - offset)) : []).map(cell => cell.startsWith(':')
+      ? (cell.endsWith(':') ? 'center' : 'left') : (cell.endsWith(':') ? 'right' : ''));
+    let columns = 0;
+    rows.forEach((sourceRow, index) => {
+      const cells = [];
+      for (let cell = sourceRow.firstChild; cell; cell = cell.nextSibling) {
+        if (cell.name === 'TableCell') cells.push(cell);
+      }
+      const head = index === 0;
+      if (head) columns = cells.length;
       const row = document.createElement("tr");
-      for (const cell of cells) {
+      for (let column = 0; column < columns; column += 1) {
+        const cell = cells[column];
         const element = document.createElement(head ? "th" : "td");
-        element.textContent = cell;
+        if (cell) appendTableInline(element, cell, this.markup, {
+          offset,
+          renderMathNode: this.renderMath && view ? (node) => new MathWidget(
+            this.markup.slice(node.from - offset, node.to - offset), this.from + node.from - offset,
+            this.from + node.to - offset, false, this.renderMath,
+          ).toDOM(view) : null,
+        });
+        if (alignments[column]) element.style.textAlign = alignments[column];
         element.dir = "auto";
         row.append(element);
       }
-      rendered += 1;
       if (head) {
         const header = document.createElement("thead");
         header.append(row);
@@ -246,6 +273,35 @@ export class TableWidget extends WidgetType {
     // Let clicks through so the caret lands in the source and the table opens.
     return false;
   }
+}
+
+function imagePlaceholder(source, alt, labelText) {
+  const missing = document.createElement('span');
+  missing.className = 'cm-md-image-missing';
+  missing.title = source;
+  const label = document.createElement('strong');
+  label.textContent = labelText;
+  missing.append(label);
+  if (source) {
+    const path = document.createElement('code');
+    path.dir = 'ltr';
+    path.textContent = source;
+    path.title = source;
+    missing.append(path);
+  }
+  if (alt) {
+    const caption = document.createElement('span');
+    caption.textContent = alt;
+    missing.append(caption);
+  }
+  return missing;
+}
+
+export class ImagePlaceholderWidget extends WidgetType {
+  constructor(source, alt, label) { super(); this.source = source; this.alt = alt; this.label = label; }
+  eq(other) { return other.source === this.source && other.alt === this.alt && other.label === this.label; }
+  toDOM() { return imagePlaceholder(this.source, this.alt, this.label); }
+  ignoreEvent() { return false; }
 }
 
 /**
@@ -284,27 +340,7 @@ export class ImageWidget extends WidgetType {
     // document, which says nothing about which image or why. Name it instead,
     // in the same shape the exporter uses for an image it had to block.
     image.addEventListener("error", () => {
-      const missing = document.createElement("span");
-      missing.className = "cm-md-image-missing";
-      const label = document.createElement("strong");
-      label.textContent = this.label;
-      missing.append(label);
-      // The path as it is written in the document, because that is the thing
-      // that has to be corrected. Alt text describes the picture that is not
-      // there; it does not say which file to go and look for.
-      if (this.source) {
-        const path = document.createElement("code");
-        path.dir = "ltr";
-        path.textContent = this.source;
-        path.title = this.source;
-        missing.append(path);
-      }
-      if (this.alt) {
-        const caption = document.createElement("span");
-        caption.textContent = this.alt;
-        missing.append(caption);
-      }
-      figure.replaceChildren(missing);
+      figure.replaceChildren(imagePlaceholder(this.source, this.alt, this.label));
     });
     figure.append(image);
     return figure;
@@ -572,6 +608,8 @@ function buildBlockDecorations(state) {
               state.doc.sliceString(node.from, node.to),
               node.from,
               node.to,
+              state.facet(mathRenderer),
+              node.node,
             ),
             block: true,
           }),

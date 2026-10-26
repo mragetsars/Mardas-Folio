@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ImageWidget, TableWidget, parseImage, tableContentDirection } from "../editor-src/live-widgets.mjs";
+import { ImageWidget, ImagePlaceholderWidget, TableWidget, parseImage, tableContentDirection } from "../editor-src/live-widgets.mjs";
 
 test("image widgets accept Markdown paths with spaces and balanced parentheses", () => {
   assert.deepEqual(parseImage('![chart](<assets/Persian chart.png> "Title")'), { alt: "chart", src: "assets/Persian chart.png" });
@@ -24,6 +24,7 @@ function fakeDocument() {
       tag,
       children: [],
       attributes: {},
+      style: {},
       textContent: "",
       className: "",
       append: (...items) => node.children.push(...items),
@@ -98,6 +99,23 @@ test("two widgets differ when their path or their message does", () => {
   assert.ok(base.eq(new ImageWidget("u", "a", "images/one.png", "Image not found")));
   assert.ok(!base.eq(new ImageWidget("u", "a", "images/two.png", "Image not found")));
   assert.ok(!base.eq(new ImageWidget("u", "a", "images/one.png", "تصویر پیدا نشد")));
+});
+
+test("a refused image remains identifiable without creating a network-capable element", () => {
+  const shim = fakeDocument();
+  const previous = globalThis.document;
+  globalThis.document = { createElement: shim.createElement };
+  try {
+    const source = 'https://example.com/image.png';
+    const widget = new ImagePlaceholderWidget(source, '<img onerror=alert(1)>', 'Remote image not loaded');
+    const placeholder = widget.toDOM();
+    assert.equal(placeholder.tag, 'span');
+    assert.equal(placeholder.title, source);
+    assert.equal(placeholder.children[1].textContent, source);
+    assert.equal(placeholder.children[2].textContent, '<img onerror=alert(1)>');
+    assert.equal(shim.handlers.size, 0);
+    assert.ok(!widget.eq(new ImagePlaceholderWidget(source, '', 'تصویر بارگیری نمی‌شود')));
+  } finally { globalThis.document = previous; }
 });
 
 test("live table column order follows content in either interface direction", () => {

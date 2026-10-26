@@ -1863,7 +1863,7 @@ html[data-reduced-motion="reduce"] *,html[data-reduced-motion="reduce"] *::befor
 
 .codemirror-mount .cm-activeLine,.codemirror-mount .cm-activeLineGutter { background: var(--cm-active-line); }
 
-.codemirror-mount .cm-selectionBackground,.codemirror-mount .cm-content ::selection { background: var(--cm-selection) !important; }
+.codemirror-mount .cm-selectionBackground { background: var(--cm-selection); }
 
 .codemirror-mount .cm-cursor,.codemirror-mount .cm-dropCursor { border-inline-start-color: var(--brand); }
 

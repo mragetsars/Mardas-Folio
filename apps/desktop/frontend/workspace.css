@@ -112,7 +112,8 @@
   --cm-variable: #202020;
   --cm-invalid: #b91c1c;
   --cm-cursor: var(--ui-accent);
-  --cm-selection: rgba(255, 159, 0, .22);
+  --cm-selection: rgba(80, 105, 145, .23);
+  --cm-selection-inactive: rgba(105, 110, 120, .15);
   --cm-selection-match: rgba(17, 17, 17, 0.1);
   --cm-active-line: rgba(255, 159, 0, .045);
   --cm-gutter-text: #666666;
@@ -190,7 +191,8 @@ html[data-theme="dark"] {
   --cm-type: #5eead4;
   --cm-variable: #f2f2f2;
   --cm-invalid: #f87171;
-  --cm-selection: rgba(255, 171, 40, .24);
+  --cm-selection: rgba(150, 175, 210, .28);
+  --cm-selection-inactive: rgba(155, 160, 170, .17);
   --cm-selection-match: rgba(245, 245, 245, 0.14);
   --cm-active-line: rgba(255, 171, 40, .055);
   --cm-gutter-text: #ababab;
@@ -925,15 +927,16 @@ html[dir="rtl"] .settings-card .settings-sections {
   position: relative;
   z-index: 2;
   box-sizing: border-box;
-  width: 17px;
-  margin-inline: -5px;
-  padding-inline: 5px;
+  width: 12px;
+  margin-inline: -4px;
+  padding: 0;
   min-width: 0;
   min-height: 0;
   border: 0;
   cursor: col-resize;
   touch-action: none;
   outline: 0;
+  background: transparent;
 }
 
 .pane-resizer::before {
@@ -954,8 +957,8 @@ html[dir="rtl"] .settings-card .settings-sections {
   z-index: 2;
   left: 50%;
   top: 50%;
-  width: 3px;
-  height: 54px;
+  width: 2px;
+  height: 32px;
   transform: translate(-50%, -50%);
   border-radius: var(--ui-radius-pill);
   background: var(--ui-border-strong);
@@ -966,12 +969,17 @@ html[dir="rtl"] .settings-card .settings-sections {
 .pane-resizer:hover::after,
 .pane-resizer:focus-visible::after,
 .pane-resizer.is-dragging::after {
-  height: 108px;
+  height: 40px;
   background: var(--ui-accent-fill);
   opacity: 1;
 }
 
-.pane-resizer:focus-visible { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ui-accent) 45%, transparent); }
+.pane-resizer:is(:hover, :focus-visible, .is-dragging)::before {
+  width: 2px;
+  background: color-mix(in srgb, var(--ui-accent) 55%, var(--ui-border-strong));
+  opacity: .7;
+}
+html[data-pane-resizing], html[data-pane-resizing] * { cursor: col-resize !important; user-select: none !important; }
 
 .editor-pane { display: grid; }
 
@@ -1050,10 +1058,7 @@ html[dir="rtl"] .settings-card .settings-sections {
   background: color-mix(in srgb, var(--ui-accent) 7%, transparent);
 }
 
-.codemirror-mount .cm-selectionBackground,
-.codemirror-mount .cm-content ::selection {
-  background: color-mix(in srgb, var(--ui-accent) 26%, transparent) !important;
-}
+.codemirror-mount .cm-selectionBackground { background: var(--cm-selection); }
 
 .document-content .heading-anchor {
   margin-inline-start: 0.35em;
@@ -2868,10 +2873,6 @@ body[data-view="workspace"] main { padding: 0; background: var(--ui-bg); }
 
 .pane-resizer { background: transparent; }
 
-.pane-resizer:hover,
-.pane-resizer:focus-visible {
-  background: var(--ui-accent-fill);
-}
 
 .editor-pane { grid-template-rows: var(--wb-tab-height) auto auto minmax(0, 1fr); }
 
@@ -3505,7 +3506,6 @@ html[dir="rtl"] .studio-kicker, html[dir="rtl"] .launcher-heading { letter-spaci
 
 .preview-document .empty-preview { padding: 40px 12px; }
 
-.pane-resizer:hover, .pane-resizer:focus-visible { background: var(--ui-accent-fill); }
 
 .editor-status { padding-inline: 16px; font-size: var(--ui-text-2xs); }
 
