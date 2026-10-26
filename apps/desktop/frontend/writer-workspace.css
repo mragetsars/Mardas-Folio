@@ -31,7 +31,7 @@ body[data-view="workspace"] .workspace-view[data-formatting-open="true"] .docume
 .document-toolbar #workspace-writing-layout { display: inline-flex; align-items: center; gap: 5px; width: auto; padding-inline: 7px; font-size: var(--ui-text-xs); white-space: nowrap; }
 body[data-view="workspace"] .editor-pane[data-view-mode="read"] .document-toolbar .format-bar,
 body[data-view="workspace"] .workspace-view.plain-text-mode .document-toolbar .format-bar { display: none; }
-@container writer (min-width: 1000px) {
+@container writer (min-width: 1200px) {
   body[data-view="workspace"] .document-toolbar { display: grid; grid-template-columns: auto minmax(64px, 1fr) auto; gap: 10px; padding-block: 4px; min-height: 42px; }
   .document-activity-controls { grid-column: 1; }
   .document-toolbar .format-bar { grid-column: 2; grid-row: 1; }
@@ -44,7 +44,7 @@ body[data-view="workspace"] .workspace-view.plain-text-mode .document-toolbar .f
 }
 .view-layout-actions #workspace-toggle-preview { display: inline-flex; align-items: center; gap: 5px; }
 .view-layout-actions #workspace-toggle-preview[hidden] { display: none; }
-@container writer (max-width: 999px) {
+@container writer (max-width: 1199px) {
   .document-toolbar .document-activity-controls { order: 1; }
   .document-toolbar .document-toolbar-actions { order: 2; }
   .document-toolbar .format-bar { flex: 1 0 100%; order: 3; padding-block-start: 3px; border-top: 1px solid var(--ui-border); }

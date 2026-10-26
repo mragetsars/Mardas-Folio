@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="./authoring.css">
   <link rel="stylesheet" href="./outline-navigator.css">
   <link rel="stylesheet" href="./writer-workspace.css">
+  <link rel="stylesheet" href="./interaction-details.css">
 </head>
 <body>
 <a class="skip-link" href="#app-main" data-i18n="skipToContent">رفتن به محتوای اصلی</a>
@@ -80,6 +81,7 @@
   <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/></symbol>
   <symbol id="icon-panel-left" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M9 4v16M6.2 8h.1M6.2 12h.1M6.2 16h.1"/></symbol>
   <symbol id="icon-panel-right" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M15 4v16M17.8 8h.1M17.8 12h.1M17.8 16h.1"/></symbol>
+  <symbol id="icon-preview" viewBox="0 0 24 24"><path d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
 </svg>
 <div class="shell">
   <header class="topbar">
@@ -272,7 +274,7 @@
             <button type="button" class="view-mode" data-view-mode="read" role="radio" aria-checked="false" data-i18n="viewRead" data-i18n-title="readModeHelp" title="مرور سند بدون تغییر متن">خواندن</button>
           </div>
           <div class="view-layout-actions">
-            <button type="button" id="workspace-toggle-preview" class="view-mode" aria-pressed="false" aria-controls="preview-pane" data-i18n-aria-label="sidePreview" data-i18n-title="sidePreviewHelp" title="نمایش همان سند کنار متن قابل ویرایش"><svg class="ui-icon side-preview-icon" aria-hidden="true"><use href="#icon-panel-right"></use></svg><span data-i18n="sidePreview">پیش‌نمایش کنار متن</span></button>
+            <button type="button" id="workspace-toggle-preview" class="view-mode" aria-pressed="false" aria-controls="preview-pane" data-i18n-aria-label="sidePreview" data-i18n-title="sidePreviewHelp" title="نمایش همان سند کنار متن قابل ویرایش"><svg class="ui-icon side-preview-icon" aria-hidden="true"><use href="#icon-preview"></use></svg><span data-i18n="sidePreview">پیش‌نمایش کنار متن</span></button>
             <button type="button" class="toolbar-icon-button" id="document-mode-help" aria-haspopup="dialog" data-i18n-title="viewGuide" data-i18n-aria-label="viewGuide" title="راهنمای نماها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-help"></use></svg></button>
           </div>
           </div>
@@ -323,7 +325,7 @@
             <button class="toolbar-icon-button formatting-toggle" id="workspace-toggle-formatting" type="button" aria-controls="format-bar" aria-pressed="false" data-i18n-title="formattingTools" title="ابزارهای قالب‌بندی" aria-label="ابزارهای قالب‌بندی"><span aria-hidden="true">Aa</span><span class="toolbar-action-label" data-i18n="format">قالب‌بندی</span></button>
             <button class="toolbar-icon-button" type="button" id="format-find" data-i18n-title="find" title="جست‌وجو" aria-label="جست‌وجو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg></button>
             <button class="toolbar-icon-button" id="workspace-focus" type="button" aria-pressed="false" data-i18n-title="focusMode" title="حالت تمرکز" aria-label="حالت تمرکز"><svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg></button>
-            <button class="toolbar-icon-button" id="workspace-toggle-sidebar" type="button" aria-controls="author-sidebar" aria-pressed="false" data-i18n-title="toggleDocumentTools" title="ابزارهای سند" aria-label="ابزارهای سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-panel-right"></use></svg></button>
+            <button class="toolbar-icon-button panel-toggle" id="workspace-toggle-sidebar" type="button" aria-controls="author-sidebar" aria-pressed="false" data-i18n-title="toggleDocumentTools" data-i18n-aria-label="documentTools" title="ابزارهای سند" aria-label="ابزارهای سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-settings"></use></svg><span data-i18n="documentTools">مشخصات و ابزارها</span></button>
           </div>
         </div>
         <button class="button secondary compact focus-exit" id="exit-focus-mode" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg><span data-i18n="exitFocusMode">خروج از تمرکز</span><kbd>Esc</kbd></button>

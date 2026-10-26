@@ -2,6 +2,7 @@
 export function mountDocumentContent(container, payload, {
   sanitize, prefix = "preview-", sourceEntries = [], onSourceJump,
   sourceJumpLabel = (line) => `Line ${line}`,
+  blockedImageLabel = (reason) => reason === "remote" ? "Remote image not loaded" : "Image blocked or missing",
 } = {}) {
   const document = container.ownerDocument;
   const fragment = sanitize(
@@ -9,6 +10,12 @@ export function mountDocumentContent(container, payload, {
     prefix,
   );
   const lines = new Map(sourceEntries.map((entry) => [entry.id, entry.line]));
+  for (const placeholder of fragment.querySelectorAll('.md2pdf-image-placeholder')) {
+    const source = placeholder.dataset.md2pdfBlockedSrc;
+    if (source) placeholder.title = source;
+    const label = placeholder.querySelector('strong');
+    if (label) label.textContent = blockedImageLabel(placeholder.dataset.md2pdfBlockedReason);
+  }
   for (const heading of fragment.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
     if (!heading.hasAttribute("dir")) heading.dir = "auto";
     const sourceId = heading.dataset.previewSourceId || heading.id.slice(prefix.length);

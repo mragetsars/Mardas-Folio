@@ -447,8 +447,8 @@ Object.assign(en, {
   updatePostponed: "Installation postponed. Save your open documents, then try again.",
   updateFinishTasks: "Finish or cancel the current operation before installing an update.",
 });
-Object.assign(fa, { imageNotFound: "تصویر پیدا نشد" });
-Object.assign(en, { imageNotFound: "Image not found" });
+Object.assign(fa, { imageNotFound: "تصویر پیدا نشد", remoteImageNotLoaded: "تصویر اینترنتی بارگیری نمی‌شود", imageBlockedOrMissing: "تصویر مسدود شده یا پیدا نشد" });
+Object.assign(en, { imageNotFound: "Image not found", remoteImageNotLoaded: "Remote image not loaded", imageBlockedOrMissing: "Image blocked or missing" });
 Object.assign(fa, { copyDocumentChanged: "متن یا سند فعال هنگام آماده‌سازی تغییر کرد؛ دوباره کپی کن." });
 Object.assign(en, { copyDocumentChanged: "The document changed while preparing the copy. Copy again to include the latest text." });
 

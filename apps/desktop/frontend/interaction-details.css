@@ -1,0 +1,30 @@
+/* Selection has exactly one paint layer: CodeMirror's bidi-aware rectangles.
+   Its drawSelection extension owns transparent native ::selection. */
+.codemirror-mount .cm-editor > .cm-scroller > .cm-selectionLayer .cm-selectionBackground { background: var(--cm-selection-inactive); }
+.codemirror-mount .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground { background: var(--cm-selection); }
+.codemirror-mount .cm-editor:has(.cm-selectionBackground) :is(.cm-activeLine, .cm-activeLineGutter) { background: transparent; }
+.codemirror-mount .cm-content ::selection { background: transparent !important; }
+.codemirror-mount .cm-content::selection { background: transparent !important; }
+/* The separator's own 2px line is its keyboard focus indicator. */
+body[data-view="workspace"] .authoring-grid .pane-resizer:focus-visible { outline: 0 !important; }
+.pane-resizer:focus-visible::before { background: var(--ui-accent); opacity: 1; }
+.document-toolbar .panel-toggle { display: inline-flex; align-items: center; justify-content: center; width: auto; padding-inline: 8px; gap: 5px; white-space: nowrap; }
+.document-toolbar .view-layout-actions #workspace-toggle-preview > span { display: inline; }
+.content-view-header { height: auto !important; padding-block: 7px !important; align-items: center; gap: 6px; flex-wrap: wrap; }
+.preview-pane { grid-template-rows: auto minmax(0, 1fr); }
+.content-view-header > div:first-child { flex: 1 1 160px; min-width: 0; display: grid !important; gap: 2px; }
+.content-view-header strong { white-space: nowrap; flex-shrink: 0; }
+.content-view-header small::before { content: none !important; }
+.content-view-header .preview-actions { flex: 0 0 auto; }
+@container writer (max-width: 620px) {
+  .document-toolbar .panel-toggle > span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .pane-resizer::after { transition: none; } }
+.cm-md-table code { font-family: var(--editor-code-font, ui-monospace, monospace); font-size: .92em; padding: .1em .3em; border-radius: 4px; background: var(--ui-panel-muted); }
+.cm-md-table .cm-md-live-link { color: var(--cm-link); text-decoration: underline; text-underline-offset: .15em; }
+.document-content .md2pdf-image-placeholder { display: inline-flex; flex-direction: column; vertical-align: middle; gap: 2px; box-sizing: border-box; max-width: min(100%, 320px); padding: 7px 10px; margin: 3px; border: 1px dashed var(--ui-border-strong); border-radius: 8px; background: var(--ui-panel-soft); font-size: .78em; line-height: 1.5; }
+.document-content .md2pdf-image-placeholder strong { font-weight: 550; color: var(--ui-muted); }
+.document-content .md2pdf-image-placeholder > span { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: start; font-family: ui-monospace, monospace; font-size: .9em; }
+.codemirror-mount .cm-md-image-missing { display: inline-flex; flex-direction: column; align-items: start; gap: 2px; max-width: min(100%, 360px); margin: 3px; padding: 7px 10px; vertical-align: middle; line-height: 1.5; }
+.codemirror-mount .cm-md-image-missing strong { color: var(--ui-muted); font-weight: 550; white-space: normal; }
+.codemirror-mount .cm-md-image-missing :is(code, span) { display: block; max-width: 100%; }

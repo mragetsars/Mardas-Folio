@@ -386,6 +386,7 @@ function applyViewMode() {
     sidePreview.hidden = mode === "read";
     sidePreview.disabled = !isMarkdownModel(activeDocument());
     sidePreview.setAttribute("aria-pressed", String(showPreview));
+    sidePreview.setAttribute("aria-expanded", String(showPreview));
   }
   const surface = $(".editor-pane");
   if (surface) surface.dataset.viewMode = mode;
@@ -513,7 +514,10 @@ function applyWorkspaceLayout({ persist = false } = {}) {
   $("#file-resizer")?.setAttribute("aria-valuenow", String(state.workspaceLayout.filesWidth));
   if ($("#file-navigator")) $("#file-navigator").inert = !state.workspaceLayout.filesOpen;
   if ($("#author-sidebar")) $("#author-sidebar").inert = !state.workspaceLayout.sidebarOpen;
-  if (sidebarButton) sidebarButton.setAttribute("aria-pressed", String(state.workspaceLayout.sidebarOpen));
+  if (sidebarButton) {
+    sidebarButton.setAttribute("aria-pressed", String(state.workspaceLayout.sidebarOpen));
+    sidebarButton.setAttribute("aria-expanded", String(state.workspaceLayout.sidebarOpen));
+  }
   if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.sidebarWidth));
   if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.previewWidth));
   applyNavigatorContext();
@@ -587,29 +591,54 @@ function paneResizeSign(name) {
   return (name === "files" ? 1 : -1) * mirrored;
 }
 
+let finishPaneResize = null;
 function beginPaneResize(event, name) {
-  if (event.button !== 0 || matchMedia("(max-width: 1120px)").matches) return;
+  if (event.button !== 0 || matchMedia("(max-width: 1100px)").matches) return;
+  finishPaneResize?.();
   event.preventDefault();
   const handle = event.currentTarget;
   const startX = event.clientX;
   const sign = paneResizeSign(name);
   const startWidth = state.workspaceLayout[`${name}Width`];
   handle.classList.add("is-dragging");
+  document.documentElement.dataset.paneResizing = name;
   handle.setPointerCapture?.(event.pointerId);
   const move = (moveEvent) => {
+    if (moveEvent.pointerId !== event.pointerId) return;
     const delta = moveEvent.clientX - startX;
     setWorkspacePaneWidth(name, startWidth + sign * delta);
   };
-  const end = () => {
+  let finished = false;
+  const finish = (revert = false) => {
+    if (finished) return;
+    finished = true;
+    if (revert) setWorkspacePaneWidth(name, startWidth);
     handle.classList.remove("is-dragging");
+    delete document.documentElement.dataset.paneResizing;
     handle.removeEventListener("pointermove", move);
     handle.removeEventListener("pointerup", end);
     handle.removeEventListener("pointercancel", end);
+    handle.removeEventListener("lostpointercapture", end);
+    document.removeEventListener("keydown", keydown, true);
+    window.removeEventListener("blur", end);
+    if (handle.hasPointerCapture?.(event.pointerId)) handle.releasePointerCapture(event.pointerId);
     state.workspaceLayout = writeWorkspaceLayout(state.workspaceLayout);
+    finishPaneResize = null;
   };
+  const end = () => finish();
+  const keydown = (keyEvent) => {
+    if (keyEvent.key !== "Escape") return;
+    keyEvent.preventDefault();
+    keyEvent.stopImmediatePropagation();
+    finish(true);
+  };
+  finishPaneResize = end;
   handle.addEventListener("pointermove", move);
   handle.addEventListener("pointerup", end);
   handle.addEventListener("pointercancel", end);
+  handle.addEventListener("lostpointercapture", end);
+  document.addEventListener("keydown", keydown, true);
+  window.addEventListener("blur", end);
 }
 
 function resizePaneWithKeyboard(event, name) {
@@ -2488,7 +2517,7 @@ function formatMoment(value) {
  * owns the words; the editor owns the drawing.
  */
 function editorStrings() {
-  return { imageNotFound: t("imageNotFound") };
+  return { imageNotFound: t("imageNotFound"), remoteImageNotLoaded: t("remoteImageNotLoaded") };
 }
 
 /**
@@ -4074,6 +4103,7 @@ function renderReading(model) {
   const payload = model.preview;
   mountDocumentContent(container, payload, {
     sanitize: safePreviewHtml, prefix: "reading-", sourceEntries: previewSourceEntries(model),
+    blockedImageLabel: (reason) => t(reason === "remote" ? "remoteImageNotLoaded" : "imageBlockedOrMissing"),
   });
   container.scrollTop = previousScroll;
   const current = () => activeDocument()?.id === model.id && model.preview === payload;
@@ -4148,6 +4178,7 @@ function renderPreview(model) {
     sanitize: safePreviewHtml, sourceEntries: previewSourceEntries(model),
     onSourceJump: (line) => goToLine(line),
     sourceJumpLabel: (line) => `${t("goToSourceLine")} ${line}`,
+    blockedImageLabel: (reason) => t(reason === "remote" ? "remoteImageNotLoaded" : "imageBlockedOrMissing"),
   });
   syncPreviewFromEditorScroll(currentEditor().scrollTop || 0);
   return typesetPreviewMath(container, {
