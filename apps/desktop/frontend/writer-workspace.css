@@ -28,7 +28,12 @@ body[data-view="workspace"] .workspace-view[data-formatting-open="true"] .docume
 .writing-appearance output { direction: ltr; grid-column: 2; grid-row: 1; font-variant-numeric: tabular-nums; }
 .writing-appearance p { color: var(--ui-muted); font-size: var(--ui-text-xs); line-height: 1.6; }
 .writing-appearance .text-button { min-height: 32px; font-size: var(--ui-text-xs); }
-.document-toolbar #workspace-writing-layout { display: inline-flex; align-items: center; gap: 5px; width: auto; padding-inline: 7px; font-size: var(--ui-text-xs); white-space: nowrap; }
+.document-edit-controls, .document-toolbar-actions .view-layout-actions { display: flex; align-items: center; flex: 0 0 auto; gap: 2px; }
+.document-toolbar-actions > :is(.document-edit-controls, .document-view-controls, .view-layout-actions) { padding-inline: 5px; margin: 0; }
+.document-toolbar-actions > :is(.document-view-controls, .view-layout-actions) { border-inline-start: 1px solid var(--ui-border); }
+.document-toolbar .formatting-toggle .toolbar-action-label { font: inherit; }
+body[data-view="workspace"] .editor-pane[data-view-mode="read"] .document-edit-controls,
+body[data-view="workspace"] .workspace-view.plain-text-mode .document-edit-controls { display: none; }
 body[data-view="workspace"] .editor-pane[data-view-mode="read"] .document-toolbar .format-bar,
 body[data-view="workspace"] .workspace-view.plain-text-mode .document-toolbar .format-bar { display: none; }
 @container writer (min-width: 1200px) {

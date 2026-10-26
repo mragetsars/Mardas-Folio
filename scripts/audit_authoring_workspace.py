@@ -121,8 +121,9 @@ def _appearance(page: Any, width: int) -> dict[str, Any]:
 
 
 def _outline(page: Any) -> dict[str, Any]:
-    page.locator("#workspace-writing-layout").click()
-    expect(page.locator("#preview-pane")).to_be_hidden()
+    if not page.locator("#navigator-tab-outline").is_visible():
+        page.locator("#workspace-toggle-files").click()
+    page.locator("#navigator-tab-outline").click()
     expect(page.locator("#navigator-tab-outline")).to_have_attribute("aria-selected", "true")
     expect(page.locator("#outline-filter")).to_be_visible()
     follow = page.locator("#outline-follow").bounding_box()
@@ -240,6 +241,28 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                     )
                     scenario["checks"].append(
                         "inactive inline mathematics renders in the actual writing canvas"
+                    )
+
+                    # A display control changes its own setting, without a
+                    # layout preset silently changing the other independent
+                    # controls. In particular, hiding the toolbar must keep
+                    # both Insert and the switch needed to restore it usable.
+                    expect(page.locator("#workspace-writing-layout")).to_have_count(0)
+                    before_layout = page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2') || '{}')")
+                    toggle = page.locator("#workspace-toggle-formatting")
+                    toggle.click()
+                    expect(page.locator("#format-bar")).to_be_hidden()
+                    expect(toggle).to_have_attribute("aria-expanded", "false")
+                    expect(page.locator("#insert-menu-button")).to_be_visible()
+                    toggle.click()
+                    expect(page.locator("#format-bar")).to_be_visible()
+                    expect(toggle).to_have_attribute("aria-expanded", "true")
+                    after_layout = page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2'))")
+                    for key, value in before_layout.items():
+                        assert after_layout[key] == value, (key, before_layout, after_layout)
+                    expect(_buffer(page)).to_have_value(SAMPLE)
+                    scenario["checks"].append(
+                        "independent formatting visibility preserves layout and Markdown while Insert remains available"
                     )
 
                     if width >= 768:

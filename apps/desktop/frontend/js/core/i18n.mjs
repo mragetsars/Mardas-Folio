@@ -50,7 +50,7 @@ Object.assign(fa, {
   densityCompact: "فشرده", densityComfortable: "معمولی", densityRelaxed: "بازتر",
   fontDocument: "قلم برنامه", fontSystem: "قلم سیستم", fontSerif: "قلم کتابی",
   writingAppearanceHelp: "قلم و فاصله برای نوشتن و خواندن‌اند؛ اندازه در همهٔ نماها تغییر می‌کند. فایل و تنظیم PDF تغییر نمی‌کنند. Ctrl + چرخ ماوس هم اندازهٔ متن را عوض می‌کند.",
-  writerLayout: "چیدمان نوشتن", writerLayoutHelp: "متن و ساختار سند، بدون پیش‌نمایش تکراری و پنل ابزارها",
+  toggleFormattingTools: "نمایش یا پنهان‌کردن ابزارهای قالب‌بندی", workspacePanels: "پنل‌های محیط کار",
   resetWritingAppearance: "بازنشانی ظاهر متن", filterOutline: "یافتن عنوان…", expandOutline: "بازکردن همهٔ عنوان‌ها",
   collapseOutline: "بستن زیرعنوان‌ها", followOutline: "دنبال‌کردن بخش جاری", noOutlineMatches: "عنوانی پیدا نشد.",
 });
@@ -59,7 +59,7 @@ Object.assign(en, {
   densityCompact: "Compact", densityComfortable: "Comfortable", densityRelaxed: "Relaxed",
   fontDocument: "App font", fontSystem: "System font", fontSerif: "Book font",
   writingAppearanceHelp: "Font and spacing apply to Write and Read; text size applies to every view. Markdown and PDF settings stay the same. Ctrl + mouse wheel also resizes text.",
-  writerLayout: "Writer layout", writerLayoutHelp: "Document and outline, with side preview and inspector closed",
+  toggleFormattingTools: "Show or hide formatting tools", workspacePanels: "Workspace panels",
   resetWritingAppearance: "Reset text appearance", filterOutline: "Find a heading…", expandOutline: "Expand all headings",
   collapseOutline: "Collapse subheadings", followOutline: "Follow current section", noOutlineMatches: "No matching headings.",
 });

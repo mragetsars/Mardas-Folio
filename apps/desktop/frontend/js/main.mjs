@@ -511,6 +511,7 @@ function applyWorkspaceLayout({ persist = false } = {}) {
   const previewResizer = $("#preview-resizer");
   $("#workspace-toggle-files")?.setAttribute("aria-pressed", String(state.workspaceLayout.filesOpen));
   $("#workspace-toggle-formatting")?.setAttribute("aria-pressed", String(state.workspaceLayout.formattingOpen));
+  $("#workspace-toggle-formatting")?.setAttribute("aria-expanded", String(state.workspaceLayout.formattingOpen));
   $("#file-resizer")?.setAttribute("aria-valuenow", String(state.workspaceLayout.filesWidth));
   if ($("#file-navigator")) $("#file-navigator").inert = !state.workspaceLayout.filesOpen;
   if ($("#author-sidebar")) $("#author-sidebar").inert = !state.workspaceLayout.sidebarOpen;
@@ -545,15 +546,6 @@ function activateNavigator(name) {
   state.workspaceLayout.filesOpen = true;
   if (matchMedia("(max-width: 1100px)").matches) state.workspaceLayout.sidebarOpen = false;
   applyWorkspaceLayout({ persist: true });
-}
-
-function useWriterLayout() {
-  if (!isMarkdownModel(activeDocument())) return;
-  state.workspaceLayout = { ...state.workspaceLayout, filesOpen: true, navigatorTab: "outline", sidebarOpen: false, formattingOpen: true };
-  updatePreference({ viewMode: "write", sidePreview: false });
-  applyWorkspaceLayout({ persist: true });
-  requestAnimationFrame(syncFormatBarOverflow);
-  focusDocument();
 }
 
 function toggleWorkspacePane(name) {
@@ -4991,7 +4983,6 @@ function bindEvents() {
   $("#workspace-home").addEventListener("click", () => showView("start"));
   $("#workspace-toggle-files")?.addEventListener("click", () => toggleWorkspacePane("files"));
   $("#workspace-toggle-formatting")?.addEventListener("click", () => toggleWorkspacePane("formatting"));
-  $("#workspace-writing-layout")?.addEventListener("click", useWriterLayout);
   $("#writing-appearance-button")?.addEventListener("click", () => toggleWritingAppearance());
   $("#writing-appearance-close")?.addEventListener("click", () => {
     toggleWritingAppearance(false); $("#writing-appearance-button").focus();
