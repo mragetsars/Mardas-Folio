@@ -112,8 +112,8 @@
   --cm-variable: #202020;
   --cm-invalid: #b91c1c;
   --cm-cursor: var(--ui-accent);
-  --cm-selection: rgba(80, 105, 145, .23);
-  --cm-selection-inactive: rgba(105, 110, 120, .15);
+  --cm-selection: rgba(255, 159, 0, .27);
+  --cm-selection-inactive: rgba(255, 159, 0, .16);
   --cm-selection-match: rgba(17, 17, 17, 0.1);
   --cm-active-line: rgba(255, 159, 0, .045);
   --cm-gutter-text: #666666;
@@ -192,8 +192,8 @@ html[data-theme="dark"] {
   --cm-type: #5eead4;
   --cm-variable: #f2f2f2;
   --cm-invalid: #f87171;
-  --cm-selection: rgba(150, 175, 210, .28);
-  --cm-selection-inactive: rgba(155, 160, 170, .17);
+  --cm-selection: rgba(255, 171, 40, .28);
+  --cm-selection-inactive: rgba(255, 171, 40, .16);
   --cm-selection-match: rgba(245, 245, 245, 0.14);
   --cm-active-line: rgba(255, 171, 40, .055);
   --cm-gutter-text: #ababab;
@@ -2326,8 +2326,6 @@ body[data-view="export"] main { overflow: hidden; }
   margin-inline: 5px;
   background: var(--ui-border);
 }
-
-.editor-pane[data-view-mode="write"] .format-bar { background: var(--ui-panel); }
 
 .author-toolbar .toolbar-publish-actions { justify-self: end; }
 

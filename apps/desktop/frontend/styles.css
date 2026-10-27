@@ -1028,8 +1028,6 @@ html[dir=ltr] .toggle input:checked+i:after { transform: translateX(16px); }
 
 .find-bar button:hover { background: var(--ui-border); }
 
-.editor-pane:has(.find-bar:not(.hidden)) { grid-template-rows: 48px auto minmax(0,1fr) 30px; }
-
 .project-empty {
   display: grid;
   gap: 8px;

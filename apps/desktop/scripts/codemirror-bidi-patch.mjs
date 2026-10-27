@@ -60,8 +60,8 @@
  * remove this once a release carries it.
  *
  * Further guarded corrections keep the bidi model and paint aligned:
- * printable General Punctuation retains its Unicode neutral/numeric class
- * rather than falling through to strong Latin, and continuation rectangles
+ * printable General Punctuation and neutral phonetic modifiers retain their
+ * Unicode classes rather than falling through to strong Latin; continuation rectangles
  * respect the content's padded text area (including CSS scaling) and the
  * paragraph's own direction rather than the interface direction. These are
  * checked against actual glyph geometry in audit_bidi_selection.py.
@@ -168,9 +168,13 @@ const REPLACEMENTS = [
   // General Punctuation is not strong Latin text: an em dash before /IPA/
   // otherwise joins the Latin span in the model while the browser keeps it
   // with Persian. Its reversed endpoints then draw a zero-width selection.
-  // Exact printable General Punctuation classes from Unicode 17 DerivedBidiClass:
+  // Leading IPA stress marks (U+02C8/U+02CC) have the same defect: they are
+  // neutral modifiers, not strong Latin letters. Keep the Unicode L modifier
+  // ranges (including the IPA length marks U+02D0/U+02D1) unchanged.
+  // Exact Spacing Modifier Letters and printable General Punctuation classes:
   // https://www.unicode.org/Public/17.0.0/ucd/extracted/DerivedBidiClass.txt
-  ["charType", "0x2000 <= ch && ch <= 0x200c ? 256 /* T.NI */ :", `0x2000 <= ch && ch <= 0x200c ? 256 /* T.NI */ :
+  ["charType", "0x2000 <= ch && ch <= 0x200c ? 256 /* T.NI */ :", `0x2b9 <= ch && ch <= 0x2ff && (ch <= 0x2ba || 0x2c2 <= ch && ch <= 0x2cf || 0x2d2 <= ch && ch <= 0x2df || 0x2e5 <= ch && ch <= 0x2ed || 0x2ef <= ch) ? 256 /* T.NI */ :
+                        0x2000 <= ch && ch <= 0x200c ? 256 /* T.NI */ :
                         0x2010 <= ch && ch <= 0x2027 || 0x2035 <= ch && ch <= 0x2043 || 0x2045 <= ch && ch <= 0x205f ? 256 /* T.NI */ :
                             ch == 0x202f || ch == 0x2044 ? 128 /* T.CS */ :
                                 0x2030 <= ch && ch <= 0x2034 ? 64 /* T.ET */ :`],

@@ -27,6 +27,7 @@ function fakeDocument() {
       style: {},
       textContent: "",
       className: "",
+      setAttribute: (name, value) => { node.attributes[name] = value; },
       append: (...items) => node.children.push(...items),
       replaceChildren: (...items) => { node.children = items; },
       addEventListener: (type, callback) => handlers.set(`${tag}:${type}`, callback),

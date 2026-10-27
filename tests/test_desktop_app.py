@@ -1096,7 +1096,8 @@ def test_editor_images_load_through_a_bounded_asset_scope() -> None:
     security = config["app"]["security"]
     assert security["assetProtocol"]["enable"] is True
     assert security["assetProtocol"]["scope"] == [], "the static scope must stay empty"
-    assert "img-src 'self' data: asset: http://asset.localhost" in security["csp"]
+    assert "img-src 'self' data: https: asset: http://asset.localhost" in security["csp"]
+    assert "connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost" in security["csp"]
 
     main_rs = (TAURI / "src" / "main.rs").read_text(encoding="utf-8")
     assert "fn allow_document_images" in main_rs

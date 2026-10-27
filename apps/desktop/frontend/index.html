@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost; object-src 'none'; base-uri 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost; object-src 'none'; base-uri 'none'">
   <title>Mardas Folio</title>
   <link rel="icon" href="./assets/app-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
@@ -13,6 +13,9 @@
   <link rel="stylesheet" href="./outline-navigator.css">
   <link rel="stylesheet" href="./writer-workspace.css">
   <link rel="stylesheet" href="./interaction-details.css">
+  <link rel="stylesheet" href="./code-blocks.css">
+  <link rel="stylesheet" href="./table-editing.css">
+  <link rel="stylesheet" href="./editing-polish.css">
 </head>
 <body>
 <a class="skip-link" href="#app-main" data-i18n="skipToContent">رفتن به محتوای اصلی</a>
@@ -374,15 +377,20 @@
           <button type="button" role="menuitem" data-editor-command="paragraph" class="heading-choice" data-i18n="paragraphText">متن معمولی</button>
         </div>
 
-          <div class="find-bar hidden" id="find-bar">
-            <input id="find-query" type="search" data-i18n-placeholder="find" data-i18n-aria-label="find" aria-label="جست‌وجو" placeholder="جست‌وجو">
-            <input id="replace-query" type="text" data-i18n-placeholder="replaceWith" data-i18n-aria-label="replaceWith" aria-label="جایگزین" placeholder="جایگزین">
-            <span id="find-count">0/0</span>
-            <button type="button" id="find-previous" data-i18n-title="previousMatch" title="نتیجه قبلی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-up"></use></svg></button>
-            <button type="button" id="find-next" data-i18n-title="nextMatch" title="نتیجه بعدی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
-            <button type="button" id="replace-one" data-i18n="replace">جایگزینی</button>
-            <button type="button" id="replace-all" data-i18n="replaceAll">جایگزینی همه</button>
-            <button type="button" id="close-find" data-i18n-title="close" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+          <div class="find-bar hidden" id="find-bar" role="search" data-i18n-aria-label="findInDocument" aria-label="جست‌وجو در سند">
+            <div class="find-search-row">
+              <button type="button" id="toggle-replace" aria-controls="find-replace-row" aria-expanded="false" data-i18n-title="toggleReplace" data-i18n-aria-label="toggleReplace" aria-label="نمایش جایگزینی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
+              <label class="find-input-wrap"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg><input id="find-query" type="search" dir="auto" autocomplete="off" spellcheck="false" data-i18n-placeholder="findInDocument" data-i18n-aria-label="findInDocument" aria-label="جست‌وجو در سند" placeholder="جست‌وجو در سند"></label>
+              <span id="find-count" role="status" aria-live="polite" aria-atomic="true"></span>
+              <button type="button" id="find-previous" data-i18n-title="previousMatch" data-i18n-aria-label="previousMatch" aria-label="نتیجه قبلی" title="نتیجه قبلی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-up"></use></svg></button>
+              <button type="button" id="find-next" data-i18n-title="nextMatch" data-i18n-aria-label="nextMatch" aria-label="نتیجه بعدی" title="نتیجه بعدی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
+              <button type="button" id="close-find" data-i18n-title="close" data-i18n-aria-label="close" aria-label="بستن" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+            </div>
+            <div class="find-replace-row hidden" id="find-replace-row">
+              <input id="replace-query" type="text" dir="auto" data-i18n-placeholder="replaceWith" data-i18n-aria-label="replaceWith" aria-label="جایگزین" placeholder="جایگزین">
+              <button type="button" id="replace-one" data-i18n="replace">جایگزینی</button>
+              <button type="button" id="replace-all" data-i18n="replaceAll">جایگزینی همه</button>
+            </div>
           </div>
           <div class="editor-surface">
             <div class="line-gutter" id="line-gutter" aria-hidden="true">1</div>

@@ -8,19 +8,23 @@
  * visible (`#`, `**`, backticks, link brackets, `>`) are hidden, and the text
  * they governed is styled instead.
  *
- * The line the cursor is on always shows its raw marks. That is what makes the
+ * A prose line the cursor is on shows its raw marks. That is what makes the
  * mode editable rather than merely a preview: to change a link's target you put
- * the caret in it and the `[label](url)` scaffolding comes back.
+ * the caret in it and the `[label](url)` scaffolding comes back. Code bodies
+ * stay editable while their fence/language controls keep one stable header.
  */
 import { syntaxTree } from "@codemirror/language";
 import { Facet, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin } from "@codemirror/view";
+import { CodeBlockHeaderWidget, fencedCodeSpec } from "./code-block-tools.mjs";
+import { tableEditingExtension } from "./table-editing.mjs";
 
 import {
   BulletWidget,
   EntityWidget,
   ImageWidget,
   ImagePlaceholderWidget,
+  OnlineImageWidget,
   TaskWidget,
   MathWidget,
   mathRenderer,
@@ -38,6 +42,9 @@ import {
  */
 export const assetResolver = Facet.define({
   combine: (values) => (values.length ? values[0] : () => null),
+});
+export const onlineImageRequest = Facet.define({
+  combine: values => values[0] || null,
 });
 
 /**
@@ -77,11 +84,6 @@ const HIDDEN_MARKS = new Set([
 export const LINKS_WITH_TEXT = new Set(["Link", "Image"]);
 
 const hidden = Decoration.replace({});
-/* The language of a fenced block is worth reading; its backticks are not. */
-const codeInfoMark = Decoration.mark({ class: "cm-md-code-info" });
-/* Everything after the language on a fence line: real configuration, but not
-   part of the label, so it is set quietly rather than shouted in the chip. */
-const codeAttrMark = Decoration.mark({ class: "cm-md-code-attrs" });
 /* A formula is set in the maths face, not in the prose face. */
 const mathText = Decoration.mark({ class: "cm-md-math" });
 const inlineCode = Decoration.mark({ class: "cm-md-inline-code" });
@@ -238,6 +240,11 @@ function bulletDepth(node) {
 }
 const codeOpenLine = Decoration.line({ class: "cm-code-line cm-code-open" });
 const codeCloseLine = Decoration.line({ class: "cm-code-line cm-code-close" });
+const codeUnclosedEndLine = Decoration.line({ class: "cm-code-line cm-code-unclosed-end" });
+const codeOpenOnlyLine = Decoration.line({ class: "cm-code-line cm-code-open cm-code-unclosed-end" });
+const codeIndentedOpenLine = Decoration.line({ class: "cm-code-line cm-code-indented-open" });
+const codeIndentedCloseLine = Decoration.line({ class: "cm-code-line cm-code-indented-close" });
+const codeIndentedSingleLine = Decoration.line({ class: "cm-code-line cm-code-indented-open cm-code-indented-close" });
 
 /**
  * Block-level line classes.
@@ -332,6 +339,7 @@ function buildDecorations(view) {
   const { state } = view;
   const active = activeLines(state);
   const marks = [];
+  const widgets = [];
   const lines = [];
   const verbatimRanges = [];
 
@@ -349,11 +357,24 @@ function buildDecorations(view) {
           verbatimRanges.push([node.from, node.to]);
           const opener = state.doc.lineAt(node.from).from;
           const closer = state.doc.lineAt(node.to).from;
+          const fence = fencedCodeSpec(state, node);
           eachLine(state, node, (at) => {
-            const deco = at === opener ? codeOpenLine : at === closer ? codeCloseLine : codeLine;
+            const deco = fence
+              ? at === opener ? fence.closeFrom == null && opener === closer ? codeOpenOnlyLine : codeOpenLine
+                : at === closer ? fence.closeFrom != null ? codeCloseLine : codeUnclosedEndLine : codeLine
+              : opener === closer ? codeIndentedSingleLine : at === opener ? codeIndentedOpenLine : at === closer ? codeIndentedCloseLine : codeLine;
             lines.push({ at, deco });
           });
-          return;
+          if (fence) {
+            // The code body remains native editable text. Language, fences
+            // and copy controls should not turn into Markdown when it gains
+            // focus: Source is the explicit place to edit that scaffolding.
+            marks.push([node.from, fence.openerTo]);
+            if (fence.closeFrom != null) marks.push([fence.closeFrom, fence.closeTo]);
+            const locale = typeof document !== "undefined" && document.documentElement.lang.startsWith("fa") ? "fa" : "en";
+            widgets.push({ from: fence.openerTo, to: fence.openerTo, deco: Decoration.widget({ widget: new CodeBlockHeaderWidget(fence, locale, state.readOnly), side: 1 }) });
+          }
+          return false;
         }
         if (node.name === "BlockMath") {
           verbatimRanges.push([node.from, node.to]);
@@ -450,7 +471,9 @@ function buildDecorations(view) {
               node.from,
               node.to,
               Decoration.replace({
-                widget: url ? new ImageWidget(
+                widget: /^(?:https?:)?\/\//i.test(parsed.src) ? new OnlineImageWidget(
+                  parsed.src, parsed.alt, Boolean(url), state.facet(onlineImageRequest), state.facet(editorStrings),
+                ) : url ? new ImageWidget(
                   url,
                   parsed.alt,
                   parsed.src,
@@ -504,13 +527,6 @@ function buildDecorations(view) {
           marks.push([node.from, to]);
           return;
         }
-        // A fence is scaffolding; the language it names is a label. Hiding the
-        // backticks and styling the language turns ```` ```python ```` into a
-        // chip on the panel the block already draws.
-        if (node.name === "CodeMark" && node.node.parent?.name === "FencedCode") {
-          marks.push([node.from, node.to]);
-          return;
-        }
         // `code` is a chip in every rendered Markdown, and the backticks that
         // make it one are already hidden — without a mark of its own the span
         // was distinguishable from prose only by colour.
@@ -535,19 +551,6 @@ function buildDecorations(view) {
         if (node.name === "FootnoteLabel") {
           marks.push([node.from, node.to, footnoteLabel]);
           return false;
-        }
-        if (node.name === "CodeInfo") {
-          // ```` ```python title="listing.py" showLineNumbers ```` names one
-          // language and then configures it. The chip is the language; the
-          // attributes belong to the fence, not to the label, and setting the
-          // whole string in a chip printed
-          // `PYTHON TITLE="LISTING.PY" SHOWLINENUMBERS` across the block.
-          const info = state.doc.sliceString(node.from, node.to);
-          const language = /^\s*\S+/.exec(info);
-          const end = language ? node.from + language[0].length : node.to;
-          marks.push([node.from, end, codeInfoMark]);
-          if (end < node.to) marks.push([end, node.to, codeAttrMark]);
-          return;
         }
         // A task item is introduced by its checkbox; the list bullet in front
         // of it is redundant once the checkbox is drawn.
@@ -646,6 +649,7 @@ function buildDecorations(view) {
   const insideBlock = (at) => blocks.some(([from, to]) => at >= from && at < to);
 
   const events = [
+    ...widgets.filter(({ from }) => !insideBlock(from)),
     ...lines
       .filter(({ at }) => !insideBlock(at))
       .map(({ at, deco }) => ({ from: at, to: at, deco, line: true })),
@@ -692,7 +696,8 @@ const livePreviewPlugin = ViewPlugin.fromClass(
     }
 
     update(update) {
-      if (update.docChanged || update.viewportChanged || update.selectionSet
+      if (update.docChanged || update.viewportChanged || update.selectionSet || update.startState.readOnly !== update.state.readOnly
+        || syntaxTree(update.startState) !== syntaxTree(update.state)
         || update.startState.facet(assetResolver) !== update.state.facet(assetResolver)
         || update.startState.facet(mathRenderer) !== update.state.facet(mathRenderer)
         || update.startState.facet(editorStrings) !== update.state.facet(editorStrings)) {
@@ -814,15 +819,17 @@ export function normalizeEditorMode(value) {
  * answers a direction like any other, so the exclusion cost correctness for a
  * risk that was not there.
  */
-export function editorModeExtension(mode, { resolveAsset, strings, renderMath } = {}) {
+export function editorModeExtension(mode, { resolveAsset, requestOnlineImage, strings, renderMath } = {}) {
   const perLineDirection = EditorView.perLineTextDirection.of(true);
   return normalizeEditorMode(mode) === "live"
     ? [
         createBlockWidgetField(),
         assetResolver.of(resolveAsset || (() => null)),
+        onlineImageRequest.of(requestOnlineImage || null),
         editorStrings.of(strings || {}),
         mathRenderer.of(typeof renderMath === "function" ? renderMath : null),
         livePreviewPlugin,
+        tableEditingExtension(),
         perLineDirection,
       ]
     : [autoDirectionPlugin, perLineDirection];

@@ -39,6 +39,8 @@ import { frontmatter } from "./markdown-frontmatter.mjs";
 import { typewriterExtension } from "./typewriter.mjs";
 import { markdownFormattingState } from "./formatting-state.mjs";
 import { moveAcrossCompressedSpacer } from "./vertical-navigation.mjs";
+import { searchHighlights, searchMatchesEffect } from "./search-highlights.mjs";
+import { commitTableCellDraft } from "./table-editing.mjs";
 
 const MAX_COMPLETIONS = 500;
 
@@ -289,6 +291,7 @@ export function createCodeMirrorEditorAdapter(
     strings,
     onSelectionChange,
     resolveAsset,
+    requestOnlineImage,
     renderMath,
     theme,
     mode,
@@ -359,7 +362,7 @@ export function createCodeMirrorEditorAdapter(
           override: [completionSource(getCompletions, () => editorLocale)],
         }),
   ];
-  const previewExtensions = (resolver = resolveAsset) => editorModeExtension(markdownDocument ? editorMode : "source", { resolveAsset: resolver, strings: editorText, renderMath });
+  const previewExtensions = (resolver = resolveAsset) => editorModeExtension(markdownDocument ? editorMode : "source", { resolveAsset: resolver, requestOnlineImage, strings: editorText, renderMath });
   const selectionExtensions = () => selectionToolbarExtension(editorLocale, markdownDocument && editorMode === "live");
   const extensions = [
         basicSetup,
@@ -373,6 +376,7 @@ export function createCodeMirrorEditorAdapter(
         writingRhythm.of(typewriterExtension(typewriterEnabled)),
         selectionTools.of(selectionExtensions()),
         authoringToolsTheme,
+        searchHighlights,
         // The read-only facet prevents ordinary typing. This also protects
         // transactions from custom commands, history and rendered widgets.
         readOnlyDocumentGuard,
@@ -415,6 +419,7 @@ export function createCodeMirrorEditorAdapter(
     extensions,
   });
   const view = new EditorView({ parent: mount, state: createState(textarea.value) });
+  let destroyed = false, searchQueued = false, pendingSearch = null, paintedSearch = null;
 
   function restorePresentation(scrollSnapshot) {
     view.dispatch({ effects: [
@@ -601,6 +606,25 @@ export function createCodeMirrorEditorAdapter(
         selection: EditorSelection.single(anchor, head),
       });
     },
+    setSearchMatches(matches = [], index = -1) {
+      if (destroyed) return;
+      pendingSearch = { matches, index, doc: view.state.doc };
+      if (searchQueued) return;
+      searchQueued = true;
+      // onChange runs inside CodeMirror's update listener. Coalesce painting
+      // outside that update, and never apply offsets from another buffer.
+      queueMicrotask(() => {
+        searchQueued = false;
+        const next = pendingSearch;
+        if (destroyed || next.doc !== view.state.doc) return;
+        if (paintedSearch?.matches === next.matches && paintedSearch.index === next.index && paintedSearch.doc === next.doc) return;
+        paintedSearch = next;
+        view.dispatch({ effects: searchMatchesEffect.of(next) });
+      });
+    },
+    commitPendingDrafts() {
+      return commitTableCellDraft(view);
+    },
     goToLine(line, column = 1, contextLines = 3) {
       const document = view.state.doc;
       const safeLine = Math.max(1, Math.min(Number(line) || 1, document.lines));
@@ -745,6 +769,7 @@ export function createCodeMirrorEditorAdapter(
       view.dispatch(setDiagnostics(view.state, mapped));
     },
     destroy() {
+      destroyed = true;
       documentStates.clear();
       view.scrollDOM.removeEventListener("scroll", scroll);
       view.dom.removeEventListener("contextmenu", contextMenu);

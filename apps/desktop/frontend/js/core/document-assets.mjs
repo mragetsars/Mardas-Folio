@@ -28,3 +28,15 @@ export function documentImageSources(content, { limit = 4096 } = {}) {
   for (const match of text.matchAll(definitions)) add(match[1]);
   return [...sources];
 }
+
+/** Preserve inline Markdown alt text when the engine emits a blocked image card. */
+export function documentImageAlts(content, { limit = 4096 } = {}) {
+  const result = new Map();
+  const inline = /!\[((?:\\.|[^\]\\])*)\]\(\s*(<[^>\r\n]+>|(?:\\.|[^\s()\\]|\((?:\\.|[^()\\])*\))+)\s*(?:["'][^\r\n]*?["']\s*)?\)/g;
+  for (const match of String(content || "").matchAll(inline)) {
+    if (result.size >= limit) break;
+    const source = match[2].replace(/^<|>$/g, "");
+    result.set(source, match[1].replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~\\])/g, "$1"));
+  }
+  return result;
+}

@@ -35,12 +35,7 @@ test("source mode renders the document verbatim but keeps bidi measurement", () 
   // Source mode adds no rendering, only the per-line direction support.
   const live = editorModeExtension("live");
   const source = editorModeExtension("source");
-  assert.equal(
-    live.length,
-    6,
-    "live mode is the block field, the asset resolver, the strings the host "
-      + "translates, the shared math renderer, the preview plugin and direction",
-  );
+  assert.ok(live.length > source.length, "live adds the presentation and authoring extensions");
   assert.equal(source.length, 2, "source mode is direction support only");
   assert.notDeepEqual(live, source);
 });
@@ -85,7 +80,7 @@ test("hidden ranges are atomic so the caret cannot stall inside them", () => {
   assert.match(source, /EditorView\.atomicRanges\.of/);
 });
 
-test("the caret's own line is always shown as source", () => {
+test("the caret's own prose line reveals its source syntax", () => {
   assert.match(source, /activeLines/);
   assert.match(source, /if \(active\.has\(state\.doc\.lineAt\(node\.from\)\.number\)\) return;/);
 });
@@ -152,11 +147,6 @@ test("a callout is drawn as the card the engine will publish", () => {
   }
   // Only the marker is hidden, and only while the caret is elsewhere.
   assert.match(source, /if \(!active\.has\(first\.number\)\)/);
-});
-
-test("a fenced block shows its language and hides its backticks", () => {
-  assert.match(source, /cm-md-code-info/);
-  assert.match(source, /node\.name === "CodeMark" && node\.node\.parent\?\.name === "FencedCode"/);
 });
 
 test("front matter collapses to a summary until the caret asks for it", () => {

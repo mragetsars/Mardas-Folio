@@ -30,6 +30,20 @@ PARAGRAPH = (
     "رو می‌شه بدون این که در ادامه درباره آن سخن بگیم به روش دیگری بررسی کنیم. "
 ) * 2
 
+# Deliberately starts each IPA run with a primary or secondary stress mark.
+# Starting at the Latin letter alone hid the neutral-modifier classification
+# defect: /ˈɛnd/ and /ˌbɪɡ/ can put the mark on the opposite visual edge.
+STRESS_PARAGRAPH = (
+    "این یک متن آزمایشی مستقل برای بررسی انتخاب دقیق در سندهای طولانی است. "
+    "کاربر باید بتواند با متن فارسی و انگلیسی در یک پاراگراف به راحتی کار کند. "
+    "در این متن دربارهٔ چند اصطلاح فنی و روش نوشتن تلفظ آن‌ها صحبت می‌کنیم. "
+    "برای نمونه، دانش داده و big data (بیگ دیتا — /ˌbɪɡ ˈdeɪtə/)، "
+    "گاهی همراه با نام کتاب و توضیحی دیگر در همان جمله قرار می‌گیرند. "
+    "انتخاب بخش میانی باید همهٔ حروف و علامت‌های آوایی را در بر بگیرد، "
+    "بدون آنکه رنگ انتخاب از کلمات انتخاب‌نشده عبور کند یا از حاشیه خارج شود. "
+    "در پایان، عنوان نمونهٔ دیگری مانند End Times (اند تایمز — /ˈɛnd taɪmz/)."
+)
+
 GEOMETRY = """({from,to})=>{
   const content=document.querySelector('.cm-content');
   const boxes=[...document.querySelectorAll('.cm-selectionBackground')]
@@ -74,20 +88,30 @@ def run(dist: Path, output: Path) -> dict:
         with sync_playwright() as runtime:
             browser = runtime.chromium.launch()
             for locale in ("en", "fa"):
-                for width in (1200, 680):
+                for width in (1642, 1200, 680):
                     page = browser.new_page(viewport={"width": width, "height": 1000})
                     page.route("**/selection-fixture.html", lambda route: route.fulfill(body=HTML, content_type="text/html"))
                     page.goto(f"http://127.0.0.1:{server.server_port}/selection-fixture.html")
                     page.wait_for_function("Boolean(window.adapter)")
                     page.evaluate("locale=>{document.documentElement.dir=locale==='fa'?'rtl':'ltr';document.documentElement.dataset.theme='dark'}", locale)
                     for mode in ("live", "source"):
-                        variants = [(value, "100%", 1) for value in ("—", "–", "…", "“", "’")]
-                        variants.append(("—", "680px", 1.25))
-                        for punctuation, column, scale in variants:
+                        variants = [(value, "100%", 1, "punctuation") for value in ("—", "–", "…", "“", "’")]
+                        variants.append(("—", "680px", 1.25, "punctuation"))
+                        variants.append(("—", "100%", 1, "leading-stress"))
+                        for punctuation, column, scale, fixture in variants:
                             page.evaluate("v=>{document.documentElement.style.setProperty('--writing-column',v.column);document.documentElement.style.setProperty('--document-text-scale',v.scale)}", {"column": column, "scale": str(scale)})
-                            text = PARAGRAPH.replace("—", punctuation)
+                            text = (STRESS_PARAGRAPH if fixture == "leading-stress" else PARAGRAPH).replace("—", punctuation)
                             ipa = text.index("bɪɡ ˈdeɪtə")
                             ranges = [(60, len(text)-30, "wrapped"), (ipa, ipa+10, "IPA"), (ipa+1, ipa+8, "partial-IPA")]
+                            if fixture == "leading-stress":
+                                stress = text.index("ˌbɪɡ")
+                                end_times = text.index("ˈɛnd")
+                                ranges = [(0, len(text), "complete-stress-paragraph"),
+                                          (60, len(text), "wrapped-stress"),
+                                          (stress, stress+11, "secondary-stress-IPA"),
+                                          (stress+1, stress+9, "partial-secondary-IPA"),
+                                          (end_times, end_times+10, "primary-stress-IPA"),
+                                          (end_times+1, end_times+8, "partial-primary-IPA")]
                             for start, end, label in ranges:
                                 for direction in ("forward", "backward"):
                                     page.evaluate("v=>{adapter.setMode(v.mode);adapter.value=v.text;adapter.focus();adapter.setSelectionRange(v.from,v.to,v.direction)}", {
@@ -96,7 +120,7 @@ def run(dist: Path, output: Path) -> dict:
                                     page.evaluate("async()=>{await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))}")
                                     page.wait_for_timeout(80)
                                     geometry = page.evaluate(GEOMETRY, {"from": start, "to": end})
-                                    details = {"locale":locale,"width":width,"mode":mode,"column":column,"scale":scale,"punctuation":punctuation,"range":label,"direction":direction}
+                                    details = {"locale":locale,"width":width,"mode":mode,"column":column,"scale":scale,"fixture":fixture,"punctuation":punctuation,"range":label,"direction":direction}
                                     assert geometry["source"] == text, (details, "source DOM mismatch")
                                     assert geometry["selection"] == text[start:end], (details, "logical selection mismatch")
                                     assert geometry["glyphs"] > 0 and not geometry["missing"], (details, geometry)

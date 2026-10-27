@@ -20,16 +20,18 @@
  * removed the size bound that used to switch live preview off entirely on a
  * long document.
  *
- * Every widget disappears the moment the caret enters its lines, handing the
- * raw Markdown back for editing. The document is never rewritten to match what
- * is drawn; the one exception is the task checkbox, which is a control the user
- * clicks, and which edits exactly the characters between its brackets.
+ * A caret entering a block's source lines exposes its Markdown. A table click
+ * instead opens a cell editor outside contentDOM and keeps the grid visible.
+ * Painting never rewrites the document. Explicit controls such as table-cell
+ * editing and task checkboxes dispatch bounded source edits through CodeMirror.
  */
 import { Facet, RangeSetBuilder, StateField } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
+import { onlineImageControl } from "../frontend/js/core/online-images.mjs";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import { appendTableInline } from "./table-inline.mjs";
+import { openTableCellEditor, tableLabels, tableModel } from "./table-editing.mjs";
 import { mathAndFootnotes } from "./markdown-extras.mjs";
 
 const tableParser = markdownLanguage.parser.configure([mathAndFootnotes]);
@@ -81,9 +83,8 @@ export function tableContentDirection(markup) {
  * The cells are deliberately not `contenteditable`. Nesting an editable element
  * inside CodeMirror's own editable host makes its DOM observer reconcile those
  * keystrokes back into the document, which rewrote the whole file in testing.
- * Editing a cell in place needs an editor mounted outside `contentDOM` — a
- * tooltip or panel over the cell — rather than an editable inside it. Clicking
- * the table still opens its Markdown for editing.
+ * Editing a cell in place needs an editor mounted outside `contentDOM`. The
+ * cell editor is a portaled panel over the grid and changes only that cell.
  */
 /**
  * Why every block widget below declares `estimatedHeight`.
@@ -222,6 +223,16 @@ export class TableWidget extends WidgetType {
     // sliced text again would mistake their continuation prefixes for cells.
     const parsed = this.syntax || tableParser.parse(this.markup).topNode.firstChild;
     const offset = this.syntax ? this.from : 0;
+    const model = parsed ? tableModel(this.markup, this.from, parsed) : null;
+    wrapper.setAttribute('data-table-from', String(this.from));
+    if (view && model) {
+      wrapper.tabIndex = 0;
+      wrapper.setAttribute('aria-label', tableLabels().table);
+      wrapper.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' || event.isComposing) return;
+        event.preventDefault(); event.stopPropagation(); openTableCellEditor(view, model, 0, 0);
+      });
+    }
     const rows = [];
     let delimiter = null;
     for (let child = parsed?.firstChild; child; child = child.nextSibling) {
@@ -237,10 +248,11 @@ export class TableWidget extends WidgetType {
         if (cell.name === 'TableCell') cells.push(cell);
       }
       const head = index === 0;
-      if (head) columns = cells.length;
+      if (head) columns = model?.columns || cells.length;
       const row = document.createElement("tr");
       for (let column = 0; column < columns; column += 1) {
-        const cell = cells[column];
+        const physical = model?.rows[index]?.cells[column];
+        const cell = physical ? cells.find(candidate => candidate.from + this.from - offset === physical.from) : null;
         const element = document.createElement(head ? "th" : "td");
         if (cell) appendTableInline(element, cell, this.markup, {
           offset,
@@ -251,17 +263,23 @@ export class TableWidget extends WidgetType {
         });
         if (alignments[column]) element.style.textAlign = alignments[column];
         element.dir = "auto";
-        if (view) element.addEventListener('mousedown', (event) => {
-          if (event.button !== 0) return;
-          event.preventDefault();
-          event.stopPropagation();
-          const position = this.from + (cell?.from ?? sourceRow.to) - offset;
-          view.dispatch({ selection: {
-            anchor: event.shiftKey ? view.state.selection.main.anchor : position,
-            head: position,
-          }, scrollIntoView: true });
-          view.focus();
-        });
+        element.setAttribute('data-table-row', String(index));
+        element.setAttribute('data-table-column', String(column));
+        if (view) {
+          element.addEventListener('mousedown', (event) => {
+            if (event.button !== 0) return;
+            event.preventDefault(); event.stopPropagation();
+          }, { capture: true });
+          element.addEventListener('click', (event) => {
+            if (event.button !== 0) return;
+            event.preventDefault(); event.stopPropagation();
+            // Open after the pointer sequence completes. A popup positioned
+            // above a low cell can cover its own mouseup target; opening on
+            // mousedown retargeted that click to body and immediately closed
+            // the editor through the outside-click handler.
+            if (model) openTableCellEditor(view, model, index, column);
+          });
+        }
         row.append(element);
       }
       if (head) {
@@ -280,9 +298,10 @@ export class TableWidget extends WidgetType {
     return wrapper;
   }
 
-  ignoreEvent() {
-    // Let clicks through so the caret lands in the source and the table opens.
-    return false;
+  ignoreEvent(event) {
+    // Mouse input belongs to the visual cell editor. Keyboard history and
+    // navigation still belong to CodeMirror after the grid regains focus.
+    return event.type !== "keydown";
   }
 }
 
@@ -313,6 +332,29 @@ export class ImagePlaceholderWidget extends WidgetType {
   eq(other) { return other.source === this.source && other.alt === this.alt && other.label === this.label; }
   toDOM() { return imagePlaceholder(this.source, this.alt, this.label); }
   ignoreEvent() { return false; }
+}
+
+/** Online images are actionable document resources, with session host grants. */
+export class OnlineImageWidget extends WidgetType {
+  constructor(source, alt, allowed, request, strings) {
+    super();
+    Object.assign(this, { source, alt, allowed, request, strings });
+  }
+  eq(other) {
+    return other.source === this.source && other.alt === this.alt && other.allowed === this.allowed
+      && other.request === this.request && JSON.stringify(other.strings) === JSON.stringify(this.strings);
+  }
+  toDOM(view) {
+    const control = onlineImageControl(view.dom.ownerDocument, {
+      source: this.source, alt: this.alt, allowed: this.allowed,
+      onRequest: this.request, strings: this.strings,
+    });
+    const measure = () => { if (view.dom.contains(control)) view.requestMeasure(); };
+    control.addEventListener("load", measure, true);
+    control.addEventListener("error", measure, true);
+    return control;
+  }
+  ignoreEvent() { return true; }
 }
 
 /**

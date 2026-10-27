@@ -79,9 +79,9 @@ def run(dist: Path, output: Path) -> dict:
                     ), surfaces
                     assert surfaces["panel"] != surfaces["shell"], surfaces
                     case["surfaces"] = surfaces
-                    expect(page.locator(".cm-md-image-missing")).to_be_visible()
+                    expect(page.locator(".cm-content .online-image-control")).to_be_visible()
                     assert (
-                        page.locator(".cm-md-image-missing code")
+                        page.locator(".cm-content .online-image-origin")
                         .get_attribute("title")
                         .startswith("https://example.com/")
                     )
@@ -121,13 +121,21 @@ def run(dist: Path, output: Path) -> dict:
                     case["checks"].append(
                         "nested inline formats, math, escaped pipes, ragged rows, alignment and safe HTML in real table widget"
                     )
-                    table.locator("tbody code").first.click()
-                    expect(page.locator(".cm-md-table table th code")).to_have_count(0)
-                    page.keyboard.press("Control+End")
+                    cell_editor = page.locator(".cm-table-cell-editor textarea")
+                    # The formula widget has its own source-edit listener. A
+                    # click in a table formula must remain a cell edit, even
+                    # when the actual target is MathJax's nested SVG.
+                    table.locator("tbody tr").first.locator("td").nth(2).locator("svg").first.click()
+                    expect(cell_editor).to_have_value("$E=mc^2$")
                     expect(table).to_be_visible()
+                    cell_editor.press("Escape")
+                    table.locator("tbody code").first.click()
+                    expect(cell_editor).to_have_value("`--title`")
+                    expect(table).to_be_visible()
+                    cell_editor.press("Escape")
                     expect(buffer).to_have_value(SAMPLE)
                     case["checks"].append(
-                        "click opens table source and leaving rerenders without rewriting Markdown"
+                        "click opens a portaled single-cell editor while the formatted grid stays visible; Escape preserves Markdown"
                     )
 
                     editor.focus()
@@ -167,7 +175,10 @@ def run(dist: Path, output: Path) -> dict:
                           return a.left>=b.left-1&&a.right<=b.right+1;
                         }""")
                     page.locator(".cm-md-table tbody code").first.click()
-                    page.keyboard.type("CELL_ENTRY_")
+                    expect(cell_editor).to_have_value("`--title`")
+                    expect(page.locator(".cm-selection-toolbar:visible")).to_have_count(0)
+                    cell_editor.fill("CELL_ENTRY_`--title`")
+                    cell_editor.press("Enter")
                     expect(buffer).to_have_value(
                         SAMPLE.replace("| `--title`", "| CELL_ENTRY_`--title`")
                     )
@@ -175,11 +186,11 @@ def run(dist: Path, output: Path) -> dict:
                     expect(buffer).to_have_value(SAMPLE)
                     page.keyboard.press("Control+End")
                     case["checks"].append(
-                        "selection toolbar stays in its pane; table click replaces a prior range with a precise cell caret"
+                        "selection toolbar stays in its pane; cell edit changes only the chosen cell after a prior prose selection"
                     )
                     expect(
                         page.locator(
-                            '#preview-document .md2pdf-image-placeholder[data-md2pdf-blocked-reason="remote"]'
+                            '#preview-document .online-image-control[data-online-image-state="blocked"]'
                         )
                     ).to_be_visible(timeout=30000)
                     header = page.locator("#preview-pane .content-view-header strong")
@@ -187,10 +198,10 @@ def run(dist: Path, output: Path) -> dict:
                         "Preview heading is truncated"
                     )
                     placeholder = page.locator(
-                        '#preview-document .md2pdf-image-placeholder[data-md2pdf-blocked-reason="remote"]'
+                        '#preview-document .online-image-control[data-online-image-state="blocked"]'
                     )
                     assert (
-                        placeholder.locator("span").evaluate("e=>getComputedStyle(e).textOverflow")
+                        placeholder.locator(".online-image-origin").evaluate("e=>getComputedStyle(e).textOverflow")
                         == "ellipsis"
                     )
                     case["checks"].append(
@@ -234,6 +245,9 @@ def run(dist: Path, output: Path) -> dict:
                         page.mouse.down()
                         page.mouse.move(x + (32 if locale == "fa" else -32), y)
                         handle.evaluate("e=>e.releasePointerCapture(1)")
+                        # Capture release is pending until the next pointer
+                        # event; dispatch one before checking its lost event.
+                        page.mouse.move(x + (32 if locale == "fa" else -32), y + 1)
                         expect(page.locator(".pane-resizer.is-dragging")).to_have_count(0)
                         assert page.locator("html").get_attribute("data-pane-resizing") is None
                         page.mouse.up()

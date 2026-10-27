@@ -33,7 +33,8 @@ export function appendTableInline(parent, node, source, options = {}) {
       parent.append(options.renderMathNode(child));
     } else if (child.name === 'URL') {
       if (node.name !== 'Link' && node.name !== 'Image') text(parent, raw);
-    } else if (child.name === 'Escape') text(parent, raw.slice(1));
+    } else if (child.name === 'HTMLTag' && /^<br\s*\/?>$/i.test(raw)) parent.append(document.createElement('br'));
+    else if (child.name === 'Escape') text(parent, raw.slice(1));
     else if (child.name === 'Entity' && /^&(?:#\d+|#x[\da-f]+|[a-z][\da-z]+);$/i.test(raw)) {
       // The grammar guarantees a single entity; this cannot contain a tag.
       const decoder = document.createElement('textarea');

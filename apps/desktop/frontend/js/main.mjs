@@ -43,9 +43,10 @@ import {
 } from "./core/markdown-analysis.mjs";
 import { prefixSelectedLines, replaceSelection, wrapSelection } from "./core/editor-commands.mjs";
 import { createFindSession, replaceAllLiteral } from "./core/find-replace.mjs";
-import { documentImageSources, localImageDestination } from "./core/document-assets.mjs";
+import { documentImageAlts, documentImageSources, localImageDestination } from "./core/document-assets.mjs";
 import { createEditorAdapter } from "./core/editor-adapter.mjs";
 import { mountDocumentContent } from "./core/document-renderer.mjs";
+import { safeOnlineImageURL } from "./core/online-images.mjs";
 import { interpolatePosition } from "./core/content-position.mjs";
 import {
   captureDocumentContext,
@@ -182,6 +183,7 @@ const documentMetrics = createDocumentMetrics();
 let modalManager = null;
 let navigationPicker = null;
 const documentImageScopes = new WeakMap();
+const onlineImageOrigins = new WeakMap();
 let imageScopeTimer = null;
 const saveCoordinator = createSaveCoordinator({ isDirty: documentDirty });
 const findSession = createFindSession();
@@ -327,10 +329,12 @@ function syncExportToastPlacement() {
  *
  * Only paths that resolve inside the open document's own directory are turned
  * into asset URLs; the native side grants a bounded inventory of image files.
- * Remote and absolute sources are declined here rather than
- * fetched, which keeps the offline guarantee the app makes on its own footer.
+ * HTTPS sources require an explicit host grant for this document session;
+ * other remote and absolute sources remain outside the local asset scope.
  */
 function resolveEditorAsset(source) {
+  const online = safeOnlineImageURL(source);
+  if (online) return onlineImageOrigins.get(activeDocument())?.has(new URL(online).origin) ? online : null;
   const raw = localImageDestination(source);
   if (!raw) return null;
   const model = activeDocument();
@@ -351,6 +355,33 @@ function resolveEditorAsset(source) {
   } catch {
     return null;
   }
+}
+
+function onlineImageOptions(model = activeDocument()) {
+  const alts = documentImageAlts(model?.content);
+  return {
+    altFor: source => alts.get(source) || "",
+    isAllowed(source) {
+      const url = safeOnlineImageURL(source);
+      return Boolean(url && onlineImageOrigins.get(model)?.has(new URL(url).origin));
+    },
+    onRequest(_origin, source) {
+      const url = safeOnlineImageURL(source);
+      if (!model || !state.documents.includes(model) || !url) return false;
+      const origins = onlineImageOrigins.get(model) || new Set();
+      origins.add(new URL(url).origin);
+      onlineImageOrigins.set(model, origins);
+      // Update sibling images from this host in every view of this document.
+      // The grant lives only in this document's in-memory session.
+      requestAnimationFrame(() => {
+        if (activeDocument() !== model) return;
+        editorAdapter?.refreshAssets?.();
+        renderPreview(model);
+      });
+      return true;
+    },
+    strings: editorStrings(),
+  };
 }
 
 /**
@@ -2509,7 +2540,7 @@ function formatMoment(value) {
  * owns the words; the editor owns the drawing.
  */
 function editorStrings() {
-  return { imageNotFound: t("imageNotFound"), remoteImageNotLoaded: t("remoteImageNotLoaded") };
+  return Object.fromEntries(["imageNotFound", "remoteImageNotLoaded", "loadRemoteImages", "remoteImageLoading", "remoteImageFailed", "retryRemoteImage", "remoteImageBlocked"].map(key => [key, t(key)]));
 }
 
 /**
@@ -2604,6 +2635,7 @@ function renderWorkspace() {
   if (editor.setDocument) editor.setDocument(model.id, model.content, { initialSelection: bodyStartOffset(model.content), kind: isMarkdownModel(model) ? "markdown" : "text" });
   else if (editor.value !== model.content) editor.value = model.content;
   if (!$("#find-bar").classList.contains("hidden")) updateFindMatches();
+  else editorAdapter?.setSearchMatches?.();
   setTruncatableText($("#editor-title"), model.title);
   setTruncatableText($("#editor-path"), model.path || t("untitled"));
   setSaveState(documentDirty(model) ? "dirty" : "saved");
@@ -3706,6 +3738,7 @@ function resolveRecovery(restore) {
 }
 
 async function saveActiveDocument({ saveAs = false, force = false } = {}) {
+  if (editorAdapter?.commitPendingDrafts?.() === false) return false;
   const model = activeDocument();
   if (!model) return false;
   return saveCoordinator.save(
@@ -4095,6 +4128,7 @@ function renderReading(model) {
   const payload = model.preview;
   mountDocumentContent(container, payload, {
     sanitize: safePreviewHtml, prefix: "reading-", sourceEntries: previewSourceEntries(model),
+    onlineImages: onlineImageOptions(model),
     blockedImageLabel: (reason) => t(reason === "remote" ? "remoteImageNotLoaded" : "imageBlockedOrMissing"),
   });
   container.scrollTop = previousScroll;
@@ -4168,6 +4202,7 @@ function renderPreview(model) {
   const payload = model.preview;
   mountDocumentContent(container, payload, {
     sanitize: safePreviewHtml, sourceEntries: previewSourceEntries(model),
+    onlineImages: onlineImageOptions(model),
     onSourceJump: (line) => goToLine(line),
     sourceJumpLabel: (line) => `${t("goToSourceLine")} ${line}`,
     blockedImageLabel: (reason) => t(reason === "remote" ? "remoteImageNotLoaded" : "imageBlockedOrMissing"),
@@ -4373,7 +4408,12 @@ function findSnapshot() {
 
 function updateFindMatches(options = {}) {
   const { matches, index } = findSession.refresh(findSnapshot(), options);
-  $("#find-count").textContent = matches.length ? `${index + 1}/${matches.length}` : "0/0";
+  const query = $("#find-query").value;
+  $("#find-count").textContent = matches.length ? `${index + 1}/${matches.length}` : query ? t("noFindResults") : t("findPrompt");
+  $("#find-bar").dataset.noResults = String(Boolean(query) && !matches.length);
+  $("#find-previous").disabled = $("#find-next").disabled = !matches.length;
+  $("#replace-one").disabled = $("#replace-all").disabled = !matches.length || !documentEditable();
+  editorAdapter?.setSearchMatches?.(matches, index);
   return matches;
 }
 
@@ -4382,7 +4422,8 @@ function selectFindMatch(index, { direction = null } = {}) {
   const match = direction === null ? findSession.select(snapshot, index) : findSession.move(snapshot, direction);
   if (!match) return;
   const editor = currentEditor();
-  editor.focus();
+  // Keep typing and Enter/Shift+Enter in the search field. Drawing a result
+  // must not steal focus after the first matching character of the query.
   editor.setSelectionRange(match.start, match.end);
   // The professional editor scrolls the selection into view itself, and knows
   // where a wrapped line actually sits. Only the plain-textarea fallback has to
@@ -4399,14 +4440,17 @@ function selectFindMatch(index, { direction = null } = {}) {
   updateEditorMetrics();
 }
 
+function showFindReplacement(replace) {
+  $("#find-replace-row").classList.toggle("hidden", !replace);
+  $("#toggle-replace").setAttribute("aria-expanded", String(replace));
+}
+
 function openFind({ replace = false } = {}) {
   // Search selects the actual Markdown, and replacement requires an explicit
   // visible editing surface rather than changing a hidden reader buffer.
   if (effectiveViewMode() === "read") setViewMode("source");
   $("#find-bar").classList.remove("hidden");
-  $("#replace-query").classList.toggle("hidden", !replace);
-  $("#replace-one").classList.toggle("hidden", !replace);
-  $("#replace-all").classList.toggle("hidden", !replace);
+  showFindReplacement(replace);
   const editor = currentEditor();
   const selected = editor.value.slice(editor.selectionStart, editor.selectionEnd);
   if (selected && !selected.includes("\n")) $("#find-query").value = selected;
@@ -4418,6 +4462,7 @@ function openFind({ replace = false } = {}) {
 function closeFind() {
   $("#find-bar").classList.add("hidden");
   findSession.clear();
+  editorAdapter?.setSearchMatches?.();
   currentEditor().focus();
 }
 
@@ -4427,6 +4472,7 @@ function moveFind(direction) {
 
 function replaceCurrentMatch() {
   if (!documentEditable()) return;
+  const previousFocus = document.activeElement?.matches?.("#find-query,#replace-query") ? document.activeElement : null;
   const editor = currentEditor();
   const match = findSession.current(findSnapshot());
   if (!match) return;
@@ -4435,6 +4481,7 @@ function replaceCurrentMatch() {
   updateFindMatches({ anchor: match.start + replacement.length });
   const { index } = findSession.refresh(findSnapshot());
   if (index >= 0) selectFindMatch(index);
+  if (previousFocus) (previousFocus.disabled ? $("#replace-query") : previousFocus).focus({ preventScroll: true });
 }
 
 function replaceAllMatches() {
@@ -5126,7 +5173,23 @@ function bindEvents() {
   });
   $("#frontmatter-form").addEventListener("submit", applyFrontMatter);
   $("#find-query").addEventListener("input", () => { if (updateFindMatches({ reset: true }).length) selectFindMatch(0); });
-  $("#find-query").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); moveFind(event.shiftKey ? -1 : 1); } if (event.key === "Escape") closeFind(); });
+  $("#find-query").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); moveFind(event.shiftKey ? -1 : 1); } });
+  $("#toggle-replace").addEventListener("click", () => {
+    showFindReplacement($("#toggle-replace").getAttribute("aria-expanded") !== "true");
+    $("#find-query").focus();
+  });
+  $("#find-bar").addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeFind(); }
+    const shortcut = authoringShortcutKey(event);
+    if (["f", "h"].includes(shortcut)) {
+      event.preventDefault(); event.stopPropagation();
+      if (shortcut === "h") showFindReplacement(true);
+      $("#find-query").focus(); $("#find-query").select();
+    }
+  });
+  $("#replace-query").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { event.preventDefault(); replaceCurrentMatch(); $("#replace-query").focus(); }
+  });
   $("#find-previous").addEventListener("click", () => moveFind(-1));
   $("#find-next").addEventListener("click", () => moveFind(1));
   $("#replace-one").addEventListener("click", replaceCurrentMatch);
@@ -5307,7 +5370,9 @@ function bindEvents() {
     const formControl = event.target instanceof Element
       && event.target.matches("input,textarea,select,[contenteditable='true']")
       && !event.target.closest(".editor-surface");
-    if (formControl) return;
+    const tableEditorShortcut = event.target.closest?.(".cm-table-cell-editor")
+      && ["s", "f", "h", "p", "o", "n", "\\", "+", "=", "-", "0"].includes(key);
+    if (formControl && !tableEditorShortcut) return;
     if ($("#workspace-view").classList.contains("active") && !event.altKey && ["+", "=", "-", "0"].includes(key)) {
       event.preventDefault();
       changeDocumentZoom(key === "0" ? 0 : key === "-" ? -1 : 1);
@@ -5378,7 +5443,13 @@ function bindEvents() {
     focusDocument();
   }, true);
 
-  window.addEventListener("beforeunload", () => {
+  window.addEventListener("beforeunload", (event) => {
+    // A visible table-cell draft belongs to this document too. Flush it before
+    // serializing recovery rather than relying on a preceding blur event.
+    if (editorAdapter?.commitPendingDrafts?.() === false) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
     for (const model of state.documents) if (documentDirty(model)) saveRecovery(model);
   });
 
@@ -5458,6 +5529,7 @@ async function boot() {
     onContextMenu: openEditorContextMenu,
     onLeaveEditor: moveFocusOutOfEditor,
     resolveAsset: resolveEditorAsset,
+    requestOnlineImage: (origin, source) => onlineImageOptions().onRequest(origin, source),
     renderMath: (container, { isCurrent } = {}) => typesetPreviewMath(container, { isCurrent, errorLabel: t("previewMathFailed") }),
     getCompletions: () => activeDocument()?.projectPath === state.project?.path
       ? state.bibliographyEntries

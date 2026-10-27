@@ -1,8 +1,11 @@
+import { onlineImageControl } from "./online-images.mjs";
+
 /** One content renderer for reading, side preview and whole-book review. */
 export function mountDocumentContent(container, payload, {
   sanitize, prefix = "preview-", sourceEntries = [], onSourceJump,
   sourceJumpLabel = (line) => `Line ${line}`,
   blockedImageLabel = (reason) => reason === "remote" ? "Remote image not loaded" : "Image blocked or missing",
+  onlineImages = null,
 } = {}) {
   const document = container.ownerDocument;
   const fragment = sanitize(
@@ -15,6 +18,13 @@ export function mountDocumentContent(container, payload, {
     if (source) placeholder.title = source;
     const label = placeholder.querySelector('strong');
     if (label) label.textContent = blockedImageLabel(placeholder.dataset.md2pdfBlockedReason);
+    if (onlineImages && placeholder.dataset.md2pdfBlockedReason === "remote" && source) {
+      placeholder.replaceWith(onlineImageControl(document, {
+        source, alt: onlineImages.altFor?.(source) || "",
+        allowed: onlineImages.isAllowed(source), onRequest: onlineImages.onRequest,
+        strings: onlineImages.strings,
+      }));
+    }
   }
   for (const heading of fragment.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
     if (!heading.hasAttribute("dir")) heading.dir = "auto";

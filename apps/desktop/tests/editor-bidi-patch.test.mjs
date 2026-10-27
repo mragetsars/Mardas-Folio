@@ -73,7 +73,12 @@ test("typographic punctuation keeps Unicode neutral and numeric classes", async 
   }
   for (const value of ["‰", "‱", "′", "″"]) assert.equal(classify(value.charCodeAt(0)), 64, value);
   for (const value of [" ", "⁄"]) assert.equal(classify(value.charCodeAt(0)), 128, value);
-  for (const value of ["ɪ", "ɡ", "ə"]) assert.equal(classify(value.charCodeAt(0)), 1, value);
+  for (const value of ["ˈ", "ˌ", "ʹ", "ʺ", "˂", "˅", "ˏ", "˒", "˟", "˥", "˭", "˯", "˿"]) {
+    assert.equal(classify(value.charCodeAt(0)), 256, value);
+  }
+  for (const value of ["ɪ", "ɡ", "ə", "ʰ", "ʻ", "ˀ", "ː", "ˑ", "ˠ", "ˤ", "ˮ"]) {
+    assert.equal(classify(value.charCodeAt(0)), 1, value);
+  }
 });
 
 test("selection continuation uses each paragraph direction and scaled writing margins", async () => {
