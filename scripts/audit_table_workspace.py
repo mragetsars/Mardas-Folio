@@ -66,6 +66,13 @@ def run(dist: Path, output: Path) -> dict:
                 cell.click()
                 draft.press("Alt+F10")
                 expect(panel.locator('[data-cell-format="bold"]')).to_be_focused()
+                focus_paint = panel.locator('[data-cell-format="bold"]').evaluate("""e=>{
+                    const style=getComputedStyle(e);
+                    return {visible:e.matches(':focus-visible'), width:style.outlineWidth,
+                      color:style.outlineColor, style:style.outlineStyle};
+                }""")
+                case["cell_action_focus"] = focus_paint
+                assert float(focus_paint["width"].removesuffix("px")) >= 2 and focus_paint["style"] == "solid", focus_paint
                 page.keyboard.press("Escape")
                 expect(draft).to_be_focused()
                 draft.press("Alt+F10")

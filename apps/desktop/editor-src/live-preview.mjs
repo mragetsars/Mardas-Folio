@@ -16,7 +16,7 @@
 import { syntaxTree } from "@codemirror/language";
 import { Facet, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin } from "@codemirror/view";
-import { CodeBlockHeaderWidget, fencedCodeSpec } from "./code-block-tools.mjs";
+import { CodeBlockHeaderWidget, codeBodyPrefixRanges, fencedCodeSpec } from "./code-block-tools.mjs";
 import { tableEditingExtension } from "./table-editing.mjs";
 
 import {
@@ -371,6 +371,11 @@ function buildDecorations(view) {
             // focus: Source is the explicit place to edit that scaffolding.
             marks.push([node.from, fence.openerTo]);
             if (fence.closeFrom != null) marks.push([fence.closeFrom, fence.closeTo]);
+            // The fenced node owns continuation QuoteMark children. Its early
+            // return below deliberately skips inline parsing, so hide their
+            // complete container prefixes here, including closing-fence rows.
+            // Reuse Copy's prefix rules to retain indentation that is code.
+            marks.push(...codeBodyPrefixRanges(state, fence));
             const locale = typeof document !== "undefined" && document.documentElement.lang.startsWith("fa") ? "fa" : "en";
             widgets.push({ from: fence.openerTo, to: fence.openerTo, deco: Decoration.widget({ widget: new CodeBlockHeaderWidget(fence, locale, state.readOnly), side: 1 }) });
           }
@@ -458,7 +463,18 @@ function buildDecorations(view) {
         }
 
         if (node.from === node.to) return;
-        if (active.has(state.doc.lineAt(node.from).number)) return;
+        let stableCodeMarker = false;
+        if (node.name === "QuoteMark" || node.name === "ListMark") {
+          // An opening quote mark can be outside the fenced node. Unlike
+          // prose syntax it must not reappear when the stable code header
+          // gains the caret or enters a selection.
+          const line = state.doc.lineAt(node.from);
+          let context = syntaxTree(state).resolveInner(line.to, -1);
+          while (context && context.name !== "FencedCode" && context.name !== "CodeBlock") context = context.parent;
+          stableCodeMarker = Boolean(context);
+          if (stableCodeMarker && node.name === "QuoteMark") { marks.push([node.from, swallowSpace(state, node.to)]); return; }
+        }
+        if (active.has(state.doc.lineAt(node.from).number) && !stableCodeMarker) return;
 
         // An image and a task checkbox replace inline text, not a block, so
         // they are drawn here — over the viewport — rather than in the block

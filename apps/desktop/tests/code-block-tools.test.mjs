@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { EditorState } from "@codemirror/state";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxTree } from "@codemirror/language";
-import { codeBodyText, codeLanguageChange, fencedCodeSpec } from "../editor-src/code-block-tools.mjs";
+import { codeBodyPrefixRanges, codeBodyText, codeLanguageChange, fencedCodeSpec } from "../editor-src/code-block-tools.mjs";
 
 function fixture(doc) {
   const state = EditorState.create({ doc, extensions: [markdown()] });
@@ -74,4 +74,24 @@ test("empty nested code keeps its continuation prefix and nonempty Edit skips th
   }
   const { state, spec } = fixture("> ```\n> alpha\n> ```");
   assert.equal(state.doc.sliceString(spec.editFrom, spec.editFrom + 5), "alpha");
+});
+
+test("rendered code hides continuation scaffold but preserves semantic indentation and operators", () => {
+  for (const [source, visible] of [
+    ["> ```js\n> code > 1\n>   nested();\n> ```", ["code > 1", "  nested();", "```"]],
+    [">```js\n> code\n>```", ["code", "```"]],
+    ["> > ```js\n>> code\n> > ```", ["code", "```"]],
+    ["- ```js\n  code\n    nested();\n  ```", ["code", "  nested();", "```"]],
+    ["> - ```js\n>   code\n>     nested();\n>   ```", ["code", "  nested();", "```"]],
+  ]) {
+    const { state, spec } = fixture(source);
+    const ranges = new Map(codeBodyPrefixRanges(state, spec));
+    const rows = [];
+    for (let number = 2; number <= state.doc.lines; number += 1) {
+      const line = state.doc.line(number);
+      rows.push(state.doc.sliceString(ranges.get(line.from) ?? line.from, line.to));
+    }
+    assert.deepEqual(rows, visible, source);
+    assert.equal(state.doc.toString(), source);
+  }
 });

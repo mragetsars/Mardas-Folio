@@ -127,6 +127,33 @@ def run(dist: Path, output: Path, bundle: Path | None = None) -> dict:
                         page.keyboard.press("Control+z")
                         assert page.evaluate("adapter.value") == nested
                     case["checks"].append("nested quote/list Copy excludes container marks; empty Edit and its caret preserve structural prefixes with exact Undo")
+
+                    # Do not infer visual correctness from Copy's normalized
+                    # text. Read the actual rendered line DOM: quote/list
+                    # scaffolding must disappear while semantic indentation
+                    # and a code comparison operator remain visible.
+                    for quoted, expected_lines in [
+                        ('> ```python\n> ```\n\nAfter.', ["", ""]),
+                        ('> ```js\n> code > 1\n>   nested();\n> ```\n\nAfter.', ["", "code > 1", "  nested();", ""]),
+                        ('> > ```js\n>> code\n> > ```\n\nAfter.', ["", "code", ""]),
+                        ('- ```js\n  code\n    nested();\n  ```\n\nAfter.', ["", "code", "  nested();", ""]),
+                        ('> - ```js\n>   code\n>     nested();\n>   ```\n\nAfter.', ["", "code", "  nested();", ""]),
+                    ]:
+                        page.evaluate("text=>{adapter.value=text;adapter.setSelectionRange(text.length)}", quoted)
+                        for selection in ([len(quoted)], [0, quoted.index("\n\nAfter.")]):
+                            page.evaluate("positions=>adapter.setSelectionRange(...positions)", selection)
+                            actual_lines = page.locator(".cm-code-line").evaluate_all("""lines=>lines.map(line=>{
+                              const clone=line.cloneNode(true);
+                              clone.querySelector('.cm-code-header')?.remove();
+                              // The list's bullet is meaningful, unlike its
+                              // Markdown dash. Its widget is checked elsewhere.
+                              clone.querySelector('.cm-md-bullet')?.remove();
+                              return clone.textContent.replace(/\\u200b/g,'').trimEnd();
+                            })""")
+                            assert actual_lines == expected_lines, {"source": quoted, "selection": selection, "lines": actual_lines}
+                            assert page.evaluate("adapter.value") == quoted
+                        page.screenshot(path=str(output / f"{locale}-{theme}-{width}-nested.png"))
+                    case["checks"].append("rendered nested code hides quote/list scaffold even in a selection, retaining semantic indentation and comparison operators")
                     page.evaluate("text=>{adapter.value=text;adapter.setSelectionRange(0)}", SAMPLE)
                     page.screenshot(path=str(output / f"{locale}-{theme}-{width}.png"))
                     case["status"] = "pass"

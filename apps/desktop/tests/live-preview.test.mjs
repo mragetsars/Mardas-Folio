@@ -82,7 +82,7 @@ test("hidden ranges are atomic so the caret cannot stall inside them", () => {
 
 test("the caret's own prose line reveals its source syntax", () => {
   assert.match(source, /activeLines/);
-  assert.match(source, /if \(active\.has\(state\.doc\.lineAt\(node\.from\)\.number\)\) return;/);
+  assert.match(source, /if \(active\.has\(state\.doc\.lineAt\(node\.from\)\.number\) && !stableCodeMarker\) return;/);
 });
 
 test("one view mode decides both the rendering and the preview pane", () => {

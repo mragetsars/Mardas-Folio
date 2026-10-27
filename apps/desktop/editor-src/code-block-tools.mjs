@@ -41,6 +41,19 @@ export function codeBodyText(state, spec) {
     .map(line => stripCodePrefix(line, spec.bodyPrefix)).join("\n");
 }
 
+/** Hide container/fence indentation, keeping every semantic code space. */
+export function codeBodyPrefixRanges(state, spec) {
+  const ranges = [];
+  const first = state.doc.lineAt(spec.openerFrom).number + 1;
+  const last = state.doc.lineAt(spec.to).number;
+  for (let number = first; number <= last; number += 1) {
+    const line = state.doc.line(number);
+    const length = line.text.length - stripCodePrefix(line.text, spec.bodyPrefix).length;
+    if (length) ranges.push([line.from, line.from + length]);
+  }
+  return ranges;
+}
+
 /** Positions come from the actual parsed node, including longer/tilde fences. */
 export function fencedCodeSpec(state, value) {
   const node = value.node || value;
