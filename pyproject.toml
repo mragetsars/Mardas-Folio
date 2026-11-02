@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools==84.1.0", "wheel==0.47.0"]
+requires = ["setuptools==84.2.1", "wheel==0.48.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -35,10 +35,10 @@ dev = [
   "urllib3>=2.8.0",
   "build>=1.2.0",
   "packaging>=24.0",
-  "setuptools==84.1.0",
+  "setuptools==84.2.1",
   "certifi>=2026.10.19",
   "filelock>=4.2.1; python_version >= '3.11'",
-  "wheel==0.47.0"
+  "wheel==0.48.0"
 ]
 desktop = [
   "pyinstaller>=6.11,<7"
