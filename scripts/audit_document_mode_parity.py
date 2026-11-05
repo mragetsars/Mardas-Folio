@@ -101,10 +101,20 @@ def _activity(page: Any, activity: str) -> None:
     expect(page.locator("#workspace-view")).to_have_attribute("data-view-mode", activity)
 
 
+def _click_control(page: Any, selector: str) -> None:
+    """Reach the same control when measured toolbar overflow parks it."""
+    page.wait_for_timeout(80)  # Allow ResizeObserver and its animation frame.
+    control = page.locator(selector)
+    if not control.is_visible():
+        page.locator("#workspace-view-menu-button").click()
+    control.click()
+    page.wait_for_timeout(80)
+
+
 def _side_preview(page: Any, *, enabled: bool = True) -> None:
     toggle = page.locator("#workspace-toggle-preview")
     if (toggle.get_attribute("aria-pressed") == "true") != enabled:
-        toggle.click()
+        _click_control(page, "#workspace-toggle-preview")
     expect(toggle).to_have_attribute("aria-pressed", str(enabled).lower())
 
 
@@ -135,10 +145,10 @@ def _wait_content(page: Any, selector: str) -> None:
 
 
 def _set_zoom(page: Any, percent: int) -> None:
-    page.locator("#document-zoom-reset").click()
+    _click_control(page, "#document-zoom-reset")
     direction = "in" if percent > 100 else "out"
     for _ in range(abs(percent - 100) // 10):
-        page.locator(f"#document-zoom-{direction}").click()
+        _click_control(page, f"#document-zoom-{direction}")
     expect(page.locator("html")).to_have_attribute("data-document-zoom", str(percent))
 
 
@@ -195,7 +205,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     expect(page.locator("#insert-menu-button")).to_be_visible()
                     expect(page.locator("#workspace-toggle-formatting")).to_be_visible()
                     if page.locator("#workspace-toggle-formatting").get_attribute("aria-pressed") != "true":
-                        page.locator("#workspace-toggle-formatting").click()
+                        _click_control(page, "#workspace-toggle-formatting")
                     expect(page.locator("#format-bar")).to_be_visible()
                     _append(page, "\nHIDDEN_WORK_MARKER\n")
                     page.wait_for_timeout(900)
@@ -204,7 +214,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     expect(page.locator("#markdown-editor")).to_have_value(SAMPLE)
                     scenario["checks"].append("editing with no rendered view performs no speculative engine preview")
 
-                    page.locator("#workspace-toggle-sidebar").click()
+                    _click_control(page, "#workspace-toggle-sidebar")
                     page.locator('[data-sidebar="problems"]').click()
                     pending = ("This version has not been checked yet. Run Check document." if locale == "en"
                                else "این نسخهٔ متن هنوز بررسی نشده است. «بررسی سند» را اجرا کن.")
@@ -302,7 +312,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     _activity(page, "read")
                     expect(page.locator("#reading-document")).to_contain_text("PAUSED_FRESHNESS_TOKEN")
                     expect(page.locator("#reading-auto-preview")).not_to_be_checked()
-                    expect(page.locator("#reading-surface [data-content-status]")).to_have_attribute("data-stale", "false")
+                    expect(page.locator(".reading-toolbar-controls [data-content-status]")).to_have_attribute("data-stale", "false")
                     _activity(page, "source")
                     _append(page, "\nMANUAL_REFRESH_TOKEN\n")
                     page.wait_for_timeout(900)
@@ -324,7 +334,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
 
                     _activity(page, "read")
                     if page.locator("#workspace-toggle-sidebar").get_attribute("aria-pressed") == "false":
-                        page.locator("#workspace-toggle-sidebar").click()
+                        _click_control(page, "#workspace-toggle-sidebar")
                     page.locator('[data-sidebar="frontmatter"]').click()
                     expect(page.locator("#sidebar-panel-frontmatter")).to_be_visible()
                     page.evaluate("path => {__modeFixture.pick = path}", str(config))

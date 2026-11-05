@@ -24,6 +24,56 @@ def click_control(page, selector):
     return overflow
 
 
+def check_design_language(page):
+    """Exercise real hover/focus after the complete stylesheet cascade loads."""
+    surfaces = page.evaluate("""() => {
+      const color=s=>getComputedStyle(document.querySelector(s)).backgroundColor;
+      return {files:color('.file-navigator'),inspector:color('.author-sidebar'),
+        filesHeader:color('.navigator-heading'),inspectorHeader:color('.inspector-heading')};
+    }""")
+    assert len(set(surfaces.values())) == 1, surfaces
+    states = {}
+    for selector in ("#writing-appearance-button", "#format-find", "#document-mode-help",
+                     "#insert-menu-button", "#workspace-focus", "#workspace-toggle-sidebar"):
+        target = page.locator(selector)
+        parked = not target.is_visible()
+        if parked:
+            page.locator("#workspace-view-menu-button").click()
+        target.hover()
+        page.wait_for_timeout(180)
+        style = target.evaluate("""e=>{
+          const s=getComputedStyle(e),r=e.getBoundingClientRect();
+          const token=document.createElement('i');token.style.background='var(--ui-control-hover)';
+          e.append(token);const expected=getComputedStyle(token).backgroundColor;token.remove();
+          return {background:s.backgroundColor,expected,radius:s.borderRadius,height:r.height};
+        }""")
+        assert style["background"] == style["expected"], (selector, style)
+        assert style["radius"] == "6px", (selector, style)
+        if not parked:
+            assert style["height"] == 28, (selector, style)
+        states[selector] = style
+        if parked:
+            page.keyboard.press("Escape")
+    # A selected toggle keeps its semantic amber fill while hovered.
+    click_control(page, "#workspace-toggle-preview")
+    target = page.locator("#workspace-toggle-preview")
+    if not target.is_visible():
+        page.locator("#workspace-view-menu-button").click()
+    target.hover()
+    page.wait_for_timeout(180)
+    active = target.evaluate("e=>({background:getComputedStyle(e).backgroundColor,pressed:e.getAttribute('aria-pressed')})")
+    assert active["pressed"] == "true" and active["background"] != states["#format-find"]["background"], active
+    if page.locator("#workspace-view-menu").is_visible():
+        page.keyboard.press("Escape")
+    click_control(page, "#workspace-toggle-preview")
+    # Keyboard navigation must remain visible on the same neutral controls.
+    page.locator("#format-find").focus()
+    page.keyboard.press("Tab")
+    focus = page.locator(":focus").evaluate("e=>({visible:e.matches(':focus-visible'),width:getComputedStyle(e).outlineWidth,style:getComputedStyle(e).outlineStyle})")
+    assert focus == {"visible": True, "width": "2px", "style": "solid"}, focus
+    return {"surfaces": surfaces, "hover": states, "selected_hover": active, "keyboard_focus": focus}
+
+
 def run(dist: Path, output: Path) -> dict:
     output.mkdir(parents=True, exist_ok=True)
     report = {"status": "running", "cases": []}
@@ -118,6 +168,8 @@ def run(dist: Path, output: Path) -> dict:
                     tabs_after = page.locator(".tab-bar").bounding_box()
                     assert tabs_before == tabs_after, (tabs_before, tabs_after)
                     assert page.locator(".editor-surface").bounding_box()["y"] == 88
+                    case["design_language"] = check_design_language(page)
+                    case["checks"].append("Files/Inspector share one surface; neutral commands share hover, radius and density; selected hover and keyboard focus remain distinct")
                     for selector in ("#workspace-toggle-files", "#workspace-toggle-sidebar", "#workspace-toggle-preview"):
                         click_control(page, selector)
                     case["checks"].append("one to four pane toggles leave tabs and top keylines fixed")

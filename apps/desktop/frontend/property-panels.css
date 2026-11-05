@@ -1,6 +1,7 @@
 /* Pane chrome shares the same 40px keyline as the document toolbar. */
 body[data-view="workspace"] :is(.file-navigator, .author-sidebar) {
   grid-template-rows: 40px minmax(0, 1fr) auto;
+  background: var(--ui-surface-navigation);
 }
 body[data-view="workspace"] :is(.navigator-heading, .inspector-heading) {
   grid-row: 1;
@@ -14,7 +15,7 @@ body[data-view="workspace"] :is(.navigator-heading, .inspector-heading) {
   overflow: visible;
   border: 0;
   border-block-end: 1px solid var(--ui-border);
-  background: var(--ui-bg);
+  background: var(--ui-surface-navigation);
 }
 body[data-view="workspace"] :is(.navigator-heading, .inspector-heading) > strong {
   position: absolute;
@@ -216,7 +217,7 @@ body[data-view="workspace"] .property-grid-body :is(input[type="text"], select):
   min-block-size: 52px;
   padding: 10px 12px;
   border-block-start: 1px solid var(--ui-border);
-  background: var(--ui-bg);
+  background: var(--ui-surface-navigation);
 }
 #frontmatter-form .property-grid-footer > button {
   min-block-size: 32px;
