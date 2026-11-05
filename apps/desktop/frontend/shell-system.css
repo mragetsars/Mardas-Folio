@@ -152,7 +152,7 @@ body[data-view="workspace"] .document-toolbar-actions :is(#workspace-toggle-prev
 .document-toolbar-actions :is(.view-layout-actions, .document-edit-controls):not(:has(button)) { display: none; }
 #workspace-view-menu-button[hidden] { display: none; }
 .workspace-view-menu { width: 300px; max-width: calc(100vw - 16px); padding: 8px; z-index: 90; }
-.workspace-view-menu > :is(div, button) { width: 100%; }
+.workspace-view-menu > :is(div, button) { width: 100%; min-inline-size: 0; margin-inline: 0; }
 .workspace-view-menu > div { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 8px 4px; border-bottom: 1px solid var(--ui-border); }
 .workspace-view-menu .document-view-controls { justify-content: space-between; }
 .workspace-view-menu > button { min-height: 32px; display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 5px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--ui-text-soft); font: 12px/1.5 var(--app-font); text-align: start; }

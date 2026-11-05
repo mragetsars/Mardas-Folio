@@ -53,6 +53,31 @@ def hover_command(target):
     return style
 
 
+def check_workspace_menu_geometry(page):
+    """Measure the opened popup, including local overflow and physical anchor."""
+    geometry = page.evaluate("""() => {
+      const menu=document.querySelector('#workspace-view-menu');
+      const anchor=document.querySelector('#workspace-view-menu-button').getBoundingClientRect();
+      const box=menu.getBoundingClientRect();
+      const rect=e=>{const r=e.getBoundingClientRect();return {id:e.id,classes:e.className,
+        left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
+      const children=[...menu.children,...menu.querySelectorAll('button,select,input')]
+        .filter(e=>e.getClientRects().length && getComputedStyle(e).visibility!=='hidden')
+        .map(rect).filter(r=>r.width>0 && r.height>0);
+      return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:box.width,
+        expectedLeft:Math.max(8,Math.min(anchor.right-box.width,innerWidth-box.width-8)),
+        anchorRight:anchor.right,anchorBottom:anchor.bottom,viewportWidth:innerWidth,
+        scrollWidth:menu.scrollWidth,clientWidth:menu.clientWidth,children};
+    }""")
+    assert abs(geometry["left"] - geometry["expectedLeft"]) <= 1, geometry
+    assert geometry["scrollWidth"] <= geometry["clientWidth"] + 1, geometry
+    assert geometry["left"] >= 7 and geometry["right"] <= geometry["viewportWidth"] - 7, geometry
+    assert abs(geometry["top"] - geometry["anchorBottom"] - 6) <= 1, geometry
+    for child in geometry["children"]:
+        assert child["left"] >= geometry["left"] and child["right"] <= geometry["right"], geometry
+    return geometry
+
+
 def check_disabled_commands(page, url):
     """Open a read-only fixture normally; never synthesize disabled attributes."""
     locale, theme = page.evaluate("[document.documentElement.lang,document.documentElement.dataset.theme]")
@@ -156,6 +181,7 @@ def check_design_language(page, url):
         menu = page.locator("#workspace-view-menu")
         expect(menu).to_be_visible()
         floating["workspace_menu"] = floating_style(menu)
+        floating["workspace_menu_geometry"] = check_workspace_menu_geometry(page)
         floating["workspace_menu_hover"] = {}
         for selector in ("#writing-appearance-button", "#format-find", "#document-mode-help",
                          "#insert-menu-button", "#workspace-focus", "#workspace-toggle-sidebar"):
@@ -185,10 +211,12 @@ def run(dist: Path, output: Path) -> dict:
         browser = runtime.chromium.launch()
         for locale, theme, width in [("en", "dark", 1920), ("fa", "dark", 1920),
                                       ("en", "light", 1440), ("fa", "light", 1280),
+                                      ("en", "dark", 1118), ("fa", "dark", 1118),
                                       ("en", "dark", 768), ("fa", "dark", 360)]:
-            case = {"locale": locale, "theme": theme, "width": width, "checks": []}
+            height = 852 if width == 1118 else 1000
+            case = {"locale": locale, "theme": theme, "width": width, "height": height, "checks": []}
             report["cases"].append(case)
-            page = browser.new_page(viewport={"width": width, "height": 1000})
+            page = browser.new_page(viewport={"width": width, "height": height})
             page.set_default_timeout(12000)
             errors = []
             page.on("pageerror", lambda error: errors.append(str(error)))
@@ -249,6 +277,14 @@ def run(dist: Path, output: Path) -> dict:
                         assert geometry[part]["y"] == 48 and geometry[part]["height"] == 40, geometry
                     assert geometry["tabs"]["width"] > geometry["bar"]["width"], geometry
                 case["checks"].append("all visible pane controls share the 48→88px keylines; toolbar never wraps; tabs span the global workspace")
+                if width in {1118, 360}:
+                    case["workspace_menu_reopen_geometry"] = []
+                    for _ in range(3):
+                        page.locator("#workspace-view-menu-button").click()
+                        expect(page.locator("#workspace-view-menu")).to_be_visible()
+                        case["workspace_menu_reopen_geometry"].append(check_workspace_menu_geometry(page))
+                        page.keyboard.press("Escape")
+                    case["checks"].append("workspace overflow follows its physical trigger in both layout directions and has no local horizontal scrollbar or escaped controls")
                 for mode in ("source", "read", "write"):
                     page.locator(f'[data-view-mode="{mode}"][role="radio"]').click()
                     expect(page.locator(".editor-pane")).to_have_attribute("data-view-mode", mode)
@@ -283,11 +319,14 @@ def run(dist: Path, output: Path) -> dict:
                         page.keyboard.press("End")
                     page.wait_for_timeout(120)
                     stress = page.locator(".document-toolbar").evaluate("e=>({width:e.clientWidth,scroll:e.scrollWidth,height:e.getBoundingClientRect().height})")
-                    assert stress["width"] >= 320 and stress["scroll"] <= stress["width"] + 1 and stress["height"] == 40, stress
+                    # Just above the drawer breakpoint the panel minima can
+                    # consume one pixel of the preferred 320px editor budget.
+                    minimum_editor = min(320, width - 208 - 340 - 248 - 3)
+                    assert stress["width"] >= minimum_editor and stress["scroll"] <= stress["width"] + 1 and stress["height"] == 40, stress
                     assert page.locator(".tab-bar").bounding_box() == tabs_before
                     case["stress_geometry"] = stress
                     page.screenshot(path=str(output / f"{locale}-{width}-maximum-panes.png"))
-                    case["checks"].append("maximum requested sidebar widths retain a 320px editor, fixed global tabs and one nonwrapping control row")
+                    case["checks"].append(f"maximum requested sidebar widths retain at least a {minimum_editor}px editor, fixed global tabs and one nonwrapping control row")
                 else:
                     overflow = click_control(page, "#writing-appearance-button")
                     expect(page.locator("#writing-appearance")).to_be_visible()

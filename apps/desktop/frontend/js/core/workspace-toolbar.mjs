@@ -22,9 +22,12 @@ export function createWorkspaceToolbar({ toolbar, menu, trigger, onLayout }) {
     const box = trigger.getBoundingClientRect();
     menu.style.position = "fixed";
     menu.style.top = `${box.bottom + 6}px`;
+    // Clear logical offsets first: a later inset-inline:auto would override
+    // physical left in LTR (and RTL), detaching the menu from its trigger.
+    menu.style.removeProperty("inset-inline-start");
+    menu.style.removeProperty("inset-inline-end");
+    menu.style.right = "auto";
     menu.style.left = `${Math.max(8, Math.min(box.right - menu.offsetWidth, innerWidth - menu.offsetWidth - 8))}px`;
-    menu.style.insetInlineStart = "auto";
-    menu.style.insetInlineEnd = "auto";
     menu.style.maxHeight = `${Math.max(100, innerHeight - box.bottom - 14)}px`;
     menu.style.overflowY = "auto";
   }
