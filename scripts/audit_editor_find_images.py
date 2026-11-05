@@ -148,9 +148,9 @@ def run(dist: Path, output: Path) -> dict:
                     selection = page.locator(".cm-selectionBackground").first
                     expect(selection).to_be_visible()
                     paint = selection.evaluate("e=>getComputedStyle(e).backgroundColor")
-                    assert paint.startswith("rgba(255, 159, 0,") or paint.startswith("rgba(255, 171, 40,"), paint
+                    assert paint.startswith("rgba(245, 158, 11,"), paint
                     field_paint = page.locator("#find-query").evaluate("e=>getComputedStyle(e,'::selection').backgroundColor")
-                    assert field_paint.startswith("rgba(255, 159, 0,") or field_paint.startswith("rgba(255, 171, 40,"), field_paint
+                    assert field_paint.startswith("rgba(245, 158, 11,"), field_paint
                     page.keyboard.press("ArrowLeft")
                     case["selection_paint"] = paint
                     case["field_selection_paint"] = field_paint

@@ -15,9 +15,10 @@
  */
 import { syntaxTree } from "@codemirror/language";
 import { Facet, RangeSetBuilder } from "@codemirror/state";
-import { Decoration, EditorView, ViewPlugin } from "@codemirror/view";
+import { Decoration, Direction, EditorView, ViewPlugin } from "@codemirror/view";
 import { CodeBlockHeaderWidget, codeBodyPrefixRanges, fencedCodeSpec } from "./code-block-tools.mjs";
 import { tableEditingExtension } from "./table-editing.mjs";
+import { sourceGutterDirection } from "./source-direction.mjs";
 
 import {
   BulletWidget,
@@ -83,10 +84,10 @@ const HIDDEN_MARKS = new Set([
 /** The link forms whose target is hidden because their text is shown instead. */
 export const LINKS_WITH_TEXT = new Set(["Link", "Image"]);
 
-const hidden = Decoration.replace({});
+const hidden = Decoration.replace({ mardasAtomic: true });
 /* A formula is set in the maths face, not in the prose face. */
 const mathText = Decoration.mark({ class: "cm-md-math" });
-const inlineCode = Decoration.mark({ class: "cm-md-inline-code" });
+const inlineCode = Decoration.mark({ class: "cm-md-inline-code", bidiIsolate: Direction.LTR });
 /* A reference is a superscript marker; the label is what identifies it. */
 const footnoteLabel = Decoration.mark({ class: "cm-md-footnote" });
 /* `[^id]: body` is a definition — the label stays legible on its own line. */
@@ -709,6 +710,8 @@ const livePreviewPlugin = ViewPlugin.fromClass(
   class {
     constructor(view) {
       this.decorations = buildDecorations(view);
+      this.bidiIsolates = this.decorations.update({ filter: (_from, _to, value) => value.spec.bidiIsolate !== undefined });
+      this.atomicRanges = this.decorations.update({ filter: (_from, _to, value) => Boolean(value.spec.widget || value.spec.mardasAtomic) });
     }
 
     update(update) {
@@ -718,6 +721,8 @@ const livePreviewPlugin = ViewPlugin.fromClass(
         || update.startState.facet(mathRenderer) !== update.state.facet(mathRenderer)
         || update.startState.facet(editorStrings) !== update.state.facet(editorStrings)) {
         this.decorations = buildDecorations(update.view);
+        this.bidiIsolates = this.decorations.update({ filter: (_from, _to, value) => value.spec.bidiIsolate !== undefined });
+        this.atomicRanges = this.decorations.update({ filter: (_from, _to, value) => Boolean(value.spec.widget || value.spec.mardasAtomic) });
         // Heading lines carry vertical padding, which changes their box height.
         // CodeMirror maps a click to a position through its height map, so the
         // map has to be refreshed when those decorations change — otherwise
@@ -731,8 +736,10 @@ const livePreviewPlugin = ViewPlugin.fromClass(
     decorations: (plugin) => plugin.decorations,
     // Hidden marks must not be enterable by the caret, or arrow keys appear to
     // stall on characters that are not on screen.
-    provide: (plugin) =>
-      EditorView.atomicRanges.of((view) => view.plugin(plugin)?.decorations ?? Decoration.none),
+    provide: (plugin) => [
+      EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomicRanges ?? Decoration.none),
+      EditorView.bidiIsolatedRanges.of((view) => view.plugin(plugin)?.bidiIsolates ?? Decoration.none),
+    ],
   },
 );
 
@@ -848,5 +855,5 @@ export function editorModeExtension(mode, { resolveAsset, requestOnlineImage, st
         tableEditingExtension(),
         perLineDirection,
       ]
-    : [autoDirectionPlugin, perLineDirection];
+    : [sourceGutterDirection, autoDirectionPlugin, perLineDirection];
 }

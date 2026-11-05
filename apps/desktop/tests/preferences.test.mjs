@@ -93,7 +93,7 @@ test("document text zoom exposes its own scale without altering the interface or
   assert.equal(properties.get("--document-text-scale"), "1.5");
   assert.equal(properties.get("--writing-line-height"), "1.65");
   assert.equal(properties.get("--writing-paragraph-gap"), "8px");
-  assert.equal(properties.get("--writing-font-family"), "var(--app-font)");
+  assert.equal(properties.get("--writing-font-family"), "var(--prose-font, var(--app-font))");
 });
 
 test("legacy Split migrates to editable Source with an independent side preview", () => {

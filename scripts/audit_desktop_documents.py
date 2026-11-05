@@ -221,7 +221,7 @@ def run_delayed_image_scope_audit(dist: Path) -> dict[str, object]:
         page.evaluate("globalThis.__scopeBlocked = true")
         page.locator(".tab-activate").nth(1).click()
         page.wait_for_function("globalThis.__scopeResolvers.length > 0")
-        page.locator("#workspace-home").click()
+        page.locator("#home-button").click()
         page.evaluate("""() => {
             globalThis.__scopeBlocked = false;
             globalThis.__scopeResolvers.splice(0).forEach(resolve => resolve(null));

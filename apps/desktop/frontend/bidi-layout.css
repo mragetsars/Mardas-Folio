@@ -1,0 +1,50 @@
+/* Document direction belongs to content; interface mirroring is independent. */
+.document-content :not(pre) > code,
+.codemirror-mount .cm-md-table code,
+.codemirror-mount .cm-md-inline-code {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Identifiers are atomic. A table gets its own horizontal scroll instead of
+   splitting AdaptiveCruiseTest into unrelated fragments or widening a pane. */
+.document-content table:not(.codehilitetable):not(.highlighttable),
+.codemirror-mount .cm-md-table table {
+  table-layout: auto;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.document-content table:not(.codehilitetable):not(.highlighttable) :is(th, td),
+.codemirror-mount .cm-md-table :is(th, td) {
+  min-inline-size: 8ch;
+  max-inline-size: 42ch;
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+.document-content table :not(pre) > code,
+.codemirror-mount .cm-md-table code {
+  display: inline-block;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  max-inline-size: none;
+}
+.document-content .table-wrap,
+.document-content table,
+.codemirror-mount .cm-md-table {
+  max-inline-size: 100%;
+  overscroll-behavior-inline: contain;
+}
+.document-content .table-wrap { overflow-x: auto; }
+
+/* Native CM gutters stay on the document's leading side. Only source mode
+   carries this attribute; every code/table row keeps its own existing bidi
+   decoration. Do not row-reverse the gutter or move it as the caret travels. */
+.codemirror-mount .cm-editor[data-source-direction="rtl"] .cm-scroller { direction: rtl; }
+.codemirror-mount .cm-editor[data-source-direction="ltr"] .cm-scroller { direction: ltr; }
+.codemirror-mount .cm-editor[data-source-direction] .cm-lineNumbers .cm-gutterElement {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}

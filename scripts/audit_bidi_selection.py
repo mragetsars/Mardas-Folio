@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 HTML = """<!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/workspace.css">
 <link rel="stylesheet" href="/authoring.css"><link rel="stylesheet" href="/writer-workspace.css">
-<link rel="stylesheet" href="/interaction-details.css"></head>
+<link rel="stylesheet" href="/interaction-details.css">
+<link rel="stylesheet" href="/bidi-layout.css"><link rel="stylesheet" href="/shell-system.css"></head>
 <body data-view="workspace"><div class="editor-pane" style="display:block;height:900px;width:100%">
 <textarea id="source"></textarea></div><script type="module">
 import {createCodeMirrorEditorAdapter} from '/js/vendor/codemirror-editor.bundle.mjs';

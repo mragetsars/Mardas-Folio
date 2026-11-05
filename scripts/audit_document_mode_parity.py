@@ -348,7 +348,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     expect(page.locator("#sidebar-panel-frontmatter")).to_be_visible()
                     scenario["checks"].append("plain configuration files derive Source without changing the Markdown reading preference")
 
-                    page.locator("#workspace-home").click()
+                    page.locator("#home-button").click()
                     page.locator("#workflow-project").click()
                     expect(page.locator("#file-navigator #project-file-tree")).to_be_visible()
                     page.locator("#project-search-query").fill("PROJECT_POSITION_TOKEN")

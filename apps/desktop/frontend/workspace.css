@@ -4361,7 +4361,6 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
 }
 
 /* Editing activity is separate from the optional comparison layout. */
-.document-toolbar { flex-wrap: wrap; }
 .document-activity-controls { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .view-layout-actions { display: inline-flex; align-items: center; gap: 3px; padding-inline-start: 8px; border-inline-start: 1px solid var(--ui-border); }
 .view-layout-actions [aria-pressed="true"] { color: var(--ui-accent); background: var(--ui-accent-soft); }
@@ -4374,7 +4373,6 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
 @media (max-width: 640px) {
   .view-layout-actions { gap: 0; padding-inline-start: 3px; }
   #workspace-toggle-preview { padding-inline: 5px; font-size: var(--ui-text-xs); }
-  .document-toolbar-actions { flex: 1 0 100%; justify-content: flex-end; }
   .content-view-header { flex-wrap: wrap; gap: 4px; }
 }
 @media (max-width: 1100px) {

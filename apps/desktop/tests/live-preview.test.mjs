@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 import { GFM, parser } from "@lezer/markdown";
 import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { createBlockWidgetField } from "../editor-src/live-widgets.mjs";
 import { frontmatter } from "../editor-src/markdown-frontmatter.mjs";
@@ -32,11 +33,15 @@ test("live preview is the default and unknown modes fall back to it", () => {
 });
 
 test("source mode renders the document verbatim but keeps bidi measurement", () => {
-  // Source mode adds no rendering, only the per-line direction support.
+  // Source adds document-gutter and per-line direction support while its
+  // source buffer remains verbatim, including syntax and neutral rows.
   const live = editorModeExtension("live");
   const source = editorModeExtension("source");
   assert.ok(live.length > source.length, "live adds the presentation and authoring extensions");
-  assert.equal(source.length, 2, "source mode is direction support only");
+  const text = "---\ndir: rtl\n---\n# English and فارسی\n\n```js\nconst value=1;\n```";
+  const state = EditorState.create({ doc: text, extensions: source });
+  assert.equal(state.doc.toString(), text);
+  assert.ok(state.facet(EditorView.editorAttributes).some(attributes => attributes["data-source-direction"] === "rtl"));
   assert.notDeepEqual(live, source);
 });
 

@@ -58,6 +58,8 @@ import { createSaveCoordinator } from "./core/save-coordinator.mjs";
 import { createOutlineNavigator } from "./core/outline-navigator.mjs";
 import { createDocumentMetrics } from "./core/document-metrics.mjs";
 import { authoringShortcutKey } from "./core/keyboard-shortcuts.mjs";
+import { createWorkspaceToolbar } from "./core/workspace-toolbar.mjs";
+import { compactDocumentLocation } from "./core/path-display.mjs";
 import { createConfirmationQueue } from "./core/confirmation-queue.mjs";
 import { saveDocumentsBeforeUpdate } from "./core/update-preparation.mjs";
 import { prepareBookFiles } from "./core/book-preparation.mjs";
@@ -79,6 +81,7 @@ import {
 import { templateContent, templateList } from "./core/templates.mjs";
 import {
   clampWorkspaceWidth,
+  fitWorkspaceWidths,
   readWorkspaceLayout,
   writeWorkspaceLayout,
 } from "./core/workspace-layout.mjs";
@@ -314,6 +317,8 @@ function showView(name) {
 function syncExportToastPlacement() {
   const region = $("#toast-region");
   const dock = $("#export-view .export-dock");
+  const content = $("#export-content");
+  if (content?.offsetWidth) $("#export-view").style.setProperty("--export-gutter", `${content.offsetWidth - content.clientWidth}px`);
   if (!region || !dock) return;
   if (document.body.dataset.view !== "export") {
     region.style.removeProperty("--export-toast-bottom");
@@ -528,14 +533,15 @@ function applyWorkspaceLayout({ persist = false } = {}) {
   const workspace = $("#workspace-view");
   if (!grid || !workspace) return;
   if (persist) state.workspaceLayout = writeWorkspaceLayout(state.workspaceLayout);
+  const fitted = fitWorkspaceWidths(state.workspaceLayout, grid.clientWidth || innerWidth);
   for (const element of [workspace, grid]) {
     element.dataset.filesOpen = String(state.workspaceLayout.filesOpen);
     element.dataset.formattingOpen = String(state.workspaceLayout.formattingOpen);
     element.dataset.sidebarOpen = String(state.workspaceLayout.sidebarOpen);
     element.dataset.previewOpen = String(state.workspaceLayout.previewOpen);
-    element.style.setProperty("--sidebar-width", `${state.workspaceLayout.sidebarWidth}px`);
-    element.style.setProperty("--files-width", `${state.workspaceLayout.filesWidth}px`);
-    element.style.setProperty("--preview-width", `${state.workspaceLayout.previewWidth}px`);
+    element.style.setProperty("--sidebar-width", `${fitted.sidebarWidth}px`);
+    element.style.setProperty("--files-width", `${fitted.filesWidth}px`);
+    element.style.setProperty("--preview-width", `${fitted.previewWidth}px`);
   }
   const sidebarButton = $("#workspace-toggle-sidebar");
   const sidebarResizer = $("#sidebar-resizer");
@@ -543,15 +549,15 @@ function applyWorkspaceLayout({ persist = false } = {}) {
   $("#workspace-toggle-files")?.setAttribute("aria-pressed", String(state.workspaceLayout.filesOpen));
   $("#workspace-toggle-formatting")?.setAttribute("aria-pressed", String(state.workspaceLayout.formattingOpen));
   $("#workspace-toggle-formatting")?.setAttribute("aria-expanded", String(state.workspaceLayout.formattingOpen));
-  $("#file-resizer")?.setAttribute("aria-valuenow", String(state.workspaceLayout.filesWidth));
+  $("#file-resizer")?.setAttribute("aria-valuenow", String(fitted.filesWidth));
   if ($("#file-navigator")) $("#file-navigator").inert = !state.workspaceLayout.filesOpen;
   if ($("#author-sidebar")) $("#author-sidebar").inert = !state.workspaceLayout.sidebarOpen;
   if (sidebarButton) {
     sidebarButton.setAttribute("aria-pressed", String(state.workspaceLayout.sidebarOpen));
     sidebarButton.setAttribute("aria-expanded", String(state.workspaceLayout.sidebarOpen));
   }
-  if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.sidebarWidth));
-  if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(state.workspaceLayout.previewWidth));
+  if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(fitted.sidebarWidth));
+  if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(fitted.previewWidth));
   applyNavigatorContext();
 }
 
@@ -622,7 +628,8 @@ function beginPaneResize(event, name) {
   const handle = event.currentTarget;
   const startX = event.clientX;
   const sign = paneResizeSign(name);
-  const startWidth = state.workspaceLayout[`${name}Width`];
+  const preferredWidth = state.workspaceLayout[`${name}Width`];
+  const startWidth = Number(handle.getAttribute("aria-valuenow")) || preferredWidth;
   handle.classList.add("is-dragging");
   document.documentElement.dataset.paneResizing = name;
   handle.setPointerCapture?.(event.pointerId);
@@ -635,7 +642,7 @@ function beginPaneResize(event, name) {
   const finish = (revert = false) => {
     if (finished) return;
     finished = true;
-    if (revert) setWorkspacePaneWidth(name, startWidth);
+    if (revert) setWorkspacePaneWidth(name, preferredWidth);
     handle.classList.remove("is-dragging");
     delete document.documentElement.dataset.paneResizing;
     handle.removeEventListener("pointermove", move);
@@ -667,7 +674,7 @@ function beginPaneResize(event, name) {
 function resizePaneWithKeyboard(event, name) {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   event.preventDefault();
-  const current = state.workspaceLayout[`${name}Width`];
+  const current = Number(event.currentTarget.getAttribute("aria-valuenow")) || state.workspaceLayout[`${name}Width`];
   const sign = paneResizeSign(name);
   let next = current;
   if (event.key === "ArrowLeft") next -= sign * 16;
@@ -2083,7 +2090,9 @@ function renderRecents() {
     button.innerHTML = `<span>MD</span><div class="recent-copy"><strong></strong><small></small></div><b class="recent-arrow" aria-hidden="true"></b>`;
     button.querySelector(".recent-arrow").append(spriteIcon("chevron-left"));
     setTruncatableText(button.querySelector("strong"), basename(recent.path));
-    setTruncatableText(button.querySelector("small"), recent.path);
+    setTruncatableText(button.querySelector("small"), compactDocumentLocation(recent.path));
+    button.querySelector("small").title = recent.path;
+    button.title = recent.path;
     button.addEventListener("click", () => openAuthoringPaths([recent.path]));
     list.append(button);
   }
@@ -2296,7 +2305,9 @@ function renderFileNavigator() {
     button.innerHTML = '<i aria-hidden="true"></i><span><strong></strong><small dir="auto"></small></span>';
     button.querySelector("i").append(spriteIcon("file"));
     button.querySelector("strong").textContent = model.title;
-    button.querySelector("small").textContent = model.path || t("unsavedDocument");
+    button.querySelector("small").textContent = model.path
+      ? compactDocumentLocation(model.path, { projectPath: model.projectPath }) : t("unsavedDocument");
+    button.querySelector("small").title = model.path || t("unsavedDocument");
     button.title = `${model.title}\n${model.path || t("unsavedDocument")}${documentDirty(model) ? `\n${t("unsaved")}` : ""}`;
     button.setAttribute("aria-label", button.title);
     button.addEventListener("click", async () => {
@@ -4583,7 +4594,8 @@ function togglePopoverMenu(menuSelector, buttonSelector, force) {
   menu.classList.toggle("hidden", !open);
   button.setAttribute("aria-expanded", String(open));
   if (!open) return;
-  const box = button.getBoundingClientRect();
+  const anchor = button.getClientRects().length ? button : $("#workspace-view-menu-button");
+  const box = anchor.getBoundingClientRect();
   menu.style.top = `${box.bottom + 4}px`;
   // Anchored to the button's leading edge, and kept inside the window: the
   // strip mirrors, so the same menu opens from the other side in Persian.
@@ -4606,6 +4618,11 @@ function toggleInsertMenu(force) {
 function toggleWritingAppearance(force) {
   togglePopoverMenu("#writing-appearance", "#writing-appearance-button", force);
   if (!$("#writing-appearance").classList.contains("hidden")) $("#writing-font")?.focus();
+}
+
+function focusToolbarControl(selector) {
+  const button = $(selector);
+  (button?.getClientRects().length ? button : $("#workspace-view-menu-button"))?.focus({ preventScroll: true });
 }
 
 /* ---- The format bar keeps every control reachable -------------------------
@@ -4942,6 +4959,10 @@ async function engineHealth() {
 }
 
 function bindEvents() {
+  const utilityWidth = matchMedia("(min-width: 1001px)");
+  const updateUtilities = () => { $("#app-utilities").open = utilityWidth.matches; };
+  updateUtilities();
+  utilityWidth.addEventListener("change", updateUtilities);
   // Fixed popovers belong to the viewport. Keeping them inside a size-query
   // container would change their containing block and clip them over a pane.
   for (const menu of $$(".popover-menu, #editor-context-menu")) document.body.append(menu);
@@ -5027,12 +5048,11 @@ function bindEvents() {
     renderRecents();
   });
 
-  $("#workspace-home").addEventListener("click", () => showView("start"));
   $("#workspace-toggle-files")?.addEventListener("click", () => toggleWorkspacePane("files"));
   $("#workspace-toggle-formatting")?.addEventListener("click", () => toggleWorkspacePane("formatting"));
   $("#writing-appearance-button")?.addEventListener("click", () => toggleWritingAppearance());
   $("#writing-appearance-close")?.addEventListener("click", () => {
-    toggleWritingAppearance(false); $("#writing-appearance-button").focus();
+    toggleWritingAppearance(false); focusToolbarControl("#writing-appearance-button");
   });
   $("#writing-font")?.addEventListener("change", (event) => updateDocumentView({ writingFont: event.target.value }));
   $("#writing-density")?.addEventListener("change", (event) => updateDocumentView({ writingDensity: event.target.value }));
@@ -5041,7 +5061,7 @@ function bindEvents() {
   $("#writing-appearance")?.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     event.preventDefault(); event.stopPropagation();
-    toggleWritingAppearance(false); $("#writing-appearance-button").focus();
+    toggleWritingAppearance(false); focusToolbarControl("#writing-appearance-button");
   });
   const navigatorTabs = $$("[data-navigator-tab]");
   for (const button of navigatorTabs) {
@@ -5085,9 +5105,6 @@ function bindEvents() {
   $("#inspector-close")?.addEventListener("click", () => toggleWorkspacePane("sidebar"));
   $("#workspace-focus")?.addEventListener("click", () => { updatePreference({ focusMode: !state.preferences.focusMode }); focusDocument(); });
   $("#exit-focus-mode")?.addEventListener("click", () => { updatePreference({ focusMode: false }); focusDocument(); });
-  $("#workspace-commands")?.addEventListener("click", openCommandPalette);
-  $("#workspace-settings")?.addEventListener("click", openSettings);
-  $("#workspace-help")?.addEventListener("click", openHelp);
   $("#file-resizer")?.addEventListener("pointerdown", (event) => beginPaneResize(event, "files"));
   $("#file-resizer")?.addEventListener("keydown", (event) => resizePaneWithKeyboard(event, "files"));
   $("#reading-document")?.addEventListener("scroll", (event) => {
@@ -5111,6 +5128,7 @@ function bindEvents() {
       applyWorkspaceLayout();
     }
     compactWorkspace = next;
+    applyWorkspaceLayout();
   });
   $("#workspace-new").addEventListener("click", createUntitledDocument);
   $("#workspace-open").addEventListener("click", chooseAuthoringFiles);
@@ -5218,7 +5236,7 @@ function bindEvents() {
     if (event.key === "Escape") {
       event.preventDefault();
       toggleInsertMenu(false);
-      $("#insert-menu-button").focus();
+      focusToolbarControl("#insert-menu-button");
       return;
     }
     if (!["ArrowUp", "ArrowDown"].includes(event.key) || index < 0) return;
@@ -5266,7 +5284,7 @@ function bindEvents() {
     if (event.key === "Escape") {
       event.preventDefault();
       toggleHeadingMenu(false);
-      $("#heading-menu-button").focus();
+      focusToolbarControl("#heading-menu-button");
       return;
     }
     if (!["ArrowUp", "ArrowDown"].includes(event.key) || index < 0) return;
@@ -5430,7 +5448,7 @@ function bindEvents() {
     const completion = $(".cm-tooltip-autocomplete");
     const editorPopupFocused = event.target.closest?.(".cm-selection-toolbar");
     if (completion?.getClientRects().length || editorPopupFocused) return;
-    if (["#editor-context-menu", "#insert-menu", "#heading-menu", "#format-overflow-menu"]
+    if (["#editor-context-menu", "#insert-menu", "#heading-menu", "#format-overflow-menu", "#workspace-view-menu"]
       .some((selector) => !$(selector)?.classList.contains("hidden"))) return;
     event.preventDefault();
     event.stopPropagation();
@@ -5456,6 +5474,8 @@ function bindEvents() {
   // Every way the format bar can change width — the window, a pane toggle, a
   // resize drag, the view mode, focus mode — arrives here as one signal.
   const formatBar = document.querySelector(".format-bar");
+  createWorkspaceToolbar({ toolbar: $(".document-toolbar"), menu: $("#workspace-view-menu"),
+    trigger: $("#workspace-view-menu-button"), onLayout: syncFormatBarOverflow });
   if (formatBar && typeof ResizeObserver === "function") {
     let pending = 0;
     new ResizeObserver(() => {

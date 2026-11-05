@@ -30,7 +30,7 @@ const SCALES = new Set(["comfortable", "large", "extra-large"]);
 const WRITING_WIDTHS = new Set(["full", "readable", "wide"]);
 const WRITING_DENSITIES = { compact: [1.5, 4], comfortable: [1.65, 8], relaxed: [1.85, 14] };
 const WRITING_FONTS = {
-  document: 'var(--app-font)',
+  document: 'var(--prose-font, var(--app-font))',
   system: '"Segoe UI Variable", "Segoe UI", Tahoma, sans-serif',
   serif: 'Georgia, "Noto Naskh Arabic", "Vazirmatn", serif',
 };

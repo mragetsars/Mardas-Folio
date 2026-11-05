@@ -69,22 +69,19 @@ def _visible(page: Any, selector: str) -> bool:
 
 
 def open_settings(page: Any) -> None:
-    """Use the settings control exposed by the current workspace or launcher."""
-    if page.locator("#workspace-view").is_visible():
-        page.locator("#document-actions-menu > summary").click()
-        page.locator("#workspace-settings").click()
-    else:
-        page.locator("#settings-button").click()
+    """Use the single global utility, including its compact disclosure."""
+    if page.locator("#exit-focus-mode").is_visible():
+        page.locator("#exit-focus-mode").click()
+    if not page.locator("#settings-button").is_visible():
+        page.locator(".app-utilities > summary").click()
+    page.locator("#settings-button").click()
 
 
 def go_home(page: Any) -> None:
-    """Leave Focus before using the workspace's visible Home control."""
+    """Leave Focus before using the shared global Home control."""
     if page.locator("#exit-focus-mode").is_visible():
         page.locator("#exit-focus-mode").click()
-    if page.locator("#workspace-view").is_visible():
-        page.locator("#workspace-home").click()
-    else:
-        page.locator("#home-button").click()
+    page.locator("#home-button").click()
 
 
 def run_audit(
@@ -231,21 +228,24 @@ def run_audit(
             and editor.input_value() == selected
         )
 
-        # The engine preview is one half of Split view now, not an always-on
-        # pane; "show source" and "show preview" used to be separate toggles.
-        page.locator('[data-view-mode="split"]').click()
+        # Editing activity and the side pane are independent controls.
+        page.locator('[data-view-mode="source"][role="radio"]').click()
+        if not page.locator("#workspace-toggle-preview").is_visible():
+            page.locator("#workspace-view-menu-button").click()
+        if page.locator("#workspace-toggle-preview").get_attribute("aria-pressed") != "true":
+            page.locator("#workspace-toggle-preview").click()
         page.locator("#preview-preview-heading").wait_for(state="visible")
         checks["split_view_shows_preview"] = page.locator("#preview-pane").is_visible()
         checks["preview_contract"] = page.locator("#preview-preview-heading").inner_text() == "Preview"
-        # This pane is the document's content, not its printed pages, and it
-        # has to say so on screen rather than only in the markup.
+        # The compact pane header names its document scope; its accessible
+        # description explains that print pagination belongs to export.
         checks["preview_says_what_it_shows"] = page.evaluate(
             """() => {
-                const detail = document.querySelector('#preview-detail');
                 const header = document.querySelector('.preview-pane .pane-header');
-                return !!detail && detail.offsetParent !== null
-                    && detail.textContent.trim().length > 0
-                    && !!header?.title;
+                const title = header?.querySelector('strong');
+                return !!title && title.offsetParent !== null
+                    && title.textContent.trim().length > 0
+                    && !!header?.title && header.title.includes('PDF');
             }"""
         )
         checks["preview_sanitized"] = page.evaluate(
@@ -253,12 +253,9 @@ def run_audit(
               const preview = document.querySelector('#preview-document');
               const image = preview?.querySelector('img');
               return !globalThis.__previewXss
-                && !preview?.querySelector('style,form,button')
-                && image
-                && !image.hasAttribute('src')
-                && !image.hasAttribute('srcset')
-                && !image.hasAttribute('style')
-                && !image.hasAttribute('onerror');
+                && !preview?.querySelector('style,form,button:not(.document-source-jump)')
+                && !!image && !image.hasAttribute('src')
+                && !preview?.querySelector('[srcset],[onerror],[style]');
             }"""
         )
         active_tab = page.locator(".document-tab .tab-activate[aria-selected='true']")
@@ -326,7 +323,7 @@ def run_audit(
         # The export preview draws into an iframe from code, so the sweep that
         # retranslates elements carrying `data-i18n` cannot reach it. It kept
         # whatever language it was first drawn in until it was made to redraw.
-        page.locator("#workspace-home").click()
+        go_home(page)
         page.locator("#workflow-quick").click()
         page.wait_for_timeout(900)
         # A value the preset supplied is not a value the user overrode, and
