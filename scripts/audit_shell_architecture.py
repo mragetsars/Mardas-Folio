@@ -24,7 +24,61 @@ def click_control(page, selector):
     return overflow
 
 
-def check_design_language(page):
+def command_style(target):
+    return target.evaluate("""e=>{
+      const s=getComputedStyle(e),r=e.getBoundingClientRect();
+      const token=document.createElement('i');token.style.background='var(--ui-control-hover)';
+      e.append(token);const expected=getComputedStyle(token).backgroundColor;token.remove();
+      return {background:s.backgroundColor,expected,radius:s.borderRadius,height:r.height,
+        color:s.color,opacity:s.opacity,disabled:e.disabled};
+    }""")
+
+
+def floating_style(target):
+    style = target.evaluate("""e=>{
+      const token=document.createElement('i');token.style.background='var(--ui-surface-floating)';
+      e.append(token);const expected=getComputedStyle(token).backgroundColor;token.remove();
+      return {background:getComputedStyle(e).backgroundColor,expected,inShell:Boolean(e.closest('.shell'))};
+    }""")
+    assert style["background"] == style["expected"], style
+    return style
+
+
+def hover_command(target):
+    target.hover()
+    target.page.wait_for_timeout(180)
+    style = command_style(target)
+    assert style["background"] == style["expected"], style
+    assert style["radius"] == "6px", style
+    return style
+
+
+def check_disabled_commands(page, url):
+    """Open a read-only fixture normally; never synthesize disabled attributes."""
+    locale, theme = page.evaluate("[document.documentElement.lang,document.documentElement.dataset.theme]")
+    readonly = page.context.browser.new_page(viewport={"width": 1920, "height": 1000})
+    readonly.add_init_script(INIT_SCRIPT + BRIDGE_SCRIPT.replace("read_only:false", "read_only:true"))
+    readonly.add_init_script("localStorage.setItem('mardas.desktop.locale'," + json.dumps(locale) + ");"
+        "localStorage.setItem('mardas.desktop.preferences.v1',JSON.stringify(" + json.dumps({
+            "theme": theme, "onboardingComplete": True, "viewMode": "source"}) + "));")
+    try:
+        readonly.goto(url, wait_until="networkidle")
+        readonly.locator("#workflow-open").click()
+        undo = readonly.locator('#format-bar button[data-editor-command="undo"]')
+        expect(undo).to_be_visible()
+        expect(undo).to_be_disabled()
+        before = command_style(undo)
+        undo.hover(force=True)
+        readonly.wait_for_timeout(180)
+        after = command_style(undo)
+        assert before == after, {"before": before, "after": after}
+        assert before["background"] == "rgba(0, 0, 0, 0)" and before["opacity"] == "0.4", before
+        return {"before": before, "hover": after, "fixture": "normal document.read read_only:true"}
+    finally:
+        readonly.close()
+
+
+def check_design_language(page, url):
     """Exercise real hover/focus after the complete stylesheet cascade loads."""
     surfaces = page.evaluate("""() => {
       const color=s=>getComputedStyle(document.querySelector(s)).backgroundColor;
@@ -39,16 +93,7 @@ def check_design_language(page):
         parked = not target.is_visible()
         if parked:
             page.locator("#workspace-view-menu-button").click()
-        target.hover()
-        page.wait_for_timeout(180)
-        style = target.evaluate("""e=>{
-          const s=getComputedStyle(e),r=e.getBoundingClientRect();
-          const token=document.createElement('i');token.style.background='var(--ui-control-hover)';
-          e.append(token);const expected=getComputedStyle(token).backgroundColor;token.remove();
-          return {background:s.backgroundColor,expected,radius:s.borderRadius,height:r.height};
-        }""")
-        assert style["background"] == style["expected"], (selector, style)
-        assert style["radius"] == "6px", (selector, style)
+        style = hover_command(target)
         if not parked:
             assert style["height"] == 28, (selector, style)
         states[selector] = style
@@ -71,7 +116,66 @@ def check_design_language(page):
     page.keyboard.press("Tab")
     focus = page.locator(":focus").evaluate("e=>({visible:e.matches(':focus-visible'),width:getComputedStyle(e).outlineWidth,style:getComputedStyle(e).outlineStyle})")
     assert focus == {"visible": True, "width": "2px", "style": "solid"}, focus
-    return {"surfaces": surfaces, "hover": states, "selected_hover": active, "keyboard_focus": focus}
+    # Popovers are moved to body at runtime; check the real opened DOM rather
+    # than assuming that floating commands inherit the workspace shell scope.
+    click_control(page, "#writing-appearance-button")
+    appearance = page.locator("#writing-appearance")
+    expect(appearance).to_be_visible()
+    floating = {"appearance": floating_style(appearance)}
+    assert not floating["appearance"]["inShell"], floating
+    floating["appearance_close_hover"] = hover_command(page.locator("#writing-appearance-close"))
+    assert floating["appearance_close_hover"]["background"] != floating["appearance"]["background"], floating
+    page.locator("#writing-appearance-close").click()
+    page.locator(".cm-content").click(button="right", position={"x": 24, "y": 24})
+    expect(page.locator("#editor-context-menu")).to_be_visible()
+    floating["context"] = floating_style(page.locator("#editor-context-menu"))
+    context_item = page.locator("#editor-context-menu .context-menu-item:not(:disabled)").first
+    context_item.hover()
+    page.wait_for_timeout(180)
+    floating["context_item_hover"] = command_style(context_item)
+    assert floating["context_item_hover"]["background"] == floating["context_item_hover"]["expected"], floating
+    assert floating["context_item_hover"]["background"] != floating["context"]["background"], floating
+    page.keyboard.press("Escape")
+    page.locator("#command-button").click()
+    expect(page.locator("#command-modal")).to_be_visible()
+    floating["command"] = floating_style(page.locator("#command-modal .command-card"))
+    page.keyboard.press("Escape")
+    page.locator("#settings-button").click()
+    expect(page.locator("#settings-modal")).to_be_visible()
+    floating["settings"] = floating_style(page.locator("#settings-form"))
+    floating["settings_close_hover"] = hover_command(page.locator("#close-settings"))
+    page.locator("#close-settings").click()
+    floating["all_dialogs"] = [floating_style(page.locator(".modal-card").nth(index))
+                               for index in range(page.locator(".modal-card").count())]
+
+    viewport = page.viewport_size
+    try:
+        page.set_viewport_size({"width": 360, "height": viewport["height"]})
+        page.wait_for_timeout(180)
+        page.locator("#workspace-view-menu-button").click()
+        menu = page.locator("#workspace-view-menu")
+        expect(menu).to_be_visible()
+        floating["workspace_menu"] = floating_style(menu)
+        floating["workspace_menu_hover"] = {}
+        for selector in ("#writing-appearance-button", "#format-find", "#document-mode-help",
+                         "#insert-menu-button", "#workspace-focus", "#workspace-toggle-sidebar"):
+            target = menu.locator(selector)
+            if target.count() and target.is_visible():
+                floating["workspace_menu_hover"][selector] = hover_command(target)
+        assert floating["workspace_menu_hover"], floating
+        menu.locator("#writing-appearance-button").click()
+        expect(appearance).to_be_visible()
+        expect(menu).to_be_hidden()
+        floating["appearance_from_overflow"] = floating_style(appearance)
+        floating["overflow_appearance_close_hover"] = hover_command(page.locator("#writing-appearance-close"))
+        page.keyboard.press("Escape")
+        expect(appearance).to_be_hidden()
+        expect(page.locator("#workspace-view-menu-button")).to_be_focused()
+    finally:
+        page.set_viewport_size(viewport)
+        page.wait_for_timeout(180)
+    return {"surfaces": surfaces, "hover": states, "selected_hover": active, "keyboard_focus": focus,
+            "floating": floating, "disabled_undo": check_disabled_commands(page, url)}
 
 
 def run(dist: Path, output: Path) -> dict:
@@ -168,8 +272,9 @@ def run(dist: Path, output: Path) -> dict:
                     tabs_after = page.locator(".tab-bar").bounding_box()
                     assert tabs_before == tabs_after, (tabs_before, tabs_after)
                     assert page.locator(".editor-surface").bounding_box()["y"] == 88
-                    case["design_language"] = check_design_language(page)
+                    case["design_language"] = check_design_language(page, url)
                     case["checks"].append("Files/Inspector share one surface; neutral commands share hover, radius and density; selected hover and keyboard focus remain distinct")
+                    case["checks"].append("body-portaled popovers, context menus and dialogs share their floating role; overflow commands retain contrast and read-only Undo stays dim without hover feedback")
                     for selector in ("#workspace-toggle-files", "#workspace-toggle-sidebar", "#workspace-toggle-preview"):
                         click_control(page, selector)
                     case["checks"].append("one to four pane toggles leave tabs and top keylines fixed")
