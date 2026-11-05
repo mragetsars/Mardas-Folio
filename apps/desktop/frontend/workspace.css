@@ -3282,14 +3282,6 @@ html[dir="rtl"] .studio-kicker, html[dir="rtl"] .launcher-heading { letter-spaci
 
 .action-glyph .ui-icon { width: 22px; height: 22px; }
 
-#workflow-new { background: var(--ui-accent-fill); color: var(--ui-on-accent); }
-
-#workflow-new:hover { background: var(--ui-accent-fill-hover); }
-
-#workflow-new :is(.action-glyph, strong, small) { color: var(--ui-on-accent); }
-
-#workflow-new .action-glyph { background: rgba(255, 255, 255, .25); }
-
 #workflow-quick { background: var(--ui-panel); border-color: var(--ui-border); }
 
 #workflow-quick:hover { background: var(--ui-panel-soft); }

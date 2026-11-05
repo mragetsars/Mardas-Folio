@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import traceback
 
 from playwright.sync_api import expect, sync_playwright
@@ -22,6 +23,51 @@ def click_control(page, selector):
     target.click()
     page.wait_for_timeout(80)
     return overflow
+
+
+def text_contrast(color, background):
+    """WCAG contrast for the computed RGB text on the opaque action surface."""
+    foreground = [float(value) for value in re.findall(r"[\d.]+", color)]
+    surface = [float(value) for value in re.findall(r"[\d.]+", background)]
+    assert len(foreground) in {3, 4} and len(surface) in {3, 4}, (color, background)
+    assert len(surface) == 3 or surface[3] == 1, background
+    alpha = foreground[3] if len(foreground) == 4 else 1
+    foreground = [value * alpha + surface[index] * (1 - alpha)
+                  for index, value in enumerate(foreground[:3])]
+
+    def luminance(channels):
+        values = [value / 255 for value in channels[:3]]
+        values = [value / 12.92 if value <= .04045 else ((value + .055) / 1.055) ** 2.4
+                  for value in values]
+        return sum(value * weight for value, weight in zip(values, [.2126, .7152, .0722]))
+
+    values = [luminance(foreground), luminance(surface)]
+    return (max(values) + .05) / (min(values) + .05)
+
+
+def check_home_design_language(page):
+    action = page.locator("#workflow-new")
+    page.mouse.move(1, 1)
+    page.wait_for_timeout(180)
+    states = {}
+    for name in ("base", "hover"):
+        if name == "hover":
+            action.hover()
+            page.wait_for_timeout(180)
+        style = action.evaluate("""e=>{
+          const token=document.createElement('i');token.style.color='var(--ui-muted)';
+          token.style.display='none';e.append(token);
+          const expectedMuted=getComputedStyle(token).color;token.remove();
+          return {background:getComputedStyle(e).backgroundColor,
+            helper:getComputedStyle(e.querySelector('small')).color,
+            title:getComputedStyle(e.querySelector('strong')).color,expectedMuted};
+        }""")
+        assert style["helper"] == style["expectedMuted"], (name, style)
+        style["helperContrast"] = text_contrast(style["helper"], style["background"])
+        style["titleContrast"] = text_contrast(style["title"], style["background"])
+        assert style["helperContrast"] >= 4.5 and style["titleContrast"] >= 4.5, (name, style)
+        states[name] = style
+    return states
 
 
 def command_style(target):
@@ -233,8 +279,10 @@ def run(dist: Path, output: Path) -> dict:
                 assert page.locator(".topbar").bounding_box()["height"] == 48
                 cta = page.locator("#workflow-new").evaluate("e=>getComputedStyle(e).backgroundColor")
                 assert cta != "rgb(245, 158, 11)", cta
+                case["home_design_language"] = check_home_design_language(page)
                 page.screenshot(path=str(output / f"{locale}-{width}-home.png"))
                 case["checks"].append("Home retains the same 48px brand/engine header and a neutral primary action surface")
+                case["checks"].append("New document helper uses the shared muted token; helper and title retain at least 4.5:1 contrast in base and real hover states")
                 page.evaluate("""() => {
                   for (const name of ['long-writing-reference.md','TEST_OVERVIEW.fa.md']) {
                     const path='/fixtures/project/docs/'+name;
