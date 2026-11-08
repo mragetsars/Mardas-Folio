@@ -441,7 +441,7 @@
           </nav><button class="toolbar-icon-button" id="inspector-close" type="button" data-i18n-title="closeDocumentTools" title="بستن ابزارهای سند" aria-label="بستن ابزارهای سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></header>
 
           <section class="sidebar-panel" id="sidebar-panel-project" role="tabpanel" aria-labelledby="sidebar-tab-project" aria-hidden="true" data-panel="project">
-            <header class="project-inspector-heading"><strong data-i18n="projectInspectorTitle">تنظیمات و جست‌وجوی پروژه</strong><button class="text-button" id="refresh-project" type="button" data-i18n="refreshProject">بازخوانی پروژه</button></header>
+            <header class="project-inspector-heading"><strong data-i18n="projectInspectorTitle">تنظیمات و جست‌وجوی پروژه</strong><button class="text-button" id="refresh-project" type="button" data-i18n="refreshProject" hidden>بازخوانی پروژه</button></header>
             <div class="project-empty" id="project-empty">
               <p data-i18n="noProject">پروژه‌ای باز نیست.</p>
               <small data-i18n="chooseProjectHelp">پوشه‌ای را انتخاب کن که mardas.toml دارد.</small>
@@ -460,7 +460,7 @@
                 <label><input id="project-search-regex" type="checkbox"><span data-i18n="regularExpression">عبارت منظم</span></label>
                 <label><input id="project-search-case" type="checkbox"><span data-i18n="caseSensitive">حساس به بزرگی حروف</span></label>
               </div>
-              <div class="tool-list project-search-results" id="project-search-results"></div>
+              <div class="tool-list project-search-results" id="project-search-results" aria-live="polite"></div>
             </div>
           </section>
           <section class="sidebar-panel" id="sidebar-panel-book" role="tabpanel" aria-labelledby="sidebar-tab-book" aria-hidden="true" data-panel="book">
@@ -479,7 +479,7 @@
                 </div>
               </div>
               <div class="book-actions">
-                <div class="book-actions-primary"><button class="button primary compact" id="book-add-chapter" type="button" data-i18n="addChapter">افزودن فصل</button><button class="button primary compact" id="book-export" type="button" aria-haspopup="dialog" data-i18n="exportBook">خروجی کتاب</button></div>
+                <div class="book-actions-primary"><button class="button primary compact" id="book-add-chapter" type="button" data-i18n="addChapter">افزودن فصل</button><button class="button secondary compact" id="book-export" type="button" aria-haspopup="dialog" data-i18n="exportBook">خروجی کتاب</button></div>
                 <div class="book-actions-secondary"><button class="button secondary compact" id="book-validate" type="button" data-i18n="validateBook">بررسی کتاب</button><button class="button secondary compact" id="book-preview" type="button" data-i18n="previewBook">پیش‌نمایش کامل</button></div>
               </div>
               <div class="book-operation-status hidden" id="book-operation-status" role="status"><span id="book-operation-message"></span><button class="text-button hidden" id="book-cancel-operation" type="button" data-i18n="cancel">انصراف</button></div>

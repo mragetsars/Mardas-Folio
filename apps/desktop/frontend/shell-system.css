@@ -61,7 +61,7 @@ body[data-view="workspace"] .author-toolbar .layout-toggle {
 }
 body[data-view="workspace"] .quick-open-button { min-height: 28px; height: 28px; padding-inline: 8px; gap: 6px; border-radius: 6px; background: var(--ui-panel-muted); border: 0; }
 body[data-view="workspace"] .author-toolbar .button.compact { min-height: 28px; height: 28px; border: 0; background: transparent; padding: 4px 8px; border-radius: 6px; font-size: 12px; }
-body[data-view="workspace"] .author-toolbar .button.compact:hover { background: var(--ui-panel-muted); }
+body[data-view="workspace"] .author-toolbar .button.compact:hover:not(:disabled) { background: var(--ui-panel-muted); }
 body[data-view="workspace"] .author-toolbar .document-export-button { color: var(--ui-accent); }
 body[data-view="workspace"] .author-toolbar .tab-bar {
   display: flex; flex: 1 1 0; min-width: 60px; width: auto; height: 48px;
@@ -116,7 +116,7 @@ body[data-view="workspace"] .document-toolbar-actions { flex: 0 0 auto; display:
 .workspace-view-menu > div { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 8px 4px; border-bottom: 1px solid var(--ui-border); }
 .workspace-view-menu .document-view-controls { justify-content: space-between; }
 .workspace-view-menu > button { min-height: 32px; display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 5px 8px; border: 0; border-radius: 4px; background: transparent; color: var(--ui-text-soft); font: 12px/1.5 var(--app-font); text-align: start; }
-.workspace-view-menu > button:hover { background: var(--ui-panel-muted); }
+.workspace-view-menu > button:hover:not(:disabled) { background: var(--ui-panel-muted); }
 .workspace-view-menu > button::after { content: attr(aria-label); }
 .workspace-view-menu [aria-pressed="true"] { color: var(--ui-accent); background: var(--ui-accent-soft); }
 .workspace-view-menu .toolbar-action-label { display: inline; }
@@ -301,6 +301,10 @@ body[data-view="workspace"] .editor-pane[data-view-mode="read"] .reading-toolbar
   cursor: pointer;
 }
 .workspace-empty-templates > summary:hover { background: var(--ui-control-hover); }
+.workspace-empty-templates > summary:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
 .workspace-empty .template-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 6px; padding-block-start: 4px; }
 .workspace-empty .template-card {
   min-block-size: 58px;

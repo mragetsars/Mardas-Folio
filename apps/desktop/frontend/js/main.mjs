@@ -2828,7 +2828,7 @@ async function activateDocument(id, { focus = "editor" } = {}) {
   renderWorkspace();
   if (focus === "tab") {
     const tab = $$(".document-tab").find((element) => element.dataset.documentId === id);
-    tab?.querySelector(".tab-activate")?.focus({ preventScroll: true });
+    tab?.querySelector(".tab-activate")?.focus();
   } else if (effectiveViewMode() === "read") $("#reading-document")?.focus({ preventScroll: true });
   else currentEditor().focus();
   schedulePreview(80, { entering: true });
@@ -2857,7 +2857,7 @@ function activateStartTab(id, focus = "editor") {
   persistSession();
   renderWorkspace();
   if (focus === "tab") {
-    $$(".document-tab").find((tab) => tab.dataset.documentId === id)?.querySelector(".tab-activate")?.focus({ preventScroll: true });
+    $$(".document-tab").find((tab) => tab.dataset.documentId === id)?.querySelector(".tab-activate")?.focus();
   } else focusDocument();
 }
 
@@ -3034,6 +3034,7 @@ function renderProjectWorkspace() {
   const defaults = $("#project-open-settings");
   if (!empty || !tools || !list || !section) return;
   const project = state.project;
+  $("#refresh-project").hidden = !project;
   empty.classList.toggle("hidden", Boolean(project));
   tools.classList.toggle("hidden", !project);
   section.classList.toggle("hidden", !project);

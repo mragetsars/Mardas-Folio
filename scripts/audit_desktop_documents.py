@@ -110,6 +110,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                 context.close()
         browser.close()
     results.append(run_delayed_image_scope_audit(dist))
+    results.append(run_tab_overflow_audit(dist))
     report = {"status": "passed", "scenarios": results}
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
@@ -269,6 +270,40 @@ def run_delayed_image_scope_audit(dist: Path) -> dict[str, object]:
         context.close()
         browser.close()
     return {"scenario": "delayed-native-image-scope", "status": "passed"}
+
+def run_tab_overflow_audit(dist: Path) -> dict[str, object]:
+    """Keyboard navigation keeps the selected tab visible in either direction."""
+    with serve(dist) as url, sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        for locale in ("en", "fa"):
+            context = browser.new_context(viewport={"width": 720, "height": 800})
+            page = context.new_page()
+            page.add_init_script(INIT_SCRIPT)
+            page.add_init_script(
+                f"localStorage.setItem('mardas.desktop.locale', {json.dumps(locale)});"
+                "localStorage.setItem('mardas.desktop.preferences.v1', "
+                "JSON.stringify({onboardingComplete: true, viewMode: 'source'}));"
+            )
+            page.goto(url, wait_until="networkidle")
+            page.locator("#workflow-new").click()
+            for _ in range(8):
+                page.locator("#tab-new-document").click()
+            tabs = page.locator("#document-tabs")
+            assert tabs.evaluate("node => node.scrollWidth > node.clientWidth")
+            page.locator(".tab-activate[aria-selected='true']").focus()
+            for key in ("Home", "End", "Home"):
+                page.keyboard.press(key)
+                page.wait_for_function("""() => {
+                    const active = document.querySelector('.tab-activate[aria-selected="true"]');
+                    const container = document.querySelector('#document-tabs');
+                    if (!active || document.activeElement !== active) return false;
+                    const tab = active.getBoundingClientRect();
+                    const strip = container.getBoundingClientRect();
+                    return tab.left >= strip.left - 1 && tab.right <= strip.right + 1;
+                }""")
+            context.close()
+        browser.close()
+    return {"scenario": "overflowing-document-tabs", "status": "passed"}
 
 
 def main() -> int:

@@ -44,6 +44,12 @@ def run(dist: Path, output: Path) -> dict:
                     click_workspace_layout_control(page, "#workspace-toggle-preview")
                 expect(page.locator("#file-navigator")).to_be_visible()
                 expect(page.locator(".preview-pane")).to_be_visible()
+                page.locator("#sidebar-tab-project").click()
+                expect(page.locator("#project-empty")).to_be_visible()
+                expect(page.locator("#refresh-project")).to_be_hidden()
+                expect(page.locator("#sidebar-open-project")).to_be_visible()
+                assert page.locator("#project-search-results").get_attribute("aria-live") == "polite"
+                case["checks"].append("project empty state offers one correctly labelled action and search updates are announced")
                 page.locator("#sidebar-tab-frontmatter").click()
                 expect(page.locator("#sidebar-panel-frontmatter")).to_be_visible()
                 page.locator("#sidebar-resizer").focus()

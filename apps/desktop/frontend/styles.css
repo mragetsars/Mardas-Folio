@@ -128,7 +128,7 @@ main { overflow: auto; padding: 34px 42px 50px; }
   transition: .15s;
 }
 
-.button:hover,.back:hover { background-color: var(--surface-2); }
+.button:hover:not(:disabled),.back:hover:not(:disabled) { background-color: var(--surface-2); }
 
 .button.primary { color: var(--ui-on-accent); background: var(--brand); }
 
@@ -1026,7 +1026,7 @@ html[dir=ltr] .toggle input:checked+i:after { transform: translateX(16px); }
   cursor: pointer;
 }
 
-.find-bar button:hover { background: var(--ui-border); }
+.find-bar button:hover:not(:disabled) { background: var(--ui-border); }
 
 .project-empty {
   display: grid;

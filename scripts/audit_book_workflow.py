@@ -134,6 +134,10 @@ globalThis.__TAURI__ = {
             page.goto(url, wait_until="networkidle")
             page.locator("#workflow-project").click()
             expect(page.locator("#markdown-editor")).to_have_value(first.read_text(encoding="utf-8"))
+            if not page.locator("#author-sidebar").is_visible():
+                click_workspace_layout_control(page, "#workspace-toggle-sidebar")
+            page.locator("#sidebar-tab-project").click()
+            expect(page.locator("#refresh-project")).to_be_visible()
 
             def edit_append(text: str) -> None:
                 page.locator(".cm-content").click()

@@ -95,6 +95,15 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                             page.evaluate("() => { document.documentElement.dataset.accent = 'blue'; }")
                             scenario["colours"] = colours
                             page.screenshot(path=str(output / f"{prefix}-home.png"), full_page=True)
+                            save = page.locator("#workspace-save")
+                            expect(save).to_be_disabled()
+                            style = "node => {const s=getComputedStyle(node); return [s.backgroundColor,s.borderColor,s.color]}"
+                            page.mouse.move(1, 1)
+                            before_hover = save.evaluate(style)
+                            save.hover()
+                            page.wait_for_timeout(160)
+                            after_hover = save.evaluate(style)
+                            assert after_hover == before_hover, ("disabled Save changed appearance on hover", before_hover, after_hover)
 
                             page.locator("#workflow-new").click()
                             expect(editor(page)).to_be_visible()
@@ -119,6 +128,20 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
 
                             open_settings(page)
                             expect(page.locator("#settings-modal")).to_be_visible()
+                            placeholder = page.locator("#settings-search").evaluate("""input => {
+                              const ctx = document.createElement('canvas').getContext('2d', {willReadFrequently:true});
+                              const sample = colour => {ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = colour;
+                                ctx.fillRect(0, 0, 1, 1); return [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3)};
+                              const bg = sample(getComputedStyle(input).backgroundColor);
+                              const fg = sample(getComputedStyle(input, '::placeholder').color);
+                              const luminance = channels => channels.map(value => {
+                                value /= 255; return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+                              }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+                              const values = [luminance(bg), luminance(fg)].sort((a, b) => b - a);
+                              return {bg, fg, ratio:(values[0] + .05) / (values[1] + .05)};
+                            }""")
+                            assert placeholder["ratio"] >= 4.5, placeholder
+                            scenario["placeholder"] = placeholder
                             expect(page.locator("#setting-auto-preview")).to_be_checked()
                             switch = page.locator("#setting-auto-preview").evaluate("""input => {
                               const root = getComputedStyle(document.documentElement);
