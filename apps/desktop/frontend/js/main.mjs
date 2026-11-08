@@ -3944,7 +3944,8 @@ async function requestCloseDocument(id) {
   const model = state.documents.find((document) => document.id === id);
   if (!model) return;
   state.documentActivationSequence += 1;
-  if (documentDirty(model)) {
+  const hasUnsavedWork = model.persisted ? documentDirty(model) : model.content !== "";
+  if (hasUnsavedWork) {
     const discard = await askConfirmation({
       title: model.title,
       message: t("closeUnsavedHelp"),

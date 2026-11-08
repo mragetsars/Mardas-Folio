@@ -286,6 +286,21 @@ def run(dist: Path, output: Path) -> dict:
                 case["empty_workspace"] = check_empty_workspace(page)
                 page.screenshot(path=str(output / f"{locale}-{width}-empty.png"))
                 case["checks"].append("startup uses the same Workspace shell, keeps Layout and Export available and gives starter actions readable contrast")
+                page.locator("#workflow-new").click()
+                page.locator(".document-tab.active .tab-close").click()
+                expect(page.locator("#workspace-empty")).to_be_visible()
+                expect(page.locator("#confirm-modal")).to_be_hidden()
+                page.locator("#workflow-new").click()
+                page.keyboard.insert_text("Unsaved draft")
+                expect(page.locator("#markdown-editor")).to_have_value("Unsaved draft")
+                page.locator(".document-tab.active .tab-close").click()
+                expect(page.locator("#confirm-modal")).to_be_visible()
+                page.locator("#confirm-cancel").click()
+                expect(page.locator("#markdown-editor")).to_have_value("Unsaved draft")
+                page.locator(".document-tab.active .tab-close").click()
+                page.locator("#confirm-accept").click()
+                expect(page.locator("#workspace-empty")).to_be_visible()
+                case["checks"].append("blank tabs close directly; cancelling discard preserves a nonempty unsaved draft")
                 page.evaluate("""() => {
                   for (const name of ['long-writing-reference.md','TEST_OVERVIEW.fa.md']) {
                     const path='/fixtures/project/docs/'+name;
