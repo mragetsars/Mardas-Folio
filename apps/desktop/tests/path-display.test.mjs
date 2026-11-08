@@ -5,7 +5,7 @@ import { compactDocumentLocation } from "../frontend/js/core/path-display.mjs";
 test("locations preserve distinguishing folders without repeating a document filename", () => {
   assert.equal(compactDocumentLocation("E:\\Downloads\\Browser.Chrome\\README.md"), "Downloads / Browser.Chrome");
   assert.equal(compactDocumentLocation("/home/mrage/پروژه/فصل‌ها/یادداشت.md"), "پروژه / فصل‌ها");
-  assert.equal(compactDocumentLocation("\\\\wsl.localhost\\Ubuntu\\home\\mrage\\Codes\\TexMd\\Mardas MD2PDF\\README.md"), "TexMd / Mardas MD2PDF");
+  assert.equal(compactDocumentLocation("\\\\wsl.localhost\\Ubuntu\\home\\writer\\Codes\\Notes\\Mardas Folio\\README.md"), "Notes / Mardas Folio");
 });
 
 test("project-relative locations use path boundaries and Windows identity rules", () => {

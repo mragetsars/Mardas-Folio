@@ -10,7 +10,7 @@ import traceback
 from playwright.sync_api import expect, sync_playwright
 
 from audit_desktop_editor_ux import CONTENT_A, FIXTURE_B, initialise, replace_content
-from audit_desktop_ui import DEFAULT_DIST, serve
+from audit_desktop_ui import DEFAULT_DIST, click_workspace_layout_control, serve
 from audit_table_editing import SAMPLE
 
 
@@ -38,7 +38,7 @@ def run(dist: Path, output: Path) -> dict:
                 draft = panel.locator("textarea")
 
                 if page.locator("#workspace-toggle-formatting").get_attribute("aria-pressed") != "true":
-                    page.locator("#workspace-toggle-formatting").click()
+                    click_workspace_layout_control(page, "#workspace-toggle-formatting")
                 cell.click()
                 draft.fill("CELL_FORMAT_ONLY")
                 draft.press("Control+a")
@@ -106,6 +106,27 @@ def run(dist: Path, output: Path) -> dict:
                 page.keyboard.press("Control+z")
                 expect(buffer).to_have_value(SAMPLE)
                 case["checks"].append("one tab click commits its cell draft and activates the requested document; return retains draft and exact Undo")
+
+                cell.click()
+                draft.fill("START_TAB_DRAFT")
+                page.locator("#tab-new-document").click()
+                expect(page.locator("#workspace-empty")).to_be_visible()
+                page.locator("#document-tabs .document-tab").nth(1).locator(".tab-activate").click()
+                expect(buffer).to_have_value(SAMPLE.replace("**bold** and *italic*", "START_TAB_DRAFT"))
+                page.locator("#document-tabs .document-tab").last.locator(".tab-close").click()
+                page.keyboard.press("Control+z")
+                expect(buffer).to_have_value(SAMPLE)
+                cell.click()
+                draft.fill("BLOCKED_CELL_DRAFT")
+                panel.locator(".cm-table-cell-apply").evaluate("button => button.disabled = true")
+                page.locator("#tab-new-document").click()
+                expect(panel).to_be_visible()
+                expect(draft).to_have_value("BLOCKED_CELL_DRAFT")
+                expect(page.locator("#workspace-empty")).to_be_hidden()
+                panel.locator(".cm-table-cell-apply").evaluate("button => button.disabled = false")
+                draft.press("Escape")
+                expect(buffer).to_have_value(SAMPLE)
+                case["checks"].append("starter tabs commit table drafts and stay closed when a draft cannot be committed")
 
                 cell.click()
                 draft.fill("ENTER_UNDO")

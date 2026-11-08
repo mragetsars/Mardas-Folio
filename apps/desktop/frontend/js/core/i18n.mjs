@@ -51,6 +51,7 @@ Object.assign(fa,{
 });
 
 Object.assign(fa, {
+  newTab: "تب جدید",
   writingAppearance: "ظاهر متن", writingDensity: "فاصلهٔ متن", writingFont: "قلم متن", documentNavigation: "ناوبری سند",
   densityCompact: "فشرده", densityComfortable: "معمولی", densityRelaxed: "بازتر",
   fontDocument: "قلم برنامه", fontSystem: "قلم سیستم", fontSerif: "قلم کتابی",
@@ -60,6 +61,7 @@ Object.assign(fa, {
   collapseOutline: "بستن زیرعنوان‌ها", followOutline: "دنبال‌کردن بخش جاری", noOutlineMatches: "عنوانی پیدا نشد.",
 });
 Object.assign(en, {
+  newTab: "New tab",
   writingAppearance: "Text appearance", writingDensity: "Text spacing", writingFont: "Text font", documentNavigation: "Document navigation",
   densityCompact: "Compact", densityComfortable: "Comfortable", densityRelaxed: "Relaxed",
   fontDocument: "App font", fontSystem: "System font", fontSerif: "Book font",
@@ -353,6 +355,10 @@ Object.assign(en, {
 });
 Object.assign(fa, { moveLine: "جابه‌جایی خط" });
 Object.assign(en, { moveLine: "Move line" });
+Object.assign(fa, { interfaceAccent: "رنگ تأکیدی رابط", accentGray: "خاکستری", accentBlue: "آبی", accentRed: "قرمز", accentAmber: "کهربایی", accentGreen: "سبز", accentPurple: "بنفش", accentTeal: "فیروزه‌ای", accentPink: "صورتی" });
+Object.assign(en, { interfaceAccent: "Interface accent", accentGray: "Gray", accentBlue: "Blue", accentRed: "Red", accentAmber: "Amber", accentGreen: "Green", accentPurple: "Purple", accentTeal: "Teal", accentPink: "Pink" });
+Object.assign(fa, { chooseExportSource: "انتخاب فایل مبدأ", chooseExportOutput: "انتخاب فایل خروجی" });
+Object.assign(en, { chooseExportSource: "Choose source file", chooseExportOutput: "Choose output file" });
 // Tab indents inside the editor, so it needs a stated way out.
 Object.assign(fa, { leaveEditor: "خروج از ویرایشگر با صفحه‌کلید" });
 Object.assign(en, { leaveEditor: "Move focus out of the editor" });

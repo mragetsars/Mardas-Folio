@@ -16,7 +16,7 @@ from typing import Any
 from playwright.sync_api import expect, sync_playwright
 
 from audit_desktop_editor_ux import editor, initialise
-from audit_desktop_ui import DEFAULT_DIST, open_settings, serve
+from audit_desktop_ui import DEFAULT_DIST, click_workspace_layout_control, open_settings, serve
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -88,6 +88,11 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                             colours = page.evaluate(COLOURS)
                             assert colours["roles"]["--ui-accent-fill"], "Primary fill role is missing"
                             assert all(pair["ratio"] >= pair["minimum"] for pair in colours["pairs"]), colours
+                            for accent in ("gray", "blue", "red", "amber", "green", "teal", "purple", "pink"):
+                                page.evaluate("(value) => { document.documentElement.dataset.accent = value; }", accent)
+                                accent_colours = page.evaluate(COLOURS)
+                                assert all(pair["ratio"] >= pair["minimum"] for pair in accent_colours["pairs"]), (accent, accent_colours)
+                            page.evaluate("() => { document.documentElement.dataset.accent = 'blue'; }")
                             scenario["colours"] = colours
                             page.screenshot(path=str(output / f"{prefix}-home.png"), full_page=True)
 
@@ -132,6 +137,19 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                             page.screenshot(path=str(output / f"{prefix}-settings.png"), full_page=True)
                             page.keyboard.press("Escape")
                             expect(page.locator("#settings-modal")).to_be_hidden()
+                            if width == 1440:
+                                click_workspace_layout_control(page, "#workspace-focus")
+                                expect(page.locator("html")).to_have_attribute("data-focus-mode", "true")
+                                page.keyboard.press("Control+Shift+P")
+                                page.locator("#command-query").fill("preferences")
+                                page.locator('[data-command-id="settings"]').click()
+                                expect(page.locator("#settings-modal")).to_be_visible()
+                                assert page.locator("#setting-focus-mode").count() == 0
+                                page.locator("#settings-form button[type='submit']").click()
+                                expect(page.locator("#settings-modal")).to_be_hidden()
+                                expect(page.locator("html")).to_have_attribute("data-focus-mode", "true")
+                                page.keyboard.press("Escape")
+                                expect(page.locator("html")).to_have_attribute("data-focus-mode", "false")
                             assert not errors, errors
                             scenario["status"] = "passed"
                         except Exception as error:  # noqa: BLE001 - preserve each visual case's evidence

@@ -1,12 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="banner-title banner-description">
   <title id="banner-title">Mardas Folio — room for your writing</title>
-  <desc id="banner-description">An orange Mardas mark, a calm writing surface and a bilingual note. Local Markdown authoring and PDF publishing.</desc>
-  <!-- Shared Notes-inspired identity: warm orange, neutral ink, soft focus
-       blocks. This is original project artwork, not a Samsung screenshot. -->
+  <desc id="banner-description">A monochrome Mardas mark, a calm writing surface and a bilingual note. Local Markdown authoring and PDF publishing.</desc>
   <rect width="1200" height="400" fill="#F3F3F3"/>
   <g transform="translate(48 44)">
-    <path d="M21 0H51C65 0 72 7 72 21V51C72 65 65 72 51 72H21C7 72 0 65 0 51V21C0 7 7 0 21 0Z" fill="#FF9F00"/>
-    <g transform="translate(36 36) scale(0.383)" fill="#FFFFFF">
+    <rect x="1.4" y="1.4" width="69.2" height="69.2" rx="18" fill="#262626" stroke="#454545" stroke-width="2.8"/>
+    <g transform="translate(36 36) scale(0.383)" fill="#EDEDED">
       <g transform="rotate(0) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
       <g transform="rotate(90) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
       <g transform="rotate(180) translate(14 -60)"><path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"/></g>
@@ -24,15 +22,15 @@
       <text x="79" y="27" text-anchor="middle" fill="#393939">Markdown → PDF</text>
       <rect x="170" width="122" height="42" rx="21" fill="#FFFFFF"/>
       <text x="231" y="27" text-anchor="middle" fill="#393939">RTL + LTR</text>
-      <rect x="304" width="130" height="42" rx="21" fill="#FFF0D8"/>
-      <text x="369" y="27" text-anchor="middle" fill="#9B4D00">Works offline</text>
+      <rect x="304" width="130" height="42" rx="21" fill="#FFFFFF"/>
+      <text x="369" y="27" text-anchor="middle" fill="#393939">Works offline</text>
     </g>
   </g>
   <!-- A quiet note card, with a folder behind it: content is the focus. -->
   <rect x="798" y="69" width="350" height="292" rx="28" fill="#E8E8E8"/>
   <rect x="760" y="40" width="360" height="304" rx="28" fill="#FFFFFF"/>
   <g font-family="'Segoe UI', 'DejaVu Sans', sans-serif">
-    <path d="M784 65H799L804 70H816V84H784Z" fill="#FF9F00"/>
+    <path d="M784 65H799L804 70H816V84H784Z" fill="#171717"/>
     <text x="828" y="81" fill="#626262" font-size="13" font-weight="600">My documents</text>
     <circle cx="1091" cy="74" r="2" fill="#626262"/>
     <circle cx="1091" cy="81" r="2" fill="#626262"/>
@@ -42,8 +40,8 @@
     <rect x="790" y="192" width="270" height="7" rx="3.5" fill="#EEEEEE"/>
     <rect x="790" y="211" width="294" height="7" rx="3.5" fill="#EEEEEE"/>
     <rect x="790" y="230" width="216" height="7" rx="3.5" fill="#EEEEEE"/>
-    <rect x="790" y="273" width="112" height="38" rx="19" fill="#FF9F00"/>
-    <text x="846" y="297" text-anchor="middle" fill="#241600" font-size="13" font-weight="700">Create PDF</text>
+    <rect x="790" y="273" width="112" height="38" rx="19" fill="#171717"/>
+    <text x="846" y="297" text-anchor="middle" fill="#EDEDED" font-size="13" font-weight="700">Export</text>
     <text x="1090" y="296" text-anchor="end" fill="#626262" font-size="12">Saved locally</text>
   </g>
 </svg>

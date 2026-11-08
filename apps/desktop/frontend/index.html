@@ -104,7 +104,7 @@
         </div>
         <div class="tab-bar">
           <div class="document-tabs" id="document-tabs" role="tablist" data-i18n-aria-label="openDocuments" aria-label="باز کردن چند سند"></div>
-          <button class="toolbar-icon-button tab-new-document" id="tab-new-document" type="button" data-i18n-title="newDocument" title="سند جدید" aria-label="سند جدید"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg></button>
+          <button class="toolbar-icon-button tab-new-document" id="tab-new-document" type="button" data-i18n-title="newTab" data-i18n-aria-label="newTab" title="تب جدید" aria-label="تب جدید"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg></button>
         </div>
         <div class="document-identity"><strong id="editor-title" data-i18n="untitled">بدون عنوان</strong><small id="editor-path" dir="auto"></small><span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span></div>
         <div class="toolbar-group toolbar-publish-actions">
@@ -141,7 +141,7 @@
       <div class="export-content" id="export-content">
       <div class="export-layout">
         <form class="panel form-panel" id="export-form" novalidate>
-          <section class="step"><header><span>1</span><div><h2 data-i18n="sourceFile">فایل مبدأ</h2><p data-i18n="sourceFileHelp">فایل Markdown را از سیستم انتخاب کن.</p></div></header><div class="path-row"><input id="source-path" readonly data-i18n-aria-label="sourceFile" aria-label="فایل مبدأ" placeholder="report.md"><button class="button secondary compact" id="choose-source" type="button" data-i18n="browse">انتخاب</button></div></section>
+          <section class="step"><header><span>1</span><div><h2 data-i18n="sourceFile">فایل مبدأ</h2><p data-i18n="sourceFileHelp">فایل Markdown را از سیستم انتخاب کن.</p></div></header><div class="path-row"><input id="source-path" readonly data-i18n-aria-label="sourceFile" aria-label="فایل مبدأ" placeholder="report.md"><button class="button secondary compact" id="choose-source" type="button" data-i18n="browse" data-i18n-aria-label="chooseExportSource" aria-label="انتخاب فایل مبدأ">انتخاب</button></div></section>
           <section class="step"><header><span>2</span><div><h2 id="preset-grid-title" data-i18n="documentPreset">نوع خروجی</h2><p data-i18n="documentPresetHelp">یک preset انتخاب کن؛ جزئیات مناسب خودکار تنظیم می‌شوند.</p></div></header><div class="preset-grid" id="preset-grid" role="radiogroup" aria-labelledby="preset-grid-title"></div></section>
           <section class="step step-settings"><header><span>3</span><div><h2 data-i18n="documentSettings">تنظیمات سند</h2><p data-i18n="documentSettingsHelp">هر گزینه یک‌بار و در یک جا. خالی‌گذاشتن یعنی از preset، mardas.toml یا مقدار پیش‌فرض ارث ببرد.</p></div></header>
             <p class="settings-scope-note" data-i18n="exportSettingsScope">این انتخاب‌ها برای همین خروجی PDF هستند و فایل Markdown را تغییر نمی‌دهند.</p>
@@ -197,8 +197,9 @@
       </div>
       </div>
       <footer class="panel export-dock">
-        <div class="export-destination"><label for="output-path" data-i18n="outputFile">فایل خروجی</label><div class="path-row"><input id="output-path" readonly form="export-form" dir="ltr" data-i18n-aria-label="outputFile" aria-label="فایل خروجی" placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse">انتخاب</button></div></div>
+        <div class="export-destination"><label for="output-path" data-i18n="outputFile">فایل خروجی</label><div class="path-row"><input id="output-path" readonly form="export-form" dir="ltr" data-i18n-aria-label="outputFile" aria-label="فایل خروجی" placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse" data-i18n-aria-label="chooseExportOutput" aria-label="انتخاب فایل خروجی">انتخاب</button></div></div>
         <div class="form-actions"><button class="button secondary" id="validate-button" type="button" data-i18n="checkDocument">بررسی سند</button><button class="button primary" id="export-button" type="submit" form="export-form" data-i18n="exportPdf">ساخت PDF</button><button class="button danger hidden" id="cancel-button" type="button" data-i18n="cancel">لغو</button></div>
+        <p id="export-dock-feedback" class="export-dock-feedback hidden"></p>
       </footer>
     </section>
 
@@ -560,12 +561,13 @@
 
 <div class="modal hidden" id="settings-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="settings-title">
   <form class="modal-card settings-card" id="settings-form">
-    <div class="modal-heading"><div><p class="eyebrow" data-i18n="preferences">ترجیحات</p><h2 id="settings-title" data-i18n="settings">تنظیمات</h2></div><button class="icon-button" id="close-settings" type="button" data-i18n-title="close" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></div>
+    <div class="modal-heading"><div><p class="eyebrow" data-i18n="preferences">ترجیحات</p><h2 id="settings-title" data-i18n="settings">تنظیمات</h2></div><button class="icon-button" id="close-settings" type="button" data-i18n-title="close" data-i18n-aria-label="close" aria-label="بستن" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></div>
     <label class="settings-search"><span class="sr-only" data-i18n="searchSettings">جست‌وجوی تنظیمات</span><input id="settings-search" type="search" data-i18n-placeholder="searchSettings" placeholder="جست‌وجوی تنظیمات"></label>
     <div class="settings-sections" id="settings-sections">
-      <section class="settings-section" data-settings-terms="theme appearance light dark system ظاهر روشن تیره">
+      <section class="settings-section" data-settings-terms="theme appearance accent colour color blue purple teal light dark system ظاهر رنگ آبی بنفش فیروزه روشن تیره">
         <h3 data-i18n="appearance">ظاهر</h3>
         <label><span data-i18n="interfaceTheme">پوسته برنامه</span><select id="setting-theme"><option value="system" data-i18n="followSystem">مطابق سیستم</option><option value="light" data-i18n="lightTheme">روشن</option><option value="dark" data-i18n="darkTheme">تیره</option></select></label>
+        <label><span data-i18n="interfaceAccent">رنگ تأکیدی رابط</span><select id="setting-accent"><option value="gray" data-i18n="accentGray">خاکستری</option><option value="blue" data-i18n="accentBlue">آبی</option><option value="red" data-i18n="accentRed">قرمز</option><option value="amber" data-i18n="accentAmber">کهربایی</option><option value="green" data-i18n="accentGreen">سبز</option><option value="teal" data-i18n="accentTeal">فیروزه‌ای</option><option value="purple" data-i18n="accentPurple">بنفش</option><option value="pink" data-i18n="accentPink">صورتی</option></select></label>
         <label><span data-i18n="documentTextSizePercent">اندازه متن سند (%)</span><input id="setting-document-zoom" type="number" min="60" max="200" step="1" value="100" inputmode="numeric"></label>
         <p class="settings-help" data-i18n="documentViewHelp">اندازه متن برای نوشتن و خواندن است؛ قالب‌بندی PDF از تنظیمات خروجی پیروی می‌کند.</p>
       </section>
@@ -574,8 +576,6 @@
         <label><span data-i18n="writingWidth">عرض نوشتن</span><select id="setting-writing-width"><option value="full" data-i18n="fullColumn">تمام عرض</option><option value="readable" data-i18n="comfortableColumn">ستون خوانا</option><option value="wide" data-i18n="wideColumn">ستون عریض</option></select></label>
         <label class="toggle compact-toggle"><input id="setting-typewriter" type="checkbox"><i></i><span data-i18n="typewriterMode">حالت ماشین تحریر</span></label>
         <p class="settings-help" data-i18n="typewriterHelp">خط در حال نوشتن همیشه در ارتفاع ثابتی از صفحه می‌ماند.</p>
-        <label class="toggle compact-toggle"><input id="setting-focus-mode" type="checkbox"><i></i><span data-i18n="focusMode">حالت تمرکز</span></label>
-        <p class="settings-help" data-i18n="focusModeHelp">نوار کناری، برگه‌ها و ابزارها پنهان می‌شوند تا فقط سند بماند.</p>
         <label class="toggle compact-toggle"><input id="setting-auto-preview" type="checkbox"><i></i><span data-i18n="automaticPreview">پیش‌نمایش خودکار</span></label>
       </section>
       <section class="settings-section" data-settings-terms="accessibility motion animation دسترسی حرکت">
@@ -666,7 +666,7 @@
 <div class="modal hidden command-modal" id="command-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="command-title">
   <div class="modal-card command-card">
     <h2 class="sr-only" id="command-title" data-i18n="commandPalette">فرمان‌ها</h2>
-    <label class="command-search"><span aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-command"></use></svg></span><input id="command-query" type="search" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="command-list" aria-expanded="false" data-i18n-placeholder="typeACommand" placeholder="یک فرمان بنویس..."></label>
+    <label class="command-search"><span aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#icon-command"></use></svg></span><input id="command-query" type="search" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="command-list" aria-expanded="false" data-i18n-aria-label="commandPalette" aria-label="فرمان‌ها" data-i18n-placeholder="typeACommand" placeholder="یک فرمان بنویس..."></label>
     <div class="command-list" id="command-list" role="listbox" data-i18n-aria-label="commandPalette" aria-label="فرمان‌ها"></div>
     <footer><span><kbd>↑</kbd><kbd>↓</kbd> <small data-i18n="navigate">حرکت</small></span><span><kbd>Enter</kbd> <small data-i18n="runCommand">اجرا</small></span><span><kbd>Esc</kbd> <small data-i18n="close">بستن</small></span></footer>
   </div>

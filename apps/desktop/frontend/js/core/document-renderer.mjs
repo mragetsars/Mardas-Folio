@@ -26,6 +26,29 @@ export function mountDocumentContent(container, payload, {
       }));
     }
   }
+  const codeLabels = document.documentElement.lang.startsWith("fa")
+    ? { copy: "کپی کد", copied: "کپی شد", failed: "کپی نشد" }
+    : { copy: "Copy code", copied: "Copied", failed: "Copy failed" };
+  for (const figure of fragment.querySelectorAll("figure.code-block")) {
+    const code = figure.querySelector("td.code pre") || figure.querySelector("pre");
+    const caption = figure.querySelector("figcaption");
+    if (!code || !caption) continue;
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "document-code-copy";
+    copy.textContent = codeLabels.copy;
+    copy.setAttribute("aria-live", "polite");
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(code.textContent || "");
+        copy.textContent = codeLabels.copied;
+      } catch {
+        copy.textContent = codeLabels.failed;
+      }
+      setTimeout(() => { if (copy.isConnected) copy.textContent = codeLabels.copy; }, 1800);
+    });
+    caption.append(copy);
+  }
   for (const heading of fragment.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
     if (!heading.hasAttribute("dir")) heading.dir = "auto";
     const sourceId = heading.dataset.previewSourceId || heading.id.slice(prefix.length);

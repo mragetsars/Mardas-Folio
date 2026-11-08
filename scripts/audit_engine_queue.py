@@ -88,6 +88,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         page.locator("#export-format-pdf").click()
         expect(page.locator("#export-view")).to_be_visible()
         expect(page.locator("#source-path")).to_have_value("")
+        page.locator("#export-button").click()
+        expect(page.locator("#choose-source")).to_be_focused()
+        expect(page.locator("#export-dock-feedback")).to_contain_text("Choose a Markdown source file first.")
         page.locator("#export-back").click()
         expect(page.locator("#workspace-empty")).to_be_visible()
         checks.append("format choice and cancellation work in the workspace with no document")
@@ -125,10 +128,13 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         expect(page.locator("#export-button")).to_be_enabled()
         assert page.evaluate("globalThis.__calls.filter(method => method === 'render.document').length") == 1
         assert not page.evaluate("globalThis.__overlaps")
+        expect(page.locator("#export-dock-feedback")).to_contain_text("PDF created successfully")
         checks.append("double export submission claims one job before draining preview")
 
         page.evaluate("globalThis.__holdPreview = true; globalThis.__releasePreview = null")
         page.locator('[data-preset="general"]').click()
+        expect(page.locator("#export-dock-feedback")).to_be_hidden()
+        expect(page.locator("#export-result")).to_be_hidden()
         page.wait_for_function("() => typeof globalThis.__releasePreview === 'function'")
         page.locator("#export-form").evaluate("form => form.requestSubmit()")
         page.locator("#cancel-button").click()

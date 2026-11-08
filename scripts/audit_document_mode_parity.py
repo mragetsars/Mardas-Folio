@@ -233,6 +233,31 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
 
                     _side_preview(page)
                     _wait_content(page, "#preview-document")
+                    page.evaluate("""() => {
+                      window.__copiedCode = null;
+                      window.__failCodeCopy = false;
+                      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+                        writeText: async text => {
+                          if (window.__failCodeCopy) throw new Error('clipboard unavailable');
+                          window.__copiedCode = text;
+                        }
+                      }});
+                    }""")
+                    numbered = page.locator("#preview-document .code-block--numbered")
+                    numbered.locator(".document-code-copy").click()
+                    copied = page.evaluate("window.__copiedCode")
+                    assert copied.startswith('KEEP_NUMBERED_CODE = "$numbered_literal$"\n'), copied
+                    assert "print(KEEP_NUMBERED_CODE)" in copied and not copied.startswith("1"), copied
+                    expect(numbered.locator(".document-code-copy")).to_have_text("Copied" if locale == "en" else "کپی شد")
+                    page.evaluate("window.__failCodeCopy = true")
+                    page.locator("#preview-document .code-block:not(.code-block--numbered) .document-code-copy").first.click()
+                    expect(page.locator("#preview-document .code-block:not(.code-block--numbered) .document-code-copy").first).to_have_text(
+                        "Copy failed" if locale == "en" else "کپی نشد")
+                    expect(numbered.locator(".document-code-copy")).to_have_text("Copy code" if locale == "en" else "کپی کد")
+                    expect(page.locator("#preview-document .code-block:not(.code-block--numbered) .document-code-copy").first).to_have_text(
+                        "Copy code" if locale == "en" else "کپی کد")
+                    expect(page.locator("#markdown-editor")).to_have_value(SAMPLE)
+                    scenario["checks"].append("copy preserves numbered code without line numbers; errors are visible and source remains unchanged")
                     for zoom in (60, 100, 200):
                         _set_zoom(page, zoom)
                         side = page.locator("#preview-document").evaluate(ARTICLE)

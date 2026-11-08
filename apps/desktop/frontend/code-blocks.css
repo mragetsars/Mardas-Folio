@@ -20,7 +20,7 @@
   padding-block: 0;
 }
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-open {
-  padding: 7px 12px;
+  padding: 6px 12px;
   border-top: 1px solid var(--ui-border);
   border-bottom: 1px solid var(--ui-border);
   border-radius: 10px 10px 0 0;

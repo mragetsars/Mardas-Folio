@@ -99,7 +99,14 @@ def floating_style(target):
 
 def hover_command(target):
     target.hover()
-    target.page.wait_for_timeout(180)
+    target.page.wait_for_function("""element => {
+      const token = document.createElement('i');
+      token.style.background = 'var(--ui-control-hover)';
+      element.append(token);
+      const expected = getComputedStyle(token).backgroundColor;
+      token.remove();
+      return getComputedStyle(element).backgroundColor === expected;
+    }""", arg=target.element_handle())
     style = command_style(target)
     assert style["background"] == style["expected"], style
     assert style["radius"] == "6px", style
@@ -286,6 +293,23 @@ def run(dist: Path, output: Path) -> dict:
                 case["empty_workspace"] = check_empty_workspace(page)
                 page.screenshot(path=str(output / f"{locale}-{width}-empty.png"))
                 case["checks"].append("startup uses the same Workspace shell, keeps Layout and Export available and gives starter actions readable contrast")
+                page.locator("#tab-new-document").click()
+                page.locator("#tab-new-document").click()
+                expect(page.locator("#document-tabs .document-tab")).to_have_count(2)
+                expect(page.locator("#workspace-empty")).to_be_visible()
+                page.locator("#workflow-new").click()
+                page.keyboard.insert_text("Tab draft")
+                expect(page.locator("#markdown-editor")).to_have_value("Tab draft")
+                page.locator("#document-tabs .document-tab").first.locator(".tab-activate").click()
+                expect(page.locator("#workspace-empty")).to_be_visible()
+                page.locator("#document-tabs .document-tab").last.locator(".tab-activate").click()
+                expect(page.locator("#markdown-editor")).to_have_value("Tab draft")
+                page.locator("#document-tabs .document-tab").first.locator(".tab-close").click()
+                page.locator(".document-tab.active .tab-close").click()
+                expect(page.locator("#confirm-modal")).to_be_visible()
+                page.locator("#confirm-accept").click()
+                expect(page.locator("#workspace-empty")).to_be_visible()
+                case["checks"].append("new tabs show starter actions and switching or closing them preserves a draft")
                 page.locator("#workflow-new").click()
                 page.locator(".document-tab.active .tab-close").click()
                 expect(page.locator("#workspace-empty")).to_be_visible()
@@ -312,6 +336,20 @@ def run(dist: Path, output: Path) -> dict:
                 expect(page.locator("#document-tabs .document-tab")).to_have_count(4)
                 page.wait_for_timeout(300)
                 expected = page.locator("#markdown-editor").input_value()
+                active_title = page.locator(".document-tab.active .tab-name").inner_text()
+                page.locator("#tab-new-document").click()
+                expect(page.locator("#workspace-empty")).to_be_visible()
+                open_workspace_export(page)
+                expect(page.locator("#source-path")).to_have_value("")
+                page.locator("#export-back").click()
+                expect(page.locator("#workspace-empty")).to_be_visible()
+                page.keyboard.press("Control+P")
+                page.locator("#navigation-query").fill(active_title)
+                page.locator("#navigation-query").press("Enter")
+                expect(page.locator("#markdown-editor")).to_have_value(expected)
+                page.locator("#document-tabs .document-tab").last.locator(".tab-close").click()
+                expect(page.locator("#document-tabs .document-tab")).to_have_count(4)
+                case["checks"].append("starter tab offers file export and Quick Open restores the saved document")
                 geometry = page.evaluate("""() => {
                   const rect=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom,scroll:e.scrollWidth,client:e.clientWidth}};
                   return {header:rect('.topbar'),tabs:rect('.tab-bar'),bar:rect('.document-toolbar'),

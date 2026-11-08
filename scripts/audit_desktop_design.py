@@ -446,8 +446,8 @@ def contrast(dist: Path) -> dict[str, Any]:
             # bars around the document step back, and the first way that was
             # written faded them to 0.3, which took their labels down to
             # 1.5:1 without changing a single computed colour.
-            page.locator("label:has(#setting-focus-mode)").click()
             page.locator("#settings-form button[type='submit']").click()
+            click_workspace_layout_control(page, "#workspace-focus")
             page.wait_for_timeout(600)
             surfaces["focus mode"] = page.evaluate(CONTRAST_JS)
             open_workspace_export(page, None)

@@ -140,6 +140,9 @@ const state = {
   recents: readRecents(),
   documents: [],
   activeDocumentId: null,
+  startTabs: [],
+  activeStartTabId: null,
+  tabOrder: [],
   documentActivationSequence: 0,
   previewTimer: null,
   recoveryTimers: new Map(),
@@ -739,6 +742,7 @@ function createDocumentFromTemplate(templateId = "blank") {
   const metadata = templateList().find((item) => item.id === templateId) || templateList()[0];
   const model = createDocument({ content: templateContent(templateId, state.locale) });
   model.title = t(metadata.titleKey);
+  consumeStartTab(model.id);
   state.documents.push(model);
   state.activeDocumentId = model.id;
   showView("workspace");
@@ -752,13 +756,13 @@ function createDocumentFromTemplate(templateId = "blank") {
 
 function fillSettingsForm() {
   $("#setting-theme").value = state.preferences.theme;
+  $("#setting-accent").value = state.preferences.accent;
   const zoomSetting = $("#setting-document-zoom");
   if (zoomSetting) zoomSetting.value = String(state.preferences.documentZoom);
   $("#setting-motion").value = state.preferences.reducedMotion;
   $("#setting-auto-preview").checked = state.preferences.autoPreview;
   $("#setting-typewriter").checked = state.preferences.typewriter;
   if ($("#setting-writing-width")) $("#setting-writing-width").value = state.preferences.writingWidth;
-  $("#setting-focus-mode").checked = state.preferences.focusMode;
   $("#setting-locale").value = state.locale;
   $("#settings-search").value = "";
   filterSettings("");
@@ -795,12 +799,12 @@ function submitSettings(event) {
   state.preferences = writePreferences({
     ...state.preferences,
     theme: $("#setting-theme").value,
+    accent: $("#setting-accent").value,
     documentZoom: Number($("#setting-document-zoom").value),
     writingWidth: $("#setting-writing-width")?.value || "full",
     reducedMotion: $("#setting-motion").value,
     autoPreview: $("#setting-auto-preview").checked,
     typewriter: $("#setting-typewriter").checked,
-    focusMode: $("#setting-focus-mode").checked,
   });
   applyInterfacePreferences();
   setLocale($("#setting-locale").value);
@@ -1295,6 +1299,10 @@ function setExportStatus(kind, titleKey, message, diagnostics = []) {
   $("#status-symbol")?.replaceChildren(spriteIcon(STATUS_SYMBOLS[kind] || "file"));
   $("#status-title").textContent = titleKey ? t(titleKey) : "";
   $("#status-message").textContent = message || "";
+  const feedback = $("#export-dock-feedback");
+  feedback.classList.toggle("hidden", kind === "idle");
+  feedback.dataset.state = kind;
+  feedback.textContent = kind === "idle" ? "" : [titleKey ? t(titleKey) : "", message].filter(Boolean).join(" — ");
   const container = $("#diagnostics");
   container.replaceChildren();
   if (diagnostics.length) {
@@ -1309,6 +1317,12 @@ function setExportStatus(kind, titleKey, message, diagnostics = []) {
   } else {
     container.classList.add("hidden");
   }
+}
+
+function invalidateExportStatus() {
+  if ($("#status-visual").dataset.state === "idle") return;
+  hideExportResult();
+  setExportStatus("idle", "readyTitle", t("readyMessage"));
 }
 
 function working(enabled, mode = "render") {
@@ -1391,6 +1405,7 @@ function choiceLabel(value) {
 }
 
 function setOptionValue(key, value) {
+  invalidateExportStatus();
   if (value === undefined) advancedValues.delete(key);
   else advancedValues.set(key, value);
   renderOptionRail();
@@ -1761,6 +1776,7 @@ function renderOptionPane() {
     reset.className = "text-button";
     reset.textContent = t("resetGroup");
     reset.addEventListener("click", () => {
+      invalidateExportStatus();
       for (const field of group.fields) advancedValues.delete(field.key);
       renderOptionRail();
       renderOptionPane();
@@ -1787,6 +1803,7 @@ function renderAdvancedOptions() {
 }
 
 function resetAdvancedOptions() {
+  invalidateExportStatus();
   advancedValues.clear();
   renderAdvancedOptions();
   renderSummary();
@@ -2065,6 +2082,7 @@ function renderPresets() {
  * them — not held invisibly behind the card.
  */
 function selectPreset(id) {
+  invalidateExportStatus();
   const preset = presetById(id);
   state.presetId = preset.id;
   advancedValues.clear();
@@ -2202,6 +2220,8 @@ function openExportSource(path) {
   state.outputPath = defaultOutputPath(path);
   $("#source-path").value = path;
   $("#output-path").value = state.outputPath;
+  $("#source-path").title = path;
+  $("#output-path").title = state.outputPath;
   setExportStatus("idle", "readyTitle", t("readyMessage"));
   showView("export");
   // The document is the preview's only subject. Without this the panel stayed
@@ -2229,6 +2249,8 @@ async function chooseExportOutput() {
     if (path) {
       state.outputPath = path;
       $("#output-path").value = path;
+      $("#output-path").title = path;
+      invalidateExportStatus();
     }
   } catch (error) {
     toast(errorText(error), "error");
@@ -2239,6 +2261,11 @@ function exportSelectionValid() {
   const errors = validateExportSelection({ sourcePath: state.sourcePath, outputPath: state.outputPath });
   if (!errors.length) return true;
   setExportStatus("error", "errorTitle", errors.map((code) => t(code)).join(" "));
+  if (errors.some((code) => code === "source_required" || code === "source_markdown")) {
+    $("#choose-source").focus();
+  } else if (errors.some((code) => code === "output_required" || code === "output_pdf" || code === "paths_differ")) {
+    $("#choose-output").focus();
+  }
   return false;
 }
 
@@ -2327,37 +2354,50 @@ function persistSession() {
   writeSession(state.documents, activeDocument(), state.project?.path ?? null);
 }
 
+function orderedTabs() {
+  const tabs = [...state.documents, ...state.startTabs];
+  const byId = new Map(tabs.map((tab) => [tab.id, tab]));
+  state.tabOrder = state.tabOrder.filter((id) => byId.has(id));
+  for (const tab of tabs) if (!state.tabOrder.includes(tab.id)) state.tabOrder.push(tab.id);
+  return state.tabOrder.map((id) => byId.get(id));
+}
+
 function tabElement(model) {
+  const isStart = Boolean(model.isStart);
+  const isActive = isStart ? model.id === state.activeStartTabId : model.id === state.activeDocumentId;
+  const tabs = orderedTabs();
   const tab = window.document.createElement("div");
-  tab.className = `document-tab${model.id === state.activeDocumentId ? " active" : ""}${documentDirty(model) ? " dirty" : ""}`;
+  tab.className = `document-tab${isActive ? " active" : ""}${!isStart && documentDirty(model) ? " dirty" : ""}`;
   tab.dataset.documentId = model.id;
   tab.innerHTML = `<button class="tab-activate" type="button" role="tab"><i class="dirty-dot"></i><span class="tab-name"></span></button><button class="tab-close" type="button" aria-label="${t("close")}"></button>`;
   tab.querySelector(".tab-close").append(spriteIcon("close"));
-  setTruncatableText(tab.querySelector(".tab-name"), model.title);
+  setTruncatableText(tab.querySelector(".tab-name"), isStart ? t("newTab") : model.title);
   const activate = tab.querySelector(".tab-activate");
-  activate.tabIndex = model.id === state.activeDocumentId ? 0 : -1;
-  activate.setAttribute("aria-selected", String(model.id === state.activeDocumentId));
-  activate.addEventListener("click", () => activateDocument(model.id));
+  activate.tabIndex = isActive ? 0 : -1;
+  activate.setAttribute("aria-selected", String(isActive));
+  const select = (target, focus = "editor") => target.isStart ? activateStartTab(target.id, focus) : activateDocument(target.id, { focus });
+  activate.addEventListener("click", () => select(model));
   activate.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      activateDocument(model.id);
+      select(model);
       return;
     }
-    const index = state.documents.findIndex((item) => item.id === model.id);
+    const index = tabs.findIndex((item) => item.id === model.id);
     let target = null;
     const rtl = document.documentElement.dir === "rtl";
-    if (event.key === (rtl ? "ArrowRight" : "ArrowLeft") || event.key === "ArrowUp") target = state.documents[(index - 1 + state.documents.length) % state.documents.length];
-    if (event.key === (rtl ? "ArrowLeft" : "ArrowRight") || event.key === "ArrowDown") target = state.documents[(index + 1) % state.documents.length];
-    if (event.key === "Home") target = state.documents[0];
-    if (event.key === "End") target = state.documents.at(-1);
+    if (event.key === (rtl ? "ArrowRight" : "ArrowLeft") || event.key === "ArrowUp") target = tabs[(index - 1 + tabs.length) % tabs.length];
+    if (event.key === (rtl ? "ArrowLeft" : "ArrowRight") || event.key === "ArrowDown") target = tabs[(index + 1) % tabs.length];
+    if (event.key === "Home") target = tabs[0];
+    if (event.key === "End") target = tabs.at(-1);
     if (!target) return;
     event.preventDefault();
-    void activateDocument(target.id, { focus: "tab" });
+    void select(target, "tab");
   });
   tab.querySelector(".tab-close").addEventListener("click", (event) => {
     event.stopPropagation();
-    void requestCloseDocument(model.id);
+    if (isStart) closeStartTab(model.id);
+    else void requestCloseDocument(model.id);
   });
   return tab;
 }
@@ -2365,7 +2405,7 @@ function tabElement(model) {
 function renderDocumentTabs() {
   const container = $("#document-tabs");
   if (!container) return;
-  container.replaceChildren(...state.documents.map(tabElement));
+  container.replaceChildren(...orderedTabs().map(tabElement));
   renderFileNavigator();
 }
 
@@ -2697,6 +2737,8 @@ function setTruncatableText(element, value) {
 
 function renderWorkspace() {
   const model = activeDocument();
+  if (model) state.activeStartTabId = null;
+  $("#workspace-empty-title").textContent = t(state.activeStartTabId ? "newTab" : "noDocumentOpen");
   renderDocumentTabs();
   const editor = currentEditor();
   editor.retainDocuments?.(state.documents.map((document) => document.id));
@@ -2778,6 +2820,7 @@ async function activateDocument(id, { focus = "editor" } = {}) {
   await allowDocumentImages(model);
   if (sequence !== state.documentActivationSequence || !state.documents.includes(model)) return;
   state.activeDocumentId = id;
+  state.activeStartTabId = null;
   state.validationSequence += 1;
   state.assetSequence += 1;
   state.bibliographySequence += 1;
@@ -2792,10 +2835,63 @@ async function activateDocument(id, { focus = "editor" } = {}) {
   if (model.path) refreshAssets();
 }
 
+function consumeStartTab(replacementId, { moveExisting = false } = {}) {
+  if (!state.activeStartTabId) return;
+  const startId = state.activeStartTabId;
+  if (replacementId && (moveExisting || !state.tabOrder.includes(replacementId))) {
+    state.tabOrder = state.tabOrder.filter((id) => id !== replacementId)
+      .map((id) => id === startId ? replacementId : id);
+  } else {
+    state.tabOrder = state.tabOrder.filter((id) => id !== startId);
+  }
+  state.startTabs = state.startTabs.filter((tab) => tab.id !== state.activeStartTabId);
+  state.activeStartTabId = null;
+}
+
+function activateStartTab(id, focus = "editor") {
+  if (!state.startTabs.some((tab) => tab.id === id)) return;
+  if (activeDocument() && editorAdapter?.commitPendingDrafts?.() === false) return;
+  state.documentActivationSequence += 1;
+  state.activeDocumentId = null;
+  state.activeStartTabId = id;
+  persistSession();
+  renderWorkspace();
+  if (focus === "tab") {
+    $$(".document-tab").find((tab) => tab.dataset.documentId === id)?.querySelector(".tab-activate")?.focus({ preventScroll: true });
+  } else focusDocument();
+}
+
+function createStartTab() {
+  if (activeDocument() && editorAdapter?.commitPendingDrafts?.() === false) return;
+  const tab = { id: globalThis.crypto?.randomUUID?.() ?? `start-${Date.now()}-${Math.random().toString(16).slice(2)}`, isStart: true };
+  state.startTabs.push(tab);
+  state.tabOrder.push(tab.id);
+  activateStartTab(tab.id);
+}
+
+function closeStartTab(id) {
+  const wasActive = state.activeStartTabId === id;
+  if (wasActive) state.documentActivationSequence += 1;
+  state.startTabs = state.startTabs.filter((tab) => tab.id !== id);
+  if (!wasActive) {
+    renderDocumentTabs();
+  } else if (state.startTabs.length) {
+    activateStartTab(state.startTabs.at(-1).id);
+  } else if (state.documents.length) {
+    state.activeStartTabId = null;
+    void activateDocument(state.documents.at(-1).id);
+  } else {
+    state.activeStartTabId = null;
+    renderWorkspace();
+    focusDocument();
+  }
+}
+
 function createUntitledDocument() {
   state.documentActivationSequence += 1;
   if (state.preferences.viewMode === "read") updatePreference({ viewMode: "write" });
   const model = createDocument({ content: "" });
+  consumeStartTab(model.id);
   state.documents.push(model);
   state.activeDocumentId = model.id;
   showView("workspace");
@@ -2810,12 +2906,16 @@ async function openAuthoringPaths(paths) {
   if (!values.length) return;
   const sequence = ++state.documentActivationSequence;
   let intendedDocument = null;
+  let intendedWasNew = false;
   showView("workspace");
   for (const path of values) {
     const existing = findDocumentByPath(state.documents, path);
     if (existing) {
       await allowDocumentImages(existing);
-      if (state.documents.includes(existing)) intendedDocument = existing;
+      if (state.documents.includes(existing)) {
+        intendedDocument = existing;
+        intendedWasNew = false;
+      }
       continue;
     }
     try {
@@ -2837,7 +2937,10 @@ async function openAuthoringPaths(paths) {
       });
       if (!duplicate) state.documents.push(model);
       await allowDocumentImages(model);
-      if (state.documents.includes(model)) intendedDocument = model;
+      if (state.documents.includes(model)) {
+        intendedDocument = model;
+        intendedWasNew = !duplicate;
+      }
       saveRecent(model.path);
       const recovery = recoveryForPath(model.path);
       if (sequence === state.documentActivationSequence && state.documents.includes(model)
@@ -2849,6 +2952,7 @@ async function openAuthoringPaths(paths) {
   // Keep the owner of the visible buffer unchanged throughout every file read
   // and scope grant, including when several files are opened together.
   if (sequence === state.documentActivationSequence && state.documents.includes(intendedDocument)) {
+    consumeStartTab(intendedDocument.id, { moveExisting: intendedWasNew });
     state.activeDocumentId = intendedDocument.id;
     state.validationSequence += 1;
     state.assetSequence += 1;
@@ -3963,8 +4067,9 @@ async function requestCloseDocument(id) {
   if (wasActive) state.activeDocumentId = null;
   persistSession();
   renderWorkspace();
-  if (!state.documents.length) focusDocument();
-  else if (wasActive) await activateDocument(result.nextId);
+  if (wasActive && result.nextId) await activateDocument(result.nextId);
+  else if (wasActive && state.startTabs.length) activateStartTab(state.startTabs.at(-1).id);
+  else if (!state.documents.length) focusDocument();
 }
 
 function onEditorInput() {
@@ -5205,7 +5310,7 @@ function bindEvents() {
   $("#document-toggle-width")?.addEventListener("click", () => updateDocumentView({ writingWidth: state.preferences.writingWidth === "full" ? "readable" : "full" }));
   $("#workspace-quick-open")?.addEventListener("click", () => navigationPicker.open("files"));
   $("#navigator-new")?.addEventListener("click", createUntitledDocument);
-  $("#tab-new-document")?.addEventListener("click", createUntitledDocument);
+  $("#tab-new-document")?.addEventListener("click", createStartTab);
   $("#navigator-open")?.addEventListener("click", chooseAuthoringFiles);
   $("#navigator-open-project")?.addEventListener("click", chooseProjectDirectory);
   $("#navigator-close")?.addEventListener("click", () => toggleWorkspacePane("files"));

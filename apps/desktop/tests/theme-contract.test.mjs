@@ -73,7 +73,16 @@ test("the theme is decided by the tokens, not by a second layer of rules", () =>
   // earlier, and one painted a key cap in the text colour and left its legend
   // on it at 1.3:1.
   for (const [name, css] of [["styles.css", styles], ["workspace.css", workspaceStyles]]) {
-    const overrides = [...css.matchAll(/html\[data-theme="dark"\][^{,]*[,{]/g)]
+    // The accent palette can derive token values for dark mode, provided it
+    // does not add component-level styling that bypasses those tokens.
+    const accentTokenBlock = /html\[data-theme="dark"\]\[data-accent\]:not\(\[data-accent="blue"\]\)\s*\{([^{}]*)\}/g;
+    for (const match of css.matchAll(accentTokenBlock)) {
+      const declarations = match[1].replace(/\/\*[\s\S]*?\*\//g, "").split(";");
+      assert.ok(declarations.every((declaration) => !declaration.trim() || /^\s*--[a-z0-9-]+\s*:\s*\S[\s\S]*$/.test(declaration)),
+        `${name}: dark accent rules must only define tokens`);
+    }
+    const tokenOnlyCss = css.replace(accentTokenBlock, "");
+    const overrides = [...tokenOnlyCss.matchAll(/html\[data-theme="dark"\][^{,]*[,{]/g)]
       .map((match) => match[0].trim())
       .filter((selector) => !/^html\[data-theme="dark"\]\s*\{$/.test(selector));
     assert.deepEqual(
@@ -94,11 +103,15 @@ test("workspace surface tokens keep small UI text above AA contrast", () => {
     ["light accent on panel", light["--ui-accent"], light["--ui-panel"]],
     ["light accent on selection", light["--ui-accent"], light["--ui-accent-soft"]],
     ["light text on panel", light["--ui-text"], light["--ui-panel"]],
+    ["light toast count", light["--ui-text"], light["--ui-panel-muted"]],
+    ["light problem badge", light["--ui-on-danger"], light["--ui-danger"]],
     ["dark muted on soft panel", dark["--ui-muted"], dark["--ui-panel-soft"]],
     ["dark muted on panel", dark["--ui-muted"], dark["--ui-panel"]],
     ["dark accent on panel", dark["--ui-accent"], dark["--ui-panel"]],
     ["dark accent on selection", dark["--ui-accent"], dark["--ui-accent-soft"]],
     ["dark text on panel", dark["--ui-text"], dark["--ui-panel"]],
+    ["dark toast count", dark["--ui-text"], dark["--ui-panel-muted"]],
+    ["dark problem badge", dark["--ui-on-danger"], dark["--ui-danger"]],
   ];
 
   for (const [label, foreground, background] of pairs) {

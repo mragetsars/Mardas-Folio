@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="brand-title">
   <title id="brand-title">Mardas Folio</title>
-  <path fill="#FF9F00" d="M144 0H368C468 0 512 44 512 144V368C512 468 468 512 368 512H144C44 512 0 468 0 368V144C0 44 44 0 144 0Z" />
-  <g id="mark" transform="translate(256 256) scale(2.72)" fill="#FFFFFF">
+  <rect x="10" y="10" width="492" height="492" rx="128" fill="#262626" stroke="#454545" stroke-width="20" />
+  <g id="mark" transform="translate(256 256) scale(2.72)" fill="#EDEDED">
     <g transform="rotate(0) translate(14 -60)">
       <path d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z" />
     </g>

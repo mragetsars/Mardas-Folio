@@ -55,8 +55,8 @@ def _png_dimensions(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", data[16:24])
 
 
-#: The brand seed is shared by the app tile, mark and repository artwork.
-BRAND_ORANGE = "#FF9F00"
+# The transparent mark and the app tile use the shared monochrome identity.
+BRAND_INK = "#171717"
 
 
 def test_project_logo_assets_are_packaged_and_documented():
@@ -84,14 +84,10 @@ def test_project_logo_assets_are_packaged_and_documented():
         assert asset.exists(), f"missing logo asset: {asset}"
         svg_text = asset.read_text(encoding="utf-8")
         assert svg_text.startswith("<svg")
-        # The original glyph remains recognizable across transparent branding
-        # and the Notes-inspired orange app tile.
-        if asset in (mark, app_icon):
-            assert BRAND_ORANGE in svg_text
-            assert "#088A83" not in svg_text, "the retired teal is back"
-            assert "#C67139" not in svg_text, "the retired terracotta is back"
+        if asset == mark:
+            assert BRAND_INK in svg_text
         if asset == app_icon:
-            assert "#FFFFFF" in svg_text
+            assert all(colour in svg_text for colour in ("#262626", "#454545", "#EDEDED"))
         if asset == gui_mark_mask:
             # A CSS `mask` shorthand leaves mask-mode at match-source, which
             # Chromium resolves to luminance for an SVG referenced as an
@@ -107,6 +103,7 @@ def test_project_logo_assets_are_packaged_and_documented():
     icon_generator = (ROOT / "scripts/generate_desktop_icons.py").read_text(encoding="utf-8")
     assert f'"{app_icon.name}"' in icon_generator
     assert (ROOT / "apps/desktop/frontend/assets/app-icon.svg").read_bytes() == app_icon.read_bytes()
+    assert (ROOT / "apps/desktop/frontend/assets/workspace-mark.svg").read_bytes() == app_icon.read_bytes()
     assert guide_logo_png.read_bytes() == logo.read_bytes()
 
     # Every variant is the same drawing: one F glyph in four-fold rotational

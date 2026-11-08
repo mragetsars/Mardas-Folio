@@ -58,6 +58,7 @@
   --ui-accent-wash-strong: color-mix(in srgb, var(--ui-brand) 15%, transparent);
   --ui-accent-ring: color-mix(in srgb, var(--ui-accent) 40%, transparent);
   --ui-danger: #b91c1c;
+  --ui-on-danger: #ffffff;
   --ui-warning: #a16207;
   --ui-success: #15803d;
   --ui-info: #1d4ed8;
@@ -171,6 +172,7 @@ html[data-theme="dark"] {
   --ui-accent-soft: #112540;
   --ui-scrollbar-thumb: color-mix(in srgb, var(--ui-muted) 25%, transparent);
   --ui-danger: #f87171;
+  --ui-on-danger: #171717;
   --ui-warning: #fbbf24;
   --ui-success: #4ade80;
   --ui-info: #93c5fd;
@@ -769,7 +771,7 @@ html[dir="rtl"] .settings-card .settings-sections {
   padding-inline: 4px;
   border-radius: var(--ui-radius-pill);
   background: var(--ui-danger);
-  color: #ffffff;
+  color: var(--ui-on-danger);
   font: 800 var(--ui-text-3xs)/1 system-ui, sans-serif;
 }
 
@@ -2535,7 +2537,7 @@ body[data-view="export"] main { overflow: hidden; }
   flex: none;
   border-radius: var(--ui-radius-pill);
   padding: 1px 7px;
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--ui-panel-muted);
   font-size: var(--ui-text-2xs);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -3549,6 +3551,52 @@ html[dir="rtl"] .studio-kicker, html[dir="rtl"] .launcher-heading { letter-spaci
 
 .command-item small { font-size: var(--ui-text-xs); }
 
+/* Settings and command search share the same compact surface and controls. */
+.settings-card .settings-sections { gap: 12px; padding-bottom: 8px; }
+.settings-card .settings-section {
+  gap: 0;
+  padding: 0 16px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+}
+.settings-card .settings-section h3 {
+  padding: 16px 0 12px;
+  color: var(--ui-text);
+}
+.settings-card .settings-section > label:not(.toggle) {
+  min-height: 50px;
+  padding: 8px 0;
+  border-top: 1px solid var(--ui-border);
+}
+.settings-card .settings-section > .toggle {
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 0;
+  border-top: 1px solid var(--ui-border);
+}
+.settings-card .settings-section > .toggle > span { order: -1; margin-inline-end: auto; }
+.settings-card .settings-section > .settings-help { margin: 0 0 12px; }
+.settings-card .settings-section select,
+.settings-card #setting-document-zoom { min-height: 36px; }
+.settings-card .settings-search input {
+  min-height: 40px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel-soft);
+}
+.settings-card .settings-section > button { margin-block: 12px 4px; justify-self: start; }
+.command-card { padding: 8px; }
+.command-card .command-search { padding: 4px 4px 8px; }
+.command-card .command-search:focus-within { border-bottom-color: var(--ui-accent); }
+.command-card .command-list { max-height: min(380px, calc(100vh - 240px)); }
+.command-card .command-item { min-height: 40px; padding: 8px 10px; }
+.command-card > footer { flex-wrap: wrap; gap: 8px 18px; }
+@media (max-width: 520px) {
+  .settings-card { width: calc(100vw - 24px); padding: 16px; }
+  .settings-card .modal-actions { margin: 12px -16px -16px; padding: 12px 16px; flex-wrap: wrap; }
+  .settings-card .settings-section > label:not(.toggle) { gap: 6px; }
+}
+
 .popover-menu, .editor-context-menu { border-radius: var(--ui-radius-lg); padding: 8px; box-shadow: var(--ui-shadow-float); }
 
 .popover-menu button { min-height: 38px; border-radius: var(--ui-radius-sm); }
@@ -4123,12 +4171,74 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
   text-align: left;
   tab-size: 4;
 }
-.document-content .code-block { margin-inline: 0; }
+.document-content .code-block {
+  margin: 1em 0;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel-soft);
+}
 .document-content .code-block figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  margin: 0;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--ui-border);
+  color: var(--ui-text-soft);
+  background: var(--ui-panel);
+  font: 500 var(--ui-text-xs)/1.4 var(--app-font);
+  letter-spacing: normal;
+}
+.document-content .document-code-copy {
+  flex: none;
+  min-height: 28px;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
   color: var(--ui-muted);
-  font: 600 .72em/1.6 var(--app-font);
-  letter-spacing: .04em;
-  margin-block: .5em;
+  font: inherit;
+  cursor: pointer;
+}
+.document-content .document-code-copy:hover {
+  background: var(--ui-panel-muted);
+  color: var(--ui-text);
+}
+.document-content .document-code-copy:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 1px;
+}
+.document-content .code-block :is(.codehilite, .highlight) {
+  background: transparent;
+}
+.document-content .code-block pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.document-content .code-block :is(.codehilitetable, .highlighttable) {
+  display: table;
+  width: auto;
+  border: 0;
+  margin: 0;
+}
+.document-content .code-block :is(.codehilitetable, .highlighttable) td {
+  padding: 0;
+  border: 0;
+  vertical-align: top;
+}
+.document-content .code-block td.linenos {
+  color: var(--ui-muted);
+  border-right: 1px solid var(--ui-border);
+  user-select: none;
+}
+.document-content .code-block .codehilite,
+.document-content .code-block .highlight {
+  overflow: auto;
 }
 .document-content .math { direction: ltr; unicode-bidi: isolate; }
 .document-content .math.inline { display: inline; }
@@ -4260,4 +4370,24 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
 }
 @media (max-width: 1100px) {
   body[data-view="workspace"] :is(.reading-document, .preview-document) { padding-inline: 30px; }
+}
+
+/* Accent choices use the same semantic roles in both interface themes. */
+html[data-accent="gray"] { --ui-brand: #525252; }
+html[data-accent="red"] { --ui-brand: #cf2f36; }
+html[data-accent="amber"] { --ui-brand: #8a5300; }
+html[data-accent="green"] { --ui-brand: #18703a; }
+html[data-accent="teal"] { --ui-brand: #0b7268; }
+html[data-accent="purple"] { --ui-brand: #7e3ab8; }
+html[data-accent="pink"] { --ui-brand: #a20d71; }
+html[data-accent]:not([data-accent="blue"]) {
+  --ui-accent: var(--ui-brand);
+  --ui-accent-hover: color-mix(in srgb, var(--ui-brand) 88%, black);
+  --ui-accent-fill-hover: color-mix(in srgb, var(--ui-brand) 88%, black);
+  --ui-accent-soft: color-mix(in srgb, var(--ui-brand) 8%, white);
+}
+html[data-theme="dark"][data-accent]:not([data-accent="blue"]) {
+  --ui-accent: color-mix(in srgb, var(--ui-brand) 60%, white);
+  --ui-accent-hover: color-mix(in srgb, var(--ui-brand) 40%, white);
+  --ui-accent-soft: color-mix(in srgb, var(--ui-brand) 20%, black);
 }

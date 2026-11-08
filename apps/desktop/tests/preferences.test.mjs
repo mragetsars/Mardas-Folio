@@ -48,6 +48,19 @@ test("preferences resolve system appearance without network state", () => {
   assert.equal(dataset.reducedMotion, "reduce");
 });
 
+test("accent settings migrate, validate and survive a restart", () => {
+  assert.equal(normalizePreferences({ theme: "dark" }).accent, "blue");
+  assert.equal(normalizePreferences({ accent: "unknown" }).accent, "blue");
+  for (const accent of ["gray", "blue", "red", "amber", "green", "teal", "purple", "pink"]) {
+    const store = storage();
+    writePreferences({ accent, theme: "dark" }, store);
+    const dataset = {};
+    applyPreferences({ dataset }, readPreferences(store));
+    assert.equal(dataset.accent, accent);
+    assert.equal(dataset.theme, "dark");
+  }
+});
+
 test("existing narrow defaults migrate to a full canvas while explicit new widths persist", () => {
   assert.equal(normalizePreferences().writingWidth, "full");
   assert.equal(normalizePreferences({ writingWidth: "comfortable" }).writingWidth, "full");

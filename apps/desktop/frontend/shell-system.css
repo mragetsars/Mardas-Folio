@@ -320,6 +320,18 @@ body[data-view="workspace"] .editor-pane[data-view-mode="read"] .reading-toolbar
 #export-view .export-dock { border: 0; border-radius: 8px; background: var(--ui-panel); padding: 12px 16px; }
 #export-view .export-layout { gap: 24px; }
 #export-view .panel { border-color: transparent; border-radius: 12px; background: var(--ui-panel); }
+#export-view .export-preview-panel { position: sticky; top: 0; z-index: 1; }
+#export-view .export-dock-feedback {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ui-text-soft);
+  font-size: var(--ui-text-xs);
+  line-height: 1.45;
+}
+#export-view .export-dock-feedback[data-state="error"] { color: var(--ui-danger); }
+@media (max-width: 1100px) {
+  #export-view .export-preview-panel { position: static; }
+}
 /* Thin, quiet gutters; the OS may choose an overlay presentation. */
 * { scrollbar-width: thin; scrollbar-color: var(--ui-scrollbar-thumb) transparent; }
 *::-webkit-scrollbar { width: 6px; height: 6px; }

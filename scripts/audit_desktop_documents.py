@@ -48,6 +48,8 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
 
                 page.locator("#tab-new-document").click()
                 expect(page.locator(".document-tab")).to_have_count(2)
+                page.locator("#workflow-new").click()
+                expect(page.locator(".document-tab")).to_have_count(2)
                 base_b = mirror.input_value()
                 editor.click()
                 page.keyboard.press("Control+End")
@@ -232,6 +234,38 @@ def run_delayed_image_scope_audit(dist: Path) -> dict[str, object]:
         expect(page.locator(".document-tab")).to_have_count(4)
         expect(page.locator(".tab-activate").last).to_have_attribute("aria-selected", "true")
         expect(mirror).to_have_value("")
+        # Closing the only starter must invalidate an in-flight file read.
+        pending_context = browser.new_context(viewport={"width": 1280, "height": 900})
+        pending_page = pending_context.new_page()
+        pending_page.add_init_script(INIT_SCRIPT)
+        pending_page.add_init_script("""
+            localStorage.setItem('mardas.desktop.preferences.v1', JSON.stringify({
+                onboardingComplete: true, viewMode: 'source'
+            }));
+            const baseInvoke = globalThis.__TAURI__.core.invoke;
+            globalThis.__pendingRead = null;
+            globalThis.__TAURI__.core.invoke = async (command, args = {}) => {
+                if (command === 'pick_markdown_files') return ['/fixtures/late.md'];
+                if (command === 'sidecar_request' && args.method === 'document.read') {
+                    return new Promise(resolve => { globalThis.__pendingRead = resolve; });
+                }
+                return baseInvoke(command, args);
+            };
+        """)
+        pending_page.goto(url, wait_until="networkidle")
+        pending_page.locator("#tab-new-document").click()
+        pending_page.locator("#workflow-open").click()
+        pending_page.wait_for_function("typeof globalThis.__pendingRead === 'function'")
+        pending_page.locator(".document-tab.active .tab-close").click()
+        expect(pending_page.locator("#workspace-empty")).to_be_visible()
+        pending_page.evaluate(r"""() => globalThis.__pendingRead({
+            path: '/fixtures/late.md', content: '# Late document\n',
+            revision: 'late', kind: 'markdown', read_only: false
+        })""")
+        expect(pending_page.locator(".document-tab")).to_have_count(1)
+        expect(pending_page.locator("#workspace-empty")).to_be_visible()
+        expect(pending_page.locator(".document-tab.active")).to_have_count(0)
+        pending_context.close()
         context.close()
         browser.close()
     return {"scenario": "delayed-native-image-scope", "status": "passed"}
