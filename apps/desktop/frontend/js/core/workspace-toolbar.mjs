@@ -2,8 +2,7 @@
  * handlers and DOM identity. No duplicate command can drift out of sync. */
 export function createWorkspaceToolbar({ toolbar, menu, trigger, onLayout }) {
   if (!toolbar || !menu || !trigger) return null;
-  const selectors = [".document-view-controls", "#workspace-focus", "#document-mode-help",
-    ".document-edit-controls", "#workspace-toggle-preview", "#workspace-toggle-sidebar", "#format-find"];
+  const selectors = [".document-view-controls", "#document-mode-help", ".document-edit-controls", "#format-find"];
   const controls = selectors.map(selector => {
     const node = toolbar.querySelector(selector);
     if (!node) return null;
@@ -79,7 +78,7 @@ export function createWorkspaceToolbar({ toolbar, menu, trigger, onLayout }) {
   };
   const invoke = event => {
     const button = event.target.closest("button");
-    if (button?.matches("#writing-appearance-button,#insert-menu-button,#document-mode-help,#format-find,#workspace-focus,#workspace-toggle-preview,#workspace-toggle-sidebar")) {
+    if (button?.matches("#writing-appearance-button,#insert-menu-button,#document-mode-help,#format-find")) {
       // Child popovers measure their actual trigger before their parent is
       // dismissed. Returning focus later uses the visible overflow trigger.
       queueMicrotask(() => close());

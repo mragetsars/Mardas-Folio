@@ -8,7 +8,7 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, serve
+from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, open_template, serve
 
 
 def run_audit(dist: Path, output: Path) -> dict[str, object]:
@@ -29,7 +29,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     f"JSON.stringify({{theme: {json.dumps(theme)}, onboardingComplete: true, viewMode: 'source'}}));"
                 )
                 page.goto(url, wait_until="networkidle")
-                page.locator('[data-template-id="report"]').click()
+                open_template(page, "report")
                 editor = page.locator(".cm-content")
                 mirror = page.locator("#markdown-editor")
                 expect(editor).to_be_visible()
@@ -84,7 +84,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                 editor.click()
                 page.keyboard.press("Control+a")
                 page.keyboard.insert_text(yaml)
+                page.locator("#workspace-layout-button").click()
                 page.locator("#workspace-toggle-sidebar").click()
+                page.keyboard.press("Escape")
                 page.locator('[data-sidebar="frontmatter"]').click()
                 title = page.locator('#frontmatter-form [name="title"]')
                 expect(title).to_have_value("A long title")
@@ -141,7 +143,7 @@ def run_delayed_image_scope_audit(dist: Path) -> dict[str, object]:
             };
         """)
         page.goto(url, wait_until="networkidle")
-        page.locator('[data-template-id="report"]').click()
+        open_template(page, "report")
         editor = page.locator(".cm-content")
         mirror = page.locator("#markdown-editor")
         editor.click()
@@ -162,7 +164,7 @@ def run_delayed_image_scope_audit(dist: Path) -> dict[str, object]:
         page.locator(".tab-activate").first.click()
         expect(mirror).to_have_value(edited_a)
 
-        # A newer tab/Home intent takes precedence over the earlier grant.
+        # A newer tab activation takes precedence over the earlier grant.
         page.evaluate("globalThis.__scopeBlocked = true")
         page.locator(".tab-activate").last.click()
         page.wait_for_function("globalThis.__scopeResolvers.length > 0")
@@ -221,13 +223,15 @@ def run_delayed_image_scope_audit(dist: Path) -> dict[str, object]:
         page.evaluate("globalThis.__scopeBlocked = true")
         page.locator(".tab-activate").nth(1).click()
         page.wait_for_function("globalThis.__scopeResolvers.length > 0")
-        page.locator("#home-button").click()
+        page.locator("#tab-new-document").click()
         page.evaluate("""() => {
             globalThis.__scopeBlocked = false;
             globalThis.__scopeResolvers.splice(0).forEach(resolve => resolve(null));
         }""")
-        expect(page.locator("#start-view")).to_have_class("view active")
-        expect(mirror).to_have_value(edited_a)
+        expect(page.locator("#workspace-view")).to_have_class("view workspace-view active")
+        expect(page.locator(".document-tab")).to_have_count(4)
+        expect(page.locator(".tab-activate").last).to_have_attribute("aria-selected", "true")
+        expect(mirror).to_have_value("")
         context.close()
         browser.close()
     return {"scenario": "delayed-native-image-scope", "status": "passed"}

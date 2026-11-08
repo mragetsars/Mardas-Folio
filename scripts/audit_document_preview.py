@@ -356,7 +356,9 @@ def show_side_preview(page: Any) -> None:
     page.locator('button.view-mode[data-view-mode="source"]').click()
     toggle = page.locator("#workspace-toggle-preview")
     if toggle.get_attribute("aria-pressed") != "true":
+        page.locator("#workspace-layout-button").click()
         toggle.click()
+        page.keyboard.press("Escape")
     expect(toggle).to_have_attribute("aria-pressed", "true")
     expect(page.locator("#preview-pane")).to_be_visible()
 
@@ -398,6 +400,7 @@ def run_surface_case(browser: Any, url: str, payloads: dict[str, Any], locale: s
             page.locator(f"#reading-document {selector}").evaluate("node => node.scrollIntoView({block: 'center'})")
             page.screenshot(path=str(output / f"{key}-read-{feature}.png"))
         page.locator("#workspace-export").click()
+        page.locator("#export-format-pdf").click()
         wait_math(page, '.pv-page[data-kind="content"] .md2pdf-article', payloads["rich"]["expected_math"], frame=True)
         result["surfaces"]["export"] = article_check(
             page, '.pv-page[data-kind="content"] .md2pdf-article', payloads["rich"], frame=True)
@@ -439,6 +442,7 @@ def run_stale_case(browser: Any, url: str, payloads: dict[str, Any], output: Pat
         page.goto(url, wait_until="networkidle")
         if export:
             page.locator("#workflow-quick").click()
+            page.locator("#export-format-pdf").click()
             page.locator("#choose-source").click()
             page.wait_for_function("() => !!document.querySelector('#export-preview iframe')?.contentDocument?.querySelector('.math')")
             page.evaluate("() => { __previewAudit.pick = 'fresh'; }")

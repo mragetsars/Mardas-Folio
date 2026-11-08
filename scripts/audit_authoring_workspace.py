@@ -18,7 +18,7 @@ from typing import Any
 from playwright.sync_api import expect, sync_playwright
 
 from audit_book_workflow import engine_server
-from audit_desktop_ui import DEFAULT_DIST, ROOT
+from audit_desktop_ui import DEFAULT_DIST, ROOT, click_workspace_layout_control
 
 
 SAMPLE = (
@@ -122,7 +122,7 @@ def _appearance(page: Any, width: int) -> dict[str, Any]:
 
 def _outline(page: Any) -> dict[str, Any]:
     if not page.locator("#navigator-tab-outline").is_visible():
-        page.locator("#workspace-toggle-files").click()
+        click_workspace_layout_control(page, "#workspace-toggle-files")
     page.locator("#navigator-tab-outline").click()
     expect(page.locator("#navigator-tab-outline")).to_have_attribute("aria-selected", "true")
     expect(page.locator("#outline-filter")).to_be_visible()

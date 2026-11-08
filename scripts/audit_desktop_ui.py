@@ -77,11 +77,37 @@ def open_settings(page: Any) -> None:
     page.locator("#settings-button").click()
 
 
-def go_home(page: Any) -> None:
-    """Leave Focus before using the shared global Home control."""
+def run_workspace_command(page: Any, command_id: str) -> None:
+    page.keyboard.press("Control+Shift+P")
+    page.locator("#command-query").fill(command_id.replace("-", " "))
+    page.locator(f'[data-command-id="{command_id}"]').click()
+
+
+def open_workspace_export(page: Any, selector: str | None = "#workspace-export") -> None:
+    """Open the output format chooser through its normal Workspace entry."""
     if page.locator("#exit-focus-mode").is_visible():
         page.locator("#exit-focus-mode").click()
-    page.locator("#home-button").click()
+    if selector is None:
+        run_workspace_command(page, "export-file")
+    else:
+        page.locator(selector).click()
+    page.locator("#export-format-pdf").click()
+
+
+def open_template(page: Any, template_id: str) -> None:
+    template = page.locator(f'[data-template-id="{template_id}"]')
+    if not template.is_visible():
+        page.locator(".workspace-empty-templates > summary").click()
+    template.click()
+
+
+def click_workspace_layout_control(page: Any, selector: str) -> None:
+    target = page.locator(selector)
+    if not target.is_visible():
+        page.locator("#workspace-layout-button").click()
+    target.click()
+    if page.locator("#workspace-layout-menu").is_visible():
+        page.keyboard.press("Escape")
 
 
 def run_audit(
@@ -113,6 +139,11 @@ def run_audit(
         )
         page.goto(url, wait_until="networkidle")
 
+        checks["workspace_starts_without_modal"] = (
+            _visible(page, "#workspace-empty") and not _visible(page, "#onboarding-modal")
+        )
+        open_settings(page)
+        page.locator("#restart-onboarding").click()
         checks["onboarding_visible"] = _visible(page, "#onboarding-modal")
         checks["background_inert"] = page.locator(".shell").evaluate("(node) => node.inert")
         checks["onboarding_focus"] = page.evaluate(
@@ -122,7 +153,7 @@ def run_audit(
         checks["onboarding_closed"] = not _visible(page, "#onboarding-modal")
         checks["background_restored"] = not page.locator(".shell").evaluate("(node) => node.inert")
 
-        page.locator("[data-template-id='report']").click()
+        open_template(page, "report")
         checks["workspace_active"] = page.locator("#workspace-view").evaluate(
             "(node) => node.classList.contains('active')"
         )
@@ -230,10 +261,8 @@ def run_audit(
 
         # Editing activity and the side pane are independent controls.
         page.locator('[data-view-mode="source"][role="radio"]').click()
-        if not page.locator("#workspace-toggle-preview").is_visible():
-            page.locator("#workspace-view-menu-button").click()
         if page.locator("#workspace-toggle-preview").get_attribute("aria-pressed") != "true":
-            page.locator("#workspace-toggle-preview").click()
+            click_workspace_layout_control(page, "#workspace-toggle-preview")
         page.locator("#preview-preview-heading").wait_for(state="visible")
         checks["split_view_shows_preview"] = page.locator("#preview-pane").is_visible()
         checks["preview_contract"] = page.locator("#preview-preview-heading").inner_text() == "Preview"
@@ -305,7 +334,7 @@ def run_audit(
         page.locator("#setting-locale").select_option("fa")
         page.locator("#settings-form button[type='submit']").click()
         checks["rtl_locale"] = page.locator("html").get_attribute("dir") == "rtl"
-        page.locator("#workspace-toggle-sidebar").click()
+        click_workspace_layout_control(page, "#workspace-toggle-sidebar")
         checks["workbench_mirrors"] = page.evaluate(
             """() => {
                 const files = document.querySelector('#file-navigator');
@@ -323,8 +352,7 @@ def run_audit(
         # The export preview draws into an iframe from code, so the sweep that
         # retranslates elements carrying `data-i18n` cannot reach it. It kept
         # whatever language it was first drawn in until it was made to redraw.
-        go_home(page)
-        page.locator("#workflow-quick").click()
+        open_workspace_export(page, None)
         page.wait_for_timeout(900)
         # A value the preset supplied is not a value the user overrode, and
         # "reset" on this screen has to mean "back to the preset" — deleting

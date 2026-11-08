@@ -11,7 +11,7 @@ import traceback
 from playwright.sync_api import expect, sync_playwright
 
 from audit_desktop_editor_ux import BRIDGE_SCRIPT
-from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, serve
+from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, click_workspace_layout_control, open_workspace_export, serve
 
 
 def click_control(page, selector):
@@ -45,8 +45,21 @@ def text_contrast(color, background):
     return (max(values) + .05) / (min(values) + .05)
 
 
-def check_home_design_language(page):
+def check_empty_workspace(page):
     action = page.locator("#workflow-new")
+    expect(page.locator("#workspace-empty")).to_be_visible()
+    expect(page.locator(".document-toolbar")).to_be_hidden()
+    expect(page.locator("#preview-pane")).to_be_hidden()
+    expect(page.locator("#workspace-layout-button")).to_be_visible()
+    assert page.locator("#workspace-layout-button").evaluate("""button => {
+      const box = button.getBoundingClientRect();
+      return [...button.children].filter(child => child.getClientRects().length).every(child => {
+        const rect = child.getBoundingClientRect();
+        return rect.top >= box.top && rect.bottom <= box.bottom;
+      });
+    }"""), "Layout label or icon exceeds its toolbar button"
+    expect(page.locator("#workspace-export")).to_be_enabled()
+    assert page.locator("#start-view").count() == 0
     page.mouse.move(1, 1)
     page.wait_for_timeout(180)
     states = {}
@@ -55,17 +68,11 @@ def check_home_design_language(page):
             action.hover()
             page.wait_for_timeout(180)
         style = action.evaluate("""e=>{
-          const token=document.createElement('i');token.style.color='var(--ui-muted)';
-          token.style.display='none';e.append(token);
-          const expectedMuted=getComputedStyle(token).color;token.remove();
           return {background:getComputedStyle(e).backgroundColor,
-            helper:getComputedStyle(e.querySelector('small')).color,
-            title:getComputedStyle(e.querySelector('strong')).color,expectedMuted};
+            title:getComputedStyle(e.querySelector('span')).color};
         }""")
-        assert style["helper"] == style["expectedMuted"], (name, style)
-        style["helperContrast"] = text_contrast(style["helper"], style["background"])
         style["titleContrast"] = text_contrast(style["title"], style["background"])
-        assert style["helperContrast"] >= 4.5 and style["titleContrast"] >= 4.5, (name, style)
+        assert style["titleContrast"] >= 4.5, (name, style)
         states[name] = style
     return states
 
@@ -158,8 +165,7 @@ def check_design_language(page, url):
     }""")
     assert len(set(surfaces.values())) == 1, surfaces
     states = {}
-    for selector in ("#writing-appearance-button", "#format-find", "#document-mode-help",
-                     "#insert-menu-button", "#workspace-focus", "#workspace-toggle-sidebar"):
+    for selector in ("#writing-appearance-button", "#format-find", "#document-mode-help", "#insert-menu-button"):
         target = page.locator(selector)
         parked = not target.is_visible()
         if parked:
@@ -170,23 +176,24 @@ def check_design_language(page, url):
         states[selector] = style
         if parked:
             page.keyboard.press("Escape")
-    # A selected toggle keeps its semantic amber fill while hovered.
-    click_control(page, "#workspace-toggle-preview")
+    # A selected toggle keeps its semantic fill while hovered.
+    click_workspace_layout_control(page, "#workspace-toggle-preview")
     target = page.locator("#workspace-toggle-preview")
-    if not target.is_visible():
-        page.locator("#workspace-view-menu-button").click()
+    page.locator("#workspace-layout-button").click()
     target.hover()
     page.wait_for_timeout(180)
     active = target.evaluate("e=>({background:getComputedStyle(e).backgroundColor,pressed:e.getAttribute('aria-pressed')})")
     assert active["pressed"] == "true" and active["background"] != states["#format-find"]["background"], active
-    if page.locator("#workspace-view-menu").is_visible():
-        page.keyboard.press("Escape")
-    click_control(page, "#workspace-toggle-preview")
+    page.keyboard.press("Escape")
+    click_workspace_layout_control(page, "#workspace-toggle-preview")
     # Keyboard navigation must remain visible on the same neutral controls.
-    page.locator("#format-find").focus()
-    page.keyboard.press("Tab")
+    page.locator("#workspace-layout-button").focus()
+    page.keyboard.press("Enter")
+    expect(page.locator("#workspace-toggle-files")).to_be_focused()
     focus = page.locator(":focus").evaluate("e=>({visible:e.matches(':focus-visible'),width:getComputedStyle(e).outlineWidth,style:getComputedStyle(e).outlineStyle})")
     assert focus == {"visible": True, "width": "2px", "style": "solid"}, focus
+    page.keyboard.press("Escape")
+    expect(page.locator("#workspace-layout-button")).to_be_focused()
     # Popovers are moved to body at runtime; check the real opened DOM rather
     # than assuming that floating commands inherit the workspace shell scope.
     click_control(page, "#writing-appearance-button")
@@ -229,8 +236,7 @@ def check_design_language(page, url):
         floating["workspace_menu"] = floating_style(menu)
         floating["workspace_menu_geometry"] = check_workspace_menu_geometry(page)
         floating["workspace_menu_hover"] = {}
-        for selector in ("#writing-appearance-button", "#format-find", "#document-mode-help",
-                         "#insert-menu-button", "#workspace-focus", "#workspace-toggle-sidebar"):
+        for selector in ("#writing-appearance-button", "#format-find", "#document-mode-help", "#insert-menu-button"):
             target = menu.locator(selector)
             if target.count() and target.is_visible():
                 floating["workspace_menu_hover"][selector] = hover_command(target)
@@ -277,12 +283,9 @@ def run(dist: Path, output: Path) -> dict:
             try:
                 page.goto(url, wait_until="networkidle")
                 assert page.locator(".topbar").bounding_box()["height"] == 48
-                cta = page.locator("#workflow-new").evaluate("e=>getComputedStyle(e).backgroundColor")
-                assert cta != "rgb(245, 158, 11)", cta
-                case["home_design_language"] = check_home_design_language(page)
-                page.screenshot(path=str(output / f"{locale}-{width}-home.png"))
-                case["checks"].append("Home retains the same 48px brand/engine header and a neutral primary action surface")
-                case["checks"].append("New document helper uses the shared muted token; helper and title retain at least 4.5:1 contrast in base and real hover states")
+                case["empty_workspace"] = check_empty_workspace(page)
+                page.screenshot(path=str(output / f"{locale}-{width}-empty.png"))
+                case["checks"].append("startup uses the same Workspace shell, keeps Layout and Export available and gives starter actions readable contrast")
                 page.evaluate("""() => {
                   for (const name of ['long-writing-reference.md','TEST_OVERVIEW.fa.md']) {
                     const path='/fixtures/project/docs/'+name;
@@ -325,7 +328,7 @@ def run(dist: Path, output: Path) -> dict:
                         assert geometry[part]["y"] == 48 and geometry[part]["height"] == 40, geometry
                     assert geometry["tabs"]["width"] > geometry["bar"]["width"], geometry
                 case["checks"].append("all visible pane controls share the 48→88px keylines; toolbar never wraps; tabs span the global workspace")
-                if width in {1118, 360}:
+                if width in {1118, 360} and page.locator("#workspace-view-menu-button").is_visible():
                     case["workspace_menu_reopen_geometry"] = []
                     for _ in range(3):
                         page.locator("#workspace-view-menu-button").click()
@@ -352,7 +355,7 @@ def run(dist: Path, output: Path) -> dict:
                 if desktop:
                     tabs_before = page.locator(".tab-bar").bounding_box()
                     for selector in ("#workspace-toggle-preview", "#workspace-toggle-sidebar", "#workspace-toggle-files"):
-                        click_control(page, selector)
+                        click_workspace_layout_control(page, selector)
                     tabs_after = page.locator(".tab-bar").bounding_box()
                     assert tabs_before == tabs_after, (tabs_before, tabs_after)
                     assert page.locator(".editor-surface").bounding_box()["y"] == 88
@@ -360,7 +363,7 @@ def run(dist: Path, output: Path) -> dict:
                     case["checks"].append("Files/Inspector share one surface; neutral commands share hover, radius and density; selected hover and keyboard focus remain distinct")
                     case["checks"].append("body-portaled popovers, context menus and dialogs share their floating role; overflow commands retain contrast and read-only Undo stays dim without hover feedback")
                     for selector in ("#workspace-toggle-files", "#workspace-toggle-sidebar", "#workspace-toggle-preview"):
-                        click_control(page, selector)
+                        click_workspace_layout_control(page, selector)
                     case["checks"].append("one to four pane toggles leave tabs and top keylines fixed")
                     for selector in ("#file-resizer", "#preview-resizer", "#sidebar-resizer"):
                         page.locator(selector).focus()
@@ -375,6 +378,22 @@ def run(dist: Path, output: Path) -> dict:
                     case["stress_geometry"] = stress
                     page.screenshot(path=str(output / f"{locale}-{width}-maximum-panes.png"))
                     case["checks"].append(f"maximum requested sidebar widths retain at least a {minimum_editor}px editor, fixed global tabs and one nonwrapping control row")
+                    click_workspace_layout_control(page, "#workspace-reset-panel-sizes")
+                    stored = page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2'))")
+                    assert (stored["filesWidth"], stored["sidebarWidth"], stored["previewWidth"]) == (248, 296, 500), stored
+                    assert all(stored[name] for name in ("filesOpen", "sidebarOpen", "previewOpen")), stored
+                    if width == 1118:
+                        page.set_viewport_size({"width": 900, "height": height})
+                        click_workspace_layout_control(page, "#workspace-toggle-files")
+                        expect(page.locator("#file-navigator")).to_be_visible()
+                        click_workspace_layout_control(page, "#workspace-toggle-sidebar")
+                        expect(page.locator("#file-navigator")).to_be_hidden()
+                        expect(page.locator("#author-sidebar")).to_be_visible()
+                        assert page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2'))") == stored
+                        page.set_viewport_size({"width": width, "height": height})
+                        expect(page.locator("#file-navigator")).to_be_visible()
+                        expect(page.locator("#author-sidebar")).to_be_visible()
+                    case["checks"].append("size reset retains panel visibility and compact drawers preserve desktop preferences")
                 else:
                     overflow = click_control(page, "#writing-appearance-button")
                     expect(page.locator("#writing-appearance")).to_be_visible()
@@ -385,8 +404,7 @@ def run(dist: Path, output: Path) -> dict:
                     case["checks"].append("overflow exposes the original appearance control and Escape returns focus")
                 expect(page.locator("#markdown-editor")).to_have_value(expected)
                 page.screenshot(path=str(output / f"{locale}-{width}-workspace.png"))
-                page.locator("#home-button").click()
-                page.locator("#workflow-quick").click()
+                open_workspace_export(page)
                 edges = page.evaluate("""() => {
                   const r=s=>{const a=document.querySelector(s).getBoundingClientRect();return {left:a.left,right:a.right,width:a.width}};
                   return {content:r('.export-content'),layout:r('.export-layout'),dock:r('.export-dock')};
@@ -397,6 +415,17 @@ def run(dist: Path, output: Path) -> dict:
                 assert not page.evaluate("document.documentElement.scrollWidth>innerWidth+1")
                 page.screenshot(path=str(output / f"{locale}-{width}-export.png"))
                 case["checks"].append("export destination dock and two-column layout have identical outer edges")
+                page.locator("#export-back").click()
+                expect(page.locator("#document-tabs .document-tab")).to_have_count(4)
+                expect(page.locator("#markdown-editor")).to_have_value(expected)
+                for _ in range(4):
+                    page.locator(".document-tab.active .tab-close").click()
+                expect(page.locator("#workspace-empty")).to_be_visible()
+                expect(page.locator("#workflow-new")).to_be_focused()
+                expect(page.locator("#recent-list .recent-item")).to_have_count(4)
+                page.locator("#recent-list .recent-item").first.click()
+                expect(page.locator(".document-tab")).to_have_count(1)
+                case["checks"].append("export back retains the buffer; closing the last tab restores the empty editor and recents reopen in the same shell")
                 assert not errors, errors
                 case["status"] = "passed"
             except Exception as error:

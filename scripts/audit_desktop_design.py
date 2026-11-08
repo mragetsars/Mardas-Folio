@@ -36,7 +36,13 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from audit_desktop_ui import go_home, open_settings
+from audit_desktop_ui import (
+    click_workspace_layout_control,
+    open_settings,
+    open_template,
+    open_workspace_export,
+    run_workspace_command,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DIST = ROOT / "apps" / "desktop" / "dist"
@@ -321,7 +327,7 @@ def _dismiss_onboarding(page: Any) -> None:
 
 def _open_workspace(page: Any) -> None:
     _dismiss_onboarding(page)
-    page.locator("[data-template-id='report']").click()
+    open_template(page, "report")
     page.locator(".codemirror-mount .cm-editor").wait_for(state="visible")
     page.wait_for_timeout(400)
     # The hidden textarea mirrors the editor; changing it does not change the
@@ -343,7 +349,7 @@ def _apply(page: Any, theme: str, locale: str) -> None:
 
 
 LAUNCHER_JS = """() => {
-  const view = document.querySelector('#start-view');
+  const view = document.querySelector('#workspace-empty');
   if (!view || view.offsetParent === null) return null;
   const visible = [...view.querySelectorAll('*')].filter((el) => el.offsetParent !== null);
   const top = Math.min(...visible.map((el) => el.getBoundingClientRect().top));
@@ -366,6 +372,14 @@ LAUNCHER_JS = """() => {
     cards,
   };
 }"""
+
+
+def set_design_view(page: Any, view: str) -> None:
+    activity = "source" if view == "split" else view
+    page.locator(f'button.view-mode[data-view-mode="{activity}"]').click()
+    wanted = view == "split"
+    if activity != "read" and (page.locator("#workspace-toggle-preview").get_attribute("aria-pressed") == "true") != wanted:
+        click_workspace_layout_control(page, "#workspace-toggle-preview")
 
 
 def measure(dist: Path, *, view_mode: str = "split") -> dict[str, Any]:
@@ -418,7 +432,7 @@ def contrast(dist: Path) -> dict[str, Any]:
             _apply(page, theme, "en")
             surfaces["start"] = page.evaluate(CONTRAST_JS)
             _open_workspace(page)
-            page.locator('[data-view-mode="split"]').click()
+            set_design_view(page, "split")
             page.wait_for_timeout(800)
             surfaces["workspace"] = page.evaluate(CONTRAST_JS)
             page.keyboard.press("Control+Shift+P")
@@ -436,8 +450,7 @@ def contrast(dist: Path) -> dict[str, Any]:
             page.locator("#settings-form button[type='submit']").click()
             page.wait_for_timeout(600)
             surfaces["focus mode"] = page.evaluate(CONTRAST_JS)
-            go_home(page)
-            page.locator("#workflow-quick").click()
+            open_workspace_export(page, None)
             page.wait_for_timeout(300)
             surfaces["export"] = page.evaluate(CONTRAST_JS)
             page.locator("label:has(#show-expert)").click()
@@ -448,7 +461,7 @@ def contrast(dist: Path) -> dict[str, Any]:
                 page.locator(f'.option-rail-item[data-group="{group}"]').click()
                 surfaces[f"export {group}"] = page.evaluate(CONTRAST_JS)
             page.locator("#export-back").click()
-            page.locator("#workflow-book").click()
+            run_workspace_command(page, "book")
             page.wait_for_timeout(300)
             surfaces["new book"] = page.evaluate(CONTRAST_JS)
             browser.close()
@@ -488,7 +501,7 @@ RESPONSIVE_JS = """() => {
     "#workspace-export": "create PDF",
     "#document-actions-menu > summary": "document actions",
     "#workspace-quick-open": "quick file navigation",
-    "#workspace-toggle-sidebar": "sidebar toggle",
+    "#workspace-layout-button": "layout controls",
     "#format-find": "find in document",
     "#insert-menu-button": "insert Markdown",
   };
@@ -618,7 +631,7 @@ def responsive(dist: Path, *, locale: str = "en", theme: str = "light") -> dict[
             _dismiss_onboarding(page)
             if theme != "light" or locale != "en":
                 _apply(page, theme, locale)
-            page.locator("[data-template-id='report']").click()
+            open_template(page, "report")
             page.locator(".codemirror-mount .cm-editor").wait_for(state="visible")
             page.wait_for_timeout(500)
             page.locator("#workspace-toggle-formatting").click()
@@ -626,7 +639,7 @@ def responsive(dist: Path, *, locale: str = "en", theme: str = "light") -> dict[
             # gives half its width to the preview, and a strip that fits in
             # write view no longer does.
             for view in ("write", "split"):
-                page.locator(f'button.view-mode[data-view-mode="{view}"]').click()
+                set_design_view(page, view)
                 page.wait_for_timeout(500)
                 key = f"{width}x{height}" if view == "write" else f"{width}x{height} split"
                 findings[key] = page.evaluate(RESPONSIVE_JS)
@@ -636,12 +649,11 @@ def responsive(dist: Path, *, locale: str = "en", theme: str = "light") -> dict[
                     "#workspace-validate, #workspace-commands, #workspace-settings"
                 ).evaluate_all(FOCUS_REACHABILITY_JS))
                 page.keyboard.press("Escape")
-            go_home(page)
-            page.locator("#workflow-quick").click()
+            open_workspace_export(page, None)
             findings[f"{width}x{height} export"] = _export_reachability(page)
             findings[f"{width}x{height} export"].extend(page.evaluate(RESPONSIVE_JS))
             page.locator("#export-back").click()
-            page.locator("#workflow-book").click()
+            run_workspace_command(page, "book")
             findings[f"{width}x{height} new book"] = page.locator(
                 "#book-project-form input, #book-project-form select, #book-project-form button"
             ).evaluate_all(FOCUS_REACHABILITY_JS)
@@ -694,7 +706,7 @@ def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
             page.keyboard.press("Escape")
             page.wait_for_timeout(200)
 
-            page.locator("[data-template-id='report']").click()
+            open_template(page, "report")
             page.locator(".codemirror-mount .cm-editor").wait_for(state="visible")
             page.wait_for_timeout(400)
             # Through the editor, not around it. Writing the textarea's value
@@ -714,7 +726,7 @@ def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
             page.evaluate("() => { document.querySelector('.cm-scroller').scrollTop = 0; }")
             page.wait_for_timeout(400)
             snap("04-write")
-            page.locator('[data-view-mode="split"]').click()
+            set_design_view(page, "split")
             page.wait_for_timeout(1100)
             snap("05-split")
             page.locator('[data-view-mode="read"][role="radio"]').click()
@@ -729,12 +741,11 @@ def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
             snap("06-command-palette")
             page.keyboard.press("Escape")
             page.wait_for_timeout(200)
-            go_home(page)
-            page.locator("#workflow-quick").click()
+            open_workspace_export(page, None)
             page.wait_for_timeout(300)
             snap("07-export")
             page.locator("#export-back").click()
-            page.locator("#workflow-book").click()
+            run_workspace_command(page, "book")
             page.wait_for_timeout(300)
             snap("08-new-book")
             if errors:

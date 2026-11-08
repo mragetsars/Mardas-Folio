@@ -10,6 +10,11 @@ not included in the installed application.
 Exact direct and transitive versions are recorded in `apps/desktop/package-lock.json`.
 The generated runtime bundle is `frontend/js/vendor/codemirror-editor.bundle.mjs`.
 
+The desktop frontend bundles the unmodified Geist Sans and Geist Mono variable
+WOFF2 files from Vercel's [Geist 1.9.2 package](https://www.npmjs.com/package/geist/v/1.9.2)
+for offline display. They are distributed under the SIL Open Font License 1.1
+with the original copyright notice in `assets/fonts/Geist/OFL.txt`.
+
 The desktop build also copies the publisher's vendored MathJax 3 browser component
 from `src/mardas_folio/assets/mathjax/tex-svg-full.js` for offline preview rendering.
 MathJax is distributed under the Apache License 2.0; its project and notice are at

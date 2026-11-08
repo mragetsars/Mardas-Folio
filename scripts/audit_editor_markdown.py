@@ -30,6 +30,8 @@ import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+from audit_desktop_ui import open_template
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -362,7 +364,7 @@ def run(
             page.locator("#settings-form button[type='submit']").click()
             page.wait_for_timeout(300)
 
-        page.locator("[data-template-id='blank']").click()
+        open_template(page, "blank")
         page.locator(".codemirror-mount .cm-editor").wait_for(state="visible")
         page.wait_for_timeout(300)
         # Typed in, not assigned. Setting the mirror textarea's value looks

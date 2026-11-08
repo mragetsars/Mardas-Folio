@@ -80,6 +80,7 @@ import {
 } from "./core/preferences.mjs";
 import { templateContent, templateList } from "./core/templates.mjs";
 import {
+  DEFAULT_WORKSPACE_LAYOUT,
   clampWorkspaceWidth,
   fitWorkspaceWidths,
   readWorkspaceLayout,
@@ -126,6 +127,7 @@ import {
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
+const compactSidePanes = matchMedia("(max-width: 1100px)");
 const state = {
   locale: readLocalePreference(undefined, navigator.language),
   presetId: "general",
@@ -134,7 +136,6 @@ const state = {
   activeRequestId: null,
   cancelledExportRequestId: null,
   outputResult: null,
-  exportReturnView: "start",
   bookOutputPath: null,
   recents: readRecents(),
   documents: [],
@@ -167,6 +168,7 @@ const state = {
   previewSyncing: false,
   preferences: readPreferences(),
   workspaceLayout: readWorkspaceLayout(),
+  compactDrawer: null,
   onboardingStep: 0,
   onboardingIntent: null,
   commandIndex: 0,
@@ -221,7 +223,8 @@ function contentViewVisible() {
 }
 
 function focusDocument() {
-  if (effectiveViewMode() === "read") $("#reading-document")?.focus({ preventScroll: true });
+  if (!activeDocument()) $("#workflow-new")?.focus({ preventScroll: true });
+  else if (effectiveViewMode() === "read") $("#reading-document")?.focus({ preventScroll: true });
   else currentEditor().focus();
 }
 
@@ -297,6 +300,7 @@ function setLocale(value) {
 }
 
 function showView(name) {
+  toggleWorkspaceLayoutMenu(false);
   // Leaving the workspace is a newer intent than any pending file activation.
   if (name !== "workspace") state.documentActivationSequence += 1;
   $$(".view").forEach((element) => element.classList.remove("active"));
@@ -401,10 +405,12 @@ function applyViewMode() {
   toggleFormatOverflowMenu(false);
   toggleWritingAppearance(false);
   const mode = effectiveViewMode();
+  const model = activeDocument();
+  const markdown = Boolean(model && isMarkdownModel(model));
   editorAdapter?.setMode?.(editorModeForView(mode));
-  editorAdapter?.setReadOnly?.(Boolean(activeDocument()?.readOnly) || mode === "read" || state.updateInstalling || Boolean(state.bookPreparing));
+  editorAdapter?.setReadOnly?.(!model || model.readOnly || mode === "read" || state.updateInstalling || Boolean(state.bookPreparing));
 
-  const showPreview = isMarkdownModel(activeDocument()) && previewVisibleForView(mode, state.preferences.sidePreview);
+  const showPreview = markdown && previewVisibleForView(mode, state.preferences.sidePreview);
   if (state.workspaceLayout.previewOpen !== showPreview) {
     state.workspaceLayout = { ...state.workspaceLayout, previewOpen: showPreview };
     applyWorkspaceLayout({ persist: true });
@@ -415,22 +421,21 @@ function applyViewMode() {
     button.setAttribute("aria-checked", String(selected));
     button.tabIndex = selected ? 0 : -1;
     button.classList.toggle("selected", selected);
-    button.disabled = !activeDocument() || (mode === "source" && !isMarkdownModel(activeDocument()) && button.dataset.viewMode !== "source");
+    button.disabled = !model || (!markdown && button.dataset.viewMode !== "source");
   }
   const sidePreview = $("#workspace-toggle-preview");
   if (sidePreview) {
-    sidePreview.hidden = mode === "read";
-    sidePreview.disabled = !isMarkdownModel(activeDocument());
+    sidePreview.disabled = mode === "read" || !markdown;
     sidePreview.setAttribute("aria-pressed", String(showPreview));
-    sidePreview.setAttribute("aria-expanded", String(showPreview));
   }
+  $("#workspace-focus").disabled = !model;
   const surface = $(".editor-pane");
   if (surface) surface.dataset.viewMode = mode;
   if ($("#reading-surface")) $("#reading-surface").hidden = mode !== "read";
-  if ($(".editor-surface")) $(".editor-surface").inert = mode === "read";
+  if ($(".editor-surface")) $(".editor-surface").inert = !model || mode === "read";
   $("#workspace-view")?.setAttribute("data-view-mode", mode);
-  updateAuthoringMode(activeDocument());
-  if (isMarkdownModel(activeDocument())) loadFrontMatterForm(activeDocument());
+  updateAuthoringMode(model);
+  if (markdown) loadFrontMatterForm(model);
   renderContentStatus();
 }
 
@@ -461,10 +466,10 @@ function setViewMode(mode) {
   else editorAdapter?.focus?.();
 }
 
-function toggleSidePreview() {
+function toggleSidePreview({ keepFocus = false } = {}) {
   updatePreference({ sidePreview: !state.preferences.sidePreview });
   if (contentViewVisible()) schedulePreview(120, { entering: true });
-  focusDocument();
+  if (!keepFocus) focusDocument();
 }
 
 function applyInterfacePreferences({ persist = false } = {}) {
@@ -533,12 +538,17 @@ function applyWorkspaceLayout({ persist = false } = {}) {
   const workspace = $("#workspace-view");
   if (!grid || !workspace) return;
   if (persist) state.workspaceLayout = writeWorkspaceLayout(state.workspaceLayout);
-  const fitted = fitWorkspaceWidths(state.workspaceLayout, grid.clientWidth || innerWidth);
+  const layout = {
+    ...state.workspaceLayout,
+    filesOpen: workspacePaneOpen("files"),
+    sidebarOpen: workspacePaneOpen("sidebar"),
+  };
+  const fitted = fitWorkspaceWidths(layout, grid.clientWidth || innerWidth);
   for (const element of [workspace, grid]) {
-    element.dataset.filesOpen = String(state.workspaceLayout.filesOpen);
-    element.dataset.formattingOpen = String(state.workspaceLayout.formattingOpen);
-    element.dataset.sidebarOpen = String(state.workspaceLayout.sidebarOpen);
-    element.dataset.previewOpen = String(state.workspaceLayout.previewOpen);
+    element.dataset.filesOpen = String(layout.filesOpen);
+    element.dataset.formattingOpen = String(layout.formattingOpen);
+    element.dataset.sidebarOpen = String(layout.sidebarOpen);
+    element.dataset.previewOpen = String(layout.previewOpen);
     element.style.setProperty("--sidebar-width", `${fitted.sidebarWidth}px`);
     element.style.setProperty("--files-width", `${fitted.filesWidth}px`);
     element.style.setProperty("--preview-width", `${fitted.previewWidth}px`);
@@ -546,23 +556,21 @@ function applyWorkspaceLayout({ persist = false } = {}) {
   const sidebarButton = $("#workspace-toggle-sidebar");
   const sidebarResizer = $("#sidebar-resizer");
   const previewResizer = $("#preview-resizer");
-  $("#workspace-toggle-files")?.setAttribute("aria-pressed", String(state.workspaceLayout.filesOpen));
-  $("#workspace-toggle-formatting")?.setAttribute("aria-pressed", String(state.workspaceLayout.formattingOpen));
-  $("#workspace-toggle-formatting")?.setAttribute("aria-expanded", String(state.workspaceLayout.formattingOpen));
+  $("#workspace-toggle-files")?.setAttribute("aria-pressed", String(layout.filesOpen));
+  $("#workspace-toggle-formatting")?.setAttribute("aria-pressed", String(layout.formattingOpen));
+  $("#workspace-toggle-formatting")?.setAttribute("aria-expanded", String(layout.formattingOpen));
   $("#file-resizer")?.setAttribute("aria-valuenow", String(fitted.filesWidth));
-  if ($("#file-navigator")) $("#file-navigator").inert = !state.workspaceLayout.filesOpen;
-  if ($("#author-sidebar")) $("#author-sidebar").inert = !state.workspaceLayout.sidebarOpen;
-  if (sidebarButton) {
-    sidebarButton.setAttribute("aria-pressed", String(state.workspaceLayout.sidebarOpen));
-    sidebarButton.setAttribute("aria-expanded", String(state.workspaceLayout.sidebarOpen));
-  }
+  $("#file-navigator").inert = !layout.filesOpen;
+  $("#author-sidebar").inert = !layout.sidebarOpen;
+  sidebarButton?.setAttribute("aria-pressed", String(layout.sidebarOpen));
   if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(fitted.sidebarWidth));
   if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(fitted.previewWidth));
   applyNavigatorContext();
 }
 
 function applyNavigatorContext() {
-  const markdown = isMarkdownModel(activeDocument());
+  const model = activeDocument();
+  const markdown = Boolean(model && isMarkdownModel(model));
   const tab = markdown ? state.workspaceLayout.navigatorTab : "files";
   for (const button of $$("[data-navigator-tab]")) {
     const active = button.dataset.navigatorTab === tab;
@@ -578,23 +586,46 @@ function applyNavigatorContext() {
 }
 
 function activateNavigator(name) {
-  if (name === "outline" && !isMarkdownModel(activeDocument())) return;
+  if (name === "outline" && (!activeDocument() || !isMarkdownModel(activeDocument()))) return;
   state.workspaceLayout.navigatorTab = name;
-  state.workspaceLayout.filesOpen = true;
-  if (matchMedia("(max-width: 1100px)").matches) state.workspaceLayout.sidebarOpen = false;
+  setWorkspacePaneOpen("files", true);
   applyWorkspaceLayout({ persist: true });
 }
 
-function toggleWorkspacePane(name) {
-  const key = `${name}Open`;
-  state.workspaceLayout = { ...state.workspaceLayout, [key]: !state.workspaceLayout[key] };
-  if (matchMedia("(max-width: 1100px)").matches && state.workspaceLayout[key]) {
-    if (name === "files") state.workspaceLayout.sidebarOpen = false;
-    if (name === "sidebar") state.workspaceLayout.filesOpen = false;
+function isCompactDrawer(name) {
+  return compactSidePanes.matches && (name === "files" || name === "sidebar");
+}
+
+function workspacePaneOpen(name) {
+  return isCompactDrawer(name) ? state.compactDrawer === name : state.workspaceLayout[`${name}Open`];
+}
+
+function setWorkspacePaneOpen(name, open) {
+  if (isCompactDrawer(name)) {
+    if (open || state.compactDrawer === name) state.compactDrawer = open ? name : null;
+    return;
+  }
+  state.workspaceLayout[`${name}Open`] = open;
+}
+
+function toggleWorkspacePane(name, { keepFocus = false } = {}) {
+  const open = !workspacePaneOpen(name);
+  setWorkspacePaneOpen(name, open);
+  applyWorkspaceLayout({ persist: !isCompactDrawer(name) });
+  if (!open && !keepFocus) focusDocument();
+}
+
+function resetWorkspacePaneSizes() {
+  for (const pane of ["files", "sidebar", "preview"]) {
+    state.workspaceLayout[`${pane}Width`] = DEFAULT_WORKSPACE_LAYOUT[`${pane}Width`];
   }
   applyWorkspaceLayout({ persist: true });
-  if (!state.workspaceLayout[key]) focusDocument();
-  if (name === "preview" && state.workspaceLayout.previewOpen) schedulePreview(80);
+}
+
+function closeCompactDrawer(name = state.compactDrawer) {
+  if (!name || state.compactDrawer !== name) return;
+  state.compactDrawer = null;
+  applyWorkspaceLayout();
 }
 
 function setWorkspacePaneWidth(name, value, { persist = false } = {}) {
@@ -622,7 +653,7 @@ function paneResizeSign(name) {
 
 let finishPaneResize = null;
 function beginPaneResize(event, name) {
-  if (event.button !== 0 || matchMedia("(max-width: 1100px)").matches) return;
+  if (event.button !== 0 || isCompactDrawer(name) || (name === "preview" && innerWidth <= 760)) return;
   finishPaneResize?.();
   event.preventDefault();
   const handle = event.currentTarget;
@@ -1029,7 +1060,8 @@ function commandDefinitions() {
     { id: "save", symbol: "save", label: t("commandSave"), keywords: "save write", shortcut: "Ctrl S", priority: 90, enabled: hasDocument, run: () => saveActiveDocument() },
     { id: "save-as", symbol: "save-as", label: t("commandSaveAs"), keywords: "save as copy", shortcut: "Ctrl Shift S", priority: 70, enabled: hasDocument, run: () => saveActiveDocument({ saveAs: true }) },
     { id: "validate", symbol: "quality", label: t("commandValidate"), keywords: "check problems diagnostics", priority: 65, enabled: canRender, run: () => validateActiveDocument() },
-    { id: "export", symbol: "export", label: t("commandExport"), keywords: "pdf publish render", priority: 85, enabled: canRender, run: () => exportActiveDocument() },
+    { id: "export", symbol: "export", label: t("commandExport"), keywords: "pdf html word docx publish render خروجی", priority: 85, enabled: document.body.dataset.view !== "export", run: openWorkspaceExport },
+    { id: "export-file", symbol: "file", label: t("exportFile"), keywords: "export file external markdown", priority: 45, enabled: document.body.dataset.view !== "export", run: openFileExport },
     { id: "find", symbol: "search", label: t("commandFind"), keywords: "find replace search", shortcut: "Ctrl F", priority: 60, enabled: hasDocument, run: () => openFind({ replace: false }) },
     { id: "settings", symbol: "settings", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
     { id: "support-bundle", symbol: "archive", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
@@ -1047,14 +1079,13 @@ function commandDefinitions() {
     { id: "view-split", symbol: "panel-right", label: t("sidePreview"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, enabled: canRender && effectiveViewMode() !== "read", run: toggleSidePreview },
     { id: "view-guide", symbol: "help", label: t("viewGuide"), keywords: "view mode source read preview راهنمای نما", priority: 40, run: () => modalManager.open($("#view-guide-modal")) },
     { id: "typewriter", symbol: "typewriter", label: t("typewriterMode"), keywords: "typewriter scroll centre writing ماشین تحریر", priority: 39, run: () => updatePreference({ typewriter: !state.preferences.typewriter }) },
-    { id: "focus-mode", symbol: "focus", label: t("focusMode"), keywords: "focus distraction free zen تمرکز", priority: 39, run: () => updatePreference({ focusMode: !state.preferences.focusMode }) },
+    { id: "focus-mode", symbol: "focus", label: t("focusMode"), keywords: "focus distraction free zen تمرکز", priority: 39, enabled: hasDocument, run: () => updatePreference({ focusMode: !state.preferences.focusMode }) },
     { id: "document-zoom-in", symbol: "zoom-in", label: t("increaseDocumentText"), keywords: "zoom text font larger اندازه متن بزرگ", shortcut: "Ctrl +", priority: 38, run: () => changeDocumentZoom(1) },
     { id: "document-zoom-out", symbol: "zoom-out", label: t("decreaseDocumentText"), keywords: "zoom text font smaller اندازه متن کوچک", shortcut: "Ctrl -", priority: 38, run: () => changeDocumentZoom(-1) },
     { id: "document-zoom-reset", symbol: "zoom-in", label: t("resetDocumentZoom"), keywords: "zoom text font reset اندازه متن", shortcut: "Ctrl 0", priority: 37, run: () => changeDocumentZoom(0) },
     { id: "document-full-width", symbol: "focus", label: t("useFullWidth"), keywords: "document width full canvas عرض تمام", priority: 37, run: () => updateDocumentView({ writingWidth: "full" }) },
     { id: "document-readable-width", symbol: "book", label: t("useReadableWidth"), keywords: "document width readable column عرض ستون خوانا", priority: 37, run: () => updateDocumentView({ writingWidth: "readable" }) },
     { id: "help", symbol: "help", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
-    { id: "home", symbol: "home", label: t("commandHome"), keywords: "start home center", priority: 20, run: () => showView("start") },
   ];
 }
 
@@ -2082,13 +2113,14 @@ function renderRecents() {
   const list = $("#recent-list");
   if (!list) return;
   list.replaceChildren();
-  $("#recent-empty").classList.toggle("hidden", state.recents.length > 0);
+  $("#recent-empty").hidden = state.recents.length > 0;
+  $("#clear-recents").hidden = state.recents.length === 0;
   for (const recent of state.recents) {
     const button = document.createElement("button");
     button.className = "recent-item";
     button.type = "button";
-    button.innerHTML = `<span>MD</span><div class="recent-copy"><strong></strong><small></small></div><b class="recent-arrow" aria-hidden="true"></b>`;
-    button.querySelector(".recent-arrow").append(spriteIcon("chevron-left"));
+    button.innerHTML = `<span class="recent-icon" aria-hidden="true"></span><span class="recent-copy"><strong></strong><small></small></span>`;
+    button.querySelector(".recent-icon").append(spriteIcon("file"));
     setTruncatableText(button.querySelector("strong"), basename(recent.path));
     setTruncatableText(button.querySelector("small"), compactDocumentLocation(recent.path));
     button.querySelector("small").title = recent.path;
@@ -2118,9 +2150,54 @@ function showExportResult(path) {
   container.classList.remove("hidden");
 }
 
+function openExportFormat(onPdf, { book = false, returnFocus } = {}) {
+  const dialog = $("#export-format-modal");
+  if (modalManager.isOpen(dialog)) return;
+  const title = $("#export-format-title");
+  const titleKey = book ? "exportBook" : "commandExport";
+  title.dataset.i18n = titleKey;
+  title.textContent = t(titleKey);
+  const pdfButton = $("#export-format-pdf");
+  pdfButton.onclick = async () => {
+    modalManager.close(dialog);
+    try {
+      await onPdf();
+    } catch (error) {
+      toast(errorText(error), "error");
+    }
+  };
+  modalManager.open(dialog, {
+    initialFocus: pdfButton,
+    returnFocus,
+    onClose: () => { pdfButton.onclick = null; },
+  });
+}
+
+function openFileExport() {
+  openExportFormat(() => openExportSource(""));
+}
+
+function openWorkspaceExport() {
+  const model = activeDocument();
+  const intent = state.documentActivationSequence;
+  openExportFormat(() => {
+    if (!model || !isMarkdownModel(model)) return openExportSource("");
+    if (intent !== state.documentActivationSequence || activeDocument()?.id !== model.id) {
+      toast(t("exportDocumentChanged"), "warning");
+      return;
+    }
+    return exportActiveDocument();
+  }, { returnFocus: $("#workspace-export") });
+}
+
 function openExportSource(path) {
-  state.exportReturnView = $("#workspace-view").classList.contains("active") ? "workspace" : "start";
   hideExportResult();
+  if (state.sourcePath !== path) {
+    exportPreviewSequence += 1;
+    setExportPreviewState("");
+    renderPreviewNote(null);
+    pageDeck?.showMessage(t(path ? "previewUpdating" : "previewChooseSource"));
+  }
   state.sourcePath = path;
   state.outputPath = defaultOutputPath(path);
   $("#source-path").value = path;
@@ -2130,7 +2207,7 @@ function openExportSource(path) {
   // The document is the preview's only subject. Without this the panel stayed
   // on "choose a source file" until some unrelated option was touched, which
   // is the one moment the user is least expecting to have to.
-  schedulePdfPreview(120);
+  schedulePdfPreview(path ? 120 : 0);
 }
 
 async function chooseExportSource() {
@@ -2312,10 +2389,7 @@ function renderFileNavigator() {
     button.setAttribute("aria-label", button.title);
     button.addEventListener("click", async () => {
       await activateDocument(model.id);
-      if (matchMedia("(max-width: 1100px)").matches) {
-        state.workspaceLayout.filesOpen = false;
-        applyWorkspaceLayout();
-      }
+      closeCompactDrawer("files");
     });
     list.append(button);
   }
@@ -2499,6 +2573,9 @@ function renderAssets(items = []) {
 
 function updateAuthoringMode(model) {
   const hasDocument = Boolean(model);
+  $("#workspace-view").dataset.empty = String(!hasDocument);
+  document.documentElement.dataset.focusMode = String(hasDocument && state.preferences.focusMode);
+  $(".document-toolbar").inert = !hasDocument;
   const markdown = isMarkdownModel(model);
   editorAdapter?.setAriaLabel?.(t(markdown ? "markdownEditor" : "textResourceEditor"));
   const editable = hasDocument && !model.readOnly && !state.updateInstalling && !state.bookPreparing && effectiveViewMode() !== "read";
@@ -2507,7 +2584,7 @@ function updateAuthoringMode(model) {
   for (const element of $$('[data-editor-command], #workspace-import-asset, #import-asset, #refresh-assets')) {
     element.disabled = !editable || !markdown;
   }
-  for (const selector of ["#workspace-validate", "#workspace-export", "#refresh-preview", "#auto-preview", "#refresh-reading", "#reading-auto-preview"]) {
+  for (const selector of ["#workspace-validate", "#refresh-preview", "#auto-preview", "#refresh-reading", "#reading-auto-preview"]) {
     $(selector).disabled = !hasDocument || !markdown;
   }
   for (const name of ["outline", "frontmatter", "assets", "citations"]) {
@@ -2521,7 +2598,7 @@ function updateAuthoringMode(model) {
   $("#workspace-view")?.classList.toggle("plain-text-mode", hasDocument && !markdown);
   $("#insert-menu-button").disabled = !editable || !markdown;
   $("#workspace-toggle-formatting")?.toggleAttribute("disabled", !editable || !markdown);
-  editorAdapter?.setReadOnly?.(Boolean(model?.readOnly) || effectiveViewMode() === "read" || state.updateInstalling || Boolean(state.bookPreparing));
+  editorAdapter?.setReadOnly?.(!model || model.readOnly || effectiveViewMode() === "read" || state.updateInstalling || Boolean(state.bookPreparing));
 }
 
 /**
@@ -2626,6 +2703,7 @@ function renderWorkspace() {
   renderProjectWorkspace();
   renderBookWorkspace();
   if (!model) {
+    closeFind({ restoreFocus: false });
     if (editor.setDocument) editor.setDocument(null, "");
     else editor.value = "";
     editor.disabled = true;
@@ -2888,10 +2966,7 @@ function renderProjectWorkspace() {
     if (["markdown", "text", "config", "toml", "bibliography", "json"].includes(file.kind)) {
       button.addEventListener("click", async () => {
         await openProjectRelativeFile(file.path);
-        if (matchMedia("(max-width: 1100px)").matches) {
-          state.workspaceLayout.filesOpen = false;
-          applyWorkspaceLayout();
-        }
+        closeCompactDrawer("files");
       });
     } else {
       button.disabled = true;
@@ -3887,7 +3962,7 @@ async function requestCloseDocument(id) {
   if (wasActive) state.activeDocumentId = null;
   persistSession();
   renderWorkspace();
-  if (!state.documents.length) showView("start");
+  if (!state.documents.length) focusDocument();
   else if (wasActive) await activateDocument(result.nextId);
 }
 
@@ -4356,8 +4431,10 @@ function insertAssetReference(asset, model = activeDocument()) {
 
 function applySidebarContext() {
   const documentOnly = ["outline", "frontmatter", "assets", "citations"];
-  const name = !isMarkdownModel(activeDocument()) && documentOnly.includes(state.activeSidebar)
-    ? (state.project ? "project" : "problems") : state.activeSidebar;
+  const model = activeDocument();
+  let name = state.activeSidebar;
+  if (!model && (documentOnly.includes(name) || name === "problems")) name = "project";
+  else if (!isMarkdownModel(model) && documentOnly.includes(name)) name = state.project ? "project" : "problems";
   for (const button of $$("[data-sidebar]")) {
     const active = button.dataset.sidebar === name;
     button.classList.toggle("active", active);
@@ -4376,10 +4453,9 @@ function applySidebarContext() {
 function activateSidebar(name) {
   if (name === "outline") { activateNavigator("outline"); return; }
   if ($(`[data-sidebar="${name}"]`)?.disabled) return;
-  if (!state.workspaceLayout.sidebarOpen) {
-    state.workspaceLayout.sidebarOpen = true;
-    if (matchMedia("(max-width: 1100px)").matches) state.workspaceLayout.filesOpen = false;
-    applyWorkspaceLayout({ persist: true });
+  if (!workspacePaneOpen("sidebar")) {
+    setWorkspacePaneOpen("sidebar", true);
+    applyWorkspaceLayout({ persist: !isCompactDrawer("sidebar") });
   }
   state.activeSidebar = name;
   applySidebarContext();
@@ -4457,6 +4533,7 @@ function showFindReplacement(replace) {
 }
 
 function openFind({ replace = false } = {}) {
+  if (!activeDocument()) return;
   // Search selects the actual Markdown, and replacement requires an explicit
   // visible editing surface rather than changing a hidden reader buffer.
   if (effectiveViewMode() === "read") setViewMode("source");
@@ -4470,11 +4547,11 @@ function openFind({ replace = false } = {}) {
   $("#find-query").select();
 }
 
-function closeFind() {
+function closeFind({ restoreFocus = true } = {}) {
   $("#find-bar").classList.add("hidden");
   findSession.clear();
   editorAdapter?.setSearchMatches?.();
-  currentEditor().focus();
+  if (restoreFocus) focusDocument();
 }
 
 function moveFind(direction) {
@@ -4595,6 +4672,11 @@ function togglePopoverMenu(menuSelector, buttonSelector, force) {
   button.setAttribute("aria-expanded", String(open));
   if (!open) return;
   const anchor = button.getClientRects().length ? button : $("#workspace-view-menu-button");
+  positionToolbarPopover(menu, anchor);
+  menu.querySelector("button:not(:disabled)")?.focus({ preventScroll: true });
+}
+
+function positionToolbarPopover(menu, anchor) {
   const box = anchor.getBoundingClientRect();
   menu.style.top = `${box.bottom + 4}px`;
   // Anchored to the button's leading edge, and kept inside the window: the
@@ -4604,7 +4686,10 @@ function togglePopoverMenu(menuSelector, buttonSelector, force) {
     : box.left;
   const room = window.innerWidth - menu.offsetWidth - 8;
   menu.style.insetInlineStart = `${Math.max(8, Math.min(start, room))}px`;
-  menu.querySelector("button")?.focus();
+}
+
+function toggleWorkspaceLayoutMenu(force) {
+  togglePopoverMenu("#workspace-layout-menu", "#workspace-layout-button", force);
 }
 
 function toggleHeadingMenu(force) {
@@ -4820,7 +4905,7 @@ function openEditorContextMenu(event) {
     { key: "table", label: t("insertTable"), enabled: editable, run: () => editorCommand("table") },
     { separator: true },
     { key: "validate", label: t("checkDocument"), enabled: isMarkdownModel(model), run: validateActiveDocument },
-    { key: "export", label: t("exportPdf"), enabled: isMarkdownModel(model), run: exportActiveDocument },
+    { key: "export", label: t("commandExport"), enabled: Boolean(model), run: openWorkspaceExport },
     { key: "reveal", label: t("showInFolder"), enabled: Boolean(model?.path), run: () => invoke("reveal_path", { path: model.path }).catch(() => {}) },
   ];
 
@@ -4966,15 +5051,38 @@ function bindEvents() {
   // Fixed popovers belong to the viewport. Keeping them inside a size-query
   // container would change their containing block and clip them over a pane.
   for (const menu of $$(".popover-menu, #editor-context-menu")) document.body.append(menu);
-  $("#workspace-toggle-preview").addEventListener("click", toggleSidePreview);
+  const layoutMenu = $("#workspace-layout-menu");
+  const layoutTrigger = $("#workspace-layout-button");
+  layoutTrigger.addEventListener("click", () => toggleWorkspaceLayoutMenu());
+  layoutMenu.addEventListener("keydown", (event) => {
+    const items = [...layoutMenu.querySelectorAll("button:not(:disabled)")];
+    const index = items.indexOf(document.activeElement);
+    const leavesGroup = event.key === "Tab" && (event.shiftKey ? index === 0 : index === items.length - 1);
+    if (event.key === "Escape" || leavesGroup) {
+      event.preventDefault();
+      toggleWorkspaceLayoutMenu(false);
+      layoutTrigger.focus({ preventScroll: true });
+      return;
+    }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) || !items.length) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+      : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items[next].focus({ preventScroll: true });
+  });
+  document.addEventListener("focusin", (event) => {
+    if (!layoutMenu.classList.contains("hidden") && !layoutMenu.contains(event.target) && event.target !== layoutTrigger) {
+      toggleWorkspaceLayoutMenu(false);
+    }
+  });
+  $("#workspace-toggle-preview").addEventListener("click", () => toggleSidePreview({ keepFocus: true }));
+  $("#workspace-reset-panel-sizes").addEventListener("click", resetWorkspacePaneSizes);
   $("#document-mode-help").addEventListener("click", () => modalManager.open($("#view-guide-modal")));
   $("#close-view-guide").addEventListener("click", () => modalManager.close($("#view-guide-modal")));
   $("#workflow-new").addEventListener("click", createUntitledDocument);
-  $("#home-button").addEventListener("click", () => showView("start"));
   $("#command-button").addEventListener("click", openCommandPalette);
   $("#help-button").addEventListener("click", openHelp);
   $("#settings-button").addEventListener("click", openSettings);
-  $("#template-help").addEventListener("click", openHelp);
   for (const button of $$("button[data-view-mode]")) {
     button.addEventListener("click", () => setViewMode(button.dataset.viewMode));
     button.addEventListener("keydown", (event) => {
@@ -5024,18 +5132,16 @@ function bindEvents() {
   $("#preview-guides").addEventListener("click", () => exportPreviewDeck()?.toggleGuides());
   $("#preview-prev-page").addEventListener("click", () => movePreviewPage(-1));
   $("#preview-next-page").addEventListener("click", () => movePreviewPage(1));
-  $("#workflow-quick").addEventListener("click", () => {
-    state.exportReturnView = "start";
-    showView("export");
-    schedulePdfPreview(0);
-  });
+  $("#workflow-quick").addEventListener("click", openFileExport);
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
   $("#workflow-project").addEventListener("click", chooseProjectDirectory);
   $("#workflow-book").addEventListener("click", openNewBookModal);
   $("#export-back").addEventListener("click", () => {
-    showView(state.exportReturnView);
-    if (state.exportReturnView === "workspace") focusDocument();
+    showView("workspace");
+    if (activeDocument()) focusDocument();
+    else $("#workspace-export").focus({ preventScroll: true });
   });
+  $("#close-export-format").addEventListener("click", () => modalManager.close($("#export-format-modal")));
   $("#choose-source").addEventListener("click", chooseExportSource);
   $("#choose-output").addEventListener("click", chooseExportOutput);
   $("#validate-button").addEventListener("click", validateExportDocument);
@@ -5048,7 +5154,7 @@ function bindEvents() {
     renderRecents();
   });
 
-  $("#workspace-toggle-files")?.addEventListener("click", () => toggleWorkspacePane("files"));
+  $("#workspace-toggle-files")?.addEventListener("click", () => toggleWorkspacePane("files", { keepFocus: true }));
   $("#workspace-toggle-formatting")?.addEventListener("click", () => toggleWorkspacePane("formatting"));
   $("#writing-appearance-button")?.addEventListener("click", () => toggleWritingAppearance());
   $("#writing-appearance-close")?.addEventListener("click", () => {
@@ -5103,7 +5209,11 @@ function bindEvents() {
   $("#navigator-open-project")?.addEventListener("click", chooseProjectDirectory);
   $("#navigator-close")?.addEventListener("click", () => toggleWorkspacePane("files"));
   $("#inspector-close")?.addEventListener("click", () => toggleWorkspacePane("sidebar"));
-  $("#workspace-focus")?.addEventListener("click", () => { updatePreference({ focusMode: !state.preferences.focusMode }); focusDocument(); });
+  $("#workspace-focus")?.addEventListener("click", () => {
+    toggleWorkspaceLayoutMenu(false);
+    updatePreference({ focusMode: !state.preferences.focusMode });
+    focusDocument();
+  });
   $("#exit-focus-mode")?.addEventListener("click", () => { updatePreference({ focusMode: false }); focusDocument(); });
   $("#file-resizer")?.addEventListener("pointerdown", (event) => beginPaneResize(event, "files"));
   $("#file-resizer")?.addEventListener("keydown", (event) => resizePaneWithKeyboard(event, "files"));
@@ -5119,25 +5229,22 @@ function bindEvents() {
   document.addEventListener("pointerdown", (event) => {
     if (!event.target.closest("#document-actions-menu")) $("#document-actions-menu")?.removeAttribute("open");
   });
-  let compactWorkspace = matchMedia("(max-width: 1100px)").matches;
+  let compactWorkspace = compactSidePanes.matches;
   window.addEventListener("resize", () => {
-    const next = matchMedia("(max-width: 1100px)").matches;
-    if (next && !compactWorkspace) {
-      state.workspaceLayout.filesOpen = false;
-      state.workspaceLayout.sidebarOpen = false;
-      applyWorkspaceLayout();
-    }
+    const next = compactSidePanes.matches;
+    if (next !== compactWorkspace) state.compactDrawer = null;
     compactWorkspace = next;
     applyWorkspaceLayout();
+    if (!layoutMenu.classList.contains("hidden")) positionToolbarPopover(layoutMenu, layoutTrigger);
   });
   $("#workspace-new").addEventListener("click", createUntitledDocument);
   $("#workspace-open").addEventListener("click", chooseAuthoringFiles);
   $("#workspace-save").addEventListener("click", () => saveActiveDocument());
   $("#workspace-save-as").addEventListener("click", () => saveActiveDocument({ saveAs: true }));
   $("#workspace-validate").addEventListener("click", validateActiveDocument);
-  $("#workspace-export").addEventListener("click", exportActiveDocument);
+  $("#workspace-export").addEventListener("click", openWorkspaceExport);
   $("#workspace-import-asset").addEventListener("click", importAsset);
-  $("#workspace-toggle-sidebar").addEventListener("click", () => toggleWorkspacePane("sidebar"));
+  $("#workspace-toggle-sidebar").addEventListener("click", () => toggleWorkspacePane("sidebar", { keepFocus: true }));
   $("#sidebar-resizer").addEventListener("pointerdown", (event) => beginPaneResize(event, "sidebar"));
   $("#preview-resizer").addEventListener("pointerdown", (event) => beginPaneResize(event, "preview"));
   $("#sidebar-resizer").addEventListener("keydown", (event) => resizePaneWithKeyboard(event, "sidebar"));
@@ -5151,7 +5258,16 @@ function bindEvents() {
   $("#book-add-chapter").addEventListener("click", () => openChapterModal("add"));
   $("#book-validate").addEventListener("click", validateActiveBook);
   $("#book-preview").addEventListener("click", previewActiveBook);
-  $("#book-export").addEventListener("click", exportActiveBook);
+  $("#book-export").addEventListener("click", () => {
+    const context = currentProjectContext();
+    openExportFormat(() => {
+      if (!projectContextIsCurrent(context)) {
+        toast(t("bookProjectChanged"), "warning");
+        return;
+      }
+      return exportActiveBook();
+    }, { book: true });
+  });
   $("#book-cancel-operation").addEventListener("click", cancelActiveBookOperation);
   $("#book-open-output").addEventListener("click", () => openBookOutput(false));
   $("#book-reveal-output").addEventListener("click", () => openBookOutput(true));
@@ -5296,6 +5412,7 @@ function bindEvents() {
   });
   document.addEventListener("pointerdown", (event) => {
     const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest("#workspace-layout-menu, #workspace-layout-button")) toggleWorkspaceLayoutMenu(false);
     if (!target?.closest("#heading-menu, #heading-menu-button")) toggleHeadingMenu(false);
     if (!target?.closest("#insert-menu, #insert-menu-button")) toggleInsertMenu(false);
     if (!target?.closest("#writing-appearance, #writing-appearance-button")) toggleWritingAppearance(false);
@@ -5369,11 +5486,8 @@ function bindEvents() {
       if (state.preferences.focusMode && !modalManager.hasOpenModal()) {
         updatePreference({ focusMode: false });
         focusDocument();
-      } else if (!modalManager.hasOpenModal() && matchMedia("(max-width: 1100px)").matches
-        && (state.workspaceLayout.filesOpen || state.workspaceLayout.sidebarOpen)) {
-        state.workspaceLayout.filesOpen = false;
-        state.workspaceLayout.sidebarOpen = false;
-        applyWorkspaceLayout();
+      } else if (!modalManager.hasOpenModal() && compactSidePanes.matches && state.compactDrawer) {
+        closeCompactDrawer();
         focusDocument();
       }
     }
@@ -5442,22 +5556,17 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || event.defaultPrevented || modalManager.hasOpenModal()) return;
     const compactDrawer = event.target.closest?.(".editor-surface")
-      && matchMedia("(max-width: 1100px)").matches
-      && (state.workspaceLayout.filesOpen || state.workspaceLayout.sidebarOpen);
+      && compactSidePanes.matches && state.compactDrawer;
     if (!state.preferences.focusMode && !compactDrawer) return;
     const completion = $(".cm-tooltip-autocomplete");
     const editorPopupFocused = event.target.closest?.(".cm-selection-toolbar");
     if (completion?.getClientRects().length || editorPopupFocused) return;
-    if (["#editor-context-menu", "#insert-menu", "#heading-menu", "#format-overflow-menu", "#workspace-view-menu"]
+    if (["#editor-context-menu", "#insert-menu", "#heading-menu", "#format-overflow-menu", "#workspace-view-menu", "#workspace-layout-menu"]
       .some((selector) => !$(selector)?.classList.contains("hidden"))) return;
     event.preventDefault();
     event.stopPropagation();
     if (state.preferences.focusMode) updatePreference({ focusMode: false });
-    else {
-      state.workspaceLayout.filesOpen = false;
-      state.workspaceLayout.sidebarOpen = false;
-      applyWorkspaceLayout();
-    }
+    else closeCompactDrawer();
     focusDocument();
   }, true);
 
@@ -5506,7 +5615,7 @@ async function boot() {
   navigationPicker = createNavigationPicker({ manager: modalManager, t,
     getEntries: (scope) => scope === "headings"
       ? extractOutline(activeDocument()?.content || "").map((item) => ({ id: `heading:${item.line}`, label: item.title, detail: `${t("lineShort")} ${item.line}`, line: item.line, level: item.level, documentId: activeDocument()?.id, contentVersion: activeDocument()?.contentVersion }))
-      : documentNavigationEntries(state.documents, state.project),
+      : documentNavigationEntries(state.documents, state.project, state.recents),
     onChoose: async (entry, scope) => {
       if (scope === "headings") {
         if (entry.documentId === activeDocument()?.id && entry.contentVersion === activeDocument()?.contentVersion) goToLine(entry.line);
@@ -5515,19 +5624,13 @@ async function boot() {
       else {
         showView("workspace");
         if (entry.documentId) await activateDocument(entry.documentId);
+        else if (entry.recentPath) await openAuthoringPaths([entry.recentPath]);
         else await openProjectRelativeFile(entry.relativePath);
       }
     },
   });
-  // An initially open drawer must not obscure the writing surface on a small
-  // window. Explicit toggles still open one drawer at a time.
-  if (matchMedia("(max-width: 1100px)").matches) {
-    state.workspaceLayout.filesOpen = false;
-    state.workspaceLayout.sidebarOpen = false;
-  }
   applyInterfacePreferences();
   applyWorkspaceLayout();
-  document.body.dataset.view = $("#workspace-view")?.classList.contains("active") ? "workspace" : "start";
   for (const query of ["(prefers-color-scheme: dark)", "(prefers-reduced-motion: reduce)"]) {
     try {
       matchMedia(query).addEventListener("change", () => {
@@ -5659,9 +5762,6 @@ async function boot() {
     showView("workspace");
     renderWorkspace();
     schedulePreview(120);
-  }
-  if (!state.documents.length && !state.preferences.onboardingComplete) {
-    openOnboarding();
   }
 }
 

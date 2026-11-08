@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 from audit_desktop_editor_ux import initialise, replace_content, mode
-from audit_desktop_ui import DEFAULT_DIST, serve
+from audit_desktop_ui import DEFAULT_DIST, open_template, serve
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,7 +84,7 @@ def run(dist: Path, output: Path) -> dict:
                     ),
                 )
                 initialise(page, url, locale, theme)
-                page.locator("[data-template-id='blank']").click()
+                open_template(page, "blank")
                 replace_content(page, FIXTURE)
                 page.locator(".cm-content").click()
                 page.keyboard.press("Control+End")

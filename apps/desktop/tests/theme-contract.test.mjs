@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const styles = readFileSync(new URL("../frontend/styles.css", import.meta.url), "utf8");
 const workspaceStyles = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
+const shellStyles = readFileSync(new URL("../frontend/shell-system.css", import.meta.url), "utf8");
 
 function channel(value) {
   const normalized = value / 255;
@@ -124,10 +125,10 @@ test("publishing and recent-document cards keep explicit layout hooks", () => {
   const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
   assert.match(main, /row\.className = "summary-row"/);
   assert.match(main, /class="recent-copy"/);
-  assert.match(main, /class="recent-arrow"/);
+  assert.match(main, /class="recent-icon"/);
   assert.match(workspaceStyles, /#export-view \.preset-card \{/);
   assert.match(workspaceStyles, /#preset-summary \.summary-row \{/);
-  assert.match(workspaceStyles, /#start-view \.recent-copy \{/);
+  assert.match(shellStyles, /\.workspace-empty \.recent-copy strong \{/);
 });
 
 test("settings scrolling and preview anchors are deliberately constrained", () => {

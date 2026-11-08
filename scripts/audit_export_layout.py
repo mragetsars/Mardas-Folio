@@ -232,6 +232,7 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                     try:
                         page.goto(url, wait_until="networkidle")
                         page.locator("#workflow-quick").click()
+                        page.locator("#export-format-pdf").click()
                         page.locator("#choose-source").click()
                         page.locator("#choose-output").click()
                         expect(page.locator("#output-path")).to_have_value(OUTPUT_PATH)

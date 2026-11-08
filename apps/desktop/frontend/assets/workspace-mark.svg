@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect x="10" y="10" width="492" height="492" rx="128" fill="#262626" stroke="#454545" stroke-width="20" />
+  <defs>
+    <path id="folio-arm" d="M0 0H40V14H14V20H30V34H14V50H0Z" />
+  </defs>
+  <g transform="translate(256 256) scale(2.72)" fill="#ededed">
+    <use href="#folio-arm" transform="translate(14 -60)" />
+    <use href="#folio-arm" transform="rotate(90) translate(14 -60)" />
+    <use href="#folio-arm" transform="rotate(180) translate(14 -60)" />
+    <use href="#folio-arm" transform="rotate(270) translate(14 -60)" />
+  </g>
+</svg>

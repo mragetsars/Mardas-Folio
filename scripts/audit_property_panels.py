@@ -10,20 +10,13 @@ import traceback
 from playwright.sync_api import expect, sync_playwright
 
 from audit_desktop_editor_ux import FIXTURE_A, initialise, replace_content
-from audit_desktop_ui import DEFAULT_DIST, serve
+from audit_desktop_ui import DEFAULT_DIST, click_workspace_layout_control, serve
 
 SAMPLE = (
     "# سند آزمایشی پنل‌ها\n\nمتن فارسی برای آزمودن مشخصات سند.\n\n"
     "## AdaptiveCruiseTest — کروز تطبیقی با عنوان طولانی برای مرور راحت‌تر\n\nBody.\n\n"
     "### BrakeController — کنترل ترمز\n\nFinal paragraph.\n"
 )
-
-
-def reveal(page, selector: str) -> None:
-    control = page.locator(selector)
-    if not control.is_visible():
-        page.locator("#workspace-view-menu-button").click()
-    control.click()
 
 
 def run(dist: Path, output: Path) -> dict:
@@ -46,9 +39,9 @@ def run(dist: Path, output: Path) -> dict:
                 page.locator("#workflow-open").click()
                 replace_content(page, SAMPLE)
                 if page.locator("#workspace-toggle-sidebar").get_attribute("aria-pressed") != "true":
-                    reveal(page, "#workspace-toggle-sidebar")
+                    click_workspace_layout_control(page, "#workspace-toggle-sidebar")
                 if page.locator("#workspace-toggle-preview").get_attribute("aria-pressed") != "true":
-                    reveal(page, "#workspace-toggle-preview")
+                    click_workspace_layout_control(page, "#workspace-toggle-preview")
                 expect(page.locator("#file-navigator")).to_be_visible()
                 expect(page.locator(".preview-pane")).to_be_visible()
                 page.locator("#sidebar-tab-frontmatter").click()
@@ -92,7 +85,7 @@ def run(dist: Path, output: Path) -> dict:
                 case["checks"].append("metadata footer stays anchored while fields scroll; form drafts do not edit Markdown until Apply; physical Undo restores exact original source")
 
                 if page.locator("#workspace-toggle-files").get_attribute("aria-pressed") != "true":
-                    page.locator("#workspace-toggle-files").click()
+                    click_workspace_layout_control(page, "#workspace-toggle-files")
                 page.locator("#navigator-tab-outline").click()
                 expect(page.locator(".outline-heading")).to_have_count(3)
                 outline = page.locator(".outline-row").evaluate_all("""rows=>rows.map(row=>{

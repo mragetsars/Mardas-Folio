@@ -244,7 +244,8 @@ def test_native_shell_uses_stdio_sidecar_and_single_instance_first() -> None:
 def test_frontend_is_modular_and_workflow_focused() -> None:
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
     main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
-    assert 'id="start-view"' in index
+    assert 'id="workspace-empty"' in index
+    assert 'id="start-view"' not in index
     assert 'id="export-view"' in index
     assert 'id="workspace-view"' in index
     assert 'id="recent-list"' in index
@@ -874,8 +875,8 @@ def test_desktop_ux_is_offline_and_exposes_guided_entry_points() -> None:
     assert 'data-theme="dark"' in styles
     assert "https://" not in index
     assert "fetch(" not in main
-    # Recovery/session restore takes precedence over first-run onboarding.
-    assert main.count("openOnboarding();") == 1
+    assert 'openOnboarding({ force: true })' in main
+    assert "openOnboarding();" not in main
 
 
 def _frontmatter_cases() -> list[dict[str, object]]:

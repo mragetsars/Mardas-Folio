@@ -24,6 +24,7 @@ import { tags } from "@lezer/highlight";
  * needs the Persian faces named before the generic `monospace` fallback.
  */
 export const EDITOR_FONT_FAMILY = [
+  '"Geist Mono"',
   "ui-monospace",
   '"Cascadia Mono"',
   '"JetBrains Mono"',
@@ -36,6 +37,7 @@ export const EDITOR_FONT_FAMILY = [
 ].join(", ");
 
 const token = (name, fallback) => `var(--cm-${name}, ${fallback})`;
+const monoFont = `var(--app-mono, ${EDITOR_FONT_FAMILY})`;
 
 /**
  * Markdown structure first, then the tags fenced code blocks contribute.
@@ -122,11 +124,11 @@ export function mardasEditorTheme(dark = false) {
         height: "100%",
       },
       ".cm-content": {
-        caretColor: token("cursor", "#c2410c"),
-        fontFamily: EDITOR_FONT_FAMILY,
+        caretColor: token("cursor", "#005cc9"),
+        fontFamily: monoFont,
         tabSize: "4",
       },
-      ".cm-scroller": { fontFamily: EDITOR_FONT_FAMILY },
+      ".cm-scroller": { fontFamily: monoFont },
       // `plaintext` resolves each row separately. A source table and a code
       // fence need one base direction, including punctuation-only rows, while
       // Unicode bidi still handles Persian words inside their Latin syntax.
@@ -135,10 +137,10 @@ export function mardasEditorTheme(dark = false) {
 
       "&.cm-focused": { outline: "none" },
       ".cm-cursor, .cm-dropCursor": {
-        borderLeftColor: token("cursor", "#c2410c"),
+        borderLeftColor: token("cursor", "#005cc9"),
         borderLeftWidth: "2px",
       },
-      "&.cm-focused .cm-cursor": { borderLeftColor: token("cursor", "#c2410c") },
+      "&.cm-focused .cm-cursor": { borderLeftColor: token("cursor", "#005cc9") },
       ".cm-selectionBackground": {
         backgroundColor: token("selection-inactive", "rgba(128, 128, 128, 0.16)"),
       },
@@ -154,7 +156,7 @@ export function mardasEditorTheme(dark = false) {
         backgroundColor: "transparent",
         borderRight: `1px solid ${token("gutter-border", "#e5e5e5")}`,
         color: token("gutter-text", "#6b6b6b"),
-        fontFamily: EDITOR_FONT_FAMILY,
+        fontFamily: monoFont,
       },
       ".cm-activeLineGutter": {
         backgroundColor: token("active-line", "rgba(17, 17, 17, 0.035)"),
@@ -173,11 +175,11 @@ export function mardasEditorTheme(dark = false) {
       "&.cm-focused .cm-nonmatchingBracket": { color: token("invalid", "#b91c1c") },
 
       ".cm-searchMatch": {
-        backgroundColor: token("search", "rgba(161, 98, 7, 0.22)"),
-        outline: `1px solid ${token("search-border", "rgba(161, 98, 7, 0.55)")}`,
+        backgroundColor: token("search", "rgba(0, 110, 254, 0.20)"),
+        outline: `1px solid ${token("search-border", "rgba(0, 92, 201, 0.55)")}`,
       },
       ".cm-searchMatch.cm-searchMatch-selected": {
-        backgroundColor: token("search-active", "rgba(161, 98, 7, 0.42)"),
+        backgroundColor: token("search-active", "rgba(0, 110, 254, 0.34)"),
       },
 
       ".cm-tooltip": {
@@ -196,12 +198,12 @@ export function mardasEditorTheme(dark = false) {
         borderBottomColor: token("panel", "#ffffff"),
       },
       ".cm-tooltip.cm-tooltip-autocomplete > ul": {
-        fontFamily: EDITOR_FONT_FAMILY,
+        fontFamily: "var(--app-font, system-ui, sans-serif)",
         maxHeight: "16em",
       },
       ".cm-tooltip.cm-tooltip-autocomplete > ul > li": { padding: "3px 8px" },
       ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": {
-        backgroundColor: token("accent-soft", "#fff7ed"),
+        backgroundColor: token("accent-soft", "#edf5ff"),
         color: token("text", "#111111"),
       },
       ".cm-completionLabel": { color: token("text", "#111111") },

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, serve
+from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, open_template, serve
 
 
 def run_audit(dist: Path, output: Path) -> dict[str, object]:
@@ -48,7 +48,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
               };
             """)
             page.goto(url, wait_until="networkidle")
-            page.locator('[data-template-id="blank"]').click()
+            open_template(page, "blank")
             editor = page.locator(".cm-content")
             mirror = page.locator("#markdown-editor")
 

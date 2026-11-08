@@ -2,8 +2,8 @@ import { foldForFilter } from "./persian.mjs";
 import { documentDirty, pathKey } from "./documents.mjs";
 
 /** Open buffers take precedence over their on-disk counterparts. */
-export function documentNavigationEntries(documents = [], project = null) {
-  const openPaths = new Set(documents.filter((item) => item.path).map((item) => pathKey(item.path)));
+export function documentNavigationEntries(documents = [], project = null, recents = []) {
+  const knownPaths = new Set(documents.filter((item) => item.path).map((item) => pathKey(item.path)));
   const entries = documents.map((item) => ({
     id: `document:${item.id}`,
     documentId: item.id,
@@ -14,9 +14,18 @@ export function documentNavigationEntries(documents = [], project = null) {
   for (const file of project?.files || []) {
     if (!["markdown", "text", "config", "toml", "bibliography", "json"].includes(file.kind)) continue;
     const absolute = `${project.path.replace(/[\\/]$/, "")}/${file.path}`;
-    if (openPaths.has(pathKey(absolute))) continue;
+    const key = pathKey(absolute);
+    if (knownPaths.has(key)) continue;
+    knownPaths.add(key);
     entries.push({ id: `project:${file.path}`, relativePath: file.path,
       label: file.chapter_title || file.path.split(/[\\/]/).at(-1), detail: file.path });
+  }
+  for (const { path } of recents) {
+    if (!path) continue;
+    const key = pathKey(path);
+    if (knownPaths.has(key)) continue;
+    knownPaths.add(key);
+    entries.push({ id: `recent:${key}`, recentPath: path, label: path.split(/[\\/]/).at(-1), detail: path });
   }
   return entries;
 }

@@ -2,7 +2,7 @@
  * Visual roles and final component geometry are defined in workspace.css. */
 
 :root {
-  font-family: "Segoe UI Variable","Vazirmatn","Noto Sans Arabic",system-ui,sans-serif;
+  font-family: var(--app-font, system-ui, sans-serif);
   color: var(--ui-text);
   background: var(--ui-bg);
   --brand: var(--ui-accent);
@@ -848,7 +848,7 @@ html[dir=ltr] .toggle input:checked+i:after { transform: translateX(16px); }
   border-inline-end: 1px solid var(--ui-border);
   background: var(--ui-panel-muted);
   color: var(--ui-muted);
-  font: var(--ui-text-sm)/1.7 "Cascadia Mono","JetBrains Mono",monospace;
+  font: var(--ui-text-sm)/1.7 var(--app-mono);
 }
 
 .editor-surface textarea {
@@ -861,7 +861,7 @@ html[dir=ltr] .toggle input:checked+i:after { transform: translateX(16px); }
   background: var(--ui-panel);
   color: var(--ui-text);
   caret-color: var(--brand);
-  font: var(--ui-text-base)/1.7 "Cascadia Mono","JetBrains Mono","Vazirmatn",monospace;
+  font: var(--ui-text-base)/1.7 var(--app-mono);
   direction: ltr;
   unicode-bidi: plaintext;
   tab-size: 4;
@@ -869,7 +869,7 @@ html[dir=ltr] .toggle input:checked+i:after { transform: translateX(16px); }
   overflow: auto;
 }
 
-.editor-surface textarea::selection { background: var(--ui-border); }
+.editor-surface textarea::selection { background: var(--cm-selection); }
 
 .editor-status {
   display: flex;
@@ -1843,7 +1843,7 @@ html[data-reduced-motion="reduce"] *,html[data-reduced-motion="reduce"] *::befor
 
 .codemirror-mount .cm-scroller {
   overflow: auto;
-  font-family: "Cascadia Mono","JetBrains Mono","Vazirmatn",ui-monospace,monospace;
+  font-family: var(--app-mono);
   line-height: 1.7;
   tab-size: 4;
 }
@@ -1869,13 +1869,13 @@ html[data-reduced-motion="reduce"] *,html[data-reduced-motion="reduce"] *::befor
   z-index: 30;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--ui-panel);
+  background: var(--cm-panel);
   color: var(--ui-text);
   box-shadow: var(--ui-shadow-float);
   overflow: hidden;
 }
 
-.codemirror-mount .cm-tooltip-autocomplete>ul { max-height: 260px; font-family: "Segoe UI Variable","Vazirmatn",system-ui,sans-serif; }
+.codemirror-mount .cm-tooltip-autocomplete>ul { max-height: 260px; font-family: var(--app-font); }
 
 .codemirror-mount .cm-tooltip-autocomplete>ul>li { padding: 5px 9px; }
 

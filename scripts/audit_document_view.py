@@ -13,7 +13,14 @@ from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
 
 from audit_desktop_editor_ux import BRIDGE_SCRIPT, FIXTURE_B, mode, replace_content
-from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, ROOT, open_settings, serve
+from audit_desktop_ui import (
+    DEFAULT_DIST,
+    INIT_SCRIPT,
+    ROOT,
+    click_workspace_layout_control,
+    open_settings,
+    serve,
+)
 
 
 SAMPLE = "# سند آزمایشی Document\n\n" + "\n\n".join(
@@ -130,7 +137,7 @@ def run(dist: Path, output: Path):
 
             # A growing side panel reduces the canvas, and closing it reclaims
             # the same space rather than leaving an invisible reading column.
-            page.locator("#workspace-toggle-files").click()
+            click_workspace_layout_control(page, "#workspace-toggle-files")
             with_files = measure(page)
             assert with_files["content"]["width"] >= with_files["pane"]["width"] - 20, with_files
             assert with_files["pane"]["width"] < before["pane"]["width"] - 200

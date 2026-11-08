@@ -17,7 +17,7 @@ from playwright.sync_api import expect, sync_playwright
 
 from audit_authoring_workspace import BRIDGE
 from audit_book_workflow import engine_server
-from audit_desktop_ui import DEFAULT_DIST
+from audit_desktop_ui import DEFAULT_DIST, click_workspace_layout_control
 
 SAMPLE = (
     "# Search and image reference\n\n"
@@ -148,13 +148,21 @@ def run(dist: Path, output: Path) -> dict:
                     selection = page.locator(".cm-selectionBackground").first
                     expect(selection).to_be_visible()
                     paint = selection.evaluate("e=>getComputedStyle(e).backgroundColor")
-                    assert paint.startswith("rgba(245, 158, 11,"), paint
+                    expected_paint = page.evaluate("""() => {
+                      const sample = document.createElement('span');
+                      sample.style.backgroundColor = 'var(--cm-selection)';
+                      document.body.append(sample);
+                      const color = getComputedStyle(sample).backgroundColor;
+                      sample.remove();
+                      return color;
+                    }""")
+                    assert paint == expected_paint, (paint, expected_paint)
                     field_paint = page.locator("#find-query").evaluate("e=>getComputedStyle(e,'::selection').backgroundColor")
-                    assert field_paint.startswith("rgba(245, 158, 11,"), field_paint
+                    assert field_paint == expected_paint, (field_paint, expected_paint)
                     page.keyboard.press("ArrowLeft")
                     case["selection_paint"] = paint
                     case["field_selection_paint"] = field_paint
-                    case["checks"].append("Write/Source toolbar surfaces agree and document selection follows the orange palette")
+                    case["checks"].append("Write/Source toolbar surfaces agree and document selection follows the blue palette")
 
                     good = page.locator('.cm-content .online-image-control[data-online-image-origin="https://images.example.com"]')
                     good.first.locator("button").click()
@@ -177,9 +185,9 @@ def run(dist: Path, output: Path) -> dict:
                     expect(page.locator('#reading-document .online-image-control[data-online-image-state="loaded"]')).to_have_count(3, timeout=30_000)
                     if width >= 1100:
                         page.locator('[data-view-mode="write"]').click()
-                        page.locator("#workspace-toggle-preview").click()
+                        click_workspace_layout_control(page, "#workspace-toggle-preview")
                         expect(page.locator('#preview-document .online-image-control[data-online-image-state="loaded"]')).to_have_count(3, timeout=30_000)
-                        page.locator("#workspace-toggle-preview").click()
+                        click_workspace_layout_control(page, "#workspace-toggle-preview")
                     else:
                         page.locator('[data-view-mode="write"]').click()
                     expect(buffer).to_have_value(SAMPLE)

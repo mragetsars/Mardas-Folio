@@ -241,7 +241,7 @@ export function selectionToolbarExtension(locale = "en", enabled = true) {
 export const authoringToolsTheme = EditorView.baseTheme({
   ".cm-selection-toolbar": {
     display: "flex", alignItems: "center", gap: "2px", padding: "4px",
-    fontFamily: '"Segoe UI Variable", "Vazirmatn", "Noto Sans Arabic", system-ui, sans-serif',
+    fontFamily: "var(--app-font, system-ui, sans-serif)",
   },
   ".cm-selection-toolbar[hidden]": { display: "none" },
   ".cm-selection-toolbar button": {
@@ -251,7 +251,7 @@ export const authoringToolsTheme = EditorView.baseTheme({
   },
   '.cm-selection-toolbar button[data-editor-command="bold"]': { fontWeight: "750" },
   '.cm-selection-toolbar button[data-editor-command="italic"]': { fontStyle: "italic" },
-  ".cm-selection-toolbar button:hover": { background: "var(--cm-accent-soft, #fff7ed)" },
+  ".cm-selection-toolbar button:hover": { background: "var(--cm-accent-soft, #edf5ff)" },
   ".cm-selection-toolbar button:focus-visible": {
     outline: "2px solid var(--cm-link, #1d4ed8)", outlineOffset: "-2px",
   },

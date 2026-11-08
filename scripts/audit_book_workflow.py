@@ -16,7 +16,7 @@ import threading
 from playwright.sync_api import expect, sync_playwright
 from pypdf import PdfReader
 
-from audit_desktop_ui import DEFAULT_DIST, QuietHandler
+from audit_desktop_ui import DEFAULT_DIST, QuietHandler, click_workspace_layout_control
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -142,7 +142,9 @@ globalThis.__TAURI__ = {
 
             def book_sidebar() -> None:
                 if not page.locator("#author-sidebar").is_visible():
-                    page.locator("#workspace-toggle-sidebar").click()
+                    page.locator("#workspace-layout-button").click()
+                    click_workspace_layout_control(page, "#workspace-toggle-sidebar")
+                    page.keyboard.press("Escape")
                 page.locator('[data-sidebar="book"]').click()
 
             edit_append("\nLATEST_FIRST_CHAPTER\n")
@@ -211,6 +213,8 @@ globalThis.__TAURI__ = {
             edit_append("\nEXPORTED_LATEST_BUFFER\n")
             book_sidebar()
             page.locator("#book-export").evaluate("button => {button.click();button.click();}")
+            expect(page.locator("#export-format-title")).to_have_text("Export book")
+            page.locator("#export-format-pdf").evaluate("button => {button.click();button.click();}")
             expect(page.locator("#confirm-modal")).to_be_visible()
             assert page.evaluate("globalThis.__pdfPickers") == 1
             page.locator("#confirm-accept").click()
@@ -226,6 +230,8 @@ globalThis.__TAURI__ = {
             before_calls = len(calls)
             page.evaluate("globalThis.__cancelNextPdf = true")
             page.locator("#book-export").click()
+            page.locator("#export-format-pdf").click()
+            page.wait_for_function("globalThis.__pdfPickers === 2")
             expect(page.locator("#book-export")).to_be_enabled()
             assert not page.locator("#confirm-modal").is_visible()
             assert "REMAINS_AFTER_PICKER_CANCEL" not in first.read_text(encoding="utf-8")

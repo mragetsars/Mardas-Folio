@@ -16,7 +16,7 @@ from typing import Any
 from playwright.sync_api import expect, sync_playwright
 
 from audit_book_workflow import engine_server
-from audit_desktop_ui import DEFAULT_DIST, ROOT
+from audit_desktop_ui import DEFAULT_DIST, ROOT, click_workspace_layout_control, run_workspace_command
 from audit_document_preview import RICH, wait_math
 
 
@@ -114,7 +114,7 @@ def _click_control(page: Any, selector: str) -> None:
 def _side_preview(page: Any, *, enabled: bool = True) -> None:
     toggle = page.locator("#workspace-toggle-preview")
     if (toggle.get_attribute("aria-pressed") == "true") != enabled:
-        _click_control(page, "#workspace-toggle-preview")
+        click_workspace_layout_control(page, "#workspace-toggle-preview")
     expect(toggle).to_have_attribute("aria-pressed", str(enabled).lower())
 
 
@@ -214,7 +214,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     expect(page.locator("#markdown-editor")).to_have_value(SAMPLE)
                     scenario["checks"].append("editing with no rendered view performs no speculative engine preview")
 
-                    _click_control(page, "#workspace-toggle-sidebar")
+                    click_workspace_layout_control(page, "#workspace-toggle-sidebar")
                     page.locator('[data-sidebar="problems"]').click()
                     pending = ("This version has not been checked yet. Run Check document." if locale == "en"
                                else "این نسخهٔ متن هنوز بررسی نشده است. «بررسی سند» را اجرا کن.")
@@ -334,7 +334,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
 
                     _activity(page, "read")
                     if page.locator("#workspace-toggle-sidebar").get_attribute("aria-pressed") == "false":
-                        _click_control(page, "#workspace-toggle-sidebar")
+                        click_workspace_layout_control(page, "#workspace-toggle-sidebar")
                     page.locator('[data-sidebar="frontmatter"]').click()
                     expect(page.locator("#sidebar-panel-frontmatter")).to_be_visible()
                     page.evaluate("path => {__modeFixture.pick = path}", str(config))
@@ -358,8 +358,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     expect(page.locator("#sidebar-panel-frontmatter")).to_be_visible()
                     scenario["checks"].append("plain configuration files derive Source without changing the Markdown reading preference")
 
-                    page.locator("#home-button").click()
-                    page.locator("#workflow-project").click()
+                    run_workspace_command(page, "project")
                     expect(page.locator("#file-navigator #project-file-tree")).to_be_visible()
                     page.locator("#project-search-query").fill("PROJECT_POSITION_TOKEN")
                     page.locator("#run-project-search").click()

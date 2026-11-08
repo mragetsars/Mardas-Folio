@@ -15,7 +15,14 @@ from typing import Any
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, open_settings, serve
+from audit_desktop_ui import (
+    DEFAULT_DIST,
+    INIT_SCRIPT,
+    click_workspace_layout_control,
+    open_settings,
+    open_template,
+    serve,
+)
 
 
 FIXTURE_A = "/fixtures/alpha/report.md"
@@ -152,7 +159,7 @@ def mode(page: Any, name: str) -> None:
         toggle = page.locator("#workspace-toggle-preview")
         wanted = name == "split"
         if (toggle.get_attribute("aria-pressed") == "true") != wanted:
-            toggle.click()
+            click_workspace_layout_control(page, "#workspace-toggle-preview")
         expect(toggle).to_have_attribute("aria-pressed", str(wanted).lower())
 
 
@@ -190,7 +197,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
 
     # File and document structure remain present together. Collapsing one must
     # reclaim space without collapsing the other or retaining hidden controls.
-    page.locator("#workspace-toggle-sidebar").click()
+    click_workspace_layout_control(page, "#workspace-toggle-sidebar")
     expect(page.locator("#author-sidebar")).to_be_visible()
     expect(page.locator("#file-navigator")).to_be_visible()
     page.locator('#navigator-tab-outline').click()
@@ -292,7 +299,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     expect(page.locator("#reading-document")).not_to_contain_text("UNIQUE_BETA")
     navigator_item(page, 1).click()
     expect(page.locator("#reading-document")).to_contain_text("UNIQUE_BETA")
-    page.locator("#workspace-toggle-sidebar").click()
+    click_workspace_layout_control(page, "#workspace-toggle-sidebar")
     page.locator('#navigator-tab-outline').click()
     page.locator("#outline-list button").last.focus()
     page.keyboard.press("Enter")
@@ -348,7 +355,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     checks.extend(run_reader_empty_navigation(page))
 
     mode(page, "source")
-    page.locator("#workspace-toggle-sidebar").click()
+    click_workspace_layout_control(page, "#workspace-toggle-sidebar")
     expect(page.locator("#author-sidebar")).to_be_visible()
     if page.locator("#workspace-toggle-formatting").get_attribute("aria-pressed") != "true":
         page.locator("#workspace-toggle-formatting").click()
@@ -358,7 +365,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
         "inspector": page.locator("#author-sidebar").is_visible(),
         "formatting": page.locator(".format-bar").is_visible(),
     }
-    page.locator("#workspace-focus").click()
+    click_workspace_layout_control(page, "#workspace-focus")
     expect(page.locator("#exit-focus-mode")).to_be_visible()
     for region in ("#file-navigator", "#author-sidebar", ".format-bar"):
         check_hidden_region(page, region)
@@ -367,7 +374,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
                           ("formatting", ".format-bar")):
         if page.locator(selector).is_visible() != layout_before[key]:
             raise AssertionError(f"Leaving Focus did not restore {key}")
-    page.locator("#workspace-focus").click()
+    click_workspace_layout_control(page, "#workspace-focus")
     editor(page).focus()
     page.keyboard.press("Escape")
     expect(page.locator("#exit-focus-mode")).to_be_hidden()
@@ -388,7 +395,7 @@ def run_narrow_panes(page: Any) -> list[str]:
     mode(page, "split")
     for selector in ("#workspace-toggle-files", "#workspace-toggle-sidebar"):
         if page.locator(selector).get_attribute("aria-pressed") != "true":
-            page.locator(selector).click()
+            click_workspace_layout_control(page, selector)
     for selector in ("#file-resizer", "#sidebar-resizer"):
         page.locator(selector).focus()
         page.keyboard.press("End")
@@ -506,7 +513,7 @@ def run_writing_width(page: Any) -> list[str]:
     for opener, region in (("#workspace-toggle-files", "#file-navigator"),
                            ("#workspace-toggle-sidebar", "#author-sidebar")):
         if page.locator(region).is_visible():
-            page.locator(opener).click()
+            click_workspace_layout_control(page, opener)
     mode(page, "write")
     before = mirror(page).input_value()
     editor(page).focus()
@@ -552,7 +559,7 @@ def release_saves(page: Any) -> None:
 def run_export_navigation(page: Any) -> list[str]:
     # A dirty, path-backed file is saved before export. A slow save must not
     # override a newer file-selection intent or export an obsolete snapshot.
-    page.locator("#workspace-toggle-files").click()
+    click_workspace_layout_control(page, "#workspace-toggle-files")
     navigator_item(page, 0).click()
     mode(page, "source")
     before = mirror(page).input_value()
@@ -606,7 +613,7 @@ def run_book_preview(page: Any) -> list[str]:
     before = mirror(page).input_value()
     page.evaluate("globalThis.__auditProjectEnabled = true")
     if not page.locator("#file-navigator").is_visible():
-        page.locator("#workspace-toggle-files").click()
+        click_workspace_layout_control(page, "#workspace-toggle-files")
     page.locator("#navigator-open-project").click()
     page.locator('[data-sidebar="book"]').click()
     prior_mode = page.locator(".editor-pane").get_attribute("data-view-mode")
@@ -685,7 +692,7 @@ def run_authoring(page: Any, locale: str) -> list[str]:
 
 
 def run_responsive(page: Any, output: Path, locale: str, theme: str, width: int) -> dict[str, Any]:
-    page.locator('[data-template-id="report"]').click()
+    open_template(page, "report")
     expect(editor(page)).to_be_visible()
     replace_content(page, "# Responsive document\n\nمتن فارسی and English.\n\n## A section\n")
     # Check each auxiliary area can be opened, closed and exited with keyboard
@@ -695,7 +702,7 @@ def run_responsive(page: Any, output: Path, locale: str, theme: str, width: int)
         ("#workspace-toggle-sidebar", "#inspector-close", "#author-sidebar"),
     ):
         if not page.locator(region).is_visible():
-            page.locator(opener).click()
+            click_workspace_layout_control(page, opener)
         expect(page.locator(region)).to_be_visible()
         close_box = page.locator(closer).bounding_box()
         if not close_box or close_box["x"] < 0 or close_box["x"] + close_box["width"] > width + 1:
@@ -705,7 +712,7 @@ def run_responsive(page: Any, output: Path, locale: str, theme: str, width: int)
         check_hidden_region(page, region)
         page.wait_for_function("() => document.activeElement?.closest('.cm-editor')")
 
-    for control in ("#format-find", "#insert-menu-button", "#workspace-focus"):
+    for control in ("#format-find", "#insert-menu-button", "#workspace-layout-button"):
         expect(page.locator(control)).to_be_visible()
     page.locator("#document-actions-menu > summary").click()
     for action in ("#workspace-new", "#workspace-open", "#workspace-save-as", "#workspace-validate"):
@@ -714,7 +721,7 @@ def run_responsive(page: Any, output: Path, locale: str, theme: str, width: int)
         if not box or box["x"] < -1 or box["x"] + box["width"] > width + 1:
             raise AssertionError(f"{width}: document action {action} cannot be reached: {box}")
     page.keyboard.press("Escape")
-    page.locator("#workspace-focus").click()
+    click_workspace_layout_control(page, "#workspace-focus")
     expect(page.locator("#exit-focus-mode")).to_be_visible()
     page.locator("#exit-focus-mode").click()
     mode(page, "read")
@@ -757,7 +764,7 @@ def run_audit(dist: Path, output: Path, *, only: str = "all", variant: str | Non
                 try:
                     initialise(page, url, locale, theme)
                     if only == "authoring":
-                        page.locator('[data-template-id="blank"]').click()
+                        open_template(page, "blank")
                         checks = run_authoring(page, locale)
                     else:
                         checks = run_behavior(page, output, locale, theme, checks)

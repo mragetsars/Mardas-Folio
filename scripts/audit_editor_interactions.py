@@ -13,7 +13,7 @@ from playwright.sync_api import expect, sync_playwright
 
 from audit_authoring_workspace import BRIDGE
 from audit_book_workflow import engine_server
-from audit_desktop_ui import DEFAULT_DIST
+from audit_desktop_ui import DEFAULT_DIST, click_workspace_layout_control
 
 SAMPLE = (
     ("متن فارسی برای انتخاب راحت و خواندن طولانی، همراه با English words و عدد ۱۲۳. " * 12)
@@ -163,9 +163,9 @@ def run(dist: Path, output: Path) -> dict:
                     assert preview.locator("use").get_attribute("href") != inspector.locator(
                         "use"
                     ).get_attribute("href")
-                    preview.click()
+                    click_workspace_layout_control(page, "#workspace-toggle-preview")
                     expect(page.locator("#preview-pane")).to_be_visible()
-                    expect(preview).to_have_attribute("aria-expanded", "true")
+                    expect(preview).to_have_attribute("aria-pressed", "true")
                     toolbar = page.locator(".cm-selection-toolbar:visible")
                     if toolbar.count():
                         page.wait_for_function("""()=>{
