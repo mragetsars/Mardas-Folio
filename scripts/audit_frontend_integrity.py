@@ -69,7 +69,10 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
             expect(mirror).to_have_value("prefix start dog end")
             page.keyboard.press("Control+z")
             expect(mirror).to_have_value("prefix start cat end")
-            page.locator("#tab-new-document").click()
+            # A new tab opens the start surface, not an editable buffer. Create
+            # an untitled Markdown document when this scenario needs a second
+            # editor so the ownership check exercises two actual documents.
+            page.locator("#navigator-new").click()
             replace_text("cat second")
             page.locator("#replace-one").click()
             expect(mirror).to_have_value("dog second")

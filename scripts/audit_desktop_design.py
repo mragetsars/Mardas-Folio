@@ -485,6 +485,7 @@ RESPONSIVE_JS = """() => {
   // enough to hit. 24px is the floor WCAG 2.2 AA sets for a pointer target.
   const newBook = document.querySelector('#book-project-modal:not(.hidden)');
   const exporting = document.body.dataset.view === 'export';
+  const compactTools = matchMedia('(max-width: 1000px)').matches;
   const required = newBook ? {
     '#book-project-title-input': 'book title',
     '#book-project-folder-input': 'project folder',
@@ -494,8 +495,10 @@ RESPONSIVE_JS = """() => {
   } : exporting ? {
     '#validate-button': 'check document',
     '#export-button': 'create PDF',
-    '#settings-button': 'settings',
-    '#command-button': 'command palette',
+    ...(compactTools ? {'#app-utilities > summary': 'more tools'} : {
+      '#settings-button': 'settings',
+      '#command-button': 'command palette',
+    }),
   } : {
     "#workspace-save": "save",
     "#workspace-export": "create PDF",

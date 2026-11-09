@@ -103,6 +103,7 @@ import {
   saveProjectFile,
   startProjectSearch,
 } from "./core/project-api.mjs";
+import { resetProjectSession } from "./core/project-lifecycle.mjs";
 import {
   addBookChapter,
   createBookProject,
@@ -1060,6 +1061,7 @@ function commandDefinitions() {
     { id: "new", symbol: "plus", label: t("commandNewDocument"), keywords: "new document markdown", shortcut: "Ctrl N", priority: 100, run: () => createUntitledDocument() },
     { id: "open", symbol: "file", label: t("commandOpenDocument"), keywords: "open file markdown", shortcut: "Ctrl O", priority: 95, run: () => chooseAuthoringFiles() },
     { id: "project", symbol: "folder", label: t("commandOpenProject"), keywords: "open folder workspace project", priority: 80, run: () => chooseProjectDirectory() },
+    { id: "close-project", symbol: "close", label: t("closeProject"), keywords: "close project workspace folder", priority: 55, enabled: Boolean(state.project?.path), run: closeActiveProject },
     { id: "book", symbol: "book", label: t("commandNewBook"), keywords: "book thesis chapters project", priority: 75, run: () => openNewBookModal() },
     { id: "save", symbol: "save", label: t("commandSave"), keywords: "save write", shortcut: "Ctrl S", priority: 90, enabled: hasDocument, run: () => saveActiveDocument() },
     { id: "save-as", symbol: "save-as", label: t("commandSaveAs"), keywords: "save as copy", shortcut: "Ctrl Shift S", priority: 70, enabled: hasDocument, run: () => saveActiveDocument({ saveAs: true }) },
@@ -1298,6 +1300,7 @@ const STATUS_SYMBOLS = {
 function setExportStatus(kind, titleKey, message, diagnostics = []) {
   const visual = $("#status-visual");
   visual.dataset.state = kind;
+  $(".status-panel").dataset.state = kind;
   // Colour alone cannot carry this: a failed export used to show a tick in
   // red, which reads as success to anyone who does not separate the two hues.
   $("#status-symbol")?.replaceChildren(spriteIcon(STATUS_SYMBOLS[kind] || "file"));
@@ -1901,6 +1904,12 @@ function setExportPreviewState(key) {
   if (label) label.textContent = key ? t(key) : "";
 }
 
+function setExportPreviewHasSource(hasSource) {
+  const emptyState = $("#export-preview-empty");
+  if (emptyState) emptyState.hidden = Boolean(hasSource);
+  $("#export-preview")?.setAttribute("aria-hidden", String(!hasSource));
+}
+
 /** Put the export preview back into the interface language. */
 function retranslateExportPreview() {
   setExportPreviewState(exportPreviewStateKey);
@@ -1908,6 +1917,7 @@ function retranslateExportPreview() {
   if (!pageDeck) return;
   // With no source there is nothing to ask the engine for; with one, the
   // sheet itself carries translated furniture and has to be drawn again.
+  setExportPreviewHasSource(Boolean(state.sourcePath));
   if (!state.sourcePath) pageDeck.showMessage(t("previewChooseSource"));
   else schedulePdfPreview(0);
 }
@@ -1940,8 +1950,9 @@ function exportPreviewDeck() {
  */
 function renderPreviewToolbar(deckState) {
   const level = $("#preview-zoom-level");
-  if (level) level.textContent = `${Math.round((deckState.zoom || 1) * 100)}%`;
   const counter = $("#preview-page-count");
+  const hasPages = Boolean(deckState.pageCount);
+  if (level) level.textContent = hasPages ? `${Math.round((deckState.zoom || 1) * 100)}%` : "—";
   if (counter) {
     counter.textContent = deckState.pageCount
       ? `${deckState.currentPage} / ${deckState.pageCount}`
@@ -1951,6 +1962,10 @@ function renderPreviewToolbar(deckState) {
   $("#preview-fit-width")?.setAttribute("aria-pressed", String(deckState.zoomMode === "fit-width"));
   $("#preview-fit-page")?.setAttribute("aria-pressed", String(deckState.zoomMode === "fit-page"));
   $("#preview-guides")?.setAttribute("aria-pressed", String(Boolean(deckState.guides)));
+  for (const id of ["#preview-zoom-out", "#preview-zoom-in", "#preview-fit-width", "#preview-fit-page", "#preview-guides"]) {
+    const button = $(id);
+    if (button) button.disabled = !hasPages;
+  }
   for (const id of ["#preview-prev-page", "#preview-next-page"]) {
     const button = $(id);
     if (button) button.disabled = deckState.pageCount < 2;
@@ -2039,6 +2054,7 @@ function renderExportPreview() {
 async function drawExportPreview() {
   const deck = exportPreviewDeck();
   if (!deck) return;
+  setExportPreviewHasSource(Boolean(state.sourcePath));
   if (!state.sourcePath) {
     setExportPreviewState("");
     renderPreviewNote(null);
@@ -2267,6 +2283,7 @@ function openExportSource(path) {
     pageDeck?.showMessage(t(path ? "previewUpdating" : "previewChooseSource"));
   }
   state.sourcePath = path;
+  setExportPreviewHasSource(Boolean(path));
   state.outputPath = defaultOutputPath(path);
   $("#source-path").value = path;
   $("#output-path").value = state.outputPath;
@@ -3139,6 +3156,7 @@ function renderProjectWorkspace() {
   if (!empty || !tools || !list || !section) return;
   const project = state.project;
   $("#refresh-project").hidden = !project;
+  $("#close-project").hidden = !project;
   empty.classList.toggle("hidden", Boolean(project));
   tools.classList.toggle("hidden", !project);
   section.classList.toggle("hidden", !project);
@@ -3569,17 +3587,32 @@ function invalidateBookTaskForProjectChange() {
 }
 
 function clearProjectState() {
-  invalidateBookTaskForProjectChange();
-  state.project = null;
-  for (const model of state.documents) attachProjectMembership(model, null);
-  state.bookOutputPath = null;
-  state.projectGeneration += 1;
-  state.projectDiagnostics = [];
-  state.bibliographyEntries = [];
-  state.bibliographySequence += 1;
-  state.assetSequence += 1;
-  state.validationSequence += 1;
-  state.previewSequence += 1;
+  const bookHandoff = invalidateBookTaskForProjectChange();
+  const searchHandoff = cancelActiveProjectSearch({ announce: false });
+  resetProjectSession(state);
+  updateAuthoringMode(activeDocument());
+  persistSession();
+  renderProjectWorkspace();
+  renderBookWorkspace();
+  renderCitations(activeDocument());
+  renderProblems(activeDocument());
+  renderWorkspace();
+  void refreshAssets();
+  return Promise.allSettled([bookHandoff, searchHandoff]);
+}
+
+function closeActiveProject() {
+  if (!state.project?.path) return;
+  const projectName = state.project.name || t("projectWorkspace");
+  // Detach the UI and preserve open documents immediately. Search/book
+  // cancellation can take a round trip through the engine, but a project
+  // close should never feel like a hung command while that handoff completes.
+  const cleanup = clearProjectState();
+  showView("workspace");
+  activateSidebar("project");
+  $("#sidebar-open-project")?.focus({ preventScroll: true });
+  toast(`${t("projectClosed")}: ${projectName}`, "success");
+  return cleanup;
 }
 
 async function runBookTask(startTask, {
@@ -5518,6 +5551,7 @@ function bindEvents() {
   $("#refresh-assets").addEventListener("click", refreshAssets);
   $("#sidebar-open-project").addEventListener("click", chooseProjectDirectory);
   $("#refresh-project").addEventListener("click", refreshActiveProject);
+  $("#close-project").addEventListener("click", closeActiveProject);
   $("#run-project-search").addEventListener("click", runProjectSearch);
   $("#sidebar-new-book").addEventListener("click", openNewBookModal);
   $("#book-add-chapter").addEventListener("click", () => openChapterModal("add"));
@@ -5991,8 +6025,7 @@ async function boot() {
             openFirstChapter: false,
           });
         } catch {
-          clearProjectState();
-          renderBookWorkspace();
+          await clearProjectState();
         }
       }
       if (session.paths.length) {

@@ -404,6 +404,8 @@ Object.assign(en, {
 Object.assign(fa, {
   exportPreview: "پیش‌نمایش خروجی",
   previewChooseSource: "برای دیدن پیش‌نمایش، یک فایل مبدأ انتخاب کن.",
+  previewEmptyTitle: "پیش‌نمایش سند",
+  previewChooseSourceHelp: "برای دیدن صفحه‌بندی PDF، از بخش «فایل مبدأ» یک سند Markdown انتخاب کن.",
   previewUpdating: "در حال بروزرسانی…",
   previewFailedShort: "پیش‌نمایش در دسترس نیست",
   documentSettings: "تنظیمات سند",
@@ -433,6 +435,8 @@ Object.assign(fa, {
   previewEngineOutdated: "موتور محلی قدیمی‌تر از رابط است؛ اندازه صفحه و پاصفحه فرضی‌اند.",
 });
 Object.assign(en, {
+  previewEmptyTitle: "Document preview",
+  previewChooseSourceHelp: "Choose a Markdown document in Source file to inspect its PDF page layout.",
   previewEngineOutdated:
     "The local engine is older than this interface; page size and footer are assumed.",
 });
@@ -593,4 +597,17 @@ Object.assign(en, {
   workspaceEmptyHelp: "Create a document or pick up where you left off.",
   exportFile: "Export a file",
   exportDocumentChanged: "The active document changed. Open Export again.",
+});
+
+Object.assign(fa, {
+  closeProject: "بستن پروژه",
+  closeProjectHelp: "پروژه بسته می‌شود؛ تب‌های باز و تغییرهای ذخیره‌نشده باقی می‌مانند.",
+  projectClosed: "پروژه بسته شد؛ سندهای باز در تب‌ها باقی ماندند",
+  settingsSummary: "خلاصهٔ تنظیمات",
+});
+Object.assign(en, {
+  closeProject: "Close project",
+  closeProjectHelp: "Closes the project; open tabs and unsaved edits stay available.",
+  projectClosed: "Project closed; open documents remain in their tabs",
+  settingsSummary: "Settings summary",
 });

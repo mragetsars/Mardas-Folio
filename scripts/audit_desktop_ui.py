@@ -45,7 +45,26 @@ globalThis.__TAURI__ = {
         if (args.method === "system.health") {
           return {engine_version: "desktop-ui-audit", runtime: {platform: "browser-smoke"}};
         }
+        if (args.method === "project.open") {
+          return {project: {
+            path: "/qa/book",
+            name: "Book QA",
+            config: "mardas.toml",
+            files: [],
+            book: {enabled: true, title: "Book QA", output: "dist/book.pdf", chapter_count: 1, chapters: []}
+          }};
+        }
+        if (args.method === "document.read") {
+          return {content: "# Export preview fixture\n\nA readable preview page."};
+        }
         if (args.method === "preview.document_text") {
+          if (args.params?.input_path === "/qa/sample.md") {
+            return {
+              body_html: "<h1 id='export-fixture-heading'>Export preview fixture</h1><p>A readable preview page.</p>",
+              source_map: [{id: "export-fixture-heading", line: 1, level: 1, title: "Export preview fixture"}],
+              diagnostics: []
+            };
+          }
           return {
             body_html: "<style>body{display:none}</style><form><button>spoof</button></form><img src='https://example.invalid/tracker.png' srcset='https://example.invalid/tracker-2.png 2x' onerror='globalThis.__previewXss=true' style='position:fixed'><h1 id='preview-heading' data-source-line='1'>Preview</h1>",
             source_map: [{id: "preview-heading", line: 1, level: 1, title: "Preview"}],
@@ -55,6 +74,8 @@ globalThis.__TAURI__ = {
         if (args.method === "validate.document_text") return {diagnostics: [], valid: true};
         return {};
       }
+      if (command === "pick_project_directory") return "/qa/book";
+      if (command === "pick_markdown_file") return "/qa/sample.md";
       if (command.startsWith("pick_")) return null;
       return null;
     }
@@ -354,6 +375,7 @@ def run_audit(
         # whatever language it was first drawn in until it was made to redraw.
         open_workspace_export(page, None)
         page.wait_for_timeout(900)
+        page.screenshot(path=str(output_dir / "export-empty-fa-dark.png"), full_page=True)
         # A value the preset supplied is not a value the user overrode, and
         # "reset" on this screen has to mean "back to the preset" — deleting
         # it sends the engine to its own default instead, which is a different
@@ -414,6 +436,50 @@ def run_audit(
                 const text = note ? note.textContent.trim() : '';
                 return text.length > 0 && !/[A-Za-z]{4}/.test(text);
             }"""
+        )
+        checks["empty_preview_has_clear_next_step"] = (
+            page.locator("#export-preview-empty").is_visible()
+            and page.locator("#preview-zoom-in").is_disabled()
+            and page.locator("#preview-fit-width").is_disabled()
+        )
+        checks["empty_preview_uses_the_interface_surface"] = page.evaluate(
+            """() => {
+                const empty = document.querySelector('#export-preview-empty');
+                const canvas = document.querySelector('#export-preview');
+                return !!empty && getComputedStyle(empty).backgroundColor !== 'rgba(0, 0, 0, 0)'
+                    && canvas?.getAttribute('aria-hidden') === 'true';
+            }"""
+        )
+        page.locator("#choose-source").click()
+        page.wait_for_function(
+            "() => !!document.querySelector('#export-preview iframe')?.contentDocument?.querySelector('.pv-page')"
+        )
+        checks["source_selection_replaces_the_empty_preview"] = (
+            page.locator("#export-preview-empty").is_hidden()
+            and page.locator("#preview-zoom-in").is_enabled()
+            and page.locator("#preview-page-count").inner_text() != "—"
+        )
+        page.screenshot(path=str(output_dir / "export-selected-source-fa-dark.png"), full_page=True)
+
+        # A book is still a project, so its close action lives with the
+        # project file list. Closing it must detach the workspace immediately
+        # while keeping already-open documents and their buffers.
+        page.locator("#export-back").click()
+        page.locator("#sidebar-tab-project").click()
+        page.locator("#sidebar-open-project").click()
+        page.wait_for_function("() => !document.querySelector('#navigator-project-section')?.classList.contains('hidden')")
+        checks["book_project_close_action_is_discoverable"] = (
+            page.locator("#navigator-project-section #close-project").is_visible()
+            and page.locator("#sidebar-tab-book").is_visible()
+        )
+        page.locator("#sidebar-tab-book").click()
+        page.screenshot(path=str(output_dir / "book-project-close-action-fa-dark.png"), full_page=True)
+        open_tabs = page.locator(".document-tab").count()
+        page.locator("#navigator-project-section #close-project").click()
+        page.wait_for_function("() => document.querySelector('#navigator-project-section')?.classList.contains('hidden')")
+        checks["closing_book_keeps_open_documents"] = (
+            page.locator(".document-tab").count() == open_tabs
+            and _visible(page, "#book-empty")
         )
 
         checks["page_errors"] = page_errors
