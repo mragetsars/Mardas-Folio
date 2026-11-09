@@ -4324,6 +4324,11 @@ function safePreviewHtml(value, prefix = "preview-") {
     for (const className of [...element.classList]) {
       if (reservedClasses.has(className)) element.classList.remove(className);
     }
+    if (element.matches("a.md2pdf-local-link-blocked")) {
+      element.setAttribute("aria-disabled", "true");
+      element.setAttribute("title", t("previewLinkUnavailable"));
+      element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("previewLinkUnavailable")}`);
+    }
     for (const attribute of [...element.attributes]) {
       const name = attribute.name.toLowerCase();
       if (
@@ -4357,6 +4362,8 @@ function safePreviewHtml(value, prefix = "preview-") {
         } else {
           element.removeAttribute("href");
           element.setAttribute("aria-disabled", "true");
+          element.setAttribute("title", t("previewLinkUnavailable"));
+          element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("previewLinkUnavailable")}`);
           continue;
         }
       }

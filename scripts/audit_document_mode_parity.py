@@ -42,6 +42,8 @@ SAMPLE = RICH.split("## Inert document HTML", 1)[0] + """
 
 [Go to this section](#document)
 
+[Open next chapter](chapter-02.md#chapter-two)
+
 """ + "\n".join(
     f"## Position section {number}\n\n"
     + f"UNIQUE_POSITION_{number} فارسی and English reading position. " * 14
@@ -183,6 +185,11 @@ def _check_document_elements(page: Any, selector: str) -> None:
     target = link.get_attribute("href")
     assert target and target.startswith("#"), target
     assert article.locator(target).count() == 1, (selector, target)
+    disabled = article.locator('a[aria-disabled="true"]').filter(has_text="Open next chapter")
+    expect(disabled).to_have_count(1)
+    assert disabled.get_attribute("href") is None
+    assert disabled.get_attribute("title"), "Unavailable link needs an explanation"
+    assert disabled.evaluate("element => getComputedStyle(element).textDecorationLine") == "none"
     assert page.locator(target).count() == 1, (selector, target, "ID collision")
     assert article.locator(".md2pdf-mermaid-svg").evaluate_all("""svgs => svgs.length > 0 && svgs.every(svg => {
       const naturalWidth = Number(svg.getAttribute('viewBox').trim().split(/[\\s,]+/)[2]);

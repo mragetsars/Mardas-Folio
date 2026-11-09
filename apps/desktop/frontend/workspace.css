@@ -4112,6 +4112,11 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
 .document-content > :first-child { margin-block-start: 0; }
 .document-content p { margin: .7em 0 1em; }
 .document-content a { color: var(--ui-info); text-underline-offset: 3px; }
+.document-content a[aria-disabled="true"] {
+  color: var(--ui-muted);
+  text-decoration: none;
+  cursor: not-allowed;
+}
 .document-content img { max-width: 100%; height: auto; border-radius: var(--ui-radius-sm); }
 .document-content :is(ul, ol) { padding-inline-start: 1.7em; margin-block: .7em 1em; }
 .document-content li { margin-block: .25em; }

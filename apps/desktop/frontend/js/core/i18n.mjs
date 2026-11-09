@@ -313,6 +313,7 @@ Object.assign(en, {
 // Controls and states in the redesigned settings surface.
 Object.assign(fa, {
   settingsCategories:"دسته‌های تنظیمات",searchOptions:"جست‌وجوی تنظیمات خروجی",
+  previewLinkUnavailable:"باز کردن این پیوند در نمای سند در دسترس نیست.",
   outputExistsChooseNew:"فایل خروجی از قبل وجود دارد. برای حفظ آن، نام دیگری انتخاب کن.",
   outputSidecarUnsupported:"تا فراهم‌شدن حفاظت از خروجی‌های جانبی، مسیر گزارش کیفیت و HTML اشکال‌زدایی را خالی کن.",
   outputCreateOnlyHelp:"برای خروجی، نام فایلی را انتخاب کن که وجود ندارد.",
@@ -332,6 +333,7 @@ Object.assign(fa, {
 });
 Object.assign(en, {
   settingsCategories:"Setting categories",searchOptions:"Search output settings",
+  previewLinkUnavailable:"Opening this link is unavailable in document view.",
   outputExistsChooseNew:"The output file already exists. Choose a different file name to preserve it.",
   outputSidecarUnsupported:"Clear the quality report and debug HTML paths until protected auxiliary output is available.",
   outputCreateOnlyHelp:"Choose an output file name that does not already exist.",
