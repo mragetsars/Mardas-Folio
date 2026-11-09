@@ -20,10 +20,12 @@ const baseInvoke = globalThis.__TAURI__.core.invoke;
 globalThis.__activeJob = false;
 globalThis.__overlaps = [];
 globalThis.__calls = [];
+globalThis.__requests = [];
 globalThis.__holdPreview = true;
 globalThis.__scopeCalls = [];
 globalThis.__granted = [];
 globalThis.__copiedHtml = '';
+globalThis.__renderOutcome = null;
 Object.defineProperty(navigator, 'clipboard', {configurable:true, value:{
   write: async items => { globalThis.__copiedHtml = await (await items[0].getType('text/html')).text(); }
 }});
@@ -47,17 +49,25 @@ globalThis.__TAURI__.core.invoke = async (command, args = {}) => {
   }
   globalThis.__activeJob = true;
   globalThis.__calls.push(args.method);
+  globalThis.__requests.push({method:args.method, params:args.params});
   try {
     if (args.method.startsWith('preview.') && globalThis.__holdPreview) {
       await new Promise(resolve => { globalThis.__releasePreview = () => { globalThis.__holdPreview=false; resolve(); }; });
     }
     if (args.method === 'document.read') return {path:args.params.path, content:'# Other document\n\nOTHER_BUFFER', revision:'r1'};
     if (args.method === 'document.save') return {path:args.params.path, revision:'saved',read_only:false};
+    if (args.method === 'publication.inspect_output') return {exists: Boolean(globalThis.__outputExists)};
     if (args.method.startsWith('preview.')) {
       const safe = String(args.params.content || '').replaceAll('&','&amp;').replaceAll('<','&lt;');
       return {body_html:`<h1 id='current'>${safe}</h1>`, content_html:`<h1>${safe}</h1>`, diagnostics:[], css:{}, page:{}};
     }
-    if (args.method === 'render.document') return {output_path:'/fixtures/current.pdf'};
+    if (args.method === 'render.document') {
+      if (globalThis.__renderOutcome) {
+        const outcome = await new Promise(resolve => { globalThis.__resolveRender = resolve; });
+        if (outcome === 'cancelled') throw JSON.stringify({message:'Cancelled', data:{application_code:'MARDAS-JOB-CANCELLED'}});
+      }
+      return {output_path:'/fixtures/current.pdf'};
+    }
     return {};
   } finally { globalThis.__activeJob = false; }
 };
@@ -88,6 +98,13 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         page.locator("#export-format-pdf").click()
         expect(page.locator("#export-view")).to_be_visible()
         expect(page.locator("#source-path")).to_have_value("")
+        expect(page.locator('#preset-grid [role="radio"][tabindex="0"]')).to_have_count(1)
+        page.locator('[data-preset="general"]').focus()
+        page.keyboard.press("ArrowRight")
+        expect(page.locator('[data-preset="academic"]')).to_be_focused()
+        expect(page.locator('[data-preset="academic"]')).to_have_attribute("aria-checked", "true")
+        page.keyboard.press("Space")
+        expect(page.locator('[data-preset="academic"]')).to_be_focused()
         page.locator("#export-button").click()
         expect(page.locator("#choose-source")).to_be_focused()
         expect(page.locator("#export-dock-feedback")).to_contain_text("Choose a Markdown source file first.")
@@ -115,6 +132,65 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         page.locator("#workspace-export").click()
         page.locator("#export-format-pdf").click()
         expect(page.locator("#export-view")).to_be_visible()
+        page.evaluate("globalThis.__outputExists = true")
+        page.locator("#export-button").click()
+        expect(page.locator("#export-dock-feedback")).to_contain_text("already exists")
+        expect(page.locator("#choose-output")).to_be_focused()
+        assert not page.evaluate("globalThis.__calls.includes('render.document')")
+        page.evaluate("globalThis.__outputExists = false")
+        checks.append("existing output is reported before rendering and a new name is requested")
+        page.locator('[data-preset="minimal"]').click()
+        page.locator("#reset-advanced").click()
+        page.wait_for_function("""() => globalThis.__requests.some(r =>
+          r.method.startsWith('preview.') && r.params.options?.palette === 'neutral')""")
+        page.locator("#validate-button").click()
+        expect(page.locator("#validate-button")).to_be_enabled()
+        page.wait_for_function("() => globalThis.__requests.some(r => r.method === 'validate.document')")
+        preview_options = page.evaluate("""() => globalThis.__requests.filter(r =>
+          r.method.startsWith('preview.')).at(-1).params.options""")
+        validation_options = page.evaluate("""() => globalThis.__requests.filter(r =>
+          r.method === 'validate.document').at(-1).params.options""")
+        assert preview_options == validation_options, (preview_options, validation_options)
+        assert preview_options["toc"] is False
+        checks.append("reset keeps the selected preset identical in preview and document validation")
+        page.locator('#option-tab-contents').click()
+        toggle = page.locator('[data-option-key="toc"] .tri-toggle-option')
+        expect(toggle).to_have_count(3)
+        expect(toggle.nth(1)).to_have_attribute("aria-checked", "true")
+        toggle.nth(1).focus()
+        page.keyboard.press("ArrowLeft")
+        expect(toggle.nth(0)).to_be_focused()
+        expect(toggle.nth(0)).to_have_attribute("aria-checked", "true")
+        page.wait_for_function("""() => globalThis.__requests.some(r =>
+          r.method.startsWith('preview.') && !('toc' in r.params.options))""")
+        page.locator("#validate-button").click()
+        page.wait_for_function("""() => globalThis.__requests.some(r =>
+          r.method === 'validate.document' && !('toc' in r.params.options))""")
+        page.locator("#export-button").click()
+        page.wait_for_function("() => globalThis.__requests.some(r => r.method === 'render.document')")
+        render_options = page.evaluate("""() => globalThis.__requests.filter(r =>
+          r.method === 'render.document').at(-1).params.options""")
+        validation_options = page.evaluate("""() => globalThis.__requests.filter(r =>
+          r.method === 'validate.document').at(-1).params.options""")
+        assert render_options == validation_options and "toc" not in render_options
+        assert page.evaluate("""() => globalThis.__requests.filter(r =>
+          r.method === 'render.document').at(-1).params.create_only""") is True
+        page.evaluate("globalThis.__calls = []")
+        checks.append("inherited preset option stays inherited for preview and validation with keyboard focus")
+        for outcome in ("cancelled", "completed"):
+            page.evaluate("globalThis.__renderOutcome = true; globalThis.__resolveRender = null")
+            page.locator("#export-button").click()
+            page.wait_for_function("() => typeof globalThis.__resolveRender === 'function'")
+            page.locator("#cancel-button").click()
+            expect(page.locator("#cancel-button")).to_be_disabled()
+            page.evaluate("(outcome) => globalThis.__resolveRender(outcome)", outcome)
+            expect(page.locator("#export-button")).to_be_enabled()
+            if outcome == "cancelled":
+                expect(page.locator("#status-message")).to_have_text("The operation was cancelled.")
+            else:
+                expect(page.locator("#export-dock-feedback")).to_contain_text("PDF created successfully")
+        page.evaluate("globalThis.__renderOutcome = null; globalThis.__calls = []")
+        checks.append("cancellation reports the actual job outcome, including completion after cancel")
         page.evaluate("globalThis.__holdPreview = true; globalThis.__releasePreview = null")
         # Schedule a new output preview through a real option change.
         page.locator("#option-search").fill("title")

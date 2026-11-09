@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import quote
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject, NumberObject
@@ -22,7 +23,7 @@ def test_toc_links_and_headings_share_stable_ids() -> None:
     assert 'id="duplicate"' in result.body_html
     assert 'href="#duplicate-2"' in result.toc_html
     assert 'id="duplicate-2"' in result.body_html
-    assert 'href="#فارسی-عنوان"' in result.toc_html
+    assert f'href="#{quote("فارسی-عنوان")}"' in result.toc_html
     assert 'id="فارسی-عنوان"' in result.body_html
 
 

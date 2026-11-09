@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 from bs4 import BeautifulSoup
 
@@ -239,14 +239,14 @@ def _namespace_chapter_html(
     for tag in soup.find_all(True):
         href = tag.get("href")
         if isinstance(href, str) and href.startswith("#"):
-            target = href[1:]
+            target = unquote(href[1:])
             if target in mapping:
-                tag["href"] = f"#{mapping[target]}"
+                tag["href"] = f"#{quote(mapping[target], safe='-._~')}"
         xlink_href = tag.get("xlink:href")
         if isinstance(xlink_href, str) and xlink_href.startswith("#"):
-            target = xlink_href[1:]
+            target = unquote(xlink_href[1:])
             if target in mapping:
-                tag["xlink:href"] = f"#{mapping[target]}"
+                tag["xlink:href"] = f"#{quote(mapping[target], safe='-._~')}"
         for attribute in _BOOK_ID_REFERENCE_ATTRIBUTES:
             if tag.has_attr(attribute):
                 tag[attribute] = _rewrite_id_reference(tag.get(attribute), mapping)
@@ -611,6 +611,7 @@ def render_book(
         bibliography_sources=(
             bibliography_library.sources if bibliography_library is not None else ()
         ),
+        source_assets=tuple(sorted({path for chapter in chapter_results for path in chapter.source_assets})),
         citation_entries=citation_entries,
         cited_keys=cited_keys,
         diagnostics=tuple(diagnostics),
@@ -702,6 +703,7 @@ def convert_book(
     cancelled: CancellationCallback | None = None,
     session: RenderSession | None = None,
     bundle: BookRenderBundle | None = None,
+    create_only: bool = False,
 ) -> tuple[Path | None, BookRenderBundle | None, tuple[Diagnostic, ...]]:
     diagnostics: tuple[Diagnostic, ...] = ()
     if bundle is None:
@@ -723,10 +725,15 @@ def convert_book(
         ),
         cancelled=cancelled,
     )
+    options.output_create_only = create_only
     protected = [
         manifest.config.path,
         *(chapter.path for chapter in manifest.chapters),
         *(Path(path) for path in manifest.config.values.get("bibliography_sources", ())),
+        *bundle.result.source_assets,
+        options.cover_logo,
+        options.brand_logo,
+        options.watermark_image,
     ]
     for candidate in (options.output_path, options.debug_html, options.quality_report):
         if candidate is None:

@@ -138,15 +138,15 @@ def test_concurrent_same_named_asset_imports_keep_both_contents(
         source.parent.mkdir()
         source.write_bytes(content)
     first_started, release_first, second_done = Event(), Event(), Event()
-    write = application._atomic_write_bytes
+    link = os.link
 
-    def pause_first(path: Path, content: bytes):
-        if content == b"first image":
+    def pause_first(*args, **kwargs):
+        if not first_started.is_set():
             first_started.set()
             assert release_first.wait(5)
-        write(path, content)
+        return link(*args, **kwargs)
 
-    monkeypatch.setattr(application, "_atomic_write_bytes", pause_first)
+    monkeypatch.setattr(os, "link", pause_first)
 
     def import_second():
         try:

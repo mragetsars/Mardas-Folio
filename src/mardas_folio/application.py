@@ -3,6 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
+import stat
+from contextlib import contextmanager
 from dataclasses import fields
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -31,6 +34,9 @@ from .markdown import (
 )
 from .protocol import PROTOCOL_NAME, PROTOCOL_VERSION
 from .renderer import (
+    OutputExistsError,
+    OutputPathError,
+    OutputSidecarUnsupportedError,
     PdfOptions,
     RenderCancelledError,
     RenderSession,
@@ -90,10 +96,31 @@ _ASSET_EXTENSIONS = {
     ".yml",
 }
 
+
+def _is_reparse_point(path: Path) -> bool:
+    """Detect symlinks and Windows junctions without following the final path."""
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    return stat.S_ISLNK(info.st_mode) or bool(
+        getattr(info, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    )
+
+
+@contextmanager
+def _locked_asset_directory(path: Path):
+    """Keep an import anchored to the inspected directory."""
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        yield descriptor
+    finally:
+        os.close(descriptor)
+
 _OPTION_FIELDS = {
     item.name
     for item in fields(PdfOptions)
-    if item.name not in {"input_path", "output_path", "quality_log", "progress", "cancelled"}
+    if item.name not in {"input_path", "output_path", "quality_log", "progress", "cancelled", "protected_inputs", "output_create_only"}
 }
 _PATH_OPTIONS = {
     "debug_html",
@@ -411,7 +438,40 @@ def _save_document_text_locked(
             )
     try:
         check_revision()
-        written_stat = _atomic_write_text(target, content, before_replace=check_revision)
+        serialized = content
+        existing_data = None
+        existing_stat = None
+        if target.is_file():
+            existing_data, existing_stat = _document_snapshot(target)
+            try:
+                previous = existing_data.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                previous = None
+            if previous is not None:
+                normalized_previous = previous.replace("\r\n", "\n").replace("\r", "\n")
+                normalized_content = content.replace("\r\n", "\n").replace("\r", "\n")
+                if normalized_content == normalized_previous:
+                    check_revision()
+                    return {
+                        "path": str(target),
+                        "kind": _document_kind_for_path(target),
+                        "size_bytes": len(existing_data),
+                        "revision": _revision_for_snapshot(existing_data, existing_stat),
+                        "read_only": not os.access(target, os.W_OK),
+                    }
+                crlf = "\r\n" in previous
+                mixed = "\r" in previous.replace("\r\n", "") or "\n" in previous.replace("\r\n", "")
+                serialized = normalized_content.replace("\n", "\r\n") if crlf and not mixed else normalized_content
+                if existing_data.startswith(b"\xef\xbb\xbf"):
+                    serialized = "\ufeff" + serialized
+        payload = serialized.encode("utf-8")
+        if len(payload) > MAX_DOCUMENT_BYTES:
+            raise EngineError(
+                f"{document_label} exceeds the editor size limit.",
+                code="MARDAS-DOCUMENT-TOO-LARGE",
+                details={"size_bytes": len(payload), "limit_bytes": MAX_DOCUMENT_BYTES},
+            )
+        written_stat = _atomic_write_text(target, serialized, before_replace=check_revision)
     except OSError as exc:
         raise EngineError(
             f"Could not save {document_label.lower()}: {exc}",
@@ -481,6 +541,16 @@ def list_document_assets(
         if cancelled and cancelled():
             raise RenderCancelledError("Asset discovery was cancelled.")
         current_path = Path(current)
+        try:
+            relative = current_path.relative_to(root)
+            parts = [root.joinpath(*relative.parts[:index])
+                     for index in range(1, len(relative.parts) + 1)]
+            if any(_is_reparse_point(part) for part in parts) or not current_path.resolve().is_relative_to(root):
+                directory_names[:] = []
+                continue
+        except (OSError, RuntimeError, ValueError):
+            directory_names[:] = []
+            continue
         depth = len(current_path.relative_to(root).parts)
         safe_directories: list[str] = []
         for name in sorted(directory_names, key=str.casefold):
@@ -492,7 +562,8 @@ def list_document_assets(
                 depth < MAX_DOCUMENT_ASSET_DEPTH - 1
                 and not name.startswith(".")
                 and name not in WORKSPACE_IGNORED_PARTS
-                and not (current_path / name).is_symlink()
+                and not _is_reparse_point(current_path / name)
+                and (current_path / name).resolve(strict=False).is_relative_to(root)
             ):
                 safe_directories.append(name)
         directory_names[:] = safe_directories
@@ -509,7 +580,8 @@ def list_document_assets(
             if name.startswith(".") or candidate.suffix.casefold() not in _ASSET_EXTENSIONS:
                 continue
             try:
-                if candidate.is_symlink() or not candidate.is_file():
+                if (_is_reparse_point(candidate) or not candidate.is_file()
+                        or not candidate.resolve(strict=False).is_relative_to(root)):
                     continue
                 stat_result = candidate.stat()
             except OSError:
@@ -538,7 +610,7 @@ def import_document_asset(
 ) -> dict[str, Any]:
     document = Path(document_path).expanduser().resolve(strict=False)
     selected_source = Path(source_path).expanduser()
-    if selected_source.is_symlink():
+    if _is_reparse_point(selected_source):
         raise EngineError(
             "Symbolic-link assets are not accepted.",
             code="MARDAS-ASSET-INVALID",
@@ -590,10 +662,17 @@ def import_document_asset(
         )
 
     target_dir = document.parent / "assets"
-    if target_dir.is_symlink() or (target_dir.exists() and not target_dir.is_dir()):
+    if _is_reparse_point(target_dir) or (target_dir.exists() and not target_dir.is_dir()):
         raise EngineError(
             "The document assets path must be a regular directory, not a file or symbolic link.",
             code="MARDAS-ASSET-INVALID",
+            details={"path": str(target_dir)},
+        )
+    if os.name == "nt":
+        raise EngineError(
+            "Asset import is unavailable on Windows because the destination cannot be secured. "
+            "Copy the file into the document folder using your file manager, then insert it.",
+            code="MARDAS-ASSET-IMPORT",
             details={"path": str(target_dir)},
         )
     try:
@@ -607,30 +686,53 @@ def import_document_asset(
     stem = source.stem or "asset"
     suffix = source.suffix.casefold()
     source_digest = hashlib.sha256(payload).digest()
-    target = target_dir / f"{stem}{suffix}"
-    counter = 2
-    while target.exists() or target.is_symlink():
-        identical = False
-        if target.is_file() and not target.is_symlink() and target.stat().st_size == len(payload):
+    try:
+        with _locked_asset_directory(target_dir) as directory_fd:
+            if _is_reparse_point(target_dir) or target_dir.resolve() != document.parent / "assets":
+                raise OSError("The assets directory is outside the document root")
+            temporary = Path(f".mardas-import-{secrets.token_hex(16)}")
+            fd = os.open(str(temporary), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600,
+                         dir_fd=directory_fd)
+            handle = os.fdopen(fd, "wb")
             try:
-                with target.open("rb") as handle:
-                    candidate_data = handle.read(len(payload) + 1)
-                identical = hashlib.sha256(candidate_data).digest() == source_digest
-            except OSError:
-                pass
-        if identical:
-            break
-        target = target_dir / f"{stem}-{counter}{suffix}"
-        counter += 1
-    if not target.exists():
-        try:
-            _atomic_write_bytes(target, payload)
-        except OSError as exc:
-            raise EngineError(
-                f"Could not import asset: {exc}",
-                code="MARDAS-ASSET-IMPORT",
-                details={"path": str(source)},
-            ) from exc
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+                counter = 1
+                while True:
+                    name = f"{stem}{suffix}" if counter == 1 else f"{stem}-{counter}{suffix}"
+                    target = target_dir / name
+                    current = target_dir.stat(follow_symlinks=False)
+                    anchored = os.fstat(directory_fd)
+                    if (_is_reparse_point(target_dir)
+                            or (current.st_dev, current.st_ino) != (anchored.st_dev, anchored.st_ino)):
+                        raise OSError("The assets directory changed during import")
+                    try:
+                        os.link(str(temporary), name, src_dir_fd=directory_fd,
+                                dst_dir_fd=directory_fd, follow_symlinks=False)
+                        break
+                    except FileExistsError:
+                        if not _is_reparse_point(target) and target.is_file():
+                            try:
+                                candidate = os.open(name, os.O_RDONLY | os.O_NOFOLLOW,
+                                                    dir_fd=directory_fd)
+                                candidate_handle = os.fdopen(candidate, "rb")
+                                with candidate_handle:
+                                    candidate_data = candidate_handle.read(len(payload) + 1)
+                                if hashlib.sha256(candidate_data).digest() == source_digest:
+                                    break
+                            except OSError:
+                                pass
+                        counter += 1
+            finally:
+                handle.close()
+                os.unlink(str(temporary), dir_fd=directory_fd)
+    except OSError as exc:
+        raise EngineError(
+            f"Could not import asset: {exc}",
+            code="MARDAS-ASSET-IMPORT",
+            details={"path": str(target_dir)},
+        ) from exc
     return {
         "path": str(target),
         "relative_path": target.relative_to(document.parent).as_posix(),
@@ -806,6 +908,7 @@ def pdf_options_from_request(
         output_path=target,
         progress=progress,
         cancelled=cancelled,
+        protected_inputs=(("project configuration", config.path),) if config.path is not None else (),
         **normalized,
     )
 
@@ -813,7 +916,14 @@ def pdf_options_from_request(
 def render_document(options: PdfOptions, *, session: RenderSession | None = None) -> dict[str, Any]:
     """Render one document through the common application API used by CLI/sidecar."""
 
-    output = convert(options, session=session)
+    try:
+        output = convert(options, session=session)
+    except OutputExistsError as exc:
+        raise EngineError(str(exc), code="MARDAS-OUTPUT-EXISTS") from exc
+    except OutputSidecarUnsupportedError as exc:
+        raise EngineError(str(exc), code="MARDAS-OUTPUT-SIDECAR-UNSUPPORTED") from exc
+    except OutputPathError as exc:
+        raise EngineError(str(exc), code="MARDAS-OUTPUT-PATH-COLLISION") from exc
     result: dict[str, Any] = {
         "output_path": str(output),
         "size_bytes": output.stat().st_size,
@@ -1167,6 +1277,7 @@ class EngineService:
                 "book.validate",
                 "book.preview",
                 "book.export",
+                "publication.inspect_output",
                 "render.document",
                 "render.book",
                 "preview.document",
@@ -1522,7 +1633,7 @@ class EngineService:
             project["path"] = str(refreshed.root)
             return {"html": html, "project": project}
         if method == "book.export":
-            _validate_params(params, {"project_path", "output_path"})
+            _validate_params(params, {"project_path", "output_path", "create_only"})
             workspace = _load_workspace_request(
                 _required_string(params, "project_path"),
                 cancelled=cancelled,
@@ -1535,9 +1646,16 @@ class EngineService:
                     session=self._render_session(),
                     progress=progress,
                     cancelled=cancelled,
+                    create_only=_optional_bool(params, "create_only", default=False),
                 )
             except WorkspaceError as exc:
                 raise _workspace_error(exc) from exc
+            except OutputExistsError as exc:
+                raise EngineError(str(exc), code="MARDAS-OUTPUT-EXISTS") from exc
+            except OutputSidecarUnsupportedError as exc:
+                raise EngineError(str(exc), code="MARDAS-OUTPUT-SIDECAR-UNSUPPORTED") from exc
+            except OutputPathError as exc:
+                raise EngineError(str(exc), code="MARDAS-OUTPUT-PATH-COLLISION") from exc
             project = workspace_payload(refreshed)
             project["path"] = str(refreshed.root)
             return {
@@ -1546,10 +1664,16 @@ class EngineService:
                 "suggested_name": suggested_name,
                 "project": project,
             }
+        if method == "publication.inspect_output":
+            _validate_params(params, {"output_path"})
+            candidate = Path(_required_string(params, "output_path")).expanduser()
+            if candidate.suffix.casefold() != ".pdf":
+                raise EngineError("Output must use the .pdf extension.", code="MARDAS-INVALID-PARAMS")
+            return {"exists": os.path.lexists(candidate)}
         if method == "render.document":
             _validate_params(
                 params,
-                {"input_path", "output_path", "config_path", "discover_config", "options"},
+                {"input_path", "output_path", "config_path", "discover_config", "options", "create_only"},
             )
             options = pdf_options_from_request(
                 input_path=_required_string(params, "input_path"),
@@ -1560,6 +1684,7 @@ class EngineService:
                 progress=progress,
                 cancelled=cancelled,
             )
+            options.output_create_only = _optional_bool(params, "create_only", default=False)
             return render_document(options, session=self._render_session())
         if method == "validate.document":
             _validate_params(

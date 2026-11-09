@@ -290,6 +290,17 @@ def run_tab_overflow_audit(dist: Path) -> dict[str, object]:
                 page.locator("#tab-new-document").click()
             tabs = page.locator("#document-tabs")
             assert tabs.evaluate("node => node.scrollWidth > node.clientWidth")
+            page.wait_for_function("""() => {
+                const tab = document.querySelector('.document-tab.active').getBoundingClientRect();
+                const strip = document.querySelector('#document-tabs').getBoundingClientRect();
+                return tab.left >= strip.left - 1 && tab.right <= strip.right + 1;
+            }""")
+            page.set_viewport_size({"width": 600, "height": 800})
+            page.wait_for_function("""() => {
+                const tab = document.querySelector('.document-tab.active').getBoundingClientRect();
+                const strip = document.querySelector('#document-tabs').getBoundingClientRect();
+                return tab.left >= strip.left - 1 && tab.right <= strip.right + 1;
+            }""")
             page.locator(".tab-activate[aria-selected='true']").focus()
             for key in ("Home", "End", "Home"):
                 page.keyboard.press(key)

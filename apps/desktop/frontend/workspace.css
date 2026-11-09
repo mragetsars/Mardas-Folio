@@ -4116,6 +4116,52 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
 .document-content :is(ul, ol) { padding-inline-start: 1.7em; margin-block: .7em 1em; }
 .document-content li { margin-block: .25em; }
 .document-content :is(ul, ol) :is(ul, ol) { margin-block: .25em; }
+.document-content .task-list > .task-list-item { list-style: none; }
+.document-content .task-list-item > input[type="checkbox"] {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 1em;
+  height: 1em;
+  min-width: 0;
+  min-height: 0;
+  font-size: inherit;
+  margin: 0 .5em 0 0;
+  margin-inline: 0 .5em;
+  padding: 0;
+  vertical-align: -.08em;
+  accent-color: var(--ui-accent);
+}
+.document-content .footnotes {
+  margin-block: 1em;
+  padding-block-start: .5em;
+  border-block-start: 1px solid var(--ui-border);
+  font-size: .9em;
+}
+.document-content .footnotes > ol { list-style: none; padding: 0; margin: 0; }
+.document-content .footnote-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, max-content) auto;
+  justify-content: start;
+  align-items: baseline;
+  gap: .45em;
+}
+.document-content .footnote-body { min-width: 0; }
+.document-content .footnote-body > :first-child { margin-block-start: 0; }
+.document-content .footnote-body > :last-child { margin-block-end: 0; }
+.document-content blockquote.callout {
+  padding: .75em 1em;
+  border: 1px solid var(--ui-border);
+  border-inline-start: 3px solid var(--ui-info);
+  border-radius: var(--ui-radius-xs);
+  background: var(--ui-panel-soft);
+}
+.document-content .callout-title { display: block; color: var(--ui-info); }
+.document-content :is(.callout-warning, .callout-caution, .callout-question) { border-inline-start-color: var(--ui-warning); }
+.document-content :is(.callout-warning, .callout-caution, .callout-question) .callout-title { color: var(--ui-warning); }
+.document-content :is(.callout-danger, .callout-failure, .callout-bug) { border-inline-start-color: var(--ui-danger); }
+.document-content :is(.callout-danger, .callout-failure, .callout-bug) .callout-title { color: var(--ui-danger); }
+.document-content :is(.callout-tip, .callout-success) { border-inline-start-color: var(--ui-success); }
+.document-content :is(.callout-tip, .callout-success) .callout-title { color: var(--ui-success); }
 .document-content blockquote { margin-inline: 0; padding-inline: 20px; border-inline-start: 3px solid var(--ui-border-strong); color: var(--ui-text-soft); }
 .document-content hr { margin: 2em 0; border: 0; border-top: 1px solid var(--ui-border); }
 .document-content code { font-family: var(--app-mono); font-size: .88em; }
@@ -4268,7 +4314,7 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
   background: var(--ui-panel-soft);
   direction: ltr;
 }
-.document-content .md2pdf-mermaid-svg { display: block; width: 100%; min-width: 220px; height: auto; }
+.document-content .md2pdf-mermaid-svg { display: block; width: auto; max-width: 100%; height: auto; margin-inline: auto; }
 .document-content .md2pdf-mermaid-bg { fill: var(--ui-panel-soft); stroke: var(--ui-border); }
 .document-content .md2pdf-mermaid-node-shape { fill: var(--ui-panel); stroke: var(--ui-accent); }
 .document-content .md2pdf-mermaid-node-detail { fill: none; stroke: var(--ui-accent); }

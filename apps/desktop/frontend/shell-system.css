@@ -67,8 +67,7 @@ body[data-view="workspace"] .author-toolbar .tab-bar {
   display: flex; flex: 1 1 0; min-width: 60px; width: auto; height: 48px;
   align-items: center; padding: 0; border: 0; background: transparent;
 }
-body[data-view="workspace"] .tab-bar .document-tabs { flex: 1 1 0; min-width: 0; width: auto; height: 48px; align-items: center; overflow: auto hidden; scrollbar-width: none; gap: 3px; }
-body[data-view="workspace"] .tab-bar .document-tabs::-webkit-scrollbar { display: none; }
+body[data-view="workspace"] .tab-bar .document-tabs { flex: 1 1 0; min-width: 0; width: auto; height: 48px; align-items: center; overflow: auto hidden; scrollbar-width: thin; gap: 3px; }
 body[data-view="workspace"] .document-tab { flex: 0 0 auto; min-width: 112px; max-width: 220px; height: 32px; margin: 0; border: 0; border-radius: 6px; background: transparent; }
 body[data-view="workspace"] .document-tab.active { background: var(--ui-accent-soft); color: var(--ui-accent); }
 body[data-view="workspace"] .document-tab .tab-name { max-width: 170px; font-size: 12px; font-weight: 550; }

@@ -82,6 +82,7 @@ test("book API maps UI workflows to versioned sidecar methods", async () => {
   assert.match(validation.requestId, /^book-validate-/);
   assert.match(preview.requestId, /^book-preview-/);
   assert.match(exported.requestId, /^book-export-/);
+  assert.equal(calls.at(-1).args.params.create_only, true);
   delete globalThis.__TAURI__;
 });
 

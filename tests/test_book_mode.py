@@ -75,6 +75,20 @@ def test_book_manifest_preserves_declared_order_and_resolves_paths(tmp_path: Pat
     assert manifest.chapter_page_break is True
 
 
+def test_book_create_only_rejects_existing_output(tmp_path: Path) -> None:
+    from mardas_folio.renderer import OutputExistsError
+
+    config_path = _write_book_project(tmp_path)
+    config = load_project_config(start=tmp_path, explicit_path=config_path).config
+    manifest, diagnostics = load_book_manifest(config)
+    assert manifest is not None and not diagnostics
+    destination = tmp_path / "existing.pdf"
+    destination.write_bytes(b"existing")
+    with pytest.raises(OutputExistsError):
+        convert_book(manifest, output_path=destination, create_only=True)
+    assert destination.read_bytes() == b"existing"
+
+
 def test_book_chapter_must_remain_inside_project_root(tmp_path: Path) -> None:
     outside = tmp_path.parent / "outside-book-chapter.md"
     outside.write_text("# Outside\n", encoding="utf-8")
@@ -141,6 +155,26 @@ def test_render_book_namespaces_heading_ids_and_embeds_each_chapter_assets(
         "book-chapter-002-shared-heading",
     ]
     assert bundle.result.title == "Ordered Research Book"
+
+
+def test_book_namespaces_encoded_heading_anchors(tmp_path: Path) -> None:
+    from urllib.parse import unquote
+
+    from bs4 import BeautifulSoup
+
+    config_path = _write_book_project(tmp_path)
+    chapter = tmp_path / "chapters/part-a/01-introduction.md"
+    chapter.write_text('# Chapter\n\n<h2 id="A&amp;B">Entity</h2>\n', encoding="utf-8")
+    config = load_project_config(start=tmp_path, explicit_path=config_path).config
+    manifest, diagnostics = load_book_manifest(config)
+    assert manifest is not None and not diagnostics
+    bundle, diagnostics = render_book(manifest)
+    assert bundle is not None
+    assert not [item for item in diagnostics if item.severity == "error"]
+    soup = BeautifulSoup(bundle.result.body_html, "html.parser")
+    heading = soup.find("h2", id="book-chapter-001-A&B")
+    assert heading is not None
+    assert unquote(heading.select_one(".heading-anchor")["href"][1:]) == heading["id"]
 
 
 def test_render_book_can_disable_inter_chapter_page_break(tmp_path: Path) -> None:

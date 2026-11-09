@@ -1272,6 +1272,10 @@ function errorPayload(error) {
 function errorText(error) {
   const raw = typeof error === "string" ? error : error?.message || String(error);
   if (raw === "TAURI_UNAVAILABLE") return t("noTauri");
+  const payload = errorPayload(error);
+  const code = payload?.application_code || payload?.data?.application_code || payload?.code;
+  if (code === "MARDAS-OUTPUT-EXISTS") return t("outputExistsChooseNew");
+  if (code === "MARDAS-OUTPUT-SIDECAR-UNSUPPORTED") return t("outputSidecarUnsupported");
   try {
     const parsed = JSON.parse(raw);
     return parsed.message || parsed.error?.message || parsed.data?.message || raw;
@@ -1328,6 +1332,7 @@ function invalidateExportStatus() {
 function working(enabled, mode = "render") {
   $("#validate-button").disabled = enabled;
   $("#export-button").disabled = enabled;
+  $("#cancel-button").disabled = false;
   $("#cancel-button").classList.toggle("hidden", !enabled);
   $("#progress-wrap").classList.toggle("hidden", !enabled);
   $("#export-form").setAttribute("aria-busy", String(enabled));
@@ -1433,15 +1438,31 @@ function buildToggleControl(field) {
     [false, t("off"), t("off")],
     [true, t("on"), t("on")],
   ];
-  for (const [value, label, text] of states) {
+  for (const [index, [value, label, text]] of states.entries()) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "tri-toggle-option";
     button.setAttribute("role", "radio");
     button.setAttribute("aria-checked", String(current === value));
     button.setAttribute("aria-label", label);
+    button.tabIndex = current === value ? 0 : -1;
     button.textContent = text;
-    button.addEventListener("click", () => setOptionValue(field.key, value ?? undefined));
+    const select = (nextIndex) => {
+      setOptionValue(field.key, states[nextIndex][0] ?? undefined);
+      document.querySelector(`[data-option-key="${field.key}"] .tri-toggle-option:nth-child(${nextIndex + 1})`)?.focus();
+    };
+    button.addEventListener("click", () => select(index));
+    button.addEventListener("keydown", (event) => {
+      const rtl = document.documentElement.dir === "rtl";
+      let offset = 0;
+      if (event.key === "ArrowRight") offset = rtl ? -1 : 1;
+      else if (event.key === "ArrowLeft") offset = rtl ? 1 : -1;
+      else if (event.key === "ArrowDown") offset = 1;
+      else if (event.key === "ArrowUp") offset = -1;
+      else return;
+      event.preventDefault();
+      select((index + offset + states.length) % states.length);
+    });
     group.append(button);
   }
   return group;
@@ -1777,7 +1798,11 @@ function renderOptionPane() {
     reset.textContent = t("resetGroup");
     reset.addEventListener("click", () => {
       invalidateExportStatus();
-      for (const field of group.fields) advancedValues.delete(field.key);
+      for (const field of group.fields) {
+        const presetOptions = presetById(state.presetId).options;
+        if (field.key in presetOptions) advancedValues.set(field.key, presetOptions[field.key]);
+        else advancedValues.delete(field.key);
+      }
       renderOptionRail();
       renderOptionPane();
       renderSummary();
@@ -1805,6 +1830,9 @@ function renderAdvancedOptions() {
 function resetAdvancedOptions() {
   invalidateExportStatus();
   advancedValues.clear();
+  for (const [key, value] of Object.entries(presetById(state.presetId).options)) {
+    if (key in OPTION_FIELDS) advancedValues.set(key, value);
+  }
   renderAdvancedOptions();
   renderSummary();
   schedulePdfPreview();
@@ -1919,6 +1947,7 @@ function renderPreviewToolbar(deckState) {
       ? `${deckState.currentPage} / ${deckState.pageCount}`
       : "—";
   }
+  $("#preview-page-estimate").hidden = !deckState.pageCount;
   $("#preview-fit-width")?.setAttribute("aria-pressed", String(deckState.zoomMode === "fit-width"));
   $("#preview-fit-page")?.setAttribute("aria-pressed", String(deckState.zoomMode === "fit-page"));
   $("#preview-guides")?.setAttribute("aria-pressed", String(Boolean(deckState.guides)));
@@ -1947,6 +1976,7 @@ function renderPreviewNote(payload) {
   const note = $("#export-preview-note");
   if (!note) return;
   const lines = [];
+  if (payload) lines.push(t("previewPaginationApproximate"));
   if (payload?.degraded) lines.push(t("previewEngineOutdated"));
   note.classList.toggle("hidden", lines.length === 0);
   note.textContent = lines.join(" · ");
@@ -2065,11 +2095,30 @@ function renderPresets() {
     button.dataset.preset = preset.id;
     button.setAttribute("role", "radio");
     button.setAttribute("aria-checked", String(preset.id === state.presetId));
+    button.tabIndex = preset.id === state.presetId ? 0 : -1;
     button.innerHTML = `<strong></strong><small></small><i aria-hidden="true"></i>`;
     button.querySelector("i").append(spriteIcon("check"));
     button.querySelector("strong").textContent = t(preset.titleKey);
     button.querySelector("small").textContent = t(preset.descriptionKey);
-    button.addEventListener("click", () => selectPreset(preset.id));
+    button.addEventListener("click", () => {
+      selectPreset(preset.id);
+      grid.querySelector(`[data-preset="${preset.id}"]`)?.focus();
+    });
+    button.addEventListener("keydown", (event) => {
+      const presets = Object.keys(PRESETS);
+      const index = presets.indexOf(preset.id);
+      const rtl = document.documentElement.dir === "rtl";
+      let offset = 0;
+      if (event.key === "ArrowRight") offset = rtl ? -1 : 1;
+      else if (event.key === "ArrowLeft") offset = rtl ? 1 : -1;
+      else if (event.key === "ArrowDown") offset = 1;
+      else if (event.key === "ArrowUp") offset = -1;
+      else return;
+      event.preventDefault();
+      const next = presets[(index + offset + presets.length) % presets.length];
+      selectPreset(next);
+      grid.querySelector(`[data-preset="${next}"]`)?.focus();
+    });
     grid.append(button);
   }
 }
@@ -2106,7 +2155,7 @@ function renderSummary() {
   const container = $("#preset-summary");
   if (!container) return;
   const preset = presetById(state.presetId);
-  const options = { ...preset.options, ...exportOverrides() };
+  const options = exportOverrides();
   const changed = modifiedKeys(Object.fromEntries(advancedValues), preset.options).length;
   const rows = [
     [t("preset"), t(preset.titleKey)],
@@ -2272,7 +2321,7 @@ function exportSelectionValid() {
 async function validateExportDocument() {
   if (state.activeRequestId || !exportSelectionValid()) return;
   const id = requestId("validate");
-  const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, presetId: state.presetId, overrides: exportOverrides() });
+  const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, options: exportOverrides() });
   state.activeRequestId = id;
   state.cancelledExportRequestId = null;
   working(true, "validate");
@@ -2286,7 +2335,12 @@ async function validateExportDocument() {
     const diagnostics = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
     setExportStatus(result?.ok ? "success" : "error", result?.ok ? "validTitle" : "invalidTitle", t(result?.ok ? "validMessage" : "invalidMessage"), diagnostics);
   } catch (error) {
-    setExportStatus("error", "errorTitle", errorText(error));
+    const payload = errorPayload(error);
+    if ((payload?.application_code || payload?.data?.application_code || payload?.code) === "MARDAS-JOB-CANCELLED") {
+      setExportStatus("idle", "readyTitle", t("operationCancelled"));
+    } else {
+      setExportStatus("error", "errorTitle", errorText(error));
+    }
   } finally {
     state.activeRequestId = null;
     working(false);
@@ -2297,15 +2351,31 @@ async function exportDocument(event) {
   event?.preventDefault();
   if (state.activeRequestId || !exportSelectionValid()) return;
   const id = requestId("render");
-  const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, presetId: state.presetId, overrides: exportOverrides() });
+  const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, options: exportOverrides() });
+  params.create_only = true;
   state.activeRequestId = id;
   state.cancelledExportRequestId = null;
   working(true);
   hideExportResult();
+  let focusOutput = false;
   try {
     await releaseEngineForJob();
     if (state.cancelledExportRequestId === id) {
       setExportStatus("idle", "readyTitle", t("operationCancelled"));
+      return;
+    }
+    const inspection = await invoke("sidecar_request", {
+      request_id: requestId("output-check"),
+      method: "publication.inspect_output",
+      params: { output_path: params.output_path },
+    });
+    if (state.cancelledExportRequestId === id) {
+      setExportStatus("idle", "readyTitle", t("operationCancelled"));
+      return;
+    }
+    if (inspection?.exists) {
+      setExportStatus("error", "errorTitle", t("outputExistsChooseNew"));
+      focusOutput = true;
       return;
     }
     const result = await invoke("sidecar_request", { request_id: id, method: "render.document", params });
@@ -2317,23 +2387,35 @@ async function exportDocument(event) {
     showExportResult(resultPath);
     saveRecent(state.sourcePath);
   } catch (error) {
-    const message = errorText(error);
-    setExportStatus("error", "errorTitle", message);
-    toast(message, "error");
+    const payload = errorPayload(error);
+    if ((payload?.application_code || payload?.data?.application_code || payload?.code) === "MARDAS-JOB-CANCELLED") {
+      setExportStatus("idle", "readyTitle", t("operationCancelled"));
+    } else {
+      const message = errorText(error);
+      setExportStatus("error", "errorTitle", message);
+      toast(message, "error");
+    }
   } finally {
     state.activeRequestId = null;
     working(false);
+    if (focusOutput) $("#choose-output").focus();
   }
 }
 
 async function cancelExport() {
-  if (!state.activeRequestId) return;
-  state.cancelledExportRequestId = state.activeRequestId;
+  const id = state.activeRequestId;
+  if (!id || state.cancelledExportRequestId === id) return;
+  state.cancelledExportRequestId = id;
+  $("#cancel-button").disabled = true;
+  setExportStatus("working", null, t("cancellingOperation"));
   try {
-    await invoke("sidecar_cancel", { request_id: state.activeRequestId });
-    toast(t("operationCancelled"));
+    await invoke("sidecar_cancel", { request_id: id });
   } catch (error) {
-    toast(errorText(error), "error");
+    if (state.activeRequestId === id) {
+      state.cancelledExportRequestId = null;
+      $("#cancel-button").disabled = false;
+      toast(errorText(error), "error");
+    }
   }
 }
 
@@ -2407,6 +2489,16 @@ function renderDocumentTabs() {
   if (!container) return;
   container.replaceChildren(...orderedTabs().map(tabElement));
   renderFileNavigator();
+}
+
+function revealActiveTab() {
+  const strip = $("#document-tabs");
+  const active = strip?.querySelector(".document-tab.active");
+  if (!active || !strip.clientWidth) return;
+  const bounds = strip.getBoundingClientRect();
+  const tab = active.getBoundingClientRect();
+  if (tab.left < bounds.left) strip.scrollBy({ left: tab.left - bounds.left });
+  else if (tab.right > bounds.right) strip.scrollBy({ left: tab.right - bounds.right });
 }
 
 function renderFileNavigator() {
@@ -2546,13 +2638,21 @@ function renderCitations(model) {
 }
 
 function renderProblems(model) {
-  const diagnostics = [
-    ...(Array.isArray(model?.diagnostics) ? model.diagnostics : []),
-    ...(Array.isArray(model?.bibliographyDiagnostics) ? model.bibliographyDiagnostics : []),
-    ...(model?.projectPath === state.project?.path && Array.isArray(state.projectDiagnostics)
-      ? state.projectDiagnostics
+  const entries = [
+    ...(Array.isArray(model?.diagnostics) ? model.diagnostics.map((item) => ({ item, scope: "document" })) : []),
+    ...(Array.isArray(model?.bibliographyDiagnostics) ? model.bibliographyDiagnostics.map((item) => ({ item, scope: "document" })) : []),
+    ...(state.project?.path && Array.isArray(state.projectDiagnostics)
+      ? state.projectDiagnostics.map((item) => ({ item, scope: "project" }))
       : []),
   ];
+  const seen = new Set();
+  const distinct = entries.filter(({ item }) => {
+    const key = JSON.stringify([item.code, item.path, item.line, item.column, item.message]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const diagnostics = distinct.map(({ item }) => item);
   editorAdapter?.setDiagnostics?.(inlineDiagnosticsForDocument(diagnostics, model));
   $("#problem-count").textContent = String(diagnostics.length);
   const problemBadge = $("#sidebar-problem-badge");
@@ -2571,14 +2671,15 @@ function renderProblems(model) {
     list.append(note);
     return;
   }
-  for (const diagnostic of diagnostics) {
+  for (const { item: diagnostic, scope } of distinct) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `tool-item problem-${diagnostic.severity || "info"}`;
     button.innerHTML = `<span class="level"></span><span></span>`;
     button.querySelector(".level").textContent = diagnostic.code || "!";
-    button.querySelector("span:last-child").textContent = diagnostic.message || String(diagnostic);
-    if (diagnostic.path && state.project?.path) {
+    const label = scope === "project" ? t("projectDiagnosticScope") : t("documentDiagnosticScope");
+    button.querySelector("span:last-child").textContent = [label, diagnostic.path, diagnostic.message || String(diagnostic)].filter(Boolean).join(" · ");
+    if (scope === "project" && diagnostic.path && state.project?.path) {
       button.addEventListener("click", () =>
         openProjectRelativeFile(diagnostic.path, {
           line: diagnostic.line || 1,
@@ -2740,6 +2841,7 @@ function renderWorkspace() {
   if (model) state.activeStartTabId = null;
   $("#workspace-empty-title").textContent = t(state.activeStartTabId ? "newTab" : "noDocumentOpen");
   renderDocumentTabs();
+  requestAnimationFrame(revealActiveTab);
   const editor = currentEditor();
   editor.retainDocuments?.(state.documents.map((document) => document.id));
   renderProjectWorkspace();
@@ -2935,6 +3037,7 @@ async function openAuthoringPaths(paths) {
         readOnly: result.read_only,
         kind: result.kind || (isMarkdownPath(result.path) ? "markdown" : "text"),
       });
+      attachProjectMembership(model);
       if (!duplicate) state.documents.push(model);
       await allowDocumentImages(model);
       if (state.documents.includes(model)) {
@@ -3255,6 +3358,7 @@ function applyProjectPayload(payload) {
     state.bookOutputPath = null;
   }
   state.project = project;
+  for (const model of state.documents) attachProjectMembership(model, project);
   state.projectGeneration += 1;
   state.bibliographySequence += 1;
   state.assetSequence += 1;
@@ -3266,6 +3370,22 @@ function applyProjectPayload(payload) {
   renderBookWorkspace();
   renderProblems(activeDocument());
   return project;
+}
+
+function attachProjectMembership(model, project = state.project) {
+  delete model.projectPath;
+  delete model.projectRelativePath;
+  delete model.projectSha256;
+  if (!model.path || !project?.path) return;
+  const root = String(project.path).replace(/[\\/]+$/, "");
+  const file = (project.files || []).find((item) =>
+    pathKey(`${root}/${item.path}`) === pathKey(model.path));
+  if (!file) return;
+  model.projectPath = project.path;
+  model.projectRelativePath = file.path;
+  // The standalone revision hashes the bytes originally read. Keep that
+  // revision even when the user has edited the buffer or the disk has changed.
+  model.projectSha256 = String(model.revision || "").match(/:([a-f0-9]{64})$/i)?.[1] || "";
 }
 
 function folderNameFromTitle(value) {
@@ -3450,6 +3570,7 @@ function invalidateBookTaskForProjectChange() {
 function clearProjectState() {
   invalidateBookTaskForProjectChange();
   state.project = null;
+  for (const model of state.documents) attachProjectMembership(model, null);
   state.bookOutputPath = null;
   state.projectGeneration += 1;
   state.projectDiagnostics = [];
@@ -3524,6 +3645,17 @@ async function runBookTask(startTask, {
       return null;
     }
     if (result?.project) applyProjectPayload(result.project);
+    if (showProblems) {
+      state.projectDiagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
+      renderProblems(activeDocument());
+      activateSidebar("problems");
+      const hasWarnings = state.projectDiagnostics.some((item) => item.severity === "warning");
+      const message = result.ok === false ? t("bookInvalid") : hasWarnings ? t("bookValidWithWarnings") : t("bookValid");
+      const kind = result.ok === false ? "error" : hasWarnings ? "warning" : "success";
+      setBookOperationStatus(message, { kind });
+      toast(message, kind);
+      return result;
+    }
     if (typeof onSuccess === "function") await onSuccess(result);
     setBookOperationStatus(successMessage || t("bookValid"), { kind: "success" });
     if (successMessage) toast(successMessage, "success");
@@ -4170,10 +4302,20 @@ function safePreviewHtml(value, prefix = "preview-") {
     .querySelectorAll("script,style,iframe,object,embed,meta,base,link,form,button,select,option,textarea")
     .forEach((element) => element.remove());
   const idMap = new Map();
+  // Rendered headings and notes share the page with the application shell.
+  // Reserve shell IDs so a heading named "Document" cannot shadow the
+  // reading-document or preview-document containers.
+  const reservedIds = new Set(
+    [...document.querySelectorAll("[id]")]
+      .filter((element) => !element.closest(".document-content") || element.matches(".document-content"))
+      .map((element) => element.id),
+  );
   template.content.querySelectorAll("[id]").forEach((element) => {
     const original = element.id;
-    const prefixed = `${prefix}${original}`;
-    idMap.set(original, prefixed);
+    let prefixed = `${prefix}${original}`;
+    while (reservedIds.has(prefixed)) prefixed = `${prefix}content-${prefixed.slice(prefix.length)}`;
+    reservedIds.add(prefixed);
+    if (!idMap.has(original)) idMap.set(original, prefixed);
     element.dataset.previewSourceId = original;
     element.id = prefixed;
   });
@@ -4209,7 +4351,8 @@ function safePreviewHtml(value, prefix = "preview-") {
       }
       if (name === "href") {
         if (attribute.value.startsWith("#")) {
-          const target = attribute.value.slice(1);
+          let target = attribute.value.slice(1);
+          try { target = decodeURIComponent(target); } catch { /* Keep malformed fragments inert. */ }
           element.setAttribute("href", `#${idMap.get(target) || `${prefix}${target}`}`);
         } else {
           element.removeAttribute("href");
@@ -4253,6 +4396,12 @@ function safePreviewHtml(value, prefix = "preview-") {
       } else {
         element.disabled = true;
         element.tabIndex = -1;
+      }
+    }
+    if (element.classList.contains("md2pdf-mermaid-svg")) {
+      const viewBox = (element.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+      if (viewBox.length === 4 && viewBox.every(Number.isFinite) && viewBox[2] > 0) {
+        element.setAttribute("width", String(Math.min(viewBox[2], 960)));
       }
     }
   });
@@ -5342,6 +5491,7 @@ function bindEvents() {
     if (next !== compactWorkspace) state.compactDrawer = null;
     compactWorkspace = next;
     applyWorkspaceLayout();
+    requestAnimationFrame(revealActiveTab);
     if (!layoutMenu.classList.contains("hidden")) positionToolbarPopover(layoutMenu, layoutTrigger);
   });
   $("#workspace-new").addEventListener("click", createUntitledDocument);

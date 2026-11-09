@@ -43,6 +43,7 @@ _HEAVY_METHODS = {
     "document.save_text",
     "document.list_assets",
     "document.import_asset",
+    "publication.inspect_output",
     "project.open",
     "project.refresh",
     "project.read",

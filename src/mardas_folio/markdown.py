@@ -6,7 +6,7 @@ import mimetypes
 import re
 import unicodedata
 import warnings
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
@@ -256,6 +256,7 @@ class MarkdownRenderResult:
     cited_keys: tuple[str, ...] = ()
     diagnostics: tuple[Diagnostic, ...] = ()
     source_map: tuple[dict[str, object], ...] = ()
+    source_assets: tuple[Path, ...] = ()
 
 
 @dataclass(slots=True)
@@ -387,9 +388,15 @@ def guess_title(markdown: str, metadata: dict[str, Any]) -> str:
     meta_title = metadata.get("title")
     if meta_title:
         return str(meta_title)
-    for line in markdown.splitlines():
-        if line.startswith("# "):
-            return line[2:].strip(" #\t") or "Document"
+    parser = MarkdownIt("gfm-like", {"html": True, "linkify": False, "typographer": True})
+    tokens = parser.parse(_mask_display_math(markdown))
+    for index, token in enumerate(tokens):
+        if token.type == "heading_open" and token.tag == "h1" and index + 1 < len(tokens):
+            inline = tokens[index + 1]
+            rendered = parser.renderer.renderInline(inline.children or [], parser.options, {})
+            title = BeautifulSoup(rendered, "html.parser").get_text(" ", strip=True)
+            if title:
+                return title
     return "Document"
 
 
@@ -1328,46 +1335,23 @@ def _protect_code_regions(markdown: str) -> tuple[str, list[str]]:
 
     lines = markdown.splitlines(keepends=True)
     block_output: list[str] = []
+    parser = MarkdownIt("gfm-like", {"html": True, "linkify": False})
+    code_ranges = {
+        token.map[0]: token.map[1]
+        for token in parser.parse(markdown)
+        if token.type in {"fence", "code_block"} and token.map
+    }
     index = 0
     while index < len(lines):
-        line = lines[index]
-        fence_match = FENCE_RE.match(line)
-        if fence_match:
-            marker = fence_match.group(1)
-            marker_char = marker[0]
-            marker_len = len(marker)
-            end = index + 1
-            while end < len(lines):
-                closing = FENCE_RE.match(lines[end])
-                if (
-                    closing
-                    and closing.group(1)[0] == marker_char
-                    and len(closing.group(1)) >= marker_len
-                ):
-                    end += 1
-                    break
-                end += 1
+        end = code_ranges.get(index)
+        if end is not None:
             segment = "".join(lines[index:end])
             ending = "\r\n" if segment.endswith("\r\n") else ("\n" if segment.endswith("\n") else "")
             block_output.append(store(segment) + ending)
             index = end
             continue
 
-        if line.startswith(("    ", "\t")):
-            end = index + 1
-            while end < len(lines):
-                candidate = lines[end]
-                if candidate.startswith(("    ", "\t")) or not candidate.strip():
-                    end += 1
-                    continue
-                break
-            segment = "".join(lines[index:end])
-            ending = "\r\n" if segment.endswith("\r\n") else ("\n" if segment.endswith("\n") else "")
-            block_output.append(store(segment) + ending)
-            index = end
-            continue
-
-        block_output.append(line)
+        block_output.append(lines[index])
         index += 1
 
     text = "".join(block_output)
@@ -1505,12 +1489,17 @@ def extract_footnotes(markdown: str) -> tuple[str, list[tuple[str, str]]]:
     rendering.
     """
     lines = markdown.splitlines()
+    parser = MarkdownIt("gfm-like", {"html": True, "linkify": False})
+    literal_lines: set[int] = set()
+    for token in parser.parse(markdown):
+        if token.type in {"fence", "code_block", "html_block"} and token.map:
+            literal_lines.update(range(token.map[0], token.map[1]))
     body_lines: list[str] = []
     footnotes: list[tuple[str, str]] = []
     index = 0
     while index < len(lines):
         line = lines[index]
-        match = FOOTNOTE_DEF_RE.match(line)
+        match = None if index in literal_lines else FOOTNOTE_DEF_RE.match(line)
         if not match:
             body_lines.append(line)
             index += 1
@@ -1810,46 +1799,41 @@ def add_heading_ids(
     toc_depth: int = 6,
     source_lines: Sequence[int] | None = None,
 ) -> tuple[str, list[tuple[int, str, str, str]]]:
-    used: set[str] = set()
+    soup = BeautifulSoup(html_text, "html.parser")
+    headings = soup.find_all(re.compile(r"^h[1-6]$"))
+    used = {
+        str(element["id"])
+        for element in soup.find_all(id=True)
+        if element.name not in {"h1", "h2", "h3", "h4", "h5", "h6"} and str(element["id"])
+    }
+    reserved = {str(heading["id"]) for heading in headings if heading.get("id")}
     toc: list[tuple[int, str, str, str]] = []
     max_depth = max(1, min(int(toc_depth or 6), 6))
     line_iter = iter(source_lines or ())
-
-    def repl(match: re.Match[str]) -> str:
-        level = int(match.group(1))
-        attrs = match.group(2)
-        content = match.group(3)
-        if " id=" in attrs:
-            id_match = re.search(r'id=["\']([^"\']+)["\']', attrs)
-            requested_id = id_match.group(1) if id_match else ""
-            if requested_id and requested_id not in used:
-                heading_id = requested_id
-                used.add(heading_id)
-            else:
-                heading_id = slugify(requested_id or content, used)
-                if id_match:
-                    attrs = (
-                        attrs[: id_match.start(1)]
-                        + html.escape(heading_id, quote=True)
-                        + attrs[id_match.end(1) :]
-                    )
+    for heading in headings:
+        level = int(heading.name[1])
+        content = heading.decode_contents()
+        requested_id = str(heading.get("id") or "")
+        if requested_id and requested_id not in used:
+            heading_id = requested_id
+            used.add(heading_id)
         else:
-            heading_id = slugify(content, used)
-            attrs += f' id="{heading_id}"'
+            unavailable = used | reserved
+            heading_id = slugify(requested_id or content, unavailable)
+            used.add(heading_id)
+        heading["id"] = heading_id
         source_line = next(line_iter, None)
         if source_line is not None:
-            attrs = re.sub(r"\sdata-source-line=[\"'][^\"']*[\"']", "", attrs)
-            attrs += f' data-source-line="{max(1, int(source_line))}"'
+            heading["data-source-line"] = str(max(1, int(source_line)))
         plain = BeautifulSoup(content, "html.parser").get_text(" ", strip=True)
         if level <= max_depth and plain:
             toc.append((level, plain, heading_id, content))
-        anchor = (
-            f'<a class="heading-anchor" href="#{html.escape(heading_id)}" '
-            f'aria-label="Permalink to {html.escape(plain)}">#</a>'
-        )
-        return f"<h{level}{attrs}>{content}{anchor}</h{level}>"
-
-    return HEADING_RE.sub(repl, html_text), toc
+        anchor = soup.new_tag("a", href=f"#{quote(heading_id, safe='-._~')}")
+        anchor["class"] = "heading-anchor"
+        anchor["aria-label"] = f"Permalink to {plain}"
+        anchor.string = "#"
+        heading.append(anchor)
+    return str(soup), toc
 
 
 def _toc_tree(entries: list[tuple[int, str, str, str]]) -> list[TocItem]:
@@ -1923,7 +1907,7 @@ def _render_toc_items(
             f'data-md2pdf-number-display="{html.escape(display_number)}" '
             f'data-md2pdf-title-profile="{html.escape(title_profile)}" '
             f'data-md2pdf-title-number-profile="{html.escape(title_number_profile)}">'
-            f'<a href="#{html.escape(item.heading_id)}">'
+            f'<a href="#{quote(item.heading_id, safe="-._~")}">'
             f'<span class="toc-number {number_class}">{html.escape(display_number)}</span>'
             f'<span class="{html.escape(" ".join(dict.fromkeys(title_classes)))}" dir="{html.escape(title_dir)}">'
             f'{item.title_html or html.escape(item.title)}</span>'
@@ -2964,6 +2948,26 @@ def preprocess_pdf_directives(markdown: str) -> str:
     return "".join(output)
 
 
+def _mask_display_math(markdown: str) -> str:
+    """Hide display math from the Markdown block parser without changing line numbers."""
+    parser = MarkdownIt("gfm-like", {"html": True, "linkify": False})
+    literal_lines: set[int] = set()
+    for token in parser.parse(markdown):
+        if token.type in {"fence", "code_block", "html_block"} and token.map:
+            literal_lines.update(range(token.map[0], token.map[1]))
+    lines = markdown.splitlines(keepends=True)
+    in_math = False
+    for index, line in enumerate(lines):
+        if index in literal_lines and not in_math:
+            continue
+        if DISPLAY_MATH_FENCE_RE.match(line):
+            in_math = not in_math
+            lines[index] = _line_ending(line)
+        elif in_math:
+            lines[index] = _line_ending(line)
+    return "".join(lines)
+
+
 def _heading_source_lines(markdown: str, *, line_offset: int = 0) -> tuple[int, ...]:
     """Return one-based source lines for Markdown headings in render order.
 
@@ -2978,7 +2982,7 @@ def _heading_source_lines(markdown: str, *, line_offset: int = 0) -> tuple[int, 
     )
     parser.enable(["table", "strikethrough"])
     lines: list[int] = []
-    for token in parser.parse(markdown):
+    for token in parser.parse(_mask_display_math(markdown)):
         if token.type != "heading_open" or not token.map:
             continue
         lines.append(int(token.map[0]) + 1 + max(0, int(line_offset)))
@@ -3455,6 +3459,18 @@ def render_markdown_text(
         source_path=input_path,
     )
     result.diagnostics = source_diagnostics + result.diagnostics
+    # Preserve filesystem identities before image embedding replaces the source
+    # with a data URI. Output preflight must not overwrite an image it consumed.
+    source_assets: set[Path] = set()
+    for image in BeautifulSoup(result.body_html, "html.parser").find_all("img"):
+        for candidate in _local_image_candidates(
+            str(image.get("src") or ""), input_path.parent,
+            document_root=Path(document_root) if document_root is not None else None,
+        ):
+            if candidate.is_file():
+                source_assets.add(candidate)
+                break
+    result.source_assets = tuple(sorted(source_assets))
     result.body_html = embed_local_images(
         result.body_html,
         input_path.parent,

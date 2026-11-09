@@ -103,5 +103,6 @@ export function startBookExport({ projectPath, outputPath }) {
   return request("book.export", {
     project_path: projectPath,
     output_path: outputPath,
+    create_only: true,
   });
 }

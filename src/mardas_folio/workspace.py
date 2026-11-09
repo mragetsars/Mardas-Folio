@@ -312,6 +312,15 @@ def _write_workspace_file_locked(
             code="project_file_too_large",
             status=413,
         )
+    if path.name == CONFIG_FILENAME:
+        try:
+            tomllib.loads(content)
+        except tomllib.TOMLDecodeError as exc:
+            raise WorkspaceError(
+                f"Project configuration is not valid TOML: {exc}",
+                code="invalid_project_config",
+                status=422,
+            ) from exc
     current = _read_bytes(path)
     try:
         original_mode = stat.S_IMODE(path.stat().st_mode)
@@ -328,7 +337,9 @@ def _write_workspace_file_locked(
             status=409,
         )
 
-    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.stem}.", suffix=path.suffix, dir=path.parent
+    )
     temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "wb") as handle:
@@ -336,6 +347,19 @@ def _write_workspace_file_locked(
             handle.flush()
             os.fsync(handle.fileno())
             written_stat = os.fstat(handle.fileno())
+        sources = tuple(workspace.config.values.get("bibliography_sources") or ())
+        is_bibliography = path.suffix.lower() == ".bib" or any(
+            Path(source).expanduser().resolve(strict=False) == path for source in sources
+        )
+        if is_bibliography and path.suffix.lower() in {".bib", ".json"}:
+            _, diagnostics = load_bibliography([temporary])
+            if has_errors(diagnostics):
+                raise WorkspaceError(
+                    "Bibliography is invalid. Correct it before saving.",
+                    code="invalid_project_bibliography",
+                    status=422,
+                    diagnostics=diagnostics,
+                )
         os.chmod(temporary, original_mode)
         if _file_hash(_read_bytes(path)) != expected_sha256:
             raise WorkspaceError(
@@ -1310,6 +1334,7 @@ def export_workspace_book_pdf(
     session: RenderSession | None = None,
     progress: Callable[[str, float], None] | None = None,
     cancelled: CancellationCallback | None = None,
+    create_only: bool = False,
 ) -> tuple[Path, str, ProjectWorkspace]:
     refreshed, manifest, bundle = _validated_book_workspace(
         workspace,
@@ -1329,6 +1354,7 @@ def export_workspace_book_pdf(
             else None
         ),
         cancelled=cancelled,
+        create_only=create_only,
     )
     if built is None or has_errors(diagnostics):
         raise WorkspaceError(

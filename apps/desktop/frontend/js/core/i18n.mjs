@@ -51,6 +51,9 @@ Object.assign(fa,{
 });
 
 Object.assign(fa, {
+  bookValidWithWarnings: "کتاب آمادهٔ خروجی است و هشدارهایی دارد.",
+  projectDiagnosticScope: "پروژه",
+  documentDiagnosticScope: "سند",
   newTab: "تب جدید",
   writingAppearance: "ظاهر متن", writingDensity: "فاصلهٔ متن", writingFont: "قلم متن", documentNavigation: "ناوبری سند",
   densityCompact: "فشرده", densityComfortable: "معمولی", densityRelaxed: "بازتر",
@@ -61,6 +64,9 @@ Object.assign(fa, {
   collapseOutline: "بستن زیرعنوان‌ها", followOutline: "دنبال‌کردن بخش جاری", noOutlineMatches: "عنوانی پیدا نشد.",
 });
 Object.assign(en, {
+  bookValidWithWarnings: "The book is ready to export with warnings.",
+  projectDiagnosticScope: "Project",
+  documentDiagnosticScope: "Document",
   newTab: "New tab",
   writingAppearance: "Text appearance", writingDensity: "Text spacing", writingFont: "Text font", documentNavigation: "Document navigation",
   densityCompact: "Compact", densityComfortable: "Comfortable", densityRelaxed: "Relaxed",
@@ -307,8 +313,15 @@ Object.assign(en, {
 // Controls and states in the redesigned settings surface.
 Object.assign(fa, {
   settingsCategories:"دسته‌های تنظیمات",searchOptions:"جست‌وجوی تنظیمات خروجی",
-  inherit:"پیش‌فرض",inheritHelp:"از preset، mardas.toml یا مقدار پیش‌فرض موتور",
-  on:"روشن",off:"خاموش",resetOption:"بازگرداندن به پیش‌فرض",resetGroup:"بازنشانی این دسته",
+  outputExistsChooseNew:"فایل خروجی از قبل وجود دارد. برای حفظ آن، نام دیگری انتخاب کن.",
+  outputSidecarUnsupported:"تا فراهم‌شدن حفاظت از خروجی‌های جانبی، مسیر گزارش کیفیت و HTML اشکال‌زدایی را خالی کن.",
+  outputCreateOnlyHelp:"برای خروجی، نام فایلی را انتخاب کن که وجود ندارد.",
+  previewPaginationApproximate:"تعداد و شکست صفحه‌ها تقریبی است؛ برای نتیجهٔ قطعی فایل PDF را بررسی کن.",
+  approximate:"تقریبی",
+  cancellingOperation:"در حال لغو عملیات…",
+  documentSettingsHelp:"بازنشانی به preset انتخاب‌شده برمی‌گردد. گزینهٔ ارث‌بری از تنظیمات پروژه یا پیش‌فرض موتور استفاده می‌کند.",
+  inherit:"ارث‌بری",inheritHelp:"از mardas.toml یا مقدار پیش‌فرض موتور",
+  on:"روشن",off:"خاموش",resetOption:"بازگرداندن به preset",resetGroup:"بازگرداندن دسته به preset",
   changedCount:"تغییر یافته",noOptionsMatch:"تنظیمی با این عبارت پیدا نشد.",
   showExpert:"گزینه‌های پیشرفته",expertBadge:"پیشرفته",riskyBadge:"با احتیاط",
   inactiveOption:"تا وقتی «%s» روشن نشود اثری ندارد.",
@@ -319,8 +332,15 @@ Object.assign(fa, {
 });
 Object.assign(en, {
   settingsCategories:"Setting categories",searchOptions:"Search output settings",
-  inherit:"Inherit",inheritHelp:"From the preset, mardas.toml, or the engine default",
-  on:"On",off:"Off",resetOption:"Reset to inherited",resetGroup:"Reset this category",
+  outputExistsChooseNew:"The output file already exists. Choose a different file name to preserve it.",
+  outputSidecarUnsupported:"Clear the quality report and debug HTML paths until protected auxiliary output is available.",
+  outputCreateOnlyHelp:"Choose an output file name that does not already exist.",
+  previewPaginationApproximate:"Page count and breaks are approximate. Check the exported PDF for the final layout.",
+  approximate:"Approx.",
+  cancellingOperation:"Cancelling operation…",
+  documentSettingsHelp:"Reset restores the selected preset. Inherit uses the project configuration or engine default.",
+  inherit:"Inherit",inheritHelp:"From mardas.toml or the engine default",
+  on:"On",off:"Off",resetOption:"Reset to preset",resetGroup:"Reset category to preset",
   changedCount:"changed",noOptionsMatch:"No setting matches this search.",
   showExpert:"Expert options",expertBadge:"Expert",riskyBadge:"Careful",
   inactiveOption:'Does nothing until "%s" is on.',

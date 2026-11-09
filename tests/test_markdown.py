@@ -2,6 +2,60 @@ from bs4 import BeautifulSoup
 from mardas_folio.markdown import render_markdown
 
 
+def test_footnote_definitions_inside_literal_blocks_are_not_extracted():
+    for fence in ("```", "~~~", "````"):
+        markdown = f"# Real\n\n{fence}text\n[^note]: preserve this literal line\n{fence}\n\n[^note]\n"
+        result = render_markdown(markdown)
+        soup = BeautifulSoup(result.body_html, "html.parser")
+        assert "[^note]: preserve this literal line" in soup.select_one("pre").get_text()
+        assert not soup.select(".footnotes")
+        assert "[^note]" in soup.get_text()
+
+
+def test_footnote_references_in_nested_code_remain_literal():
+    markdown = (
+        "> ```text\n> [^note]: literal definition\n> [^note]\n> ```\n\n"
+        "[^note]: Actual note\n\nReference [^note].\n"
+    )
+    soup = BeautifulSoup(render_markdown(markdown).body_html, "html.parser")
+    assert "[^note]: literal definition" in soup.select_one("blockquote pre").get_text()
+    assert "[^note]" in soup.select_one("blockquote pre").get_text()
+    assert len(soup.select(".footnotes li")) == 1
+
+
+def test_footnote_and_heading_source_map_after_display_math():
+    markdown = "# Start\n\n$$\n# math literal\n$$\n\n# Finish\n\n[^real]: Note\n\nReference [^real].\n"
+    result = render_markdown(markdown)
+    assert [(item["title"], item["line"]) for item in result.source_map] == [
+        ("Start", 1), ("Finish", 7)
+    ]
+    assert "Note" in result.body_html
+
+
+def test_title_uses_real_h1_and_plain_inline_content():
+    markdown = "```md\n# Fake\n```\n\nعنوان **واقعی**\n============\n"
+    assert render_markdown(markdown).title == "عنوان واقعی"
+    assert render_markdown(markdown, language="fa").title == "عنوان واقعی"
+    assert render_markdown("---\ntitle: Explicit\n---\n\n" + markdown).title == "Explicit"
+
+
+def test_heading_ids_reserve_other_ids_and_encode_fragments():
+    from urllib.parse import unquote
+
+    markdown = '<div id="foo">x</div>\n\n# Foo\n\n<h2 id="">Empty id</h2>\n\n<h2 id="A&amp;B">Entity</h2>'
+    result = render_markdown(markdown, toc=True)
+    soup = BeautifulSoup(result.body_html, "html.parser")
+    ids = [item["id"] for item in soup.find_all(id=True)]
+    assert len(ids) == len(set(ids))
+    assert soup.find("h1")["id"] != "foo"
+    assert soup.find_all("h2")[0]["id"]
+    for link in soup.select(".heading-anchor"):
+        assert unquote(link["href"][1:]) in ids
+    toc = BeautifulSoup(result.toc_html, "html.parser")
+    for link in toc.select('a[href^="#"]'):
+        assert unquote(link["href"][1:]) in ids
+
+
 def test_mixed_direction_and_code_highlight():
     result = render_markdown("# سلام English\n\nمتن mixed با `code`.\n\n```python\nprint('hi')\n```")
     soup = BeautifulSoup(result.body_html, "html.parser")

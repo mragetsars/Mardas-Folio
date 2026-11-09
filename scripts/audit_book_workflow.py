@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from functools import partial
 from http.server import ThreadingHTTPServer
 import json
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -82,7 +83,13 @@ def run_audit(dist: Path, output: Path) -> dict:
         first = project / "chapters/one.md"
         second = project / "chapters/two.md"
         config = project / "mardas.toml"
-        first.write_text("# First chapter\n\nOriginal first.\n", encoding="utf-8")
+        first.write_text(
+            "# First chapter\n\nOriginal first.\n\n"
+            "- [ ] کار نخست\n- [x] Done\n\n"
+            "> [!NOTE]\n> A book callout.\n\n"
+            "Book note[^book].\n\n[^book]: Body of book note.\n",
+            encoding="utf-8",
+        )
         second.write_text("# Second chapter\n\nOriginal second.\n", encoding="utf-8")
         config.write_text('''schema_version = 1
 [project]
@@ -126,6 +133,87 @@ globalThis.__TAURI__ = {
 """
         with engine_server(dist) as (url, calls), sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
+            # A chapter opened directly must acquire project membership without
+            # replacing its live buffer when the project is subsequently opened.
+            direct = browser.new_page(viewport={"width": 1440, "height": 960})
+            direct.set_default_timeout(30_000)
+            direct.add_init_script(fixture)
+            direct.goto(url, wait_until="networkidle")
+            direct.locator("#workflow-open").click()
+            expect(direct.locator("#markdown-editor")).to_have_value(second.read_text(encoding="utf-8"))
+            direct.locator(".cm-content").click()
+            direct.keyboard.press("Control+End")
+            direct.keyboard.insert_text("\nUNSAVED_DIRECT_DRAFT\n")
+            direct.locator("#navigator-open-project").click()
+            expect(direct.locator("#navigator-project-section")).to_be_visible()
+            expect(direct.locator("#markdown-editor")).to_have_value(re.compile("UNSAVED_DIRECT_DRAFT"))
+            if not direct.locator("#author-sidebar").is_visible():
+                click_workspace_layout_control(direct, "#workspace-toggle-sidebar")
+            direct.locator('[data-sidebar="book"]').click()
+            expect(direct.locator("#book-current-chapter")).to_have_text("2/2")
+            assert "UNSAVED_DIRECT_DRAFT" not in second.read_text(encoding="utf-8")
+            direct.close()
+            checks.append("directly opened dirty chapter gains project membership without replacing its buffer")
+
+            validation = browser.new_page(viewport={"width": 1440, "height": 960})
+            validation.set_default_timeout(30_000)
+            validation.add_init_script(fixture + r"""
+const bookInvoke = globalThis.__TAURI__.core.invoke;
+globalThis.__TAURI__.core.invoke = async (command, args={}) => {
+  if (command === 'sidecar_request' && args.method === 'book.validate'
+      && globalThis.__validationFixture) return globalThis.__validationFixture;
+  return bookInvoke(command, args);
+};
+""")
+            validation.goto(url, wait_until="networkidle")
+            validation.locator("#workflow-project").click()
+            expect(validation.locator("#markdown-editor")).to_have_value(first.read_text(encoding="utf-8"))
+            if not validation.locator("#author-sidebar").is_visible():
+                click_workspace_layout_control(validation, "#workspace-toggle-sidebar")
+            validation.locator('[data-sidebar="book"]').click()
+            validation.evaluate("""() => { globalThis.__validationFixture = {
+              ok:false, diagnostics:[{severity:'error',code:'MARDAS-E504',
+                message:'Chapter missing',path:'chapters/two.md',line:1}]
+            }; }""")
+            validation.locator("#book-validate").click()
+            expect(validation.locator("#book-operation-message")).to_have_text("The book has problems. Review the Problems panel.")
+            expect(validation.locator("#problem-list")).to_contain_text("Chapter missing")
+            validation.evaluate("""() => { globalThis.__validationFixture = {
+              ok:true, diagnostics:[{severity:'warning',code:'MARDAS-W203',
+                message:'Image missing',path:'chapters/two.md'}]
+            }; }""")
+            validation.locator('[data-sidebar="book"]').click()
+            validation.locator("#book-validate").click()
+            expect(validation.locator("#book-operation-message")).to_have_text("The book is ready to export with warnings.")
+            expect(validation.locator("#problem-list")).to_contain_text("Image missing")
+            validation.evaluate("() => { globalThis.__validationFixture = {ok:true, diagnostics:[]}; }")
+            validation.locator('[data-sidebar="book"]').click()
+            validation.locator("#book-validate").click()
+            expect(validation.locator("#problem-count")).to_have_text("0")
+            validation.close()
+            checks.append("book validation distinguishes errors, warnings and clean results across chapter context")
+
+            restored = browser.new_page(viewport={"width": 1440, "height": 960})
+            restored.set_default_timeout(30_000)
+            restored.add_init_script(fixture + "\nlocalStorage.setItem('mardas.desktop.authoring-session.v1',"
+                + json.dumps(json.dumps({"paths": [str(config)], "activePath": str(config), "projectPath": str(project)})) + ");")
+            restored.goto(url, wait_until="networkidle")
+            expect(restored.locator("#markdown-editor")).to_have_value(config.read_text(encoding="utf-8"))
+            original_config = config.read_bytes()
+            restored.locator(".cm-content").click()
+            restored.keyboard.press("Control+a")
+            restored.keyboard.insert_text("[project\ninvalid")
+            before = len(calls)
+            restored.keyboard.press("Control+s")
+            expect(restored.locator("#save-state")).to_have_attribute("data-state", "dirty")
+            restored.wait_for_function("() => document.querySelector('.toast.error') != null")
+            save_calls = calls[before:]
+            assert any(call["method"] == "project.save" for call in save_calls), save_calls
+            assert not any(call["method"] == "document.save_text" for call in save_calls), save_calls
+            assert config.read_bytes() == original_config
+            restored.close()
+            checks.append("session-restored project config uses validated project save and preserves disk on invalid TOML")
+
             page = browser.new_page(viewport={"width": 1440, "height": 960})
             page.set_default_timeout(30_000)
             errors: list[str] = []
@@ -189,6 +277,19 @@ globalThis.__TAURI__ = {
             assert any(call.get("publication_cover") and call.get("publication_watermark") for call in calls)
             expect(page.locator("#book-review-document .md2pdf-cover, #book-review-document .md2pdf-watermark")).to_have_count(0)
             expect(page.locator("#book-review-document")).not_to_contain_text("PUBLICATION_WATERMARK_ONLY")
+            expect(page.locator("#book-review-document .task-list-item")).to_have_count(2)
+            expect(page.locator("#book-review-document .callout-note .callout-title")).not_to_be_empty()
+            assert page.locator("#book-review-document .task-list-item").evaluate_all("""items => items.every(item => {
+              const input = item.querySelector(':scope > input[type=checkbox]');
+              return input && input.disabled && getComputedStyle(item).listStyleType === 'none'
+                && parseFloat(getComputedStyle(input).width) <= parseFloat(getComputedStyle(item).fontSize) * 1.2;
+            })""")
+            assert page.locator("#book-review-document .footnote-item").first.evaluate("""note => {
+              const b = note.querySelector('.footnote-body').getBoundingClientRect();
+              const r = note.querySelector('.footnote-backref').getBoundingClientRect();
+              return getComputedStyle(note).listStyleType === 'none'
+                && Math.min(Math.abs(r.left - b.right), Math.abs(b.left - r.right)) < 35;
+            }""")
             expect(page.locator("#book-review-document .md2pdf-toc a")).not_to_have_count(0)
             first_link = page.locator("#book-review-document .md2pdf-toc a").first
             expect(first_link).to_contain_text("Second chapter")

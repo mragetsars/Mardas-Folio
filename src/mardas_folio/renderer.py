@@ -99,6 +99,14 @@ class OutputPathError(ValueError):
     """Raised when conversion paths overlap or target invalid filesystem objects."""
 
 
+class OutputExistsError(OutputPathError):
+    """A create-only output could not be committed without overwriting a file."""
+
+
+class OutputSidecarUnsupportedError(OutputPathError):
+    """A create-only export includes an auxiliary output without safe commit support."""
+
+
 class RenderCancelledError(RuntimeError):
     """Raised when a caller cancels rendering at a safe checkpoint."""
 
@@ -190,6 +198,8 @@ class PdfOptions:
     quality_log: RenderQualityLog = field(default_factory=RenderQualityLog, repr=False)
     progress: ProgressCallback | None = None
     cancelled: CancellationCallback | None = None
+    protected_inputs: tuple[tuple[str, Path], ...] = field(default_factory=tuple, repr=False)
+    output_create_only: bool = False
 
 
 @lru_cache(maxsize=16)
@@ -3259,6 +3269,22 @@ def _validate_conversion_paths(options: PdfOptions) -> None:
             pairs.append(("bibliography source", bibliography_path, "debug HTML", debug_html))
         if quality_report:
             pairs.append(("bibliography source", bibliography_path, "quality report", quality_report))
+    protected = list(options.protected_inputs)
+    protected.extend(
+        (label, Path(path))
+        for label, path in (
+            ("cover logo", options.cover_logo),
+            ("brand logo", options.brand_logo),
+            ("watermark image", options.watermark_image),
+        )
+        if path is not None
+    )
+    for label, path in protected:
+        for output_label, candidate in (
+            ("output PDF", output_path), ("debug HTML", debug_html), ("quality report", quality_report),
+        ):
+            if candidate is not None:
+                pairs.append((label, path, output_label, candidate))
     for left_label, left, right_label, right in pairs:
         if _paths_refer_to_same_file(left, right):
             raise OutputPathError(
@@ -3266,7 +3292,10 @@ def _validate_conversion_paths(options: PdfOptions) -> None:
             )
 
 
-def _atomic_write_pdf(writer: PdfWriter, output_path: Path) -> None:
+def _atomic_write_pdf(
+    writer: PdfWriter, output_path: Path, *, create_only: bool = False,
+    cancelled: CancellationCallback | None = None,
+) -> None:
     """Commit a complete PDF with an atomic same-directory replacement."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -3276,7 +3305,18 @@ def _atomic_write_pdf(writer: PdfWriter, output_path: Path) -> None:
             writer.write(fh)
             fh.flush()
             os.fsync(fh.fileno())
-        os.replace(temporary_path, output_path)
+        if cancelled is not None and cancelled():
+            raise RenderCancelledError("PDF rendering was cancelled.")
+        if create_only:
+            try:
+                os.link(temporary_path, output_path)
+            except FileExistsError as exc:
+                raise OutputExistsError(
+                    f"The output PDF already exists. Choose a different output file: {output_path}"
+                ) from exc
+            temporary_path.unlink()
+        else:
+            os.replace(temporary_path, output_path)
     except Exception:
         try:
             os.close(fd)
@@ -3352,7 +3392,9 @@ def _copy_pdf_with_metadata(
             )
         if quality_options is not None:
             _enforce_navigation_report(quality_options, tracker)
-        _atomic_write_pdf(writer, output_path)
+        _atomic_write_pdf(writer, output_path,
+                          create_only=bool(quality_options and quality_options.output_create_only),
+                          cancelled=quality_options.cancelled if quality_options else None)
     finally:
         writer.close()
 
@@ -3408,7 +3450,9 @@ def _merge_pdfs(
             )
         if quality_options is not None:
             _enforce_navigation_report(quality_options, tracker)
-        _atomic_write_pdf(writer, output_path)
+        _atomic_write_pdf(writer, output_path,
+                          create_only=bool(quality_options and quality_options.output_create_only),
+                          cancelled=quality_options.cancelled if quality_options else None)
     finally:
         writer.close()
 
@@ -3425,8 +3469,21 @@ def convert_render_result(
     options.output_path = Path(options.output_path)
     options.debug_html = Path(options.debug_html) if options.debug_html else None
     options.quality_report = Path(options.quality_report) if options.quality_report else None
+    options.protected_inputs = tuple(options.protected_inputs) + tuple(
+        ("document image", path) for path in result.source_assets
+    )
     _resolve_quality_options(options)
     _validate_conversion_paths(options)
+    if options.output_create_only:
+        if options.debug_html is not None or options.quality_report is not None:
+            raise OutputSidecarUnsupportedError(
+                "Desktop export cannot safely write debug HTML or a quality report yet. "
+                "Clear those paths before exporting."
+            )
+        if os.path.lexists(options.output_path):
+            raise OutputExistsError(
+                f"The output PDF already exists. Choose a different output file: {options.output_path}"
+            )
     _apply_resolved_appearance(result.metadata, options)
     _check_cancel(options)
     _report_progress(progress, "Markdown parsed", 0.16)
@@ -3544,7 +3601,6 @@ def convert_render_result(
                 page_label_lang=footer_context.lang,
                 quality_options=options,
             )
-    _check_cancel(options)
     options.quality_log.record(
         "render",
         "passed",

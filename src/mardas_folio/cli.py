@@ -544,7 +544,9 @@ def _conversion_main(argv: list[str]) -> int:
     if not input_path.is_file():
         parser.error(f"Input path is not a regular file: {input_path}")
 
-    _load_config_for_namespace(parser, args, input_path=input_path, explicit_destinations=explicit)
+    config, _sources = _load_config_for_namespace(
+        parser, args, input_path=input_path, explicit_destinations=explicit
+    )
     _validate_asset_arguments(parser, args)
     try:
         branding = validate_branding_mode(args.branding) if args.branding is not None else None
@@ -560,6 +562,7 @@ def _conversion_main(argv: list[str]) -> int:
     options = PdfOptions(
         input_path=input_path,
         output_path=output_path,
+        protected_inputs=(("project configuration", config.path),) if config.path is not None else (),
         title=args.title,
         author=args.author,
         description=args.description,

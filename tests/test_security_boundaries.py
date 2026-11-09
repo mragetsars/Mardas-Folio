@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -164,3 +165,85 @@ def test_conversion_paths_protect_bibliography_sources(tmp_path: Path) -> None:
                 bibliography_sources=(bibliography,),
             )
         )
+
+
+@pytest.mark.parametrize("output_role", ["output_path", "debug_html", "quality_report"])
+@pytest.mark.parametrize("explicit", [False, True])
+def test_publication_rejects_project_config_aliases_before_writing(tmp_path, output_role, explicit):
+    from mardas_folio.application import pdf_options_from_request
+
+    source = tmp_path / "document.md"
+    source.write_text("# Document\n", encoding="utf-8")
+    config = tmp_path / "mardas.toml"
+    config.write_text("# Existing project configuration\n", encoding="utf-8")
+    alias = tmp_path / "config-alias"
+    os.link(config, alias)
+    arguments = {"input_path": source, "output_path": tmp_path / "result.pdf"}
+    if explicit:
+        arguments["config_path"] = config
+    if output_role == "output_path":
+        arguments["output_path"] = alias
+    else:
+        arguments["options"] = {output_role: str(alias)}
+    original = config.read_bytes()
+    options = pdf_options_from_request(**arguments)
+    with pytest.raises(OutputPathError, match="project configuration"):
+        _validate_conversion_paths(options)
+    assert config.read_bytes() == original
+    assert not (tmp_path / "result.pdf").exists()
+
+
+@pytest.mark.parametrize("output_role", ["output_path", "debug_html", "quality_report"])
+def test_publication_rejects_embedded_image_collision(tmp_path, output_role):
+    from mardas_folio.markdown import render_markdown_file
+    from mardas_folio.renderer import convert_render_result
+
+    source = tmp_path / "document.md"
+    source.write_text("# Document\n\n![Image](image.png)\n", encoding="utf-8")
+    image = tmp_path / "image.png"
+    image.write_bytes(b"image data")
+    result = render_markdown_file(source)
+    arguments = {"input_path": source, "output_path": tmp_path / "out.pdf"}
+    arguments[output_role] = image
+    original = image.read_bytes()
+    with pytest.raises(OutputPathError, match="document image"):
+        convert_render_result(result, PdfOptions(**arguments))
+    assert image.read_bytes() == original
+    assert not (tmp_path / "out.pdf").exists()
+
+
+def test_render_rpc_reports_config_collision_without_writing(tmp_path):
+    from mardas_folio.application import EngineError, EngineService
+
+    source = tmp_path / "document.md"
+    source.write_text("# Document\n", encoding="utf-8")
+    config = tmp_path / "mardas.toml"
+    config.write_text("# Preserved project settings\n", encoding="utf-8")
+    original = config.read_bytes()
+    service = EngineService()
+    with pytest.raises(EngineError) as error:
+        service.dispatch("render.document", {
+            "input_path": str(source),
+            "output_path": str(tmp_path / "out.pdf"),
+            "options": {"debug_html": "mardas.toml"},
+        })
+    assert error.value.code == "MARDAS-OUTPUT-PATH-COLLISION"
+    assert "project configuration" in str(error.value)
+    assert "debug HTML" in str(error.value)
+    assert config.read_bytes() == original
+    assert not (tmp_path / "out.pdf").exists()
+
+
+def test_cli_rejects_config_as_debug_output(tmp_path, capsys):
+    from mardas_folio.cli import main
+
+    source = tmp_path / "document.md"
+    source.write_text("# Document\n", encoding="utf-8")
+    config = tmp_path / "mardas.toml"
+    config.write_text("# Project settings\n", encoding="utf-8")
+    original = config.read_bytes()
+    result = main([str(source), "--debug-html", str(config)])
+    assert result != 0
+    assert "project configuration" in capsys.readouterr().err
+    assert config.read_bytes() == original
+    assert not source.with_suffix(".pdf").exists()

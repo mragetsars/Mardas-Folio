@@ -31,6 +31,17 @@ SAMPLE = RICH.split("## Inert document HTML", 1)[0] + """
 - First list item
 - مورد دوم
 
+## Document
+
+- [ ] کار نخست
+- [x] Done
+  - [ ] Nested task
+
+> [!NOTE]
+> Example callout متن فارسی.
+
+[Go to this section](#document)
+
 """ + "\n".join(
     f"## Position section {number}\n\n"
     + f"UNIQUE_POSITION_{number} فارسی and English reading position. " * 14
@@ -144,6 +155,41 @@ def _wait_content(page: Any, selector: str) -> None:
     wait_math(page, selector, 5)
 
 
+def _check_document_elements(page: Any, selector: str) -> None:
+    article = page.locator(selector)
+    tasks = article.locator(".task-list-item")
+    expect(tasks).to_have_count(3)
+    assert tasks.evaluate_all("""items => items.every(item => {
+      const input = item.querySelector(':scope > input[type=checkbox]');
+      if (!input) return false;
+      const s = getComputedStyle(input), li = getComputedStyle(item);
+      return input.disabled && li.listStyleType === 'none'
+        && parseFloat(s.width) <= parseFloat(li.fontSize) * 1.2
+        && s.display === 'inline-block';
+    })"""), "Task checkbox layout is invalid"
+    assert article.locator(".callout-note .callout-title").inner_text().strip(), "Callout has no title"
+    notes = article.locator(".footnote-item")
+    assert notes.count() >= 1
+    assert notes.first.evaluate("""note => {
+      const marker = note.querySelector('.footnote-marker');
+      const body = note.querySelector('.footnote-body');
+      const back = note.querySelector('.footnote-backref');
+      if (!marker || !body || !back || getComputedStyle(note).listStyleType !== 'none') return false;
+      const b = body.getBoundingClientRect(), r = back.getBoundingClientRect();
+      return Math.min(Math.abs(r.left - b.right), Math.abs(b.left - r.right)) < 35;
+    }"""), "Footnote marker or backlink geometry is invalid"
+    assert article.locator('[id="document"]').count() == 0, "Unprefixed heading ID"
+    link = article.get_by_role("link", name="Go to this section")
+    target = link.get_attribute("href")
+    assert target and target.startswith("#"), target
+    assert article.locator(target).count() == 1, (selector, target)
+    assert page.locator(target).count() == 1, (selector, target, "ID collision")
+    assert article.locator(".md2pdf-mermaid-svg").evaluate_all("""svgs => svgs.length > 0 && svgs.every(svg => {
+      const naturalWidth = Number(svg.getAttribute('viewBox').trim().split(/[\\s,]+/)[2]);
+      return svg.getBoundingClientRect().width <= Math.min(naturalWidth, 960) + 1;
+    })"""), "Diagram is stretched beyond its natural width"
+
+
 def _set_zoom(page: Any, percent: int) -> None:
     _click_control(page, "#document-zoom-reset")
     direction = "in" if percent > 100 else "out"
@@ -233,6 +279,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
 
                     _side_preview(page)
                     _wait_content(page, "#preview-document")
+                    _check_document_elements(page, "article#preview-document")
                     page.evaluate("""() => {
                       window.__copiedCode = null;
                       window.__failCodeCopy = false;
@@ -263,6 +310,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                         side = page.locator("#preview-document").evaluate(ARTICLE)
                         _activity(page, "read")
                         _wait_content(page, "#reading-document")
+                        _check_document_elements(page, "article#reading-document")
                         expect(page.locator("#insert-menu-button")).to_be_hidden()
                         expect(page.locator("#workspace-toggle-formatting")).to_be_hidden()
                         expect(page.locator("#format-bar")).to_be_hidden()
