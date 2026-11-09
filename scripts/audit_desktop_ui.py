@@ -461,21 +461,22 @@ def run_audit(
         )
         page.screenshot(path=str(output_dir / "export-selected-source-fa-dark.png"), full_page=True)
 
-        # A book is still a project, so its close action lives with the
-        # project file list. Closing it must detach the workspace immediately
-        # while keeping already-open documents and their buffers.
+        # A book is still a project, so its one close action lives in the
+        # Project inspector for both project kinds. Closing it detaches the
+        # workspace immediately while keeping already-open documents.
         page.locator("#export-back").click()
         page.locator("#sidebar-tab-project").click()
         page.locator("#sidebar-open-project").click()
         page.wait_for_function("() => !document.querySelector('#navigator-project-section')?.classList.contains('hidden')")
         checks["book_project_close_action_is_discoverable"] = (
-            page.locator("#navigator-project-section #close-project").is_visible()
+            page.locator("#sidebar-panel-project #close-project").is_visible()
             and page.locator("#sidebar-tab-book").is_visible()
         )
         page.locator("#sidebar-tab-book").click()
+        page.locator("#sidebar-tab-project").click()
         page.screenshot(path=str(output_dir / "book-project-close-action-fa-dark.png"), full_page=True)
         open_tabs = page.locator(".document-tab").count()
-        page.locator("#navigator-project-section #close-project").click()
+        page.locator("#sidebar-panel-project #close-project").click()
         page.wait_for_function("() => document.querySelector('#navigator-project-section')?.classList.contains('hidden')")
         checks["closing_book_keeps_open_documents"] = (
             page.locator(".document-tab").count() == open_tabs

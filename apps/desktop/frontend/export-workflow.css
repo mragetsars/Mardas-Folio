@@ -263,7 +263,7 @@
   white-space: nowrap;
 }
 
-.navigator-project-section > header .navigator-close-project {
+.project-heading-actions #close-project {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -277,13 +277,13 @@
   white-space: nowrap;
 }
 
-.navigator-project-section > header .navigator-close-project:hover {
+.project-heading-actions #close-project:hover {
   border-color: var(--ui-border-strong);
   background: var(--ui-panel-muted);
   color: var(--ui-text);
 }
 
-.navigator-project-section > header .navigator-close-project .ui-icon { width: 12px; height: 12px; }
+.project-heading-actions #close-project .ui-icon { width: 12px; height: 12px; }
 
 .book-inspector-heading {
   display: flex;

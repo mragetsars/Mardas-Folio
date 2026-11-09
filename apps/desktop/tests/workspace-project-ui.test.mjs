@@ -13,8 +13,11 @@ test("an open project exposes one close action with an explicit keep-open-tabs c
   assert.match(main, /function closeActiveProject\(\)[\s\S]*const cleanup = clearProjectState\(\)[\s\S]*return cleanup/);
 });
 
-test("book projects expose one project-level close action in the project file navigator", () => {
-  assert.match(index, /navigator-project-section[\s\S]*?id="close-project"[^>]*data-i18n-title="closeProjectHelp"/);
+test("book projects expose one project-level close action in the Project inspector", () => {
+  assert.match(index, /id="sidebar-panel-project"[\s\S]*?id="close-project"[^>]*data-i18n-title="closeProjectHelp"/);
+  const projectFileSection = index.match(/<section class="navigator-section navigator-project-section[\s\S]*?<\/section>/)?.[0] || "";
+  assert.notEqual(projectFileSection, "");
+  assert.doesNotMatch(projectFileSection, /id="close-project"/);
   assert.doesNotMatch(index, /id="book-close-project"/);
   assert.match(main, /\$\("#close-project"\)\.hidden = !project/);
   assert.doesNotMatch(main, /book-close-project/);
