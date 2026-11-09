@@ -161,6 +161,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         page.keyboard.press("ArrowLeft")
         expect(toggle.nth(0)).to_be_focused()
         expect(toggle.nth(0)).to_have_attribute("aria-checked", "true")
+        expect(page.locator("#preset-summary")).to_contain_text("Inherit")
         page.wait_for_function("""() => globalThis.__requests.some(r =>
           r.method.startsWith('preview.') && !('toc' in r.params.options))""")
         page.locator("#validate-button").click()

@@ -2159,9 +2159,10 @@ function renderSummary() {
   const changed = modifiedKeys(Object.fromEntries(advancedValues), preset.options).length;
   const rows = [
     [t("preset"), t(preset.titleKey)],
-    [t("page"), options.page_size || "A4"],
-    [t("toc"), options.toc ? t("enabled") : t("disabled")],
-    [t("quality"), options.quality_profile === "strict-publication" ? t("strict") : t("standard")],
+    [t("page"), options.page_size ?? t("inherit")],
+    [t("toc"), options.toc === undefined ? t("inherit") : t(options.toc ? "enabled" : "disabled")],
+    [t("quality"), options.quality_profile === undefined ? t("inherit")
+      : t(options.quality_profile === "strict-publication" ? "strict" : "standard")],
     [t("settingsSummary"), changed ? `${changed} ${t("changedCount")}` : t("noChanges")],
   ];
   container.replaceChildren(...rows.map(([label, value]) => {
