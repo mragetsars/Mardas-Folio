@@ -5,7 +5,7 @@ import json
 import os
 import secrets
 import stat
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import fields
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -111,6 +111,12 @@ def _is_reparse_point(path: Path) -> bool:
 @contextmanager
 def _locked_asset_directory(path: Path):
     """Keep an import anchored to the inspected directory."""
+    if os.name == "nt":
+        from ._windows_paths import locked_directory
+
+        with locked_directory(path):
+            yield None
+        return
     descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         yield descriptor
@@ -668,65 +674,95 @@ def import_document_asset(
             code="MARDAS-ASSET-INVALID",
             details={"path": str(target_dir)},
         )
-    if os.name == "nt":
-        raise EngineError(
-            "Asset import is unavailable on Windows because the destination cannot be secured. "
-            "Copy the file into the document folder using your file manager, then insert it.",
-            code="MARDAS-ASSET-IMPORT",
-            details={"path": str(target_dir)},
-        )
-    try:
-        target_dir.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        raise EngineError(
-            "The document assets directory could not be created.",
-            code="MARDAS-ASSET-IMPORT",
-            details={"path": str(target_dir)},
-        ) from exc
     stem = source.stem or "asset"
     suffix = source.suffix.casefold()
     source_digest = hashlib.sha256(payload).digest()
     try:
-        with _locked_asset_directory(target_dir) as directory_fd:
+        with ExitStack() as locks:
+            if os.name == "nt":
+                # Keep the canonical document directory stable before creating
+                # or opening its assets child. Windows does not provide the
+                # POSIX dir_fd/openat operations used below, so directory
+                # handles deny delete/rename sharing while path-based atomic
+                # creation is in progress.
+                locks.enter_context(_locked_asset_directory(document.parent))
+            try:
+                target_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                raise EngineError(
+                    "The document assets directory could not be created.",
+                    code="MARDAS-ASSET-IMPORT",
+                    details={"path": str(target_dir)},
+                ) from exc
+            directory_fd = locks.enter_context(_locked_asset_directory(target_dir))
             if _is_reparse_point(target_dir) or target_dir.resolve() != document.parent / "assets":
                 raise OSError("The assets directory is outside the document root")
+
             temporary = Path(f".mardas-import-{secrets.token_hex(16)}")
-            fd = os.open(str(temporary), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600,
-                         dir_fd=directory_fd)
+            temporary_path = target_dir / temporary.name
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            if hasattr(os, "O_BINARY"):
+                flags |= os.O_BINARY
+            if directory_fd is None:
+                fd = os.open(temporary_path, flags, 0o600)
+            else:
+                fd = os.open(str(temporary), flags, 0o600, dir_fd=directory_fd)
             handle = os.fdopen(fd, "wb")
             try:
                 handle.write(payload)
                 handle.flush()
                 os.fsync(handle.fileno())
+                handle.close()
+                handle = None
                 counter = 1
                 while True:
                     name = f"{stem}{suffix}" if counter == 1 else f"{stem}-{counter}{suffix}"
                     target = target_dir / name
-                    current = target_dir.stat(follow_symlinks=False)
-                    anchored = os.fstat(directory_fd)
-                    if (_is_reparse_point(target_dir)
-                            or (current.st_dev, current.st_ino) != (anchored.st_dev, anchored.st_ino)):
-                        raise OSError("The assets directory changed during import")
-                    try:
-                        os.link(str(temporary), name, src_dir_fd=directory_fd,
-                                dst_dir_fd=directory_fd, follow_symlinks=False)
-                        break
-                    except FileExistsError:
-                        if not _is_reparse_point(target) and target.is_file():
-                            try:
-                                candidate = os.open(name, os.O_RDONLY | os.O_NOFOLLOW,
-                                                    dir_fd=directory_fd)
-                                candidate_handle = os.fdopen(candidate, "rb")
-                                with candidate_handle:
-                                    candidate_data = candidate_handle.read(len(payload) + 1)
-                                if hashlib.sha256(candidate_data).digest() == source_digest:
-                                    break
-                            except OSError:
-                                pass
-                        counter += 1
+                    if directory_fd is None:
+                        # On Windows rename within one directory is atomic and
+                        # fails if the target already exists. The locked,
+                        # non-reparse directory keeps the path anchored.
+                        if _is_reparse_point(target_dir) or target_dir.resolve() != document.parent / "assets":
+                            raise OSError("The assets directory changed during import")
+                        try:
+                            os.rename(temporary_path, target)
+                            break
+                        except FileExistsError:
+                            from ._windows_paths import matches_regular_file
+
+                            if matches_regular_file(target, len(payload), source_digest):
+                                break
+                            counter += 1
+                    else:
+                        current = target_dir.stat(follow_symlinks=False)
+                        anchored = os.fstat(directory_fd)
+                        if (_is_reparse_point(target_dir)
+                                or (current.st_dev, current.st_ino) != (anchored.st_dev, anchored.st_ino)):
+                            raise OSError("The assets directory changed during import")
+                        try:
+                            os.link(str(temporary), name, src_dir_fd=directory_fd,
+                                    dst_dir_fd=directory_fd, follow_symlinks=False)
+                            break
+                        except FileExistsError:
+                            if not _is_reparse_point(target) and target.is_file():
+                                try:
+                                    candidate = os.open(name, os.O_RDONLY | os.O_NOFOLLOW,
+                                                        dir_fd=directory_fd)
+                                    candidate_handle = os.fdopen(candidate, "rb")
+                                    with candidate_handle:
+                                        candidate_data = candidate_handle.read(len(payload) + 1)
+                                    if hashlib.sha256(candidate_data).digest() == source_digest:
+                                        break
+                                except OSError:
+                                    pass
+                            counter += 1
             finally:
-                handle.close()
-                os.unlink(str(temporary), dir_fd=directory_fd)
+                if handle is not None:
+                    handle.close()
+                if directory_fd is None:
+                    temporary_path.unlink(missing_ok=True)
+                else:
+                    os.unlink(str(temporary), dir_fd=directory_fd)
     except OSError as exc:
         raise EngineError(
             f"Could not import asset: {exc}",

@@ -11,7 +11,6 @@ from mardas_folio.application import EngineError
 from mardas_folio.renderer import RenderCancelledError
 
 
-@pytest.mark.skipif(os.name == "nt", reason="Windows imports are disabled until handle-relative commit is available")
 def test_import_unicode_and_existing_names(tmp_path: Path) -> None:
     document = tmp_path / "سند.md"
     document.write_text("# Test", encoding="utf-8")
@@ -111,9 +110,41 @@ def test_windows_junction_root_and_nested_are_not_followed(tmp_path: Path) -> No
     junction.mkdir()
     make_junction(junction / "nested")
     assert application.list_document_assets(document)["assets"] == []
-    with pytest.raises(EngineError) as error:
-        application.import_document_asset(document, source)
-    assert error.value.code == "MARDAS-ASSET-IMPORT"
-    assert "unavailable on Windows" in str(error.value)
+    imported = application.import_document_asset(document, source)
+    assert imported["relative_path"] == "assets/image.png"
+    assert (root / "assets" / "image.png").read_bytes() == b"new image"
     assert not (junction / "image.png").exists()
+    assert not (outside / "image.png").exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows directory-handle regression")
+def test_windows_import_keeps_assets_directory_anchored(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "documents"
+    root.mkdir()
+    document = root / "test.md"
+    document.write_text("# Test", encoding="utf-8")
+    source = tmp_path / "image.png"
+    source.write_bytes(b"new image")
+    target = root / "assets"
+    target.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    original_fsync = application.os.fsync
+    rename_blocked = False
+
+    def attempt_swap_after_write(descriptor: int) -> None:
+        nonlocal rename_blocked
+        original_fsync(descriptor)
+        try:
+            target.rename(root / "original-assets")
+        except OSError:
+            rename_blocked = True
+            return
+        target.symlink_to(outside, target_is_directory=True)
+
+    monkeypatch.setattr(application.os, "fsync", attempt_swap_after_write)
+    imported = application.import_document_asset(document, source)
+    assert rename_blocked
+    assert imported["relative_path"] == "assets/image.png"
+    assert (target / "image.png").read_bytes() == b"new image"
     assert not (outside / "image.png").exists()
