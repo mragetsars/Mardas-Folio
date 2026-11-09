@@ -95,11 +95,21 @@ globalThis.__TAURI__.core.invoke = async (command, args = {}) => {
         globalThis.__auditSaveResolvers.push(() => resolve(save())));
       return save();
     }
-    if (args.method === 'project.open') {
+    if (args.method === 'project.open' || args.method === 'project.refresh') {
       return {path:'/fixtures/book', name:'Audit book', config_sha256:'audit-book',
         files:[{path:'chapters/one.md', kind:'markdown'}], diagnostics:[],
         book:{title:'Audit book', chapter_count:1, output:'dist/book.pdf',
           chapters:[{path:'chapters/one.md', title:'First chapter'}]}};
+    }
+    if (args.method === 'project.read') {
+      return {path:'chapters/one.md', absolute_path:'/fixtures/book/chapters/one.md',
+        content:'# First chapter\n\nA saved chapter.\n', revision:'audit-chapter',
+        sha256:'audit-chapter', kind:'markdown', read_only:false};
+    }
+    if (args.method === 'project.save') {
+      return {path:'chapters/one.md', absolute_path:'/fixtures/book/chapters/one.md',
+        content:args.params.content, revision:'audit-chapter-saved',
+        sha256:'audit-chapter-saved', kind:'markdown', read_only:false};
     }
     if (args.method === 'book.preview') {
       return {html:'<!doctype html><html><head><style>body{display:none}</style></head><body><h1>FULL_BOOK_UNIQUE</h1><p>All chapters preview.</p></body></html>', diagnostics:[]};
@@ -229,6 +239,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     expect(mirror(page)).to_have_value(CONTENT_B)
     editor(page).click()
     page.keyboard.press("Control+End")
+    page.wait_for_timeout(600)  # Give the document-switch transaction its own undo group.
     page.keyboard.press("Enter")
     page.keyboard.insert_text("EDIT_BETA")
     updated_b = CONTENT_B + "\nEDIT_BETA"
@@ -328,6 +339,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     for view in ("write", "split", "source"):
         mode(page, view)
         expect(mirror(page)).to_have_value(updated_b)
+    editor(page).focus()
     page.keyboard.press("Control+z")
     expect(mirror(page)).to_have_value(CONTENT_B)
     checks.append("reading-cannot-edit-and-mode-changes-preserve-history")
@@ -342,7 +354,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     mode(page, "read")
     page.wait_for_function("() => globalThis.__auditPreviewResolvers.length > 0")
     expect(page.locator("#reading-loading")).to_be_visible()
-    expect(page.locator("#reading-surface [data-content-status]")).to_have_attribute("data-stale", "true")
+    expect(page.locator(".reading-toolbar-controls [data-content-status]")).to_have_attribute("data-stale", "true")
     page.evaluate("""() => {
         globalThis.__auditPreviewHeld = false;
         globalThis.__auditPreviewResolvers.splice(0).forEach(resolve => resolve());
@@ -563,8 +575,14 @@ def run_export_navigation(page: Any) -> list[str]:
     navigator_item(page, 0).click()
     mode(page, "source")
     before = mirror(page).input_value()
+    editor(page).focus()
+    page.keyboard.press("Control+End")
+    page.keyboard.insert_text("EXPORT_PREFLIGHT")
+    before += "EXPORT_PREFLIGHT"
+    expect(mirror(page)).to_have_value(before)
     page.evaluate("globalThis.__auditSaveHeld = true")
     page.locator("#workspace-export").click()
+    page.locator("#export-format-pdf").click()
     page.wait_for_function("() => globalThis.__auditSaveResolvers.length > 0")
     navigator_item(page, 1).click()
     selected_b = mirror(page).input_value()
@@ -579,6 +597,7 @@ def run_export_navigation(page: Any) -> list[str]:
     page.keyboard.insert_text("SAVE_STARTED")
     page.evaluate("globalThis.__auditSaveHeld = true")
     page.locator("#workspace-export").click()
+    page.locator("#export-format-pdf").click()
     page.wait_for_function("() => globalThis.__auditSaveResolvers.length > 0")
     editor(page).focus()
     page.keyboard.press("Control+End")
@@ -591,6 +610,7 @@ def run_export_navigation(page: Any) -> list[str]:
     # A fresh save completes normally; publication returns to the current
     # reading surface and does not transfer focus to its hidden source editor.
     page.locator("#workspace-export").click()
+    page.locator("#export-format-pdf").click()
     expect(page.locator("#export-view")).to_be_visible()
     expect(page.locator("#source-path")).to_have_value(FIXTURE_A)
     page.locator("#export-back").click()
@@ -599,6 +619,7 @@ def run_export_navigation(page: Any) -> list[str]:
     mode(page, "read")
     expect(page.locator("#reading-document")).to_contain_text("_CHANGED_WHILE_SAVING")
     page.locator("#workspace-export").click()
+    page.locator("#export-format-pdf").click()
     expect(page.locator("#export-view")).to_be_visible()
     page.locator("#export-back").click()
     expect(page.locator("#reading-surface")).to_be_visible()
@@ -610,15 +631,35 @@ def run_export_navigation(page: Any) -> list[str]:
 
 
 def run_book_preview(page: Any) -> list[str]:
-    before = mirror(page).input_value()
+    active_tab = page.locator(".document-tab").evaluate_all(
+        "tabs => tabs.findIndex(tab => tab.classList.contains('active'))"
+    )
     page.evaluate("globalThis.__auditProjectEnabled = true")
     if not page.locator("#file-navigator").is_visible():
         click_workspace_layout_control(page, "#workspace-toggle-files")
+    if page.locator("#navigator-tab-files").get_attribute("aria-selected") != "true":
+        page.locator("#navigator-tab-files").click()
+    for index in range(page.locator("#open-document-list button[data-document-id]").count()):
+        navigator_item(page, index).click()
+        if page.locator("#save-state").get_attribute("data-state") != "saved":
+            page.locator("#workspace-save").click()
+            expect(page.locator("#save-state")).to_have_attribute("data-state", "saved")
+    if active_tab >= 0:
+        navigator_item(page, active_tab).click()
     page.locator("#navigator-open-project").click()
+    page.wait_for_function(
+        "() => !document.querySelector('#navigator-project-section')?.classList.contains('hidden')"
+    )
+    page.wait_for_function("() => document.querySelector('#editor-path')?.textContent.includes('one.md')")
     page.locator('[data-sidebar="book"]').click()
+    expect(page.locator("#close-book-project")).to_be_visible()
+    before = mirror(page).input_value()
     prior_mode = page.locator(".editor-pane").get_attribute("data-view-mode")
     prior_preview = page.locator("#preview-document").text_content()
     page.locator("#book-preview").click()
+    if page.locator("#confirm-modal").get_attribute("aria-hidden") == "false":
+        expect(page.locator("#confirm-title")).not_to_be_empty()
+        page.locator("#confirm-accept").click()
     expect(page.locator("#book-review-modal")).to_be_visible()
     expect(page.locator("#book-review-document")).to_contain_text("FULL_BOOK_UNIQUE")
     expect(page.locator(".editor-pane")).to_have_attribute("data-view-mode", prior_mode)

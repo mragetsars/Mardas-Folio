@@ -4112,6 +4112,12 @@ html[data-focus-mode="true"] body[data-view="workspace"] .cm-editor[data-editor-
 .document-content > :first-child { margin-block-start: 0; }
 .document-content p { margin: .7em 0 1em; }
 .document-content a { color: var(--ui-info); text-underline-offset: 3px; }
+.document-content a[data-mardas-markdown-href] { cursor: pointer; }
+.document-content a[data-mardas-markdown-href]:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+  border-radius: var(--ui-radius-xs);
+}
 .document-content a[aria-disabled="true"] {
   color: var(--ui-muted);
   text-decoration: none;

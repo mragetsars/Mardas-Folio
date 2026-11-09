@@ -293,12 +293,31 @@
   min-width: 0;
 }
 
-.book-inspector-heading > span { color: var(--ui-muted); font-size: var(--ui-text-xs); }
+.book-inspector-heading > div { display: flex; align-items: center; gap: 8px; }
+.book-inspector-heading > div > span { color: var(--ui-muted); font-size: var(--ui-text-xs); }
+.book-inspector-heading #close-book-project {
+  min-height: 26px;
+  padding: 3px 7px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text-soft);
+  font-size: var(--ui-text-2xs);
+  white-space: nowrap;
+}
+.book-inspector-heading #close-book-project:hover {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-panel-muted);
+  color: var(--ui-text);
+}
 
 @media (max-width: 1180px) {
   #export-view .export-layout { grid-template-columns: minmax(0, 1fr); }
   #export-view .export-side { position: static; }
-  #export-view .form-panel { grid-row: auto; }
+  /* Keep the paper visible before the long settings form on laptop and tablet
+     widths. Users can compare each change with the page without scrolling
+     through every section first. */
+  #export-view .export-side { grid-row: 1; }
+  #export-view .form-panel { grid-row: 2; }
   #export-view .export-preview-panel { height: min(64dvh, 680px); min-height: 360px; }
 }
 

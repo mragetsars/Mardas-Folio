@@ -79,3 +79,11 @@ export function listDocumentAssets(path) {
 export function importDocumentAsset(documentPath, sourcePath) {
   return sidecar("document.import_asset", { document_path: documentPath, source_path: sourcePath });
 }
+
+export function resolveMarkdownLink(documentPath, href, projectPath = undefined) {
+  return sidecar("document.resolve_markdown_link", {
+    document_path: documentPath,
+    href,
+    ...(projectPath ? { project_path: projectPath } : {}),
+  });
+}

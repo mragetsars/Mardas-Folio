@@ -459,11 +459,27 @@ def run_audit(
             and page.locator("#preview-zoom-in").is_enabled()
             and page.locator("#preview-page-count").inner_text() != "—"
         )
+        page.locator("#option-tab-appearance").click()
+        page.locator("#adv-style").focus()
+        page.locator("#adv-style").select_option("academic")
+        checks["export_option_keeps_focus_after_update"] = (
+            page.evaluate("document.activeElement?.id") == "adv-style"
+        )
+        page.locator("#option-tab-contents").click()
+        page.locator('[data-option-key="toc"] .tri-toggle-option').nth(1).click()
+        checks["dependent_export_option_is_disabled"] = page.locator("#adv-toc-depth").is_disabled()
+        page.set_viewport_size({"width": 1000, "height": 820})
+        preview_top = page.locator("#export-view .export-side").bounding_box()["y"]
+        settings_top = page.locator("#export-view .form-panel").bounding_box()["y"]
+        checks["narrow_export_keeps_preview_above_long_settings"] = (
+            page.locator("#export-view .export-side").is_visible()
+            and preview_top < settings_top
+        )
+        page.set_viewport_size({"width": 1280, "height": 900})
         page.screenshot(path=str(output_dir / "export-selected-source-fa-dark.png"), full_page=True)
 
-        # A book is still a project, so its one close action lives in the
-        # Project inspector for both project kinds. Closing it detaches the
-        # workspace immediately while keeping already-open documents.
+        # Keep close available in the inspector tab that owns the current
+        # workflow, then detach the project without closing open documents.
         page.locator("#export-back").click()
         page.locator("#sidebar-tab-project").click()
         page.locator("#sidebar-open-project").click()
@@ -473,6 +489,9 @@ def run_audit(
             and page.locator("#sidebar-tab-book").is_visible()
         )
         page.locator("#sidebar-tab-book").click()
+        checks["book_close_action_is_visible_in_book_tools"] = page.locator(
+            "#close-book-project"
+        ).is_visible()
         page.locator("#sidebar-tab-project").click()
         page.screenshot(path=str(output_dir / "book-project-close-action-fa-dark.png"), full_page=True)
         open_tabs = page.locator(".document-tab").count()
@@ -481,6 +500,78 @@ def run_audit(
         checks["closing_book_keeps_open_documents"] = (
             page.locator(".document-tab").count() == open_tabs
             and _visible(page, "#book-empty")
+        )
+
+        # Escaping a book-creation dialog while its native request is pending
+        # invalidates that request's intent. Its late result must not reopen
+        # the project the user just dismissed.
+        page.locator("#sidebar-tab-book").click()
+        page.evaluate("""() => {
+            const base = globalThis.__TAURI__.core.invoke;
+            globalThis.__lateBookCreate = null;
+            globalThis.__TAURI__.core.invoke = (command, args = {}) =>
+                command === 'sidecar_request' && args.method === 'book.create'
+                    ? new Promise(resolve => { globalThis.__lateBookCreate = resolve; })
+                    : base(command, args);
+        }""")
+        page.locator("#sidebar-new-book").click()
+        page.locator("#book-project-title-input").fill("Cancelled book")
+        page.locator("#choose-book-parent").click()
+        page.wait_for_function(
+            "() => document.querySelector('#book-project-parent-input')?.value === '/qa/book'"
+        )
+        page.locator("#book-project-form button[type='submit']").click()
+        page.wait_for_function("() => typeof globalThis.__lateBookCreate === 'function'")
+        page.keyboard.press("Escape")
+        if _visible(page, "#book-project-modal"):
+            raise AssertionError("Escape did not cancel the pending book creation dialog")
+        page.evaluate("""() => globalThis.__lateBookCreate({project: {
+            path: '/qa/cancelled-book', name: 'Cancelled book', config: 'mardas.toml',
+            files: [], book: {enabled: true, title: 'Cancelled book', output: 'dist/book.pdf', chapter_count: 0, chapters: []}
+        }})""")
+        page.wait_for_timeout(80)
+        checks["cancelled_book_creation_does_not_reopen_project"] = (
+            not _visible(page, "#navigator-project-section")
+            and not _visible(page, "#project-tools")
+        )
+
+        # A chapter mutation may finish after the project is closed. Its
+        # response belongs to the old project generation and must be ignored.
+        page.evaluate("""() => {
+            const base = globalThis.__TAURI__.core.invoke;
+            globalThis.__lateChapterMutation = null;
+            globalThis.__TAURI__.core.invoke = async (command, args = {}) => {
+                if (command !== 'sidecar_request') return base(command, args);
+                if (args.method === 'project.open') {
+                    const result = await base(command, args);
+                    result.project.config_sha256 = 'fixture-config';
+                    return result;
+                }
+                if (args.method === 'book.add_chapter') {
+                    return new Promise(resolve => { globalThis.__lateChapterMutation = resolve; });
+                }
+                return base(command, args);
+            };
+        }""")
+        page.locator("#sidebar-tab-project").click()
+        page.locator("#sidebar-open-project").click()
+        page.wait_for_function("() => !document.querySelector('#project-tools')?.classList.contains('hidden')")
+        page.locator("#sidebar-tab-book").click()
+        page.locator("#book-add-chapter").click()
+        page.locator("#chapter-title-input").fill("Late chapter")
+        page.locator("#chapter-form button[type='submit']").click()
+        page.wait_for_function("() => typeof globalThis.__lateChapterMutation === 'function'")
+        page.keyboard.press("Escape")
+        page.locator("#sidebar-tab-project").click()
+        page.locator("#close-project").click()
+        page.evaluate("""() => globalThis.__lateChapterMutation({project: {
+            path: '/qa/book', name: 'Book QA', config: 'mardas.toml', config_sha256: 'late-hash',
+            files: [], book: {enabled: true, title: 'Book QA', output: 'dist/book.pdf', chapter_count: 1, chapters: []}
+        }})""")
+        page.wait_for_timeout(80)
+        checks["late_chapter_response_does_not_reopen_closed_project"] = (
+            not _visible(page, "#navigator-project-section")
+            and not _visible(page, "#project-tools")
         )
 
         checks["page_errors"] = page_errors

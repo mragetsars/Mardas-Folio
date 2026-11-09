@@ -267,7 +267,7 @@ body[data-guides="true"] .pv-page:not([data-kind="cover"]) .pv-guide { display: 
 .pv-note-details li {
   margin-top: 8px;
   padding: 8px 12px;
-  border-inline-start: 2px solid #c2410c;
+  border-inline-start: 2px solid var(--pv-accent, #737373);
   border-radius: 3px;
   background: rgba(17, 17, 17, 0.05);
   text-align: start;
@@ -339,9 +339,11 @@ export function createPageDeck(host, { onState } = {}) {
     const root = doc()?.documentElement;
     const owner = host.ownerDocument;
     if (!root || !owner?.defaultView) return;
-    const thumb = owner.defaultView.getComputedStyle(owner.documentElement)
-      .getPropertyValue("--ui-scrollbar-thumb").trim();
+    const styles = owner.defaultView.getComputedStyle(owner.documentElement);
+    const thumb = styles.getPropertyValue("--ui-scrollbar-thumb").trim();
+    const accent = styles.getPropertyValue("--ui-accent").trim();
     if (thumb) root.style.setProperty("--pv-scrollbar-thumb", thumb);
+    if (accent) root.style.setProperty("--pv-accent", accent);
   }
   const themeObserver = new MutationObserver(syncScrollbarTheme);
   themeObserver.observe(host.ownerDocument.documentElement, { attributes: true, attributeFilter: ["data-theme", "style", "class"] });
@@ -670,7 +672,9 @@ export function createPageDeck(host, { onState } = {}) {
     window_.addEventListener("scroll", onScroll, { passive: true });
     const pending = state.pending;
     state.pending = null;
-    if (pending?.kind === "payload") draw(pending.value);
+    if (pending?.kind === "payload") {
+      Promise.resolve(draw(pending.value)).then(pending.resolve, pending.reject);
+    }
     else if (pending?.kind === "message") showMessageNow(pending.value, pending.details);
   }
 
@@ -706,8 +710,10 @@ export function createPageDeck(host, { onState } = {}) {
     /** Draw a `preview.document_page` payload. */
     render(payload) {
       if (!state.ready) {
-        state.pending = { kind: "payload", value: payload };
-        return;
+        state.pending?.resolve?.(false);
+        return new Promise((resolve, reject) => {
+          state.pending = { kind: "payload", value: payload, resolve, reject };
+        });
       }
       return draw(payload);
     },
@@ -721,6 +727,7 @@ export function createPageDeck(host, { onState } = {}) {
      */
     showMessage(text, details) {
       if (!state.ready) {
+        state.pending?.resolve?.(false);
         state.pending = { kind: "message", value: text, details };
         return;
       }

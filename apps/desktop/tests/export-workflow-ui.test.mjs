@@ -13,6 +13,19 @@ test("export has a focused paper preview and keeps destination actions outside t
   assert.match(styles, /#export-view \.export-preview-panel\s*\{[^}]*height:\s*clamp\(/);
   assert.match(styles, /#export-view \.export-dock\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto/);
   assert.match(styles, /@media \(max-width: 1180px\)[\s\S]*#export-view \.export-layout \{ grid-template-columns: minmax\(0, 1fr\); \}[\s\S]*#export-view \.export-side \{ position: static; \}/);
+  assert.match(styles, /@media \(max-width: 1180px\)[\s\S]*#export-view \.export-side \{ grid-row: 1; \}[\s\S]*#export-view \.form-panel \{ grid-row: 2; \}/);
+});
+
+test("dependent export controls are disabled, and changing a value keeps keyboard focus", () => {
+  assert.match(main, /if \(!active\) \{[\s\S]*row\.querySelectorAll\("input, select, textarea, button"\)\.forEach\(\(control\) => \{\s*control\.disabled = true;/);
+  assert.match(main, /function setOptionValue\(key, value\) \{[\s\S]*const focusIndex = controls\.indexOf\(active\);[\s\S]*nextControl\?\.focus\(\{ preventScroll: true \}\)/);
+});
+
+test("page preview reports ready only after the paper deck finishes laying out", () => {
+  assert.match(main, /await deck\.render\(result\);[\s\S]*setExportPreviewState\(""\)/);
+  const deck = readFileSync(new URL("../frontend/js/preview/page-deck.mjs", import.meta.url), "utf8");
+  assert.match(deck, /border-inline-start: 2px solid var\(--pv-accent, #737373\)/);
+  assert.match(deck, /return new Promise\(\(resolve, reject\) => \{\s*state\.pending = \{ kind: "payload", value: payload, resolve, reject \};/);
 });
 
 test("idle export status is compact and the settings summary can be expanded", () => {

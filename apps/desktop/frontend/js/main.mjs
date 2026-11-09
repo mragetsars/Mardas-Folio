@@ -121,6 +121,7 @@ import {
   previewDocumentText,
   readDocument,
   readTextDocument,
+  resolveMarkdownLink,
   saveDocument,
   saveTextDocument,
   validateDocumentText,
@@ -167,6 +168,7 @@ const state = {
   activeBookCompletion: null,
   bookCancellationHandoff: null,
   bookRequestSequence: 0,
+  bookProjectCreateSequence: 0,
   chapterModalMode: null,
   chapterModalPath: null,
   previewSyncing: false,
@@ -1412,12 +1414,36 @@ function choiceLabel(value) {
   return label === value ? value : label;
 }
 
+function optionControlIdentity(control) {
+  if (!control) return "";
+  if (control.id) return `id:${control.id}`;
+  const role = control.getAttribute("role") || control.tagName;
+  const label = control.getAttribute("aria-label");
+  if (label) return `${role}:${label}`;
+  return `${role}:${control.className}:${control.textContent.trim()}`;
+}
+
 function setOptionValue(key, value) {
+  const active = document.activeElement;
+  const row = [...document.querySelectorAll("[data-option-key]")]
+    .find((element) => element.dataset.optionKey === key);
+  const controls = row ? [...row.querySelectorAll("input, select, textarea, button") ] : [];
+  const focusIndex = controls.indexOf(active);
+  const focusIdentity = focusIndex >= 0 ? optionControlIdentity(active) : "";
   invalidateExportStatus();
   if (value === undefined) advancedValues.delete(key);
   else advancedValues.set(key, value);
   renderOptionRail();
   renderOptionPane();
+  if (focusIndex >= 0) {
+    const nextRow = [...document.querySelectorAll("[data-option-key]")]
+      .find((element) => element.dataset.optionKey === key);
+    const nextControls = nextRow ? [...nextRow.querySelectorAll("input, select, textarea, button")] : [];
+    const nextControl = nextControls.find((control) => optionControlIdentity(control) === focusIdentity)
+      || nextControls[focusIndex]
+      || nextRow?.querySelector("input, select, textarea, button");
+    nextControl?.focus({ preventScroll: true });
+  }
   renderSummary();
   schedulePdfPreview();
 }
@@ -1684,6 +1710,9 @@ function buildOptionRow(field, group) {
     reason.className = "option-inactive";
     reason.textContent = t("inactiveOption").replace("%s", t(`opt.${field.dependsOn}`));
     row.append(head, help, buildOptionControl(field), reason);
+    row.querySelectorAll("input, select, textarea, button").forEach((control) => {
+      control.disabled = true;
+    });
     if (group) row.dataset.group = group.id;
     return row;
   }
@@ -2074,7 +2103,8 @@ async function drawExportPreview() {
       ? await previewDocumentPage(request)
       : pagePayloadFromBodyPreview(await previewDocumentText(request));
     if (sequence !== exportPreviewSequence) return;
-    deck.render(result);
+    await deck.render(result);
+    if (sequence !== exportPreviewSequence) return;
     renderPreviewNote(result);
     setExportPreviewState("");
   } catch (error) {
@@ -2790,6 +2820,24 @@ function editorStrings() {
   return Object.fromEntries(["imageNotFound", "remoteImageNotLoaded", "loadRemoteImages", "remoteImageLoading", "remoteImageFailed", "retryRemoteImage", "remoteImageBlocked"].map(key => [key, t(key)]));
 }
 
+function bindEditorHistoryShortcuts(adapter) {
+  if (adapter?.kind !== "codemirror" || !adapter.element) return;
+  adapter.element.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented || event.altKey || !(event.ctrlKey || event.metaKey)) return;
+    const key = event.key.toLowerCase();
+    const command = key === "z"
+      ? (event.shiftKey ? "redo" : "undo")
+      : key === "y" && !event.shiftKey
+        ? "redo"
+        : null;
+    const succeeded = command ? adapter.runCommand(command) : false;
+    if (succeeded) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, { capture: true });
+}
+
 /**
  * Ask the user to confirm something, in this application's own dialog.
  *
@@ -3105,6 +3153,7 @@ async function chooseProjectDirectory() {
 }
 
 async function loadProject(path, { announce = true, openFirstChapter = true } = {}) {
+  const previousProjectPath = state.project?.path || null;
   const activationSequence = ++state.documentActivationSequence;
   const handoff = pathKey(path) !== pathKey(state.project?.path)
     ? invalidateBookTaskForProjectChange()
@@ -3122,7 +3171,8 @@ async function loadProject(path, { announce = true, openFirstChapter = true } = 
   activateSidebar("project");
   if (announce) toast(t("projectOpened"), "success");
   const firstChapter = payload.book?.chapters?.[0]?.path;
-  if (openFirstChapter && firstChapter && !activeDocument()) {
+  const switchedProject = pathKey(previousProjectPath) !== pathKey(payload.project?.path || payload.path);
+  if (openFirstChapter && firstChapter && (!activeDocument() || switchedProject)) {
     await openProjectRelativeFile(firstChapter);
   }
   return payload;
@@ -3429,6 +3479,7 @@ function openNewBookModal() {
   modalManager.open($("#book-project-modal"), {
     initialFocus: "#book-project-title-input",
     onClose: () => {
+      state.bookProjectCreateSequence += 1;
       $("#book-project-form").reset();
       folderInput.dataset.userEdited = "";
     },
@@ -3459,9 +3510,15 @@ async function submitNewBookProject(event) {
   }
   const submit = event.submitter || $("#book-project-form button[type='submit']");
   submit.disabled = true;
+  const sequence = ++state.bookProjectCreateSequence;
+  const expectedProjectPath = state.project?.path || null;
+  const expectedProjectGeneration = state.projectGeneration;
   const handoff = invalidateBookTaskForProjectChange();
   try {
     await handoff;
+    if (sequence !== state.bookProjectCreateSequence
+        || state.projectGeneration !== expectedProjectGeneration
+        || pathKey(state.project?.path) !== pathKey(expectedProjectPath)) return;
     const project = await createBookProject({
       parentPath,
       folderName,
@@ -3469,6 +3526,9 @@ async function submitNewBookProject(event) {
       language: $("#book-project-language").value,
       direction: $("#book-project-direction").value,
     });
+    if (sequence !== state.bookProjectCreateSequence
+        || state.projectGeneration !== expectedProjectGeneration
+        || pathKey(state.project?.path) !== pathKey(expectedProjectPath)) return;
     applyProjectPayload(project);
     closeNewBookModal();
     showView("workspace");
@@ -3477,7 +3537,7 @@ async function submitNewBookProject(event) {
     if (first) await openProjectRelativeFile(first);
     toast(t("bookCreated"), "success");
   } catch (error) {
-    toast(errorText(error), "error");
+    if (sequence === state.bookProjectCreateSequence) toast(errorText(error), "error");
   } finally {
     submit.disabled = false;
   }
@@ -3738,10 +3798,12 @@ async function submitChapterModal(event) {
   const project = state.project;
   const title = $("#chapter-title-input").value.trim();
   if (!project?.path || !project.config_sha256 || !title) return;
+  const projectContext = currentProjectContext();
+  const mode = state.chapterModalMode;
   const submit = event.submitter || $("#chapter-form button[type='submit']");
   submit.disabled = true;
   try {
-    const result = state.chapterModalMode === "duplicate"
+    const result = mode === "duplicate"
       ? await duplicateBookChapter({
           projectPath: project.path,
           relativePath: state.chapterModalPath,
@@ -3753,14 +3815,14 @@ async function submitChapterModal(event) {
           title,
           expectedConfigSha256: project.config_sha256,
         });
-    const mode = state.chapterModalMode;
+    if (!projectContextIsCurrent(projectContext)) return;
     applyProjectPayload(result);
     closeChapterModal();
     const created = result.created_chapter?.path;
     if (created) await openProjectRelativeFile(created);
     toast(t(mode === "duplicate" ? "chapterDuplicated" : "chapterAdded"), "success");
   } catch (error) {
-    toast(errorText(error), "error");
+    if (projectContextIsCurrent(projectContext)) toast(errorText(error), "error");
   } finally {
     submit.disabled = false;
   }
@@ -3769,16 +3831,18 @@ async function submitChapterModal(event) {
 async function saveBookOrder(orderedPaths) {
   const project = state.project;
   if (!project?.path || !project.config_sha256) return;
+  const projectContext = currentProjectContext();
   try {
     const result = await reorderBookChapters({
       projectPath: project.path,
       orderedPaths,
       expectedConfigSha256: project.config_sha256,
     });
+    if (!projectContextIsCurrent(projectContext)) return;
     applyProjectPayload(result);
     toast(t("chapterOrderSaved"), "success");
   } catch (error) {
-    toast(errorText(error), "error");
+    if (projectContextIsCurrent(projectContext)) toast(errorText(error), "error");
   }
 }
 
@@ -3795,23 +3859,25 @@ async function moveBookChapter(path, delta) {
 async function removeChapterFromBook(chapter) {
   const project = state.project;
   if (!project?.path || !project.config_sha256) return;
+  const projectContext = currentProjectContext();
   const confirmed = await askConfirmation({
     title: t("removeFromBook"),
     message: t("confirmRemoveChapter"),
     confirmLabel: t("removeFromBook"),
     danger: true,
   });
-  if (!confirmed) return;
+  if (!confirmed || !projectContextIsCurrent(projectContext)) return;
   try {
     const result = await removeBookChapter({
       projectPath: project.path,
       relativePath: chapter.path,
       expectedConfigSha256: project.config_sha256,
     });
+    if (!projectContextIsCurrent(projectContext)) return;
     applyProjectPayload(result);
     toast(t("chapterRemoved"), "success");
   } catch (error) {
-    toast(errorText(error), "error");
+    if (projectContextIsCurrent(projectContext)) toast(errorText(error), "error");
   }
 }
 
@@ -3913,6 +3979,7 @@ function renderBookWorkspace() {
   const enabled = Boolean(book);
   empty.classList.toggle("hidden", enabled);
   tools.classList.toggle("hidden", !enabled);
+  $("#close-book-project").hidden = !enabled;
   $("#book-chapter-count").textContent = String(book?.chapter_count || 0);
   list.replaceChildren();
   if (!book) {
@@ -4329,6 +4396,15 @@ function previewOptions() {
   return {};
 }
 
+function isRelativeMarkdownDocumentHref(value) {
+  const path = String(value || "").split(/[?#]/, 1)[0];
+  try {
+    return /\.(?:md|markdown)$/i.test(decodeURIComponent(path));
+  } catch {
+    return false;
+  }
+}
+
 function safePreviewHtml(value, prefix = "preview-") {
   const template = document.createElement("template");
   template.innerHTML = String(value || "");
@@ -4359,9 +4435,20 @@ function safePreviewHtml(value, prefix = "preview-") {
       if (reservedClasses.has(className)) element.classList.remove(className);
     }
     if (element.matches("a.md2pdf-local-link-blocked")) {
-      element.setAttribute("aria-disabled", "true");
-      element.setAttribute("title", t("previewLinkUnavailable"));
-      element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("previewLinkUnavailable")}`);
+      const href = element.getAttribute("data-md2pdf-source") || "";
+      element.removeAttribute("data-md2pdf-source");
+      if (isRelativeMarkdownDocumentHref(href)) {
+        element.dataset.mardasMarkdownHref = href;
+        element.setAttribute("role", "link");
+        element.setAttribute("tabindex", "0");
+        element.removeAttribute("aria-disabled");
+        element.setAttribute("title", t("openLinkedMarkdown"));
+        element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("openLinkedMarkdown")}`);
+      } else {
+        element.setAttribute("aria-disabled", "true");
+        element.setAttribute("title", t("previewLinkUnavailable"));
+        element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("previewLinkUnavailable")}`);
+      }
     }
     for (const attribute of [...element.attributes]) {
       const name = attribute.name.toLowerCase();
@@ -4470,6 +4557,33 @@ const readingScroll = new Map();
 let readingDocumentId = null;
 
 let pendingReadingLine = null;
+let pendingMarkdownLinkNavigation = null;
+let markdownLinkSequence = 0;
+
+function applyPendingMarkdownLinkNavigation(container, model, { announceMissing = false } = {}) {
+  const pending = pendingMarkdownLinkNavigation;
+  if (!pending || !model?.path || pathKey(model.path) !== pending.pathKey) return false;
+  if (!pending.fragment) {
+    pendingMarkdownLinkNavigation = null;
+    return true;
+  }
+  const target = [...container.querySelectorAll("[data-preview-source-id]")]
+    .find((element) => element.dataset.previewSourceId === pending.fragment);
+  if (!target) {
+    if (announceMissing) {
+      pendingMarkdownLinkNavigation = null;
+      toast(t("linkedHeadingMissing"), "warning");
+    }
+    return false;
+  }
+  pendingMarkdownLinkNavigation = null;
+  target.scrollIntoView({ block: "start", behavior: "smooth" });
+  if (effectiveViewMode() !== "read") {
+    const line = Number(target.dataset.sourceLine);
+    if (line > 0) goToLine(line);
+  }
+  return true;
+}
 
 function contentAnchors(container, model) {
   const frame = container.getBoundingClientRect();
@@ -4515,6 +4629,7 @@ function renderReading(model) {
     blockedImageLabel: (reason) => t(reason === "remote" ? "remoteImageNotLoaded" : "imageBlockedOrMissing"),
   });
   container.scrollTop = previousScroll;
+  applyPendingMarkdownLinkNavigation(container, model);
   const current = () => activeDocument()?.id === model.id && model.preview === payload;
   return typesetPreviewMath(container, { isCurrent: current, errorLabel: t("previewMathFailed") }).then(() => {
     if (current() && pendingReadingLine?.id === model.id) {
@@ -4591,10 +4706,89 @@ function renderPreview(model) {
     blockedImageLabel: (reason) => t(reason === "remote" ? "remoteImageNotLoaded" : "imageBlockedOrMissing"),
   });
   syncPreviewFromEditorScroll(currentEditor().scrollTop || 0);
+  applyPendingMarkdownLinkNavigation(container, model);
   return typesetPreviewMath(container, {
     isCurrent: () => activeDocument()?.id === model.id && model.preview === payload,
     errorLabel: t("previewMathFailed"),
   });
+}
+
+async function activateMarkdownDocumentLink(event) {
+  const link = event.target?.closest?.("a[data-mardas-markdown-href]");
+  const container = event.currentTarget;
+  if (!link || !container?.contains(link)) return;
+  event.preventDefault();
+  if (link.dataset.opening === "true") return;
+  const model = activeDocument();
+  if (!model?.path || !isMarkdownModel(model)) {
+    toast(t("linkedMarkdownNeedsSave"), "warning");
+    return;
+  }
+  const sequence = ++markdownLinkSequence;
+  link.dataset.opening = "true";
+  const projectPath = model.projectPath && state.project?.path
+    && pathKey(model.projectPath) === pathKey(state.project.path)
+    ? state.project.path
+    : undefined;
+  try {
+    const resolved = await resolveMarkdownLink(
+      model.path,
+      link.dataset.mardasMarkdownHref,
+      projectPath,
+    );
+    if (sequence !== markdownLinkSequence || activeDocument()?.id !== model.id) return;
+    pendingMarkdownLinkNavigation = {
+      pathKey: pathKey(resolved.path),
+      fragment: String(resolved.fragment || ""),
+      sequence,
+    };
+    if (pathKey(resolved.path) === pathKey(model.path)) {
+      if (!applyPendingMarkdownLinkNavigation(container, model)) {
+        await refreshPreview();
+        if (sequence !== markdownLinkSequence || activeDocument()?.id !== model.id) return;
+        applyPendingMarkdownLinkNavigation(container, model, { announceMissing: true });
+      }
+      return;
+    }
+
+    if (container.id === "book-review-document") {
+      modalManager.close($("#book-review-modal"));
+    }
+    if (projectPath && resolved.relative_path) {
+      await openProjectRelativeFile(resolved.relative_path);
+    } else {
+      const existing = findDocumentByPath(state.documents, resolved.path);
+      if (existing) await activateDocument(existing.id);
+      else await openAuthoringPaths([resolved.path]);
+    }
+    if (sequence !== markdownLinkSequence) return;
+    const targetDocument = activeDocument();
+    if (!targetDocument?.path || pathKey(targetDocument.path) !== pathKey(resolved.path)) {
+      pendingMarkdownLinkNavigation = null;
+      return;
+    }
+    if (resolved.fragment) {
+      await refreshPreview();
+      if (sequence !== markdownLinkSequence || activeDocument()?.id !== targetDocument.id) return;
+      const targetContainer = effectiveViewMode() === "read"
+        ? $("#reading-document")
+        : $("#preview-document");
+      applyPendingMarkdownLinkNavigation(targetContainer, targetDocument, { announceMissing: true });
+    } else {
+      pendingMarkdownLinkNavigation = null;
+    }
+  } catch (error) {
+    if (sequence !== markdownLinkSequence) return;
+    pendingMarkdownLinkNavigation = null;
+    const payload = errorPayload(error);
+    const code = payload?.application_code || payload?.data?.application_code || payload?.code;
+    toast(
+      code === "MARDAS-LINK-NOT-FOUND" ? t("linkedMarkdownMissing") : t("linkedMarkdownUnavailable"),
+      "warning",
+    );
+  } finally {
+    delete link.dataset.opening;
+  }
 }
 
 /**
@@ -5552,6 +5746,7 @@ function bindEvents() {
   $("#sidebar-open-project").addEventListener("click", chooseProjectDirectory);
   $("#refresh-project").addEventListener("click", refreshActiveProject);
   $("#close-project").addEventListener("click", closeActiveProject);
+  $("#close-book-project").addEventListener("click", closeActiveProject);
   $("#run-project-search").addEventListener("click", runProjectSearch);
   $("#sidebar-new-book").addEventListener("click", openNewBookModal);
   $("#book-add-chapter").addEventListener("click", () => openChapterModal("add"));
@@ -5599,6 +5794,13 @@ function bindEvents() {
   // unequal — the button returned without ever rendering anything.
   $("#refresh-preview").addEventListener("click", () => void refreshPreview());
   $("#refresh-reading").addEventListener("click", () => void refreshPreview());
+  for (const container of [$("#reading-document"), $("#preview-document"), $("#book-review-document")]) {
+    container?.addEventListener("click", (event) => void activateMarkdownDocumentLink(event));
+    container?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || !event.target?.closest?.("a[data-mardas-markdown-href]")) return;
+      void activateMarkdownDocumentLink(event);
+    });
+  }
   for (const checkbox of $$('[data-content-auto]')) checkbox.addEventListener("change", () => {
     updatePreference({ autoPreview: checkbox.checked });
     if (checkbox.checked && contentViewVisible()) void refreshPreview();
@@ -5970,6 +6172,7 @@ async function boot() {
   try {
     const { createCodeMirrorEditorAdapter } = await import("./vendor/codemirror-editor.bundle.mjs");
     editorAdapter = createCodeMirrorEditorAdapter(textarea, editorOptions);
+    bindEditorHistoryShortcuts(editorAdapter);
     textarea.closest(".editor-surface")?.classList.add("professional-editor");
     textarea.closest(".editor-surface")?.setAttribute("data-editor", "codemirror");
   } catch (error) {

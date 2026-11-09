@@ -7,8 +7,9 @@ import secrets
 import stat
 from contextlib import ExitStack, contextmanager
 from dataclasses import fields
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Mapping
+from urllib.parse import unquote, urlsplit
 
 from . import __version__
 from .book import (
@@ -778,6 +779,98 @@ def import_document_asset(
     }
 
 
+def resolve_markdown_link(
+    document_path: str | os.PathLike[str],
+    href: str,
+    *,
+    project_path: str | os.PathLike[str] | None = None,
+) -> dict[str, str | None]:
+    """Resolve a relative Markdown link without opening arbitrary local paths."""
+
+    parsed = urlsplit(href.strip())
+    if parsed.scheme or parsed.netloc or parsed.query:
+        raise EngineError(
+            "Only relative Markdown file links are supported here.",
+            code="MARDAS-LINK-UNSUPPORTED",
+        )
+    try:
+        relative = unquote(parsed.path, errors="strict")
+        fragment = unquote(parsed.fragment, errors="strict")
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise EngineError(
+            "The linked Markdown path is not valid URL encoding.",
+            code="MARDAS-LINK-INVALID",
+        ) from exc
+    if (
+        not relative
+        or "\x00" in relative
+        or "\\" in relative
+        or relative.startswith("/")
+        or PureWindowsPath(relative).is_absolute()
+        or PureWindowsPath(relative).drive
+    ):
+        raise EngineError(
+            "The linked path must be a relative Markdown file.",
+            code="MARDAS-LINK-UNSUPPORTED",
+        )
+    if Path(relative).suffix.casefold() not in _MARKDOWN_DOCUMENT_EXTENSIONS:
+        raise EngineError(
+            "Only Markdown file links are supported in the document preview.",
+            code="MARDAS-LINK-UNSUPPORTED",
+        )
+
+    try:
+        source = Path(document_path).expanduser().resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise EngineError(
+            "The current document is no longer available.",
+            code="MARDAS-LINK-CONTEXT",
+        ) from exc
+    if not source.is_file() or source.suffix.casefold() not in _MARKDOWN_DOCUMENT_EXTENSIONS:
+        raise EngineError(
+            "Links can only be opened from a saved Markdown document.",
+            code="MARDAS-LINK-CONTEXT",
+        )
+
+    workspace = _load_workspace_request(str(project_path)) if project_path else None
+    root = workspace.root if workspace is not None else source.parent
+    if not source.is_relative_to(root):
+        raise EngineError(
+            "The current document is outside the linked project.",
+            code="MARDAS-LINK-CONTEXT",
+        )
+    try:
+        target = (source.parent / relative).resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise EngineError(
+            "The linked Markdown file could not be found.",
+            code="MARDAS-LINK-NOT-FOUND",
+            details={"href": href},
+        ) from exc
+    if not target.is_relative_to(root):
+        raise EngineError(
+            "The linked Markdown file is outside the current document folder or project.",
+            code="MARDAS-LINK-OUTSIDE-ROOT",
+        )
+    if not target.is_file() or target.suffix.casefold() not in _MARKDOWN_DOCUMENT_EXTENSIONS:
+        raise EngineError(
+            "Only existing Markdown files can be opened from the preview.",
+            code="MARDAS-LINK-UNSUPPORTED",
+        )
+
+    relative_path: str | None = None
+    if workspace is not None:
+        relative_path = target.relative_to(root).as_posix()
+        payload = _workspace_call(lambda: read_workspace_file(workspace, relative_path))
+        if payload.get("kind") != "markdown":
+            raise EngineError(
+                "The linked file is not part of the project's Markdown documents.",
+                code="MARDAS-LINK-UNSUPPORTED",
+            )
+        target = root / relative_path
+    return {"path": str(target), "relative_path": relative_path, "fragment": fragment}
+
+
 def _path_value(value: Any, *, base_dir: Path) -> Path | None:
     if value is None or value == "":
         return None
@@ -1299,6 +1392,7 @@ class EngineService:
                 "document.save_text",
                 "document.list_assets",
                 "document.import_asset",
+                "document.resolve_markdown_link",
                 "project.open",
                 "project.refresh",
                 "project.read",
@@ -1372,6 +1466,13 @@ class EngineService:
             return import_document_asset(
                 _required_string(params, "document_path"),
                 _required_string(params, "source_path"),
+            )
+        if method == "document.resolve_markdown_link":
+            _validate_params(params, {"document_path", "href", "project_path"})
+            return resolve_markdown_link(
+                _required_string(params, "document_path"),
+                _required_string(params, "href"),
+                project_path=_optional_string(params, "project_path"),
             )
         if method in {"project.open", "project.refresh"}:
             _validate_params(params, {"path"})

@@ -611,3 +611,17 @@ Object.assign(en, {
   projectClosed: "Project closed; open documents remain in their tabs",
   settingsSummary: "Settings summary",
 });
+Object.assign(fa, {
+  openLinkedMarkdown: "بازکردن سند پیوندشده",
+  linkedMarkdownNeedsSave: "برای بازکردن پیوندهای محلی، ابتدا این سند را ذخیره کن.",
+  linkedMarkdownMissing: "فایل Markdown پیوندشده پیدا نشد.",
+  linkedMarkdownUnavailable: "این پیوند محلی پشتیبانی نمی‌شود یا خارج از پوشهٔ سند است.",
+  linkedHeadingMissing: "فایل باز شد، اما تیتر پیوندشده پیدا نشد.",
+});
+Object.assign(en, {
+  openLinkedMarkdown: "Open linked document",
+  linkedMarkdownNeedsSave: "Save this document before opening local links.",
+  linkedMarkdownMissing: "The linked Markdown file could not be found.",
+  linkedMarkdownUnavailable: "This local link is unsupported or outside the document folder.",
+  linkedHeadingMissing: "The file opened, but the linked heading was not found.",
+});

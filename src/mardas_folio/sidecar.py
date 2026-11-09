@@ -43,6 +43,7 @@ _HEAVY_METHODS = {
     "document.save_text",
     "document.list_assets",
     "document.import_asset",
+    "document.resolve_markdown_link",
     "publication.inspect_output",
     "project.open",
     "project.refresh",

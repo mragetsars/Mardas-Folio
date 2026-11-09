@@ -111,6 +111,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         browser.close()
     results.append(run_delayed_image_scope_audit(dist))
     results.append(run_tab_overflow_audit(dist))
+    results.append(run_local_markdown_link_audit(dist))
     report = {"status": "passed", "scenarios": results}
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
@@ -315,6 +316,63 @@ def run_tab_overflow_audit(dist: Path) -> dict[str, object]:
             context.close()
         browser.close()
     return {"scenario": "overflowing-document-tabs", "status": "passed"}
+
+
+def run_local_markdown_link_audit(dist: Path) -> dict[str, object]:
+    """A rendered local link opens its file and heading without a browser URL."""
+    with serve(dist) as url, sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(viewport={"width": 1100, "height": 760})
+        page = context.new_page()
+        page.add_init_script(INIT_SCRIPT)
+        page.add_init_script(r"""
+            localStorage.setItem('mardas.desktop.preferences.v1', JSON.stringify({
+                onboardingComplete: true, viewMode: 'read'
+            }));
+            const baseInvoke = globalThis.__TAURI__.core.invoke;
+            globalThis.__TAURI__.core.invoke = async (command, args = {}) => {
+                if (command === 'pick_markdown_files') return ['/fixtures/first.md'];
+                if (command === 'sidecar_request') {
+                    const path = args.params?.path || args.params?.input_path;
+                    if (args.method === 'document.read') return {
+                        path, content: path.endsWith('next.md') ? '# Destination\n' : '# First\n',
+                        revision: 'fixture', kind: 'markdown', read_only: false
+                    };
+                    if (args.method === 'preview.document_text') {
+                        const first = path.endsWith('first.md');
+                        return {
+                            body_html: first
+                                ? '<h1 id="first">First</h1><p><a class="md2pdf-local-link-blocked" data-md2pdf-source="next.md#destination">Next chapter</a></p><p><a class="md2pdf-local-link-blocked" data-md2pdf-source="image.png">Image</a></p>'
+                                : '<p>Intro</p>'.repeat(120) + '<h1 id="destination">Destination</h1>',
+                            source_map: [{id: first ? 'first' : 'destination', line: first ? 1 : 150, level: 1}],
+                            diagnostics: []
+                        };
+                    }
+                    if (args.method === 'document.resolve_markdown_link') {
+                        globalThis.__resolvedLink = args.params;
+                        return {path: '/fixtures/next.md', relative_path: null, fragment: 'destination'};
+                    }
+                }
+                return baseInvoke(command, args);
+            };
+        """)
+        page.goto(url, wait_until="networkidle")
+        page.locator("#workflow-open").click()
+        link = page.locator('#reading-document a[data-mardas-markdown-href="next.md#destination"]')
+        expect(link).to_be_visible()
+        expect(link).to_have_attribute("role", "link")
+        expect(page.locator('#reading-document a[aria-disabled="true"]')).to_have_count(1)
+        link.focus()
+        page.keyboard.press("Enter")
+        expect(page.locator("#editor-title")).to_have_text("next.md")
+        expect(page.locator(".document-tab")).to_have_count(2)
+        page.wait_for_timeout(350)
+        assert page.locator("#reading-document").evaluate("node => node.scrollTop") > 100
+        assert page.evaluate("globalThis.__resolvedLink.href") == "next.md#destination"
+        assert not page.evaluate("location.pathname.endsWith('next.md')")
+        context.close()
+        browser.close()
+    return {"scenario": "local-markdown-link-and-heading", "status": "passed"}
 
 
 def main() -> int:
