@@ -249,7 +249,7 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
     assert 'id="export-view"' in index
     assert 'id="workspace-view"' in index
     assert 'id="recent-list"' in index
-    assert 'id="preset-grid"' in index
+    assert 'id="export-preset"' in index
     assert 'id="validate-button"' in index
     for element_id in (
         "document-tabs",
@@ -522,7 +522,9 @@ def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
     for source in (index, main, templates, document_renderer):
         for name in re.findall(r'href="#icon-([a-z0-9-]+)"', source):
             assert name in symbols, f"#icon-{name} has no symbol"
-    for name in re.findall(r'spriteIcon\("([a-z0-9-]+)"\)', main):
+    ui_sources = "\n".join(path.read_text(encoding="utf-8")
+                           for path in (DESKTOP / "frontend" / "js" / "ui").glob("*.mjs"))
+    for name in re.findall(r'spriteIcon\("([a-z0-9-]+)"', main + ui_sources):
         assert name in symbols, f"spriteIcon({name!r}) has no symbol"
     for name in re.findall(r'symbol: "([a-z0-9-]+)"', main + templates):
         assert name in symbols, f"symbol {name!r} has no drawing"
@@ -618,7 +620,7 @@ def test_dates_and_destructive_answers_follow_the_interface() -> None:
 def test_export_status_badge_does_not_rely_on_colour_alone() -> None:
     """A failed export used to show a tick, recoloured.
 
-    ``.status-visual`` painted the same check mark for every state and changed
+    The status badge painted the same check mark for every state and changed
     only its hue, so "PDF was not created" and "PDF created successfully" were
     the same picture to anyone who does not separate red from green.
     """
@@ -830,34 +832,18 @@ def test_desktop_accessibility_contracts_cover_navigation_and_modals() -> None:
         )
 
 
-def test_runtime_built_controls_carry_their_own_accessible_names() -> None:
-    """Controls the settings browser and menus build are named where they are built.
-
-    None of these exist in the markup, so the static sweep above cannot see
-    them. Each is created in one place, and that place is what has to attach
-    the name.
-    """
+def test_runtime_built_menu_controls_carry_accessible_names() -> None:
+    # Export controls are exercised in tests/browser/test_export_options.py.
     main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
-    for construct, expectation in {
-        "buildToggleControl": r'setAttribute\("aria-checked"',
-        "buildSwatchControl": r'setAttribute\("aria-label", choiceLabel\(choice\)\)',
-        "buildOptionRow": r'reset\.setAttribute\("aria-label"',
-        "renderOptionRail": r'setAttribute\("role", "tab"\)',
-        "openEditorContextMenu": r'setAttribute\("role", "menuitem"\)',
-    }.items():
-        start = main.index(f"function {construct}")
-        body = main[start : start + 3000]
-        assert re.search(expectation, body), f"{construct} builds an unnamed control"
-
-    # Both tri-state groups point at the label rendered beside them.
-    assert 'aria-labelledby", `${advancedControlId(field.key)}-label`' in main
-    assert 'label.id = `${advancedControlId(field.key)}-label`' in main
+    start = main.index("function openEditorContextMenu")
+    assert 'setAttribute("role", "menuitem")' in main[start : start + 3000]
 
 
 def test_desktop_ux_is_offline_and_exposes_guided_entry_points() -> None:
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
     main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
     styles = (DESKTOP / "frontend" / "styles.css").read_text(encoding="utf-8")
+    tokens = (DESKTOP / "frontend" / "design" / "tokens.css").read_text(encoding="utf-8")
     assert 'id="template-grid"' in index
     assert 'id="settings-search"' in index
     assert 'id="restart-onboarding"' in index
@@ -872,7 +858,7 @@ def test_desktop_ux_is_offline_and_exposes_guided_entry_points() -> None:
     assert 'event.key === "F1"' in main
     assert 'key === "p" && event.shiftKey' in main
     assert 'data-reduced-motion="reduce"' in styles
-    assert 'data-theme="dark"' in styles
+    assert 'data-theme="dark"' in tokens
     assert "https://" not in index
     assert "fetch(" not in main
     assert 'openOnboarding({ force: true })' in main
@@ -910,7 +896,7 @@ def test_editor_parses_front_matter_and_owns_its_syntax_palette() -> None:
     """
     editor = (DESKTOP / "editor-src" / "codemirror-editor.mjs").read_text(encoding="utf-8")
     theme = (DESKTOP / "editor-src" / "editor-theme.mjs").read_text(encoding="utf-8")
-    workspace_css = (DESKTOP / "frontend" / "workspace.css").read_text(encoding="utf-8")
+    design_tokens = (DESKTOP / "frontend" / "design" / "tokens.css").read_text(encoding="utf-8")
 
     live = (DESKTOP / "editor-src" / "live-preview.mjs").read_text(encoding="utf-8")
 
@@ -939,8 +925,7 @@ def test_editor_parses_front_matter_and_owns_its_syntax_palette() -> None:
     assert "syntaxHighlighting(mardasHighlightStyle)" in theme
     assert "textDecoration: \"underline\"" not in theme
 
-    assert "--cm-heading:" in workspace_css
-    assert workspace_css.count("--cm-heading:") == 2, "light and dark must both declare the palette"
+    assert "--cm-heading: var(--ui-text)" in design_tokens
 
 
 def test_switch_inputs_cannot_overflow_or_swallow_clicks() -> None:
@@ -951,7 +936,7 @@ def test_switch_inputs_cannot_overflow_or_swallow_clicks() -> None:
     export view scrolled horizontally and a full-width strip of the page
     intercepted clicks.
     """
-    styles = (DESKTOP / "frontend" / "styles.css").read_text(encoding="utf-8")
+    styles = (DESKTOP / "frontend" / "design" / "components.css").read_text(encoding="utf-8")
 
     def declarations(selector: str) -> dict[str, str]:
         match = re.search(rf"(?m)^{re.escape(selector)}\s*\{{([^}}]*)\}}", styles)
@@ -1059,7 +1044,7 @@ def test_palette_swatches_show_the_colour_the_engine_prints() -> None:
     """
     from mardas_folio.appearance import PALETTES
 
-    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    main = (DESKTOP / "frontend" / "js" / "ui" / "export-options-panel.mjs").read_text(encoding="utf-8")
     block = main.split("const PALETTE_ACCENTS = Object.freeze({", 1)[1].split("});", 1)[0]
     shown = dict(
         re.findall(r'(\w+):\s*"(#[0-9a-fA-F]{6})"', block)

@@ -85,11 +85,11 @@ body[data-view="workspace"] :is(.navigator-tabs, .sidebar-tabs) > button:hover:n
   background: var(--ui-panel-muted);
 }
 body[data-view="workspace"] :is(.navigator-tabs, .sidebar-tabs) > button[aria-selected="true"] {
-  color: var(--ui-accent);
-  background: var(--ui-accent-soft);
+  color: var(--ui-selected-text);
+  background: var(--ui-selected-bg);
 }
 body[data-view="workspace"] :is(.navigator-tabs, .sidebar-tabs) > button:focus-visible {
-  outline: 2px solid var(--ui-accent);
+  outline: var(--ui-focus-ring);
   outline-offset: -2px;
 }
 body[data-view="workspace"] .sidebar-tabs > button { padding-inline: 3px; }
@@ -102,7 +102,7 @@ body[data-view="workspace"] .sidebar-tab-badge {
   min-inline-size: 12px;
   padding: 0 2px;
   border: 1px solid var(--ui-panel-soft);
-  font-size: 9px;
+  font-size: var(--ui-text-3xs);
   line-height: 12px;
 }
 body[data-view="workspace"] :is(.navigator-content, .navigator-outline-panel, .sidebar-panel) {
@@ -196,7 +196,7 @@ body[data-view="workspace"] .property-grid-body :is(input[type="text"], select) 
 body[data-view="workspace"] .property-grid-body :is(input[type="text"], select):hover:not(:disabled) { border-color: var(--ui-border); }
 body[data-view="workspace"] .property-grid-body :is(input[type="text"], select):focus-visible {
   border-color: var(--ui-accent);
-  outline: 2px solid var(--ui-accent-wash-strong);
+  outline: 2px solid var(--ui-focus-halo);
   outline-offset: 1px;
 }
 .property-grid-body > .toggle {
@@ -223,8 +223,8 @@ body[data-view="workspace"] .property-grid-body :is(input[type="text"], select):
   min-block-size: 32px;
   inline-size: 100%;
   border-color: transparent;
-  background: var(--ui-accent-soft);
-  color: var(--ui-accent);
+  background: var(--ui-selected-bg);
+  color: var(--ui-selected-text);
   font-size: var(--ui-text-xs);
 }
 /* Tree structure follows UI direction; each title owns only its text BiDi. */

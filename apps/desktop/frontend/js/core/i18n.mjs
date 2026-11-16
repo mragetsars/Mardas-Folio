@@ -25,7 +25,8 @@ Object.assign(fa,{
   interfaceTheme:"پوسته برنامه",followSystem:"مطابق سیستم",lightTheme:"روشن",darkTheme:"تیره",contentSize:"اندازه متن نویسندگی",
   comfortable:"معمولی",large:"بزرگ",extraLarge:"خیلی بزرگ",accessibility:"دسترسی‌پذیری",motion:"حرکت و پویانمایی",
   reduceMotion:"کاهش حرکت",fullMotion:"حرکت کامل",automaticPreview:"پیش‌نمایش خودکار",languageAndHelp:"زبان و راهنما",
-  interfaceLanguage:"زبان رابط",restartOnboarding:"اجرای دوباره راهنمای شروع",noSettingsMatch:"تنظیمی با این عبارت پیدا نشد.",
+  interfaceLanguage:"زبان رابط",settingsQuickTour:"راهنمای شروع",restartOnboarding:"اجرای دوبارهٔ راهنما",noSettingsMatch:"تنظیمی با این عبارت پیدا نشد.",
+  settingsUpdates:"به‌روزرسانی",clearSettingsSearch:"پاک‌کردن جست‌وجو",
   resetSettings:"بازنشانی تنظیمات",saveSettings:"ذخیره تنظیمات",settingsSaved:"تنظیمات ذخیره شد.",settingsReset:"تنظیمات به حالت پیش‌فرض برگشت.",
   gettingStarted:"شروع کار",helpDocuments:"سندها",helpDocumentsText:"برای یک گزارش یا مقاله، سند جدید بساز یا Markdown موجود را باز کن. تغییرها تا زمان ذخیره در recovery نگهداری می‌شوند.",
   helpBooks:"کتاب و پایان‌نامه",helpBooksText:"Book Project فصل‌ها، منابع و خروجی کامل را در یک پروژه نگه می‌دارد.",
@@ -100,7 +101,8 @@ Object.assign(en,{
   interfaceTheme:"Application theme",followSystem:"Follow system",lightTheme:"Light",darkTheme:"Dark",contentSize:"Authoring text size",
   comfortable:"Comfortable",large:"Large",extraLarge:"Extra large",accessibility:"Accessibility",motion:"Motion and animation",
   reduceMotion:"Reduce motion",fullMotion:"Full motion",automaticPreview:"Automatic preview",languageAndHelp:"Language and help",
-  interfaceLanguage:"Interface language",restartOnboarding:"Run onboarding again",noSettingsMatch:"No settings match this search.",
+  interfaceLanguage:"Interface language",settingsQuickTour:"Quick tour",restartOnboarding:"Run tour again",noSettingsMatch:"No settings match this search.",
+  settingsUpdates:"Updates",clearSettingsSearch:"Clear search",
   resetSettings:"Reset settings",saveSettings:"Save settings",settingsSaved:"Settings saved.",settingsReset:"Settings were reset to defaults.",
   gettingStarted:"Getting started",helpDocuments:"Documents",helpDocumentsText:"Create a document for a report or paper, or open an existing Markdown file. Unsaved changes are protected by recovery snapshots.",
   helpBooks:"Books and theses",helpBooksText:"Book Projects keep chapters, references, and full-book publishing together.",
@@ -352,6 +354,56 @@ Object.assign(en, {
   settingsSummary:"Settings summary",noChanges:"Everything matches the preset.",
 });
 
+// Quick Export workspace.
+Object.assign(fa, {
+  exportSubtitle: "چیدمان سند را مرور کن و PDF را ذخیره کن.",
+  exportBack: "بازگشت به ویرایشگر",
+  exportSetup: "آماده‌سازی PDF",
+  exportSetupShort: "آماده‌سازی",
+  exportBackToSetup: "بازگشت به آماده‌سازی",
+  exportNoSource: "فایل Markdown انتخاب نشده",
+  exportChooseFile: "انتخاب فایل",
+  exportChange: "تغییر",
+  exportChangeSource: "تغییر فایل مبدأ",
+  exportChangeOutput: "تغییر فایل خروجی",
+  exportPreset: "قالب خروجی",
+  exportCustomize: "ظاهر، صفحه‌بندی، فهرست و گزینه‌های بیشتر",
+  exportCategory: "دستهٔ تنظیمات",
+  exportResetAll: "بازنشانی همه",
+  exportPreviewEmptyHelp: "یک فایل Markdown انتخاب کن تا صفحه‌های PDF را اینجا ببینی.",
+  exportSaveTo: "مقصد",
+  exportRetry: "تلاش دوباره",
+  exportViewDetails: "دیدن جزئیات",
+  exportDetails: "جزئیات خروجی",
+  exportCheckFailed: "بررسی سند انجام نشد",
+  exportCheckedWithWarnings: "سند با هشدار بررسی شد",
+  exportCheckedWithWarningsHelp: "پیش از ساخت PDF، هشدارها را مرور کن.",
+});
+Object.assign(en, {
+  exportSubtitle: "Review your document’s layout and save it as a PDF.",
+  exportBack: "Back to editor",
+  exportSetup: "PDF setup",
+  exportSetupShort: "Setup",
+  exportBackToSetup: "Back to setup",
+  exportNoSource: "No Markdown file selected",
+  exportChooseFile: "Choose file",
+  exportChange: "Change",
+  exportChangeSource: "Change source file",
+  exportChangeOutput: "Change output file",
+  exportPreset: "Output preset",
+  exportCustomize: "Appearance, page layout, contents, and more",
+  exportCategory: "Category",
+  exportResetAll: "Reset all",
+  exportPreviewEmptyHelp: "Choose a Markdown file to see its PDF pages here.",
+  exportSaveTo: "Save to",
+  exportRetry: "Retry",
+  exportViewDetails: "View details",
+  exportDetails: "Export details",
+  exportCheckFailed: "Document check failed",
+  exportCheckedWithWarnings: "Document checked with warnings",
+  exportCheckedWithWarningsHelp: "Review the warnings before creating your PDF.",
+});
+
 // Editor menus, writing modes and clipboard actions.
 Object.assign(fa, {
   paragraphText:"متن معمولی",insertCallout:"کادر یادداشت",undo:"واگرد",redo:"ازنو",
@@ -377,8 +429,8 @@ Object.assign(en, {
 });
 Object.assign(fa, { moveLine: "جابه‌جایی خط" });
 Object.assign(en, { moveLine: "Move line" });
-Object.assign(fa, { interfaceAccent: "رنگ تأکیدی رابط", accentGray: "خاکستری", accentBlue: "آبی", accentRed: "قرمز", accentAmber: "کهربایی", accentGreen: "سبز", accentPurple: "بنفش", accentTeal: "فیروزه‌ای", accentPink: "صورتی" });
-Object.assign(en, { interfaceAccent: "Interface accent", accentGray: "Gray", accentBlue: "Blue", accentRed: "Red", accentAmber: "Amber", accentGreen: "Green", accentPurple: "Purple", accentTeal: "Teal", accentPink: "Pink" });
+Object.assign(fa, { interfaceAccent: "رنگ تأکیدی رابط", accentMonochrome: "سیاه‌وسفید (پیش‌فرض)", accentGray: "خاکستری", accentBlue: "آبی", accentRed: "قرمز", accentAmber: "کهربایی", accentGreen: "سبز", accentPurple: "بنفش", accentTeal: "فیروزه‌ای", accentPink: "صورتی" });
+Object.assign(en, { interfaceAccent: "Interface accent", accentMonochrome: "Black and white (default)", accentGray: "Gray", accentBlue: "Blue", accentRed: "Red", accentAmber: "Amber", accentGreen: "Green", accentPurple: "Purple", accentTeal: "Teal", accentPink: "Pink" });
 Object.assign(fa, { chooseExportSource: "انتخاب فایل مبدأ", chooseExportOutput: "انتخاب فایل خروجی" });
 Object.assign(en, { chooseExportSource: "Choose source file", chooseExportOutput: "Choose output file" });
 // Tab indents inside the editor, so it needs a stated way out.

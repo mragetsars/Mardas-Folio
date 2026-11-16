@@ -31,7 +31,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from audit_desktop_ui import open_template
+from audit_desktop_ui import open_settings, open_template, select_settings_section
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -356,10 +356,11 @@ def run(
         page.wait_for_timeout(200)
 
         if theme != "light" or locale != "en":
-            page.locator("#settings-button").click()
+            open_settings(page)
             page.wait_for_timeout(200)
             page.locator("#setting-theme").select_option(theme)
             if locale != "en":
+                select_settings_section(page, "language")
                 page.locator("#setting-locale").select_option(locale)
             page.locator("#settings-form button[type='submit']").click()
             page.wait_for_timeout(300)

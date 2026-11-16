@@ -1,7 +1,9 @@
 /* Long-form authoring rhythm. This layer follows workspace.css so the
    surrounding application and the document can evolve independently. */
 :root {
-  --editor-prose-size: 17px;
+  --editor-prose-size: var(--ui-text-xl);
+  --editor-measure: 70ch;
+  --content-scale: 1;
   --writing-line-height: 1.65;
   --writing-paragraph-gap: 12px;
   --writing-font-family: var(--app-font);
@@ -17,7 +19,7 @@ body[data-view="workspace"] .codemirror-mount .cm-editor[data-editor-mode="live"
 /* Blank Markdown rows remain DOM lines, with a caret, selection and a real
    height. They are never display:none or replaced by decorative widgets. */
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-prose-spacer {
-  font-size: min(1em, max(12px, calc(var(--writing-paragraph-gap) * var(--document-text-scale, 1))));
+  font-size: min(1em, max(var(--ui-text-xs), calc(var(--writing-paragraph-gap) * var(--document-text-scale, 1))));
   line-height: max(12px, calc(var(--writing-paragraph-gap) * var(--document-text-scale, 1)));
   min-height: max(12px, calc(var(--writing-paragraph-gap) * var(--document-text-scale, 1)));
 }
@@ -28,7 +30,7 @@ body[data-view="workspace"] .codemirror-mount .cm-editor[data-editor-mode="live"
 .codemirror-mount .cm-editor[data-editor-mode="live"] :is(.cm-md-h1, .cm-md-h2) { line-height: 1.4; }
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-list-line { padding-block: 0; }
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-line { font-style: normal; }
-.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line { font-size: calc(14px * var(--document-text-scale, 1)); }
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line { font-size: calc(var(--ui-text-md) * var(--document-text-scale, 1)); }
 .cm-md-math-preview { display: inline-block; max-width: 100%; direction: ltr; unicode-bidi: isolate; cursor: text; }
 .cm-md-math-preview .math { direction: ltr; unicode-bidi: isolate; font-family: "Cambria Math", serif; }
 .cm-md-math-preview .math.inline { display: inline; }

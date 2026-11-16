@@ -12,7 +12,16 @@
     "src/mardas_folio/studio_jobs.py",
     "src/mardas_folio/sidecar.py",
     "scripts/build_standalone_runtime.py",
-    "scripts/verify_standalone_runtime.py"
+    "scripts/verify_standalone_runtime.py",
+    "src/mardas_folio/engine_errors.py",
+    "src/mardas_folio/request_validation.py",
+    "src/mardas_folio/document_store.py",
+    "src/mardas_folio/document_assets.py",
+    "src/mardas_folio/render_requests.py",
+    "src/mardas_folio/file_io.py",
+    "src/mardas_folio/render_contracts.py",
+    "src/mardas_folio/page_geometry.py",
+    "src/mardas_folio/print_layout.py"
   ],
   "extraPaths": [
     "src",

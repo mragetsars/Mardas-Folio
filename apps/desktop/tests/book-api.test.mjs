@@ -1,3 +1,4 @@
+import { installTauriFixture } from "./fixtures/tauri.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -11,17 +12,9 @@ import {
   startBookValidation,
 } from "../frontend/js/core/book-api.mjs";
 
-test("book API maps UI workflows to versioned sidecar methods", async () => {
-  const calls = [];
-  globalThis.__TAURI__ = {
-    core: {
-      invoke: async (command, args) => {
-        calls.push({ command, args });
-        return { ok: true };
-      },
-    },
-    event: { listen: async () => () => {} },
-  };
+test("book API maps UI workflows to versioned sidecar methods", async (t) => {
+  const { calls } = installTauriFixture(t);
+
 
   await createBookProject({
     parentPath: "/books",
@@ -83,26 +76,15 @@ test("book API maps UI workflows to versioned sidecar methods", async () => {
   assert.match(preview.requestId, /^book-preview-/);
   assert.match(exported.requestId, /^book-export-/);
   assert.equal(calls.at(-1).args.params.create_only, true);
-  delete globalThis.__TAURI__;
 });
 
-test("add chapter omits optional null payload fields", async () => {
-  let captured;
-  globalThis.__TAURI__ = {
-    core: {
-      invoke: async (_command, args) => {
-        captured = args.params;
-        return { ok: true };
-      },
-    },
-    event: { listen: async () => () => {} },
-  };
+test("add chapter omits optional null payload fields", async (t) => {
+  const { calls } = installTauriFixture(t);
   await addBookChapter({
     projectPath: "/book",
     title: "Chapter",
     expectedConfigSha256: "hash",
   });
-  assert.equal("position" in captured, false);
-  assert.equal("content" in captured, false);
-  delete globalThis.__TAURI__;
+  assert.equal("position" in calls[0].args.params, false);
+  assert.equal("content" in calls[0].args.params, false);
 });

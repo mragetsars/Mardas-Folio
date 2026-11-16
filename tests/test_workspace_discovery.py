@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mardas_folio import application, workspace
+from mardas_folio import application, document_assets, workspace
 from mardas_folio.renderer import RenderCancelledError
 
 
@@ -28,12 +28,12 @@ def test_asset_discovery_stops_at_result_and_scan_limits(
 ) -> None:
     for name in ["a.png", "b.png", "c.png", "d.png"]:
         (tmp_path / name).write_bytes(b"png")
-    monkeypatch.setattr(application, "MAX_DOCUMENT_ASSETS", 2)
+    monkeypatch.setattr(document_assets, "MAX_DOCUMENT_ASSETS", 2)
     result = application.list_document_assets(tmp_path / "report.md")
     assert [item["name"] for item in result["assets"]] == ["a.png", "b.png"]
     assert result["truncated"] is True
-    monkeypatch.setattr(application, "MAX_DOCUMENT_ASSETS", 500)
-    monkeypatch.setattr(application, "MAX_DOCUMENT_ASSET_SCAN_ENTRIES", 1)
+    monkeypatch.setattr(document_assets, "MAX_DOCUMENT_ASSETS", 500)
+    monkeypatch.setattr(document_assets, "MAX_DOCUMENT_ASSET_SCAN_ENTRIES", 1)
     result = application.list_document_assets(tmp_path / "report.md")
     assert len(result["assets"]) == 1
     assert result["truncated"] is True

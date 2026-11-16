@@ -15,7 +15,8 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
 from .appearance import MODES, PALETTES_ORDER, STYLES
 from .diagnostics import Diagnostic
 from .quality import ERROR_POLICIES, QUALITY_PROFILES
-from .renderer import BRANDING_MODES, validate_page_size
+from .render_contracts import BRANDING_MODES
+from .page_geometry import validate_page_size
 
 CONFIG_FILENAME = "mardas.toml"
 CONFIG_SCHEMA_VERSION = 1

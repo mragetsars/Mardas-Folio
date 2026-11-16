@@ -1,10 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
+const frontend = new URL("../frontend/", import.meta.url);
 const styles = readFileSync(new URL("../frontend/styles.css", import.meta.url), "utf8");
 const workspaceStyles = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
 const shellStyles = readFileSync(new URL("../frontend/shell-system.css", import.meta.url), "utf8");
+const settingsStyles = readFileSync(new URL("settings.css", frontend), "utf8");
+const designTokens = readFileSync(new URL("design/tokens.css", frontend), "utf8");
+const components = readFileSync(new URL("design/components.css", frontend), "utf8");
+const sheets = readdirSync(frontend, { recursive: true })
+  .filter((name) => name.endsWith(".css"))
+  .map((name) => [name, readFileSync(new URL(name.replaceAll("\\", "/"), frontend), "utf8")]);
 
 function channel(value) {
   const normalized = value / 255;
@@ -61,54 +68,29 @@ function tokens(css, selector) {
   );
 }
 
-test("the theme is decided by the tokens, not by a second layer of rules", () => {
-  // This assertion used to run the other way: it required a set of
-  // `html[data-theme="dark"]` component overrides to exist, because the light
-  // values they were undoing were written as literals that no token could
-  // reach. Every base rule in this file now reads a `--ui-*` or `--cm-*`
-  // custom property, and those switch on their own — so an override is no
-  // longer a fix, it is a second opinion at a specificity no component rule
-  // can answer. Twenty-eight of them were removed; three of the twenty-eight
-  // had been styling a class (`.formatting`) that left the markup revisions
-  // earlier, and one painted a key cap in the text colour and left its legend
-  // on it at 1.3:1.
-  for (const [name, css] of [["styles.css", styles], ["workspace.css", workspaceStyles]]) {
-    // The accent palette can derive token values for dark mode, provided it
-    // does not add component-level styling that bypasses those tokens.
-    const accentTokenBlock = /html\[data-theme="dark"\]\[data-accent\]:not\(\[data-accent="blue"\]\)\s*\{([^{}]*)\}/g;
-    for (const match of css.matchAll(accentTokenBlock)) {
-      const declarations = match[1].replace(/\/\*[\s\S]*?\*\//g, "").split(";");
-      assert.ok(declarations.every((declaration) => !declaration.trim() || /^\s*--[a-z0-9-]+\s*:\s*\S[\s\S]*$/.test(declaration)),
-        `${name}: dark accent rules must only define tokens`);
-    }
-    const tokenOnlyCss = css.replace(accentTokenBlock, "");
-    const overrides = [...tokenOnlyCss.matchAll(/html\[data-theme="dark"\][^{,]*[,{]/g)]
-      .map((match) => match[0].trim())
-      .filter((selector) => !/^html\[data-theme="dark"\]\s*\{$/.test(selector));
-    assert.deepEqual(
-      overrides,
-      [],
-      `${name}: only the token block may be scoped to a theme`,
-    );
+test("theme and accent selectors belong to the design tokens", () => {
+  for (const [name, css] of sheets) {
+    if (name.replaceAll("\\", "/") === "design/tokens.css") continue;
+    assert.doesNotMatch(css, /\[data-(?:theme|accent)\b/, `${name} bypasses the palette`);
   }
 });
 
 test("workspace surface tokens keep small UI text above AA contrast", () => {
-  const light = tokens(workspaceStyles, ":root {");
-  const dark = tokens(workspaceStyles, 'html[data-theme="dark"] {');
+  const light = tokens(designTokens, ":root {");
+  const dark = tokens(designTokens, 'html[data-theme="dark"] {');
 
   const pairs = [
     ["light muted on soft panel", light["--ui-muted"], light["--ui-panel-soft"]],
     ["light muted on panel", light["--ui-muted"], light["--ui-panel"]],
     ["light accent on panel", light["--ui-accent"], light["--ui-panel"]],
-    ["light accent on selection", light["--ui-accent"], light["--ui-accent-soft"]],
+    ["light selected text", light["--ui-selected-text"], light["--ui-selected-bg"]],
     ["light text on panel", light["--ui-text"], light["--ui-panel"]],
     ["light toast count", light["--ui-text"], light["--ui-panel-muted"]],
     ["light problem badge", light["--ui-on-danger"], light["--ui-danger"]],
     ["dark muted on soft panel", dark["--ui-muted"], dark["--ui-panel-soft"]],
     ["dark muted on panel", dark["--ui-muted"], dark["--ui-panel"]],
     ["dark accent on panel", dark["--ui-accent"], dark["--ui-panel"]],
-    ["dark accent on selection", dark["--ui-accent"], dark["--ui-accent-soft"]],
+    ["dark selected text", dark["--ui-selected-text"], dark["--ui-selected-bg"]],
     ["dark text on panel", dark["--ui-text"], dark["--ui-panel"]],
     ["dark toast count", dark["--ui-text"], dark["--ui-panel-muted"]],
     ["dark problem badge", dark["--ui-on-danger"], dark["--ui-danger"]],
@@ -121,41 +103,48 @@ test("workspace surface tokens keep small UI text above AA contrast", () => {
   }
 });
 
-test("text drawn on the accent fill stays legible in both themes", () => {
-  // Accent text and filled actions have independent roles. Readability must
-  // hold on the actual filled action, including its hover state.
-  for (const selector of [":root {", 'html[data-theme="dark"] {']) {
-    const palette = tokens(workspaceStyles, selector);
-    for (const surface of ["--ui-accent-fill", "--ui-accent-fill-hover"]) {
-      assert.ok(palette["--ui-on-accent"] && palette[surface], `${selector} ${surface}: token missing`);
-      const ratio = contrast(palette["--ui-on-accent"], palette[surface]);
+test("the trial accent fills are available alongside the monochrome default", () => {
+  const index = readFileSync(new URL("index.html", frontend), "utf8");
+  const picker = index.match(/<select id="setting-accent">([^]*?)<\/select>/)?.[1] ?? "";
+  const accents = [...picker.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]);
+  const trialFills = {
+    gray: "#525252", blue: "#006efe", red: "#cf2f36", amber: "#8a5300",
+    green: "#18703a", teal: "#0b7268", purple: "#7e3ab8", pink: "#a20d71",
+  };
+  assert.deepEqual(accents, ["monochrome", ...Object.keys(trialFills)]);
+  const swatches = declarations(designTokens, ":root {");
+  for (const [accent, fill] of Object.entries(trialFills)) {
+    assert.equal(swatches[`--ui-accent-${accent}`], fill);
+    assert.equal(declarations(designTokens, `:root[data-accent="${accent}"] {`)["--ui-primary-bg"], `var(--ui-accent-${accent})`);
+    assert.ok(contrast("#ffffff", fill) >= 4.5, `${accent} action contrast`);
+  }
+  for (const [selector, ink] of [[":root {", "#000000"], ['html[data-theme="dark"] {', "#ffffff"]]) {
+    const palette = tokens(designTokens, selector);
+    assert.equal(palette["--ui-accent"], ink);
+    assert.equal(palette["--ui-primary-bg"], ink);
+    for (const surface of ["--ui-primary-bg", "--ui-primary-hover"]) {
+      const ratio = contrast(palette["--ui-primary-text"], palette[surface]);
       assert.ok(ratio >= 4.5, `${selector} on ${surface} contrast is ${ratio.toFixed(2)}:1`);
     }
   }
 });
 
-test("publishing and recent-document cards keep explicit layout hooks", () => {
+test("recent documents keep the title and location separate from their icon", () => {
   const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
-  assert.match(main, /row\.className = "summary-row"/);
   assert.match(main, /class="recent-copy"/);
   assert.match(main, /class="recent-icon"/);
-  assert.match(workspaceStyles, /#export-view \.preset-card \{/);
-  assert.match(workspaceStyles, /#preset-summary \.summary-row \{/);
   assert.match(shellStyles, /\.workspace-empty \.recent-copy strong \{/);
 });
 
 test("settings scrolling and preview anchors are deliberately constrained", () => {
-  assert.match(workspaceStyles, /\.settings-card \{[\s\S]*?grid-template-rows: auto auto minmax\(0, 1fr\) auto auto;[\s\S]*?overflow: hidden;/);
-  assert.match(workspaceStyles, /\.settings-card \.settings-sections \{[\s\S]*?overflow: auto;/);
+  assert.match(settingsStyles, /\.settings-card \{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\) auto;[\s\S]*?overflow: hidden;/);
+  assert.match(settingsStyles, /\.settings-sections \{[\s\S]*?overflow: auto;/);
   assert.match(workspaceStyles, /\.document-content \.heading-anchor \{[\s\S]*?opacity: 0;/);
   assert.match(workspaceStyles, /\.document-content :is\(h1, h2, h3, h4, h5, h6\):hover \.heading-anchor/);
 });
 
 
-test("export reserves its destination row and keeps stronger chrome affordances", () => {
-  assert.match(workspaceStyles, /#export-view\.active \{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\) auto;/);
-  assert.match(workspaceStyles, /\.export-content \{[\s\S]*?overflow: auto;/);
-  assert.match(workspaceStyles, /\.export-dock \{[\s\S]*?display: grid;/);
+test("workspace chrome distinguishes the active tab and command search", () => {
   assert.match(workspaceStyles, /\.document-tab\.active \{[\s\S]*?box-shadow:/);
   assert.match(workspaceStyles, /\.sidebar-tabs button\.active \.sidebar-tab-icon,/);
   assert.match(workspaceStyles, /\.command-card \.command-search input \{/);
@@ -170,7 +159,6 @@ test("book and export workflows expose durable result and active-chapter afforda
   assert.match(main, /state\.bookOutputPath = result\?\.output_path \|\| outputPath/);
   assert.match(main, /aria-current", "page"/);
   assert.match(workspaceStyles, /\.book-chapter-row\.active \{/);
-  assert.match(workspaceStyles, /\.export-result \{/);
 });
 
 test("onboarding and light theme use the same native surface tokens", () => {
@@ -182,7 +170,7 @@ test("onboarding and light theme use the same native surface tokens", () => {
   // which is how the title bar kept reverting after the palette moved under
   // it. Elevation is the one thing that genuinely differs by theme, and it
   // lives on --ui-shadow, which switches with the theme on its own.
-  assert.match(workspaceStyles, /\.panel,\n\.template-section,/);
+  assert.match(components, /\.panel,\n\.template-section \{/);
   assert.doesNotMatch(
     workspaceStyles,
     /html\[data-theme="light"\][^{]*\{[^}]*(?:#fff|#ffffff)/i,
@@ -201,8 +189,7 @@ test("narrow book chapter rows preserve titles and reveal actions on intent", ()
 test("every stylesheet is brace-balanced", () => {
   // A single unmatched brace silently disables every rule after it, and a
   // minified stylesheet gives no visual clue that it happened.
-  for (const name of ["styles.css", "workspace.css"]) {
-    const css = readFileSync(new URL(`../frontend/${name}`, import.meta.url), "utf8");
+  for (const [name, css] of sheets) {
     let depth = 0;
     for (const character of css) {
       if (character === "{") depth += 1;
@@ -224,7 +211,7 @@ test("type is a scale of tokens, not two hundred literals", () => {
     "--ui-text-md", "--ui-text-base", "--ui-text-lg", "--ui-text-xl",
     "--ui-text-2xl", "--ui-text-3xl",
   ]) {
-    assert.match(workspaceStyles, new RegExp(`${token}:\\s*\\d+px`), `${token} is declared`);
+    assert.match(designTokens, new RegExp(`${token}:\\s*\\d+px`), `${token} is declared`);
     assert.ok(sheets.includes(`var(${token})`), `${token} is used`);
   }
   // Nothing sets a size outside the scale.

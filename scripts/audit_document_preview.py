@@ -256,7 +256,13 @@ ARTICLE_CHECK = r"""({selector, expectedMath, expectedCodes, alignment = true}) 
     }
   }
   for (const link of root.querySelectorAll('a[href^="#"]')) {
-    if (!document.getElementById(link.getAttribute('href').slice(1))) problems.push('local/footnote link target is broken');
+    const fragment = link.getAttribute('href').slice(1);
+    let decoded = fragment;
+    // The PDF engine URL-encodes headings that contain Persian characters.
+    try { decoded = decodeURIComponent(fragment); } catch {}
+    if (!document.getElementById(fragment) && !document.getElementById(decoded)) {
+      problems.push('local/footnote link target is broken');
+    }
   }
   if (root.querySelector('script,iframe,object,embed,a[href^="javascript:"],img[src^="http"]')) problems.push('executable or remote document HTML survived');
   if ([...root.querySelectorAll('*')].some(node => [...node.attributes].some(attribute => /^on/i.test(attribute.name)))) {
@@ -401,6 +407,8 @@ def run_surface_case(browser: Any, url: str, payloads: dict[str, Any], locale: s
             page.screenshot(path=str(output / f"{key}-read-{feature}.png"))
         page.locator("#workspace-export").click()
         page.locator("#export-format-pdf").click()
+        if page.locator("#export-show-preview").is_visible():
+            page.locator("#export-show-preview").click()
         wait_math(page, '.pv-page[data-kind="content"] .md2pdf-article', payloads["rich"]["expected_math"], frame=True)
         result["surfaces"]["export"] = article_check(
             page, '.pv-page[data-kind="content"] .md2pdf-article', payloads["rich"], frame=True)

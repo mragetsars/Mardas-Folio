@@ -1,3 +1,4 @@
+import { installTauriFixture } from "./fixtures/tauri.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -11,12 +12,9 @@ import {
   validateDocumentText,
 } from "../frontend/js/core/authoring-api.mjs";
 
-test("authoring API uses versioned sidecar methods", async () => {
-  const calls = [];
-  globalThis.__TAURI__ = {
-    core: { invoke: async (command, args) => { calls.push({ command, args }); return { ok: true }; } },
-    event: { listen: async () => () => {} },
-  };
+test("authoring API uses versioned sidecar methods", async (t) => {
+  const { calls } = installTauriFixture(t);
+
   await readDocument("/doc.md");
   await readTextDocument("/config.toml");
   await saveDocument({ path: "/doc.md", content: "# x", expectedRevision: "r1" });
@@ -42,5 +40,4 @@ test("authoring API uses versioned sidecar methods", async () => {
     href: "next.md#section",
     project_path: "/project",
   });
-  delete globalThis.__TAURI__;
 });

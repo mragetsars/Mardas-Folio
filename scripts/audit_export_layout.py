@@ -15,7 +15,7 @@ from typing import Any
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_ui import DEFAULT_DIST, ROOT, serve
+from audit_desktop_ui import DEFAULT_DIST, ROOT, open_settings, serve
 
 DEFAULT_OUTPUT = ROOT / "build" / "export-layout-audit"
 SOURCE_PATH = r"E:\Downloads\اسناد آزمایشی\Markdown\گزارش تجربه کاربری.md"
@@ -77,18 +77,31 @@ DOCK_CHECK = r"""() => {
   };
   const visible = node => node && node.getClientRects().length &&
     getComputedStyle(node).visibility !== 'hidden';
-  const content = document.querySelector('#export-content');
+  const layout = document.querySelector('#export-content');
+  const content = document.querySelector('#export-form');
   const dock = document.querySelector('.export-dock');
-  if (!content || !dock) return {problems: ['reserved content/dock regions are missing']};
+  const preview = document.querySelector('#export-preview-panel');
+  if (!layout || !content || !dock || !preview) return {problems: ['export layout regions are missing']};
+  const layoutBox = rect(layout), previewBox = rect(preview);
   const contentBox = rect(content), dockBox = rect(dock);
   if (contentBox.bottom > dockBox.top + 0.75) problems.push('settings scroll area overlaps destination dock');
   if (contentBox.height < 48) problems.push('settings scroll area has less than 48px usable height');
+  if (Math.abs(contentBox.left - dockBox.left) > 0.75 || Math.abs(contentBox.right - dockBox.right) > 0.75) {
+    problems.push('destination dock extends outside the setup column');
+  }
+  if (Math.abs(previewBox.top - layoutBox.top) > 0.75 || Math.abs(previewBox.bottom - layoutBox.bottom) > 0.75) {
+    problems.push('preview does not fill the workspace height');
+  }
+  if (visible(preview) && Math.min(dockBox.right, previewBox.right) - Math.max(dockBox.left, previewBox.left) > 0.75) {
+    problems.push('destination dock occupies space in the preview column');
+  }
   if (dockBox.bottom > innerHeight + 0.75 || dockBox.top < 0) problems.push('destination dock is outside viewport');
   const controls = {};
-  for (const selector of ['#output-path', '#choose-output', '#validate-button', '#export-button', '#cancel-button']) {
+  const required = ['#output-path', '#choose-output', '#validate-button', '#export-button'];
+  for (const selector of [...required, '#cancel-button', '#export-show-details', '#open-pdf', '#reveal-pdf']) {
     const node = document.querySelector(selector);
     if (!visible(node)) {
-      if (selector !== '#cancel-button') problems.push(`${selector} is not visible`);
+      if (required.includes(selector)) problems.push(`${selector} is not visible`);
       continue;
     }
     const box = rect(node);
@@ -134,19 +147,17 @@ DOCK_CHECK = r"""() => {
       document.querySelector('#app-main').scrollWidth > document.querySelector('#app-main').clientWidth + 1) {
     problems.push('export page scrolls horizontally');
   }
-  return {problems: [...new Set(problems)], content: contentBox, dock: dockBox, controls,
-    contentScrollTop: content.scrollTop, contentScrollMax: content.scrollHeight - content.clientHeight};
+  return {problems: [...new Set(problems)], setup: contentBox, dock: dockBox, preview: previewBox, controls};
 }"""
 
 FOCUS_CHECK = r"""() => {
   const control = document.activeElement;
   const target = control.closest('.tri-toggle') || control.closest('.toggle') || control;
   const box = target.getBoundingClientRect();
-  const content = document.querySelector('#export-content').getBoundingClientRect();
-  const pane = document.querySelector('#option-pane').getBoundingClientRect();
+  const settings = document.querySelector('#export-settings');
+  const viewport = settings.getBoundingClientRect();
   const problems = [];
-  if (box.top < Math.max(content.top, pane.top) - 1 ||
-      box.bottom > Math.min(content.bottom, pane.bottom) + 1) {
+  if (box.top < viewport.top - 1 || box.bottom > viewport.bottom + 1) {
     problems.push('keyboard-focused metadata control is vertically clipped');
   }
   const style = getComputedStyle(target);
@@ -163,7 +174,7 @@ FOCUS_CHECK = r"""() => {
     }
   }
   return {problems: [...new Set(problems)], active: control.id || control.name || control.tagName,
-    paneScrollTop: document.querySelector('#option-pane').scrollTop};
+    paneScrollTop: settings.scrollTop};
 }"""
 
 
@@ -179,8 +190,7 @@ def _snapshot(page: Any) -> dict[str, Any]:
 
 
 def _keyboard_metadata(page: Any) -> dict[str, Any]:
-    tab = page.locator('.option-rail-item[data-group="document"]')
-    tab.click()
+    page.locator("#option-category").select_option("document")
     controls = page.locator("#option-pane input, #option-pane select, #option-pane button")
     indexes = controls.evaluate_all("""nodes => nodes.flatMap((node, index) =>
       node.tabIndex >= 0 && !node.disabled && node.getClientRects().length ? [index] : [])""")
@@ -198,6 +208,17 @@ def _keyboard_metadata(page: Any) -> dict[str, Any]:
     if not reached_last:
         result["problems"].append("Tab did not reach final metadata control")
     return result
+
+
+def _action_fill(page: Any, selector: str, role: str) -> None:
+    page.wait_for_function("""([selector, role]) => {
+      const control = document.querySelector(selector);
+      const sample = document.createElement('canvas').getContext('2d');
+      sample.fillStyle = getComputedStyle(document.documentElement).getPropertyValue(role).trim();
+      const expected = sample.fillStyle;
+      sample.fillStyle = getComputedStyle(control).backgroundColor;
+      return sample.fillStyle === expected;
+    }""", arg=[selector, role])
 
 
 def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
@@ -227,18 +248,37 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                     page.add_init_script(
                         "localStorage.setItem('mardas.desktop.locale', " + json.dumps(locale) + ");"
                         "localStorage.setItem('mardas.desktop.preferences.v1', JSON.stringify("
-                        + json.dumps({"theme": theme, "onboardingComplete": True, "reducedMotion": "reduce"}) + "));"
+                        + json.dumps({"theme": theme, "accent": "purple", "onboardingComplete": True, "reducedMotion": "reduce"}) + "));"
                     )
                     try:
                         page.goto(url, wait_until="networkidle")
                         page.locator("#workflow-quick").click()
                         page.locator("#export-format-pdf").click()
-                        page.locator("#choose-source").click()
+                        expect(page.locator("#export-settings")).to_be_hidden()
+                        expect(page.locator("#export-button")).to_be_disabled()
+                        _action_fill(page, "#choose-source", "--ui-primary-bg")
+                        _action_fill(page, "#export-button", "--ui-panel-muted")
+                        if page.locator("#export-show-preview").is_visible():
+                            page.locator("#export-show-preview").click()
+                            expect(page.locator("#export-form")).to_be_hidden()
+                            expect(page.locator("#export-button")).to_be_hidden()
+                            page.locator("#preview-choose-source").click()
+                            expect(page.locator("#export-preview-title")).to_be_focused()
+                            page.locator("#export-show-setup").click()
+                            expect(page.locator("#export-button")).to_be_visible()
+                        else:
+                            page.locator("#choose-source").click()
+                        expect(page.locator("#output-path")).to_have_value(SOURCE_PATH[:-3] + ".pdf")
                         page.locator("#choose-output").click()
                         expect(page.locator("#output-path")).to_have_value(OUTPUT_PATH)
-                        page.locator("#export-preview iframe").wait_for(state="attached")
+                        expect(page.locator("#preview-zoom-in")).to_be_enabled()
+                        _action_fill(page, "#choose-source", "--ui-panel")
+                        _action_fill(page, "#export-button", "--ui-primary-bg")
+                        scenario["samples"]["setup"] = _snapshot(page)
+                        page.locator("#export-open-settings").click()
+                        page.locator("#option-category").select_option("document")
                         for position, fraction in [("top", 0), ("middle", 0.5), ("bottom", 1)]:
-                            page.locator("#export-content").evaluate(
+                            page.locator("#export-settings").evaluate(
                                 "(node, fraction) => { node.scrollTop = (node.scrollHeight - node.clientHeight) * fraction; }", fraction)
                             scenario["samples"][position] = _snapshot(page)
                             if position == "middle":
@@ -257,19 +297,54 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                         if width == 1920 or (width == 840 and zoom == 1.25):
                             page.screenshot(path=str(output / f"{key}-cancelled.png"))
                         if width == 1920:
+                            # Enter in settings is never an export shortcut.
+                            search = page.locator("#option-search")
+                            search.fill("margin")
+                            search.press("Enter")
+                            expect(page.locator("#cancel-button")).to_be_hidden()
+                            assert page.evaluate("() => __exportAudit.requests.filter(r => r.method === 'render.document').length") == 1
+                            page.locator("#export-close-settings").click()
+                            page.locator("#preview-next-page").click()
+                            expect(page.locator("#preview-page-count")).to_have_text("2 / 3")
+                            page.locator("#export-preset").select_option("minimal")
+                            expect(page.locator("#export-preview-state")).to_be_empty()
+                            expect(page.locator("#preview-page-count")).to_have_text("2 / 3")
+                            page.locator("#validate-button").click()
+                            page.wait_for_function("() => Boolean(__exportAudit.pending)")
+                            page.evaluate("""() => {
+                              __exportAudit.pending.resolve({ok: true, diagnostics: [{
+                                severity: 'warning', code: 'TEST-WARNING', line: 4, message: 'Review this reference',
+                              }]});
+                              __exportAudit.pending = null;
+                            }""")
+                            expect(page.locator("#export-feedback")).to_have_attribute("data-state", "warning")
+                            details = page.locator("#export-show-details")
+                            details.click()
+                            expect(page.locator("#diagnostics")).to_contain_text("TEST-WARNING")
+                            expect(page.locator("#export-close-details")).to_be_focused()
+                            page.keyboard.press("Escape")
+                            expect(details).to_be_focused()
                             # Keep the notifications alive while the dock changes
                             # height. Fresh contexts alone cannot verify that its
                             # ResizeObserver updates the notification boundary.
                             for resized_width, resized_height in [(840, 640), (720, 620), (1920, 1080)]:
                                 page.set_viewport_size({"width": resized_width, "height": resized_height})
                                 scenario["samples"][f"live-resize-{resized_width}x{resized_height}"] = _snapshot(page)
-                            page.locator("#settings-button").click()
+                            open_settings(page, "language")
                             page.locator("#setting-locale").select_option("fa" if locale == "en" else "en")
                             page.locator('#settings-form button[type="submit"]').click()
                             scenario["samples"]["live-locale-change"] = _snapshot(page)
+                            page.locator("#export-button").click()
+                            page.wait_for_function("() => Boolean(__exportAudit.pending)")
+                            page.evaluate("""() => {
+                              __exportAudit.pending.resolve({output_path: __exportAudit.outputPath});
+                              __exportAudit.pending = null;
+                            }""")
+                            expect(page.locator("#open-pdf")).to_be_visible()
+                            scenario["samples"]["export-success"] = _snapshot(page)
                         if check_scrollbars:
                             scrollbars = page.evaluate("""() => {
-                              const nodes = [document.querySelector('#export-content'), document.querySelector('#option-pane'),
+                              const nodes = [document.querySelector('#export-setup'), document.querySelector('#export-settings'),
                                 document.querySelector('#export-preview iframe')?.contentDocument?.documentElement];
                               return nodes.map(node => node ? {color: getComputedStyle(node).scrollbarColor,
                                 width: getComputedStyle(node).scrollbarWidth} : null);

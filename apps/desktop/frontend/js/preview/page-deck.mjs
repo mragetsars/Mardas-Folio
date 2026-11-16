@@ -146,7 +146,7 @@ function blockMetrics(view, element, flowTop) {
 const DECK_CSS = `
 html.pv-frame {
   height: 100%;
-  background: #e5e5e5 !important;
+  background: var(--pv-desk, #e5e5e5) !important;
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--pv-scrollbar-thumb, #737373) transparent;
@@ -157,7 +157,6 @@ html.pv-frame {
   html.pv-frame::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: var(--pv-scrollbar-thumb, #737373); background-clip: padding-box; }
 }
 @media (forced-colors: active) { html.pv-frame { scrollbar-width: auto; scrollbar-color: auto; } }
-html.pv-frame.pv-dark { background: #0a0a0a !important; }
 body.pv-frame-body {
   margin: 0 !important;
   min-height: 100%;
@@ -180,7 +179,7 @@ body.pv-frame-body {
   width: var(--pv-sheet-w);
   height: var(--pv-sheet-h);
   background: var(--pv-sheet-bg, #ffffff);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px var(--pv-sheet-edge, transparent), 0 2px 12px rgba(0, 0, 0, 0.22);
   overflow: hidden;
 }
 .pv-window {
@@ -249,7 +248,7 @@ body[data-guides="true"] .pv-page:not([data-kind="cover"]) .pv-guide { display: 
 .pv-note {
   margin: 0;
   padding: 40px 20px 0;
-  color: #111111;
+  color: var(--pv-note-ink, #111111);
   font: 12.5px/1.75 system-ui, sans-serif;
   text-align: center;
 }
@@ -258,18 +257,15 @@ body[data-guides="true"] .pv-page:not([data-kind="cover"]) .pv-guide { display: 
   padding: 0;
   max-width: 52ch;
   list-style: none;
-  color: #6b6b6b;
+  color: var(--pv-note-muted, #6b6b6b);
   font: 12px/1.6 system-ui, sans-serif;
 }
-.pv-frame.pv-dark .pv-note { color: #f5f5f5; }
-.pv-frame.pv-dark .pv-note-details { color: #a3a3a3; }
-.pv-frame.pv-dark .pv-note-details li { background: rgba(245, 245, 245, 0.06); }
 .pv-note-details li {
   margin-top: 8px;
   padding: 8px 12px;
   border-inline-start: 2px solid var(--pv-accent, #737373);
   border-radius: 3px;
-  background: rgba(17, 17, 17, 0.05);
+  background: var(--pv-note-surface, rgba(17, 17, 17, 0.05));
   text-align: start;
   overflow-wrap: anywhere;
 }
@@ -313,7 +309,7 @@ export function createPageDeck(host, { onState } = {}) {
     geometry: normalizePageGeometry({}),
     pages: [],
     zoom: 1,
-    zoomMode: "fit-width",
+    zoomMode: "auto",
     guides: false,
     source: null,
     coverSource: null,
@@ -333,20 +329,28 @@ export function createPageDeck(host, { onState } = {}) {
   const doc = () => frame.contentDocument;
   const scroller = () => doc()?.scrollingElement || doc()?.documentElement || null;
 
-  // The scrollbar belongs to the interface even when the printed paper uses
-  // a different palette. Only copy its chrome token into the isolated frame.
-  function syncScrollbarTheme() {
+  // The desk follows the interface even when the paper uses another palette.
+  function syncDeskTheme() {
     const root = doc()?.documentElement;
     const owner = host.ownerDocument;
     if (!root || !owner?.defaultView) return;
-    const styles = owner.defaultView.getComputedStyle(owner.documentElement);
-    const thumb = styles.getPropertyValue("--ui-scrollbar-thumb").trim();
-    const accent = styles.getPropertyValue("--ui-accent").trim();
-    if (thumb) root.style.setProperty("--pv-scrollbar-thumb", thumb);
-    if (accent) root.style.setProperty("--pv-accent", accent);
+    const styles = owner.defaultView.getComputedStyle(host);
+    const tokens = {
+      "--pv-desk": "--export-desk",
+      "--pv-sheet-edge": "--ui-border",
+      "--pv-note-ink": "--ui-text",
+      "--pv-note-muted": "--ui-muted",
+      "--pv-note-surface": "--ui-panel-muted",
+      "--pv-scrollbar-thumb": "--ui-scrollbar-thumb",
+      "--pv-accent": "--ui-accent",
+    };
+    for (const [target, source] of Object.entries(tokens)) {
+      const value = styles.getPropertyValue(source).trim();
+      if (value) root.style.setProperty(target, value);
+    }
   }
-  const themeObserver = new MutationObserver(syncScrollbarTheme);
-  themeObserver.observe(host.ownerDocument.documentElement, { attributes: true, attributeFilter: ["data-theme", "style", "class"] });
+  const themeObserver = new MutationObserver(syncDeskTheme);
+  themeObserver.observe(host.ownerDocument.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-accent", "style", "class"] });
 
   function publish() {
     const box = scroller();
@@ -412,15 +416,26 @@ export function createPageDeck(host, { onState } = {}) {
     // told the scaled size or long documents cannot be scrolled to the end.
     canvas.style.width = `${state.geometry.widthPx * state.zoom}px`;
     canvas.style.height = `${Math.max(0, height - SHEET_GAP) * state.zoom}px`;
-    publish();
   }
 
-  function recomputeFit() {
+  function pagePosition() {
+    const stride = state.pitch * state.zoom;
+    return state.sheets.length && stride > 0 ? (scroller()?.scrollTop ?? 0) / stride : 0;
+  }
+
+  function restorePagePosition(position) {
+    const box = scroller();
+    if (box) box.scrollTop = position * state.pitch * state.zoom;
+  }
+
+  function recomputeFit(position = pagePosition()) {
     const box = scroller();
     if (!box) return;
-    if (state.zoomMode === "fit-width") {
+    const fitCover = state.zoomMode === "auto" && Boolean(state.coverSource);
+    if (!fitCover && (state.zoomMode === "auto" || state.zoomMode === "fit-width")) {
       state.zoom = fitWidthZoom(box.clientWidth, state.geometry.widthPx, SHEET_GAP * 2);
-    } else if (state.zoomMode === "fit-page") {
+      if (state.zoomMode === "auto") state.zoom = Math.min(1, state.zoom);
+    } else if (fitCover || state.zoomMode === "fit-page") {
       state.zoom = fitPageZoom(
         box.clientWidth,
         box.clientHeight,
@@ -429,6 +444,7 @@ export function createPageDeck(host, { onState } = {}) {
       );
     }
     applyZoom();
+    restorePagePosition(position);
   }
 
   const resize = typeof ResizeObserver === "function"
@@ -506,17 +522,13 @@ export function createPageDeck(host, { onState } = {}) {
     }
   }
 
-  async function draw(payload) {
+  async function draw(payload, isCurrent = () => true) {
     const sequence = ++state.drawSequence;
     const document_ = doc();
     const window_ = view();
-    if (!document_ || !window_) return;
-    state.lastPayload = payload;
-    state.lastMessage = null;
-    state.lastDetails = [];
+    if (!document_ || !window_ || !isCurrent()) return;
 
-    state.geometry = normalizePageGeometry(payload?.page);
-    const geometry = state.geometry;
+    const geometry = normalizePageGeometry(payload?.page);
 
     document_.getElementById("pv-engine").textContent = [
       payload?.css?.fonts || "",
@@ -531,9 +543,6 @@ export function createPageDeck(host, { onState } = {}) {
     root.className = "pv-frame";
     root.lang = String(payload?.lang || "en");
     root.dir = payload?.direction === "rtl" ? "rtl" : "ltr";
-    if (String(payload?.body_classes || "").includes("md2pdf-mode-dark")) {
-      root.classList.add("pv-dark");
-    }
 
     const body = document_.body;
     // The cover's only extra class is the full-bleed marker; carrying it on the
@@ -569,59 +578,67 @@ export function createPageDeck(host, { onState } = {}) {
     article.append(sanitizePageHtml(document_, payload?.content_html));
     flowRoot.append(article);
     measure.append(flowRoot);
-    body.replaceChildren(canvas, measure);
+    body.append(measure);
+    const current = () => sequence === state.drawSequence && document_ === doc() && isCurrent();
 
     // Typeset before measuring page breaks: an integral or matrix changes the
     // line height. The very same offline component also renders Split/Read.
-    if (payload?.math?.typeset_at_export !== false) {
-      await typesetPreviewMath(article, { isCurrent: () => sequence === state.drawSequence });
+    try {
+      if (payload?.math?.typeset_at_export !== false) {
+        await typesetPreviewMath(article, { isCurrent: current });
+      }
+      if (!current()) return;
+      await document_.fonts?.ready;
+      await Promise.all([...article.querySelectorAll("img")].map((image) =>
+        typeof image.decode === "function" ? image.decode().catch(() => {}) : Promise.resolve()));
+      if (!current()) return;
+
+      const flowTop = article.getBoundingClientRect().top;
+      const blocks = [];
+      for (const child of article.children) {
+        if (typeof child.getBoundingClientRect !== "function") continue;
+        blocks.push(blockMetrics(window_, child, flowTop));
+      }
+      const total = article.getBoundingClientRect().height;
+      state.pages = paginate(blocks, geometry.contentHeightPx, total, {
+        snap: lineSnapper(collectLineTops(article, flowTop)),
+      });
+      state.source = flowRoot.cloneNode(true);
+
+      if (payload?.cover?.html) {
+        const coverRoot = document_.createElement("main");
+        coverRoot.className = "md2pdf-document";
+        const coverArticle = document_.createElement("article");
+        coverArticle.className = "md2pdf-article";
+        coverArticle.append(sanitizePageHtml(document_, payload.cover.html));
+        coverRoot.append(coverArticle);
+        state.coverSource = coverRoot;
+      } else {
+        state.coverSource = null;
+      }
+
+      const wrap = (html) => {
+        const holder = document_.createElement("div");
+        holder.append(sanitizePageHtml(document_, html));
+        return holder;
+      };
+      state.watermarkSource = payload?.watermark_html ? wrap(payload.watermark_html) : null;
+      state.footerSource = payload?.footer?.enabled && payload.footer.html
+        ? wrap(payload.footer.html)
+        : null;
+
+      const position = pagePosition();
+      state.geometry = geometry;
+      state.lastPayload = payload;
+      state.lastMessage = null;
+      state.lastDetails = [];
+      body.replaceChildren(canvas);
+      buildSheets(stage);
+      recomputeFit(position);
+      materialise();
+    } finally {
+      measure.remove();
     }
-    if (sequence !== state.drawSequence || document_ !== doc()) return;
-    await document_.fonts?.ready;
-    await Promise.all([...article.querySelectorAll("img")].map((image) =>
-      typeof image.decode === "function" ? image.decode().catch(() => {}) : Promise.resolve()));
-    if (sequence !== state.drawSequence || document_ !== doc()) return;
-
-    const flowTop = article.getBoundingClientRect().top;
-    const blocks = [];
-    for (const child of article.children) {
-      if (typeof child.getBoundingClientRect !== "function") continue;
-      blocks.push(blockMetrics(window_, child, flowTop));
-    }
-    const total = article.getBoundingClientRect().height;
-    state.pages = paginate(blocks, geometry.contentHeightPx, total, {
-      snap: lineSnapper(collectLineTops(article, flowTop)),
-    });
-    state.source = flowRoot.cloneNode(true);
-
-    if (payload?.cover?.html) {
-      const coverRoot = document_.createElement("main");
-      coverRoot.className = "md2pdf-document";
-      const coverArticle = document_.createElement("article");
-      coverArticle.className = "md2pdf-article";
-      coverArticle.append(sanitizePageHtml(document_, payload.cover.html));
-      coverRoot.append(coverArticle);
-      state.coverSource = coverRoot;
-    } else {
-      state.coverSource = null;
-    }
-
-    const wrap = (html) => {
-      const holder = document_.createElement("div");
-      holder.append(sanitizePageHtml(document_, html));
-      return holder;
-    };
-    state.watermarkSource = payload?.watermark_html ? wrap(payload.watermark_html) : null;
-    state.footerSource = payload?.footer?.enabled && payload.footer.html
-      ? wrap(payload.footer.html)
-      : null;
-
-    // The measuring copy has done its job; keeping it doubles the DOM.
-    measure.remove();
-
-    buildSheets(stage);
-    recomputeFit();
-    materialise();
   }
 
   function showMessageNow(text, details) {
@@ -667,13 +684,13 @@ export function createPageDeck(host, { onState } = {}) {
     document_.open();
     document_.write(BLANK_DOCUMENT);
     document_.close();
-    syncScrollbarTheme();
+    syncDeskTheme();
     state.ready = true;
     window_.addEventListener("scroll", onScroll, { passive: true });
     const pending = state.pending;
     state.pending = null;
     if (pending?.kind === "payload") {
-      Promise.resolve(draw(pending.value)).then(pending.resolve, pending.reject);
+      Promise.resolve(draw(pending.value, pending.isCurrent)).then(pending.resolve, pending.reject);
     }
     else if (pending?.kind === "message") showMessageNow(pending.value, pending.details);
   }
@@ -708,14 +725,14 @@ export function createPageDeck(host, { onState } = {}) {
 
   return {
     /** Draw a `preview.document_page` payload. */
-    render(payload) {
+    render(payload, { isCurrent } = {}) {
       if (!state.ready) {
         state.pending?.resolve?.(false);
         return new Promise((resolve, reject) => {
-          state.pending = { kind: "payload", value: payload, resolve, reject };
+          state.pending = { kind: "payload", value: payload, isCurrent, resolve, reject };
         });
       }
-      return draw(payload);
+      return draw(payload, isCurrent);
     },
 
     /**
@@ -735,9 +752,11 @@ export function createPageDeck(host, { onState } = {}) {
     },
 
     zoomBy(direction) {
+      const position = pagePosition();
       state.zoomMode = "manual";
       state.zoom = stepZoom(state.zoom, direction);
       applyZoom();
+      restorePagePosition(position);
       materialise();
     },
 

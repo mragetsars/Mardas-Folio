@@ -1,12 +1,9 @@
+"""Application orchestration and the stable desktop/sidecar API facade."""
+
 from __future__ import annotations
 
-import hashlib
 import json
 import os
-import secrets
-import stat
-from contextlib import ExitStack, contextmanager
-from dataclasses import fields
 from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Mapping
 from urllib.parse import unquote, urlsplit
@@ -20,13 +17,26 @@ from .book import (
     render_book,
 )
 from .config import (
-    ConfigValueError,
-    LoadedProjectConfig,
-    RENDER_OPTION_SPECS,
     load_project_config,
 )
 from .diagnostics import Diagnostic, has_errors
-from .file_io import FILE_WRITE_LOCK, open_atomic_output, serialized_file_write
+from .document_assets import (
+    import_document_asset as import_document_asset,
+    list_document_assets as list_document_assets,
+)
+from .document_store import (
+    MARKDOWN_DOCUMENT_EXTENSIONS as _MARKDOWN_DOCUMENT_EXTENSIONS,
+    MAX_DOCUMENT_BYTES as MAX_DOCUMENT_BYTES,
+    read_document as read_document,
+    read_text_document as read_text_document,
+    save_document as save_document,
+    save_text_document as save_text_document,
+)
+from .engine_errors import (
+    EngineError as EngineError,
+    EngineValidationError as EngineValidationError,
+)
+from .file_io import atomic_write_text as _atomic_write_text
 from .markdown import (
     MarkdownInputError,
     MarkdownRenderResult,
@@ -34,23 +44,36 @@ from .markdown import (
     render_markdown_text,
 )
 from .protocol import PROTOCOL_NAME, PROTOCOL_VERSION
+from .render_requests import (
+    OPTION_FIELDS as _OPTION_FIELDS,
+    path_value as _path_value,
+    pdf_options_from_request as pdf_options_from_request,
+)
 from .renderer import (
     OutputExistsError,
     OutputPathError,
     OutputSidecarUnsupportedError,
     PdfOptions,
-    RenderCancelledError,
     RenderSession,
     build_html,
     convert,
     preview_appearance_payload,
     preview_page_payload,
 )
+from .request_validation import (
+    mapping as _mapping,
+    optional_bool as _optional_bool,
+    optional_int as _optional_int,
+    optional_string as _optional_string,
+    required_content as _required_content,
+    required_string as _required_string,
+    string_list as _string_list,
+    validate_params as _validate_params,
+)
 from .runtime import runtime_info
 from .support import SupportBundleError, create_support_bundle
 from .workspace import (
     ProjectWorkspace,
-    WORKSPACE_IGNORED_PARTS,
     WorkspaceError,
     add_workspace_book_chapter,
     create_book_workspace,
@@ -74,182 +97,6 @@ CancellationCallback = Callable[[], bool]
 # the printed sheet itself is, which a client drawing paper cannot derive. It is
 # additive, so an older client keeps working against a newer engine.
 ENGINE_API_VERSION = "1.6.0"
-MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
-MAX_IMPORTED_ASSET_BYTES = 64 * 1024 * 1024
-MAX_DOCUMENT_ASSETS = 500
-MAX_DOCUMENT_ASSET_SCAN_ENTRIES = 20_000
-MAX_DOCUMENT_ASSET_DEPTH = 4
-_DOCUMENT_SAVE_LOCK = FILE_WRITE_LOCK
-_MARKDOWN_DOCUMENT_EXTENSIONS = frozenset({".md", ".markdown"})
-_TEXT_DOCUMENT_EXTENSIONS = frozenset({".bib", ".json", ".toml", ".txt", ".yaml", ".yml"})
-_ASSET_EXTENSIONS = {
-    ".avif",
-    ".bib",
-    ".bmp",
-    ".gif",
-    ".jpeg",
-    ".jpg",
-    ".json",
-    ".png",
-    ".svg",
-    ".webp",
-    ".yaml",
-    ".yml",
-}
-
-
-def _is_reparse_point(path: Path) -> bool:
-    """Detect symlinks and Windows junctions without following the final path."""
-    try:
-        info = path.lstat()
-    except FileNotFoundError:
-        return False
-    return stat.S_ISLNK(info.st_mode) or bool(
-        getattr(info, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
-    )
-
-
-@contextmanager
-def _locked_asset_directory(path: Path):
-    """Keep an import anchored to the inspected directory."""
-    if os.name == "nt":
-        from ._windows_paths import locked_directory
-
-        with locked_directory(path):
-            yield None
-        return
-    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
-        yield descriptor
-    finally:
-        os.close(descriptor)
-
-_OPTION_FIELDS = {
-    item.name
-    for item in fields(PdfOptions)
-    if item.name not in {"input_path", "output_path", "quality_log", "progress", "cancelled", "protected_inputs", "output_create_only"}
-}
-_PATH_OPTIONS = {
-    "debug_html",
-    "font_dir",
-    "cover_logo",
-    "brand_logo",
-    "watermark_image",
-    "quality_report",
-}
-_TUPLE_PATH_OPTIONS = {"bibliography_sources"}
-_TUPLE_STRING_OPTIONS = {"required_fonts"}
-_CONFIG_ALIASES = {
-    "no_cover": ("cover", lambda value: not bool(value)),
-    "no_cover_logo": ("cover_logo_enabled", lambda value: not bool(value)),
-    "watermark": ("watermark_text", lambda value: value),
-}
-
-_OPTION_SPEC_FIELDS = frozenset(RENDER_OPTION_SPECS)
-if _OPTION_SPEC_FIELDS != _OPTION_FIELDS:
-    missing = sorted(_OPTION_FIELDS - _OPTION_SPEC_FIELDS)
-    extra = sorted(_OPTION_SPEC_FIELDS - _OPTION_FIELDS)
-    raise RuntimeError(
-        "Render option validation schema is out of sync with PdfOptions "
-        f"(missing={missing}, extra={extra})."
-    )
-
-
-class EngineError(RuntimeError):
-    """Stable application-layer error safe to expose through the sidecar."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        code: str = "MARDAS-ENGINE-ERROR",
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        super().__init__(message)
-        self.code = code
-        self.details = details or {}
-
-    def to_dict(self) -> dict[str, Any]:
-        return {"code": self.code, "message": str(self), "details": self.details}
-
-
-class EngineValidationError(EngineError):
-    def __init__(
-        self,
-        message: str,
-        diagnostics: tuple[Diagnostic, ...] | list[Diagnostic],
-        *,
-        code: str = "MARDAS-VALIDATION-FAILED",
-    ) -> None:
-        items = tuple(diagnostics)
-        super().__init__(
-            message,
-            code=code,
-            details={"diagnostics": [item.to_dict() for item in items]},
-        )
-        self.diagnostics = items
-
-
-def _atomic_write_text(
-    path: Path,
-    text: str,
-    *,
-    before_replace: Callable[[], None] | None = None,
-) -> os.stat_result:
-    path = Path(path).expanduser().resolve(strict=False)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary = open_atomic_output(path)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-            written_stat = os.fstat(handle.fileno())
-        if before_replace is not None:
-            before_replace()
-        os.replace(temporary, path)
-        return written_stat
-    except Exception:
-        temporary.unlink(missing_ok=True)
-        raise
-
-
-def _atomic_write_bytes(path: Path, payload: bytes) -> None:
-    path = Path(path).expanduser().resolve(strict=False)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary = open_atomic_output(path)
-    try:
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, path)
-    except Exception:
-        temporary.unlink(missing_ok=True)
-        raise
-
-
-def _document_snapshot(path: Path) -> tuple[bytes, os.stat_result]:
-    """Read bounded document bytes and metadata from the same open file."""
-    with path.open("rb") as handle:
-        stat_result = os.fstat(handle.fileno())
-        data = handle.read(MAX_DOCUMENT_BYTES + 1)
-    if len(data) > MAX_DOCUMENT_BYTES:
-        raise EngineError(
-            "Document exceeds the editor size limit.",
-            code="MARDAS-DOCUMENT-TOO-LARGE",
-            details={"size_bytes": len(data), "limit_bytes": MAX_DOCUMENT_BYTES},
-        )
-    return data, stat_result
-
-
-def _revision_for_snapshot(data: bytes, stat_result: os.stat_result) -> str:
-    digest = hashlib.sha256(data).hexdigest()
-    return f"{stat_result.st_mtime_ns}:{len(data)}:{digest}"
-
-
-def _document_revision(path: Path) -> str:
-    return _revision_for_snapshot(*_document_snapshot(path))
 
 
 def _paths_refer_to_same_file(left: Path, right: Path) -> bool:
@@ -265,518 +112,6 @@ def _paths_refer_to_same_file(left: Path, right: Path) -> bool:
     return os.path.normcase(str(left.resolve(strict=False))) == os.path.normcase(
         str(right.resolve(strict=False))
     )
-
-
-def _document_kind_for_path(path: Path) -> str:
-    suffix = path.suffix.casefold()
-    if suffix in _MARKDOWN_DOCUMENT_EXTENSIONS:
-        return "markdown"
-    if suffix == ".bib":
-        return "bibliography"
-    if suffix in {".json", ".toml"}:
-        return suffix.removeprefix(".")
-    return "text"
-
-
-def _read_document_text(
-    path: str | os.PathLike[str],
-    *,
-    allowed_extensions: frozenset[str],
-    type_message: str,
-    document_label: str,
-) -> dict[str, Any]:
-    requested = Path(path).expanduser()
-    try:
-        source = requested.resolve(strict=True)
-    except (OSError, RuntimeError, UnicodeError) as exc:
-        raise EngineError(
-            "Document could not be opened.",
-            code="MARDAS-DOCUMENT-READ",
-            details={"path": str(requested)},
-        ) from exc
-    if source.suffix.casefold() not in allowed_extensions:
-        raise EngineError(
-            type_message,
-            code="MARDAS-DOCUMENT-TYPE",
-            details={"path": str(source)},
-        )
-    if not source.is_file():
-        raise EngineError(
-            "Document path must reference a regular file.",
-            code="MARDAS-DOCUMENT-READ",
-            details={"path": str(source)},
-        )
-    try:
-        size = source.stat().st_size
-    except OSError as exc:
-        raise EngineError(
-            "Document metadata could not be read.",
-            code="MARDAS-DOCUMENT-READ",
-            details={"path": str(source)},
-        ) from exc
-    if size > MAX_DOCUMENT_BYTES:
-        raise EngineError(
-            f"{document_label} exceeds the editor size limit.",
-            code="MARDAS-DOCUMENT-TOO-LARGE",
-            details={"size_bytes": size, "limit_bytes": MAX_DOCUMENT_BYTES},
-        )
-    try:
-        data, stat_result = _document_snapshot(source)
-        content = data.decode("utf-8-sig")
-    except UnicodeDecodeError as exc:
-        raise EngineError(
-            f"{document_label} must be UTF-8 encoded.",
-            code="MARDAS-DOCUMENT-ENCODING",
-            details={"path": str(source)},
-        ) from exc
-    except OSError as exc:
-        raise EngineError(
-            "Document content could not be read.",
-            code="MARDAS-DOCUMENT-READ",
-            details={"path": str(source)},
-        ) from exc
-    revision = _revision_for_snapshot(data, stat_result)
-    return {
-        "path": str(source),
-        "kind": _document_kind_for_path(source),
-        "content": content,
-        "size_bytes": len(data),
-        "revision": revision,
-        "read_only": not os.access(source, os.W_OK),
-    }
-
-
-def read_document(path: str | os.PathLike[str]) -> dict[str, Any]:
-    return _read_document_text(
-        path,
-        allowed_extensions=_MARKDOWN_DOCUMENT_EXTENSIONS,
-        type_message="Only Markdown documents can be opened in the authoring workspace.",
-        document_label="Markdown document",
-    )
-
-
-def read_text_document(path: str | os.PathLike[str]) -> dict[str, Any]:
-    """Read one supported non-Markdown UTF-8 authoring file."""
-
-    return _read_document_text(
-        path,
-        allowed_extensions=_TEXT_DOCUMENT_EXTENSIONS,
-        type_message=(
-            "Text documents must use the .txt, .toml, .json, .yaml, .yml, or .bib extension."
-        ),
-        document_label="Text document",
-    )
-
-
-def _save_document_text(
-    path: str | os.PathLike[str],
-    content: str,
-    *,
-    allowed_extensions: frozenset[str],
-    extension_message: str,
-    document_label: str,
-    expected_revision: str | None = None,
-    force: bool = False,
-) -> dict[str, Any]:
-    # Serialize the revision check and atomic replacement across service users.
-    # External edits are checked again after writing the temporary file.
-    with _DOCUMENT_SAVE_LOCK:
-        return _save_document_text_locked(
-            path,
-            content,
-            allowed_extensions=allowed_extensions,
-            extension_message=extension_message,
-            document_label=document_label,
-            expected_revision=expected_revision,
-            force=force,
-        )
-
-
-def _save_document_text_locked(
-    path: str | os.PathLike[str],
-    content: str,
-    *,
-    allowed_extensions: frozenset[str],
-    extension_message: str,
-    document_label: str,
-    expected_revision: str | None = None,
-    force: bool = False,
-) -> dict[str, Any]:
-    target = Path(path).expanduser().resolve(strict=False)
-    if target.suffix.casefold() not in allowed_extensions:
-        raise EngineError(
-            extension_message,
-            code="MARDAS-DOCUMENT-TYPE",
-            details={"path": str(target)},
-        )
-    if not isinstance(content, str):
-        raise EngineError(
-            "content must be a string.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": "content"},
-        )
-    try:
-        payload = content.encode("utf-8")
-    except UnicodeEncodeError as exc:
-        raise EngineError(
-            f"{document_label} must contain valid UTF-8 text.",
-            code="MARDAS-DOCUMENT-ENCODING",
-            details={"path": str(target)},
-        ) from exc
-    if len(payload) > MAX_DOCUMENT_BYTES:
-        raise EngineError(
-            f"{document_label} exceeds the editor size limit.",
-            code="MARDAS-DOCUMENT-TOO-LARGE",
-            details={"size_bytes": len(payload), "limit_bytes": MAX_DOCUMENT_BYTES},
-        )
-    def check_revision() -> None:
-        if force or expected_revision is None:
-            return
-        current_revision = _document_revision(target) if target.is_file() else None
-        if expected_revision != current_revision:
-            raise EngineError(
-                "The document changed on disk after it was opened.",
-                code="MARDAS-DOCUMENT-CONFLICT",
-                details={
-                    "path": str(target),
-                    "expected_revision": expected_revision,
-                    "current_revision": current_revision,
-                },
-            )
-    try:
-        check_revision()
-        serialized = content
-        existing_data = None
-        existing_stat = None
-        if target.is_file():
-            existing_data, existing_stat = _document_snapshot(target)
-            try:
-                previous = existing_data.decode("utf-8-sig")
-            except UnicodeDecodeError:
-                previous = None
-            if previous is not None:
-                normalized_previous = previous.replace("\r\n", "\n").replace("\r", "\n")
-                normalized_content = content.replace("\r\n", "\n").replace("\r", "\n")
-                if normalized_content == normalized_previous:
-                    check_revision()
-                    return {
-                        "path": str(target),
-                        "kind": _document_kind_for_path(target),
-                        "size_bytes": len(existing_data),
-                        "revision": _revision_for_snapshot(existing_data, existing_stat),
-                        "read_only": not os.access(target, os.W_OK),
-                    }
-                crlf = "\r\n" in previous
-                mixed = "\r" in previous.replace("\r\n", "") or "\n" in previous.replace("\r\n", "")
-                serialized = normalized_content.replace("\n", "\r\n") if crlf and not mixed else normalized_content
-                if existing_data.startswith(b"\xef\xbb\xbf"):
-                    serialized = "\ufeff" + serialized
-        payload = serialized.encode("utf-8")
-        if len(payload) > MAX_DOCUMENT_BYTES:
-            raise EngineError(
-                f"{document_label} exceeds the editor size limit.",
-                code="MARDAS-DOCUMENT-TOO-LARGE",
-                details={"size_bytes": len(payload), "limit_bytes": MAX_DOCUMENT_BYTES},
-            )
-        written_stat = _atomic_write_text(target, serialized, before_replace=check_revision)
-    except OSError as exc:
-        raise EngineError(
-            f"Could not save {document_label.lower()}: {exc}",
-            code="MARDAS-DOCUMENT-SAVE",
-            details={"path": str(target)},
-        ) from exc
-    return {
-        "path": str(target),
-        "kind": _document_kind_for_path(target),
-        "size_bytes": len(payload),
-        "revision": _revision_for_snapshot(payload, written_stat),
-        "read_only": not os.access(target, os.W_OK),
-    }
-
-
-def save_document(
-    path: str | os.PathLike[str],
-    content: str,
-    *,
-    expected_revision: str | None = None,
-    force: bool = False,
-) -> dict[str, Any]:
-    return _save_document_text(
-        path,
-        content,
-        allowed_extensions=_MARKDOWN_DOCUMENT_EXTENSIONS,
-        extension_message="Markdown documents must use the .md or .markdown extension.",
-        document_label="Markdown document",
-        expected_revision=expected_revision,
-        force=force,
-    )
-
-
-def save_text_document(
-    path: str | os.PathLike[str],
-    content: str,
-    *,
-    expected_revision: str | None = None,
-    force: bool = False,
-) -> dict[str, Any]:
-    """Atomically save a supported non-Markdown UTF-8 authoring file."""
-
-    return _save_document_text(
-        path,
-        content,
-        allowed_extensions=_TEXT_DOCUMENT_EXTENSIONS,
-        extension_message=(
-            "Text documents must use the .txt, .toml, .json, .yaml, .yml, or .bib extension."
-        ),
-        document_label="Text document",
-        expected_revision=expected_revision,
-        force=force,
-    )
-
-
-def list_document_assets(
-    path: str | os.PathLike[str], *, cancelled: CancellationCallback | None = None
-) -> dict[str, Any]:
-    document = Path(path).expanduser().resolve(strict=False)
-    root = document.parent
-    assets: list[dict[str, Any]] = []
-    if not root.is_dir():
-        return {"root": str(root), "assets": assets}
-    scanned = 0
-    truncated = False
-    for current, directory_names, file_names in os.walk(root, followlinks=False):
-        if cancelled and cancelled():
-            raise RenderCancelledError("Asset discovery was cancelled.")
-        current_path = Path(current)
-        try:
-            relative = current_path.relative_to(root)
-            parts = [root.joinpath(*relative.parts[:index])
-                     for index in range(1, len(relative.parts) + 1)]
-            if any(_is_reparse_point(part) for part in parts) or not current_path.resolve().is_relative_to(root):
-                directory_names[:] = []
-                continue
-        except (OSError, RuntimeError, ValueError):
-            directory_names[:] = []
-            continue
-        depth = len(current_path.relative_to(root).parts)
-        safe_directories: list[str] = []
-        for name in sorted(directory_names, key=str.casefold):
-            scanned += 1
-            if scanned > MAX_DOCUMENT_ASSET_SCAN_ENTRIES:
-                truncated = True
-                break
-            if (
-                depth < MAX_DOCUMENT_ASSET_DEPTH - 1
-                and not name.startswith(".")
-                and name not in WORKSPACE_IGNORED_PARTS
-                and not _is_reparse_point(current_path / name)
-                and (current_path / name).resolve(strict=False).is_relative_to(root)
-            ):
-                safe_directories.append(name)
-        directory_names[:] = safe_directories
-        if truncated:
-            break
-        for name in sorted(file_names, key=str.casefold):
-            if cancelled and cancelled():
-                raise RenderCancelledError("Asset discovery was cancelled.")
-            scanned += 1
-            if scanned > MAX_DOCUMENT_ASSET_SCAN_ENTRIES:
-                truncated = True
-                break
-            candidate = current_path / name
-            if name.startswith(".") or candidate.suffix.casefold() not in _ASSET_EXTENSIONS:
-                continue
-            try:
-                if (_is_reparse_point(candidate) or not candidate.is_file()
-                        or not candidate.resolve(strict=False).is_relative_to(root)):
-                    continue
-                stat_result = candidate.stat()
-            except OSError:
-                continue
-            if len(assets) >= MAX_DOCUMENT_ASSETS:
-                truncated = True
-                break
-            assets.append(
-                {
-                    "path": str(candidate),
-                    "relative_path": candidate.relative_to(root).as_posix(),
-                    "name": candidate.name,
-                    "extension": candidate.suffix.casefold(),
-                    "size_bytes": stat_result.st_size,
-                }
-            )
-        if truncated:
-            break
-    assets.sort(key=lambda item: item["relative_path"].casefold())
-    return {"root": str(root), "assets": assets, "truncated": truncated}
-
-
-@serialized_file_write
-def import_document_asset(
-    document_path: str | os.PathLike[str], source_path: str | os.PathLike[str]
-) -> dict[str, Any]:
-    document = Path(document_path).expanduser().resolve(strict=False)
-    selected_source = Path(source_path).expanduser()
-    if _is_reparse_point(selected_source):
-        raise EngineError(
-            "Symbolic-link assets are not accepted.",
-            code="MARDAS-ASSET-INVALID",
-            details={"path": str(selected_source)},
-        )
-    try:
-        source = selected_source.resolve(strict=True)
-        source_stat = source.stat()
-    except (OSError, RuntimeError) as exc:
-        raise EngineError(
-            "Selected asset could not be opened.",
-            code="MARDAS-ASSET-INVALID",
-            details={"path": str(selected_source)},
-        ) from exc
-    if not source.is_file():
-        raise EngineError(
-            "Selected asset is not a regular file.",
-            code="MARDAS-ASSET-INVALID",
-            details={"path": str(source)},
-        )
-    if source.suffix.casefold() not in _ASSET_EXTENSIONS:
-        raise EngineError(
-            "Selected asset type is not supported.",
-            code="MARDAS-ASSET-TYPE",
-            details={"extension": source.suffix.casefold()},
-        )
-    size = source_stat.st_size
-    if size > MAX_IMPORTED_ASSET_BYTES:
-        raise EngineError(
-            "Selected asset exceeds the import size limit.",
-            code="MARDAS-ASSET-TOO-LARGE",
-            details={"size_bytes": size, "limit_bytes": MAX_IMPORTED_ASSET_BYTES},
-        )
-    try:
-        with source.open("rb") as handle:
-            payload = handle.read(MAX_IMPORTED_ASSET_BYTES + 1)
-    except OSError as exc:
-        raise EngineError(
-            f"Could not read selected asset: {exc}",
-            code="MARDAS-ASSET-IMPORT",
-            details={"path": str(source)},
-        ) from exc
-
-    if len(payload) > MAX_IMPORTED_ASSET_BYTES:
-        raise EngineError(
-            "Selected asset exceeds the import size limit.",
-            code="MARDAS-ASSET-TOO-LARGE",
-            details={"size_bytes": len(payload), "limit_bytes": MAX_IMPORTED_ASSET_BYTES},
-        )
-
-    target_dir = document.parent / "assets"
-    if _is_reparse_point(target_dir) or (target_dir.exists() and not target_dir.is_dir()):
-        raise EngineError(
-            "The document assets path must be a regular directory, not a file or symbolic link.",
-            code="MARDAS-ASSET-INVALID",
-            details={"path": str(target_dir)},
-        )
-    stem = source.stem or "asset"
-    suffix = source.suffix.casefold()
-    source_digest = hashlib.sha256(payload).digest()
-    try:
-        with ExitStack() as locks:
-            if os.name == "nt":
-                # Keep the canonical document directory stable before creating
-                # or opening its assets child. Windows does not provide the
-                # POSIX dir_fd/openat operations used below, so directory
-                # handles deny delete/rename sharing while path-based atomic
-                # creation is in progress.
-                locks.enter_context(_locked_asset_directory(document.parent))
-            try:
-                target_dir.mkdir(parents=True, exist_ok=True)
-            except OSError as exc:
-                raise EngineError(
-                    "The document assets directory could not be created.",
-                    code="MARDAS-ASSET-IMPORT",
-                    details={"path": str(target_dir)},
-                ) from exc
-            directory_fd = locks.enter_context(_locked_asset_directory(target_dir))
-            if _is_reparse_point(target_dir) or target_dir.resolve() != document.parent / "assets":
-                raise OSError("The assets directory is outside the document root")
-
-            temporary = Path(f".mardas-import-{secrets.token_hex(16)}")
-            temporary_path = target_dir / temporary.name
-            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-            if hasattr(os, "O_BINARY"):
-                flags |= os.O_BINARY
-            if directory_fd is None:
-                fd = os.open(temporary_path, flags, 0o600)
-            else:
-                fd = os.open(str(temporary), flags, 0o600, dir_fd=directory_fd)
-            handle = os.fdopen(fd, "wb")
-            try:
-                handle.write(payload)
-                handle.flush()
-                os.fsync(handle.fileno())
-                handle.close()
-                handle = None
-                counter = 1
-                while True:
-                    name = f"{stem}{suffix}" if counter == 1 else f"{stem}-{counter}{suffix}"
-                    target = target_dir / name
-                    if directory_fd is None:
-                        # On Windows rename within one directory is atomic and
-                        # fails if the target already exists. The locked,
-                        # non-reparse directory keeps the path anchored.
-                        if _is_reparse_point(target_dir) or target_dir.resolve() != document.parent / "assets":
-                            raise OSError("The assets directory changed during import")
-                        try:
-                            os.rename(temporary_path, target)
-                            break
-                        except FileExistsError:
-                            from ._windows_paths import matches_regular_file
-
-                            if matches_regular_file(target, len(payload), source_digest):
-                                break
-                            counter += 1
-                    else:
-                        current = target_dir.stat(follow_symlinks=False)
-                        anchored = os.fstat(directory_fd)
-                        if (_is_reparse_point(target_dir)
-                                or (current.st_dev, current.st_ino) != (anchored.st_dev, anchored.st_ino)):
-                            raise OSError("The assets directory changed during import")
-                        try:
-                            os.link(str(temporary), name, src_dir_fd=directory_fd,
-                                    dst_dir_fd=directory_fd, follow_symlinks=False)
-                            break
-                        except FileExistsError:
-                            if not _is_reparse_point(target) and target.is_file():
-                                try:
-                                    candidate = os.open(name, os.O_RDONLY | os.O_NOFOLLOW,
-                                                        dir_fd=directory_fd)
-                                    candidate_handle = os.fdopen(candidate, "rb")
-                                    with candidate_handle:
-                                        candidate_data = candidate_handle.read(len(payload) + 1)
-                                    if hashlib.sha256(candidate_data).digest() == source_digest:
-                                        break
-                                except OSError:
-                                    pass
-                            counter += 1
-            finally:
-                if handle is not None:
-                    handle.close()
-                if directory_fd is None:
-                    temporary_path.unlink(missing_ok=True)
-                else:
-                    os.unlink(str(temporary), dir_fd=directory_fd)
-    except OSError as exc:
-        raise EngineError(
-            f"Could not import asset: {exc}",
-            code="MARDAS-ASSET-IMPORT",
-            details={"path": str(target_dir)},
-        ) from exc
-    return {
-        "path": str(target),
-        "relative_path": target.relative_to(document.parent).as_posix(),
-        "name": target.name,
-        "extension": suffix,
-        "size_bytes": target.stat().st_size,
-    }
 
 
 def resolve_markdown_link(
@@ -869,177 +204,6 @@ def resolve_markdown_link(
             )
         target = root / relative_path
     return {"path": str(target), "relative_path": relative_path, "fragment": fragment}
-
-
-def _path_value(value: Any, *, base_dir: Path) -> Path | None:
-    if value is None or value == "":
-        return None
-    if not isinstance(value, (str, os.PathLike)):
-        raise EngineError(
-            "Path option must be a string.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"value_type": type(value).__name__},
-        )
-    candidate = Path(value).expanduser()
-    if not candidate.is_absolute():
-        candidate = base_dir / candidate
-    return candidate.resolve(strict=False)
-
-
-def _config_option_values(config: LoadedProjectConfig) -> dict[str, Any]:
-    values: dict[str, Any] = {}
-    for key, value in config.values.items():
-        if key.startswith("book_"):
-            continue
-        alias = _CONFIG_ALIASES.get(key)
-        if alias is not None:
-            target, transform = alias
-            values[target] = transform(value)
-            continue
-        if key in _OPTION_FIELDS:
-            values[key] = value
-    if values.get("brand_logo") is not None:
-        values.setdefault("cover_logo", values["brand_logo"])
-    return values
-
-
-def _validate_option_values(values: Mapping[str, Any]) -> dict[str, Any]:
-    """Validate untrusted per-request overrides before path normalization."""
-
-    unknown = sorted(set(values) - _OPTION_FIELDS)
-    if unknown:
-        raise EngineError(
-            "Unsupported render options were supplied.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"unknown_options": unknown},
-        )
-
-    validated: dict[str, Any] = {}
-    for option, value in values.items():
-        spec = RENDER_OPTION_SPECS[option]
-        if value is None:
-            if spec.nullable:
-                validated[option] = None
-                continue
-            raise EngineError(
-                f"Render option '{option}' cannot be null.",
-                code="MARDAS-INVALID-PARAMS",
-                details={"option": option, "reason": "value cannot be null"},
-            )
-        try:
-            validated[option] = spec.validator(value)
-        except ConfigValueError as exc:
-            raise EngineError(
-                f"Invalid render option '{option}': {exc}.",
-                code="MARDAS-INVALID-PARAMS",
-                details={"option": option, "reason": str(exc)},
-            ) from exc
-    return validated
-
-
-def _normalize_option_values(values: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
-    unknown = sorted(set(values) - _OPTION_FIELDS)
-    if unknown:
-        raise EngineError(
-            "Unsupported render options were supplied.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"unknown_options": unknown},
-        )
-    normalized: dict[str, Any] = {}
-    for key, value in values.items():
-        if key in _PATH_OPTIONS:
-            normalized[key] = _path_value(value, base_dir=base_dir)
-        elif key == "chromium_path":
-            path = _path_value(value, base_dir=base_dir)
-            normalized[key] = str(path) if path is not None else None
-        elif key in _TUPLE_PATH_OPTIONS:
-            if value is None:
-                normalized[key] = ()
-            elif isinstance(value, (list, tuple)):
-                normalized[key] = tuple(
-                    item
-                    for item in (
-                        _path_value(entry, base_dir=base_dir) for entry in value
-                    )
-                    if item is not None
-                )
-            else:
-                raise EngineError(
-                    f"{key} must be an array of paths.",
-                    code="MARDAS-INVALID-PARAMS",
-                )
-        elif key in _TUPLE_STRING_OPTIONS:
-            if value is None:
-                normalized[key] = ()
-            elif isinstance(value, (list, tuple)):
-                normalized[key] = tuple(value)
-            else:
-                raise EngineError(
-                    f"{key} must be an array of strings.",
-                    code="MARDAS-INVALID-PARAMS",
-                    details={"option": key},
-                )
-        else:
-            normalized[key] = value
-    return normalized
-
-
-def _load_document_config(
-    input_path: Path,
-    *,
-    config_path: Path | None,
-    discover_config: bool,
-) -> LoadedProjectConfig:
-    loaded = load_project_config(
-        start=input_path,
-        explicit_path=config_path,
-        disabled=not discover_config and config_path is None,
-    )
-    if has_errors(loaded.diagnostics):
-        raise EngineValidationError("Project configuration is invalid.", loaded.diagnostics)
-    return loaded.config
-
-
-def pdf_options_from_request(
-    *,
-    input_path: str | os.PathLike[str],
-    output_path: str | os.PathLike[str] | None = None,
-    config_path: str | os.PathLike[str] | None = None,
-    discover_config: bool = True,
-    options: Mapping[str, Any] | None = None,
-    progress: ProgressCallback | None = None,
-    cancelled: CancellationCallback | None = None,
-) -> PdfOptions:
-    """Create ``PdfOptions`` from a stable desktop/sidecar request contract."""
-
-    source = Path(input_path).expanduser().resolve(strict=False)
-    explicit_config = (
-        Path(config_path).expanduser().resolve(strict=False) if config_path is not None else None
-    )
-    config = _load_document_config(
-        source,
-        config_path=explicit_config,
-        discover_config=bool(discover_config),
-    )
-    base_dir = config.root if config.discovered else source.parent
-    target = (
-        _path_value(output_path, base_dir=base_dir)
-        if output_path
-        else source.with_suffix(".pdf")
-    )
-    assert target is not None
-
-    merged = _config_option_values(config)
-    merged.update(_validate_option_values(dict(options or {})))
-    normalized = _normalize_option_values(merged, base_dir=base_dir)
-    return PdfOptions(
-        input_path=source,
-        output_path=target,
-        progress=progress,
-        cancelled=cancelled,
-        protected_inputs=(("project configuration", config.path),) if config.path is not None else (),
-        **normalized,
-    )
 
 
 def render_document(options: PdfOptions, *, session: RenderSession | None = None) -> dict[str, Any]:
@@ -1321,27 +485,6 @@ def render_book_project(
     return result
 
 
-def _validate_params(params: Mapping[str, Any], allowed: set[str]) -> None:
-    unknown = sorted(set(params) - allowed)
-    if unknown:
-        raise EngineError(
-            "Unsupported request parameters were supplied.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"unknown_parameters": unknown},
-        )
-
-
-def _optional_bool(params: Mapping[str, Any], key: str, *, default: bool) -> bool:
-    value = params.get(key, default)
-    if not isinstance(value, bool):
-        raise EngineError(
-            f"{key} must be true or false.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": key},
-        )
-    return value
-
-
 class EngineService:
     """Long-lived, thread-affine application service for desktop sidecars."""
 
@@ -1431,6 +574,31 @@ class EngineService:
         progress: ProgressCallback | None = None,
         cancelled: CancellationCallback | None = None,
     ) -> dict[str, Any]:
+        """Route each request to its use-case family; transport controls live in the sidecar."""
+        handlers = {
+            "system": self._dispatch_system,
+            "document": self._dispatch_documents,
+            "project": self._dispatch_projects,
+            "bibliography": self._dispatch_projects,
+            "book": self._dispatch_books,
+            "publication": self._dispatch_publication,
+            "render": self._dispatch_publication,
+            "preview": self._dispatch_publication,
+            "validate": self._dispatch_publication,
+        }
+        handler = handlers.get(method.partition(".")[0])
+        if handler is None:
+            raise _unsupported_method(method)
+        return handler(method, params, progress=progress, cancelled=cancelled)
+
+    def _dispatch_system(
+        self,
+        method: str,
+        params: Mapping[str, Any],
+        *,
+        progress: ProgressCallback | None = None,
+        cancelled: CancellationCallback | None = None,
+    ) -> dict[str, Any]:
         if method == "system.support_bundle":
             _validate_params(params, {"output_path"})
             try:
@@ -1443,6 +611,16 @@ class EngineService:
                     str(exc),
                     code="MARDAS-SUPPORT-BUNDLE-ERROR",
                 ) from exc
+        raise _unsupported_method(method)
+
+    def _dispatch_documents(
+        self,
+        method: str,
+        params: Mapping[str, Any],
+        *,
+        progress: ProgressCallback | None = None,
+        cancelled: CancellationCallback | None = None,
+    ) -> dict[str, Any]:
         if method in {"document.read", "document.read_text"}:
             _validate_params(params, {"path"})
             read = read_document if method == "document.read" else read_text_document
@@ -1474,6 +652,16 @@ class EngineService:
                 _required_string(params, "href"),
                 project_path=_optional_string(params, "project_path"),
             )
+        raise _unsupported_method(method)
+
+    def _dispatch_projects(
+        self,
+        method: str,
+        params: Mapping[str, Any],
+        *,
+        progress: ProgressCallback | None = None,
+        cancelled: CancellationCallback | None = None,
+    ) -> dict[str, Any]:
         if method in {"project.open", "project.refresh"}:
             _validate_params(params, {"path"})
             workspace = _load_workspace_request(
@@ -1591,6 +779,16 @@ class EngineService:
                     ),
                 )
             )
+        raise _unsupported_method(method)
+
+    def _dispatch_books(
+        self,
+        method: str,
+        params: Mapping[str, Any],
+        *,
+        progress: ProgressCallback | None = None,
+        cancelled: CancellationCallback | None = None,
+    ) -> dict[str, Any]:
         if method == "book.create":
             _validate_params(
                 params,
@@ -1801,6 +999,16 @@ class EngineService:
                 "suggested_name": suggested_name,
                 "project": project,
             }
+        raise _unsupported_method(method)
+
+    def _dispatch_publication(
+        self,
+        method: str,
+        params: Mapping[str, Any],
+        *,
+        progress: ProgressCallback | None = None,
+        cancelled: CancellationCallback | None = None,
+    ) -> dict[str, Any]:
         if method == "publication.inspect_output":
             _validate_params(params, {"output_path"})
             candidate = Path(_required_string(params, "output_path")).expanduser()
@@ -1899,11 +1107,15 @@ class EngineService:
                 cancelled=cancelled,
                 session=self._render_session(),
             )
-        raise EngineError(
-            f"Unsupported application method: {method}",
-            code="MARDAS-METHOD-NOT-FOUND",
-            details={"method": method},
-        )
+        raise _unsupported_method(method)
+
+
+def _unsupported_method(method: str) -> EngineError:
+    return EngineError(
+        f"Unsupported application method: {method}",
+        code="MARDAS-METHOD-NOT-FOUND",
+        details={"method": method},
+    )
 
 
 def _workspace_error(exc: WorkspaceError) -> EngineError:
@@ -1936,111 +1148,3 @@ def _load_workspace_request(
         )
     except WorkspaceError as exc:
         raise _workspace_error(exc) from exc
-
-
-def _optional_int(
-    params: Mapping[str, Any],
-    key: str,
-    *,
-    default: int,
-    minimum: int,
-    maximum: int,
-) -> int:
-    value = params.get(key, default)
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise EngineError(
-            f"{key} must be an integer.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": key},
-        )
-    if value < minimum or value > maximum:
-        raise EngineError(
-            f"{key} must be between {minimum} and {maximum}.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": key, "minimum": minimum, "maximum": maximum},
-        )
-    return value
-
-
-def _string_list(value: Any, key: str) -> tuple[str, ...]:
-    if value is None:
-        return ()
-    if not isinstance(value, (list, tuple)):
-        raise EngineError(
-            f"{key} must be an array of strings.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": key},
-        )
-    result: list[str] = []
-    for item in value:
-        if not isinstance(item, str) or not item.strip():
-            raise EngineError(
-                f"{key} must contain only non-empty strings.",
-                code="MARDAS-INVALID-PARAMS",
-                details={"parameter": key},
-            )
-        result.append(_request_string_value(item, key))
-    return tuple(result)
-
-
-def _request_string_value(value: str, key: str) -> str:
-    try:
-        value.encode("utf-8")
-    except UnicodeEncodeError as exc:
-        raise EngineError(
-            f"{key} must contain valid UTF-8 text.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": key},
-        ) from exc
-    if "\x00" in value:
-        raise EngineError(
-            f"{key} cannot contain NUL characters.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": key},
-        )
-    return value.strip()
-
-
-def _required_string(params: Mapping[str, Any], key: str) -> str:
-    value = params.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise EngineError(
-            f"{key} must be a non-empty string.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": key},
-        )
-    return _request_string_value(value, key)
-
-
-def _required_content(params: Mapping[str, Any]) -> str:
-    value = params.get("content")
-    if not isinstance(value, str):
-        raise EngineError(
-            "content must be a string.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": "content"},
-        )
-    return value
-
-
-def _optional_string(params: Mapping[str, Any], key: str) -> str | None:
-    value = params.get(key)
-    if value is None:
-        return None
-    if not isinstance(value, str) or not value.strip():
-        raise EngineError(
-            f"{key} must be a non-empty string when supplied.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": key},
-        )
-    return _request_string_value(value, key)
-
-
-def _mapping(value: Any, key: str) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
-        raise EngineError(
-            f"{key} must be an object.",
-            code="MARDAS-INVALID-PARAMS",
-            details={"parameter": key},
-        )
-    return value

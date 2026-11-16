@@ -9,7 +9,7 @@ from threading import Event
 
 import pytest
 
-from mardas_folio import application, config, markdown, renderer, workspace
+from mardas_folio import document_assets, file_io, application, config, markdown, renderer, workspace
 
 
 def _book(tmp_path: Path) -> workspace.ProjectWorkspace:
@@ -179,7 +179,7 @@ def test_import_rejects_an_asset_that_grows_after_the_size_check(
                 writer.write(b"x" * 33)
         return original_open(path, mode, *args, **kwargs)
 
-    monkeypatch.setattr(application, "MAX_IMPORTED_ASSET_BYTES", 32)
+    monkeypatch.setattr(document_assets, "MAX_IMPORTED_ASSET_BYTES", 32)
     monkeypatch.setattr(Path, "open", grow_before_read)
     with pytest.raises(application.EngineError) as error:
         application.import_document_asset(tmp_path / "document.md", source)
@@ -385,8 +385,8 @@ def test_atomic_writers_never_change_the_process_umask(
 ) -> None:
     target = tmp_path / "output.txt"
     write = {
-        "document": lambda: application._atomic_write_text(target, "new content"),
-        "asset": lambda: application._atomic_write_bytes(target, b"new content"),
+        "document": lambda: file_io.atomic_write_text(target, "new content"),
+        "asset": lambda: file_io.atomic_write_bytes(target, b"new content"),
         "project": lambda: workspace._atomic_replace_text(target, "new content"),
         "renderer": lambda: renderer._atomic_write_text(target, "new content"),
     }[writer]

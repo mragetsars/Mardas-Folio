@@ -68,11 +68,17 @@ def audit_html(html: str) -> list[Finding]:
                 Finding("error", "A11Y-IMAGE-ALT", "Image is missing an alt attribute.", _element_name(image))
             )
 
+    explicit_labels = {
+        str(label["for"])
+        for label in soup.find_all("label", attrs={"for": True})
+        if label.get_text(" ", strip=True)
+    }
     for control in soup.find_all(["input", "select", "textarea"]):
         labelled = (
             control.get("aria-label")
             or control.get("aria-labelledby")
             or control.get("title")
+            or control.get("id") in explicit_labels
             or control.find_parent("label") is not None
         )
         if not labelled:

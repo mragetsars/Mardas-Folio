@@ -6,7 +6,7 @@ from threading import Barrier
 
 import pytest
 
-from mardas_folio import application, workspace
+from mardas_folio import application, document_store, workspace
 
 
 def test_document_read_revision_describes_the_returned_content(
@@ -14,19 +14,19 @@ def test_document_read_revision_describes_the_returned_content(
 ) -> None:
     path = tmp_path / "report.md"
     path.write_text("# Original\n", encoding="utf-8")
-    read_snapshot = application._document_snapshot
+    read_snapshot = document_store._document_snapshot
 
     def replace_after_snapshot(source: Path):
         snapshot = read_snapshot(source)
         source.write_text("# External edit\n", encoding="utf-8")
         return snapshot
 
-    monkeypatch.setattr(application, "_document_snapshot", replace_after_snapshot)
+    monkeypatch.setattr(document_store, "_document_snapshot", replace_after_snapshot)
     opened = application.read_document(path)
-    monkeypatch.setattr(application, "_document_snapshot", read_snapshot)
+    monkeypatch.setattr(document_store, "_document_snapshot", read_snapshot)
 
     assert opened["content"] == "# Original\n"
-    assert opened["revision"] != application._document_revision(path)
+    assert opened["revision"] != document_store._document_revision(path)
     with pytest.raises(application.EngineError) as error:
         application.save_document(path, "# Editor\n", expected_revision=opened["revision"])
     assert error.value.code == "MARDAS-DOCUMENT-CONFLICT"

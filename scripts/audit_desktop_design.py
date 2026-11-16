@@ -42,6 +42,7 @@ from audit_desktop_ui import (
     open_template,
     open_workspace_export,
     run_workspace_command,
+    select_settings_section,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -343,6 +344,7 @@ def _apply(page: Any, theme: str, locale: str) -> None:
     page.wait_for_timeout(200)
     page.locator("#setting-theme").select_option(theme)
     if locale != "en":
+        select_settings_section(page, "language")
         page.locator("#setting-locale").select_option(locale)
     page.locator("#settings-form button[type='submit']").click()
     page.wait_for_timeout(400)
@@ -453,12 +455,13 @@ def contrast(dist: Path) -> dict[str, Any]:
             open_workspace_export(page, None)
             page.wait_for_timeout(300)
             surfaces["export"] = page.evaluate(CONTRAST_JS)
+            page.locator("#export-open-settings").click()
             page.locator("label:has(#show-expert)").click()
-            groups = page.locator(".option-rail-item").evaluate_all(
-                "items => items.map(item => item.dataset.group)"
+            groups = page.locator("#option-category option").evaluate_all(
+                "items => items.map(item => item.value)"
             )
             for group in groups:
-                page.locator(f'.option-rail-item[data-group="{group}"]').click()
+                page.locator("#option-category").select_option(group)
                 surfaces[f"export {group}"] = page.evaluate(CONTRAST_JS)
             page.locator("#export-back").click()
             run_workspace_command(page, "book")
@@ -598,18 +601,18 @@ FOCUS_REACHABILITY_JS = """controls => {
 
 def _export_reachability(page: Any) -> list[str]:
     problems: list[str] = []
+    page.locator("#export-open-settings").click()
     page.locator("label:has(#show-expert)").click()
-    groups = page.locator(".option-rail-item").evaluate_all(
-        "items => items.map(item => item.dataset.group)"
+    groups = page.locator("#option-category option").evaluate_all(
+        "items => items.map(item => item.value)"
     )
     for group in groups:
-        tab = page.locator(f'.option-rail-item[data-group="{group}"]')
-        tab.evaluate("node => node.scrollIntoView({block: 'center'})")
-        tab.click()
+        page.locator("#option-category").select_option(group)
         problems.extend(f"{group}: {problem}" for problem in page.locator(
             "#option-pane input, #option-pane select, #option-pane button"
         ).evaluate_all(FOCUS_REACHABILITY_JS))
-    problems.extend(page.locator("#choose-source, #choose-output, #output-path")
+    page.locator("#export-close-settings").click()
+    problems.extend(page.locator("#choose-source, #export-preset, #export-open-settings")
                     .evaluate_all(FOCUS_REACHABILITY_JS))
     return problems
 

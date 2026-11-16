@@ -22,7 +22,7 @@ from .book import (
 )
 from .config import CONFIG_FILENAME, LoadedProjectConfig, default_config_text, load_project_config, tomllib
 from .diagnostics import Diagnostic, has_errors
-from .file_io import FILE_WRITE_LOCK, open_atomic_output, serialized_file_write
+from .file_io import atomic_write_text, sync_directory, FILE_WRITE_LOCK, serialized_file_write
 from .project_commands import project_config_diagnostics, validate_book_project
 from .markdown import embed_local_images, render_markdown
 from .renderer import CancellationCallback, PdfOptions, RenderCancelledError, RenderSession, build_html
@@ -368,17 +368,7 @@ def _write_workspace_file_locked(
                 status=409,
             )
         os.replace(temporary, path)
-        try:
-            directory_fd = os.open(path.parent, os.O_RDONLY)
-        except (AttributeError, OSError):
-            directory_fd = None
-        if directory_fd is not None:
-            try:
-                os.fsync(directory_fd)
-            except OSError:
-                pass
-            finally:
-                os.close(directory_fd)
+        sync_directory(path.parent)
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
@@ -402,31 +392,8 @@ def _atomic_replace_text(
 ) -> None:
     """Replace one UTF-8 text file atomically and fsync the containing directory."""
 
-    path = path.expanduser().resolve(strict=False)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = open_atomic_output(path, mode=mode)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
-        if before_replace is not None:
-            before_replace()
-        os.replace(temporary, path)
-        try:
-            directory_fd = os.open(path.parent, os.O_RDONLY)
-        except (AttributeError, OSError):
-            directory_fd = None
-        if directory_fd is not None:
-            try:
-                os.fsync(directory_fd)
-            except OSError:
-                pass
-            finally:
-                os.close(directory_fd)
-    except Exception:
-        temporary.unlink(missing_ok=True)
-        raise
+    atomic_write_text(path, content, mode=mode, before_replace=before_replace)
+
 
 
 def _config_sha256(workspace: ProjectWorkspace) -> str:

@@ -1,0 +1,242 @@
+/* Geist neutrals and status colors: https://vercel.com/geist/colors
+   Interface accents use the palette from the 2.1.0 Windows trial. */
+@font-face {
+  font-family: "Geist";
+  src: url("../assets/fonts/Geist/Geist-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../assets/fonts/Geist/GeistMono-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --geist-foreground: #000000;
+  --geist-background: #ffffff;
+  --geist-background-100: #ffffff;
+  --geist-background-200: #fafafa;
+  --geist-gray-100: #f2f2f2;
+  --geist-gray-200: #ebebeb;
+  --geist-gray-300: #e6e6e6;
+  --geist-gray-400: #ebebeb;
+  --geist-gray-500: #c9c9c9;
+  --geist-gray-900: #4d4d4d;
+  --geist-gray-1000: #171717;
+  --geist-blue-900: #0064e2;
+  --geist-red-100: #ffeef0;
+  --geist-red-900: #d60020;
+  --geist-amber-900: #a64f00;
+  --geist-green-900: #107d32;
+  --geist-purple-900: #7c00c9;
+
+  --ui-bg: var(--geist-background);
+  --ui-panel: var(--geist-background-100);
+  --ui-panel-soft: var(--geist-background-200);
+  --ui-panel-muted: var(--geist-gray-100);
+  --ui-panel-active: var(--geist-gray-200);
+  --ui-surface-floating: var(--ui-panel);
+  --ui-border: var(--geist-gray-400);
+  --ui-border-strong: var(--geist-gray-500);
+  --ui-text: var(--geist-gray-1000);
+  --ui-text-soft: color-mix(in srgb, var(--ui-text) 40%, var(--ui-muted));
+  --ui-muted: var(--geist-gray-900);
+  --ui-page: var(--geist-background);
+  --ui-desk: var(--geist-background-200);
+  --ui-scrollbar-thumb: color-mix(in srgb, var(--ui-muted) 35%, transparent);
+  --ui-overlay: rgb(0 0 0 / .42);
+  --ui-shadow: 0 2px 8px rgb(0 0 0 / .025);
+  --ui-shadow-float: 0 16px 48px rgb(0 0 0 / .15), 0 2px 8px rgb(0 0 0 / .06);
+
+  --ui-control-hover: var(--ui-panel-muted);
+  --ui-surface-navigation: var(--ui-panel-soft);
+  --ui-accent-monochrome: var(--geist-foreground);
+  --ui-accent-gray: #525252;
+  --ui-accent-blue: #006efe;
+  --ui-accent-red: #cf2f36;
+  --ui-accent-amber: #8a5300;
+  --ui-accent-green: #18703a;
+  --ui-accent-teal: #0b7268;
+  --ui-accent-purple: #7e3ab8;
+  --ui-accent-pink: #a20d71;
+  --ui-selected-bg: var(--geist-gray-300);
+  --ui-selected-text: var(--ui-text);
+  --ui-primary-bg: var(--ui-accent-monochrome);
+  --ui-primary-text: var(--geist-background);
+  --ui-primary-hover: var(--ui-text);
+  --ui-accent: var(--geist-foreground);
+  --ui-accent-hover: var(--ui-text-soft);
+  --ui-accent-line: var(--ui-primary-bg);
+  --ui-accent-wash: var(--ui-panel-muted);
+  --ui-focus-ring: 2px solid var(--ui-accent);
+  --ui-focus-halo: color-mix(in srgb, var(--ui-accent) 20%, transparent);
+
+  --ui-danger: var(--geist-red-900);
+  --ui-danger-surface: var(--geist-red-100);
+  --ui-on-danger: var(--ui-bg);
+  --ui-warning: var(--geist-amber-900);
+  --ui-success: var(--geist-green-900);
+  --ui-info: var(--geist-blue-900);
+  --ui-special: var(--geist-purple-900);
+
+  --app-font: "Geist", "Segoe UI Variable", "Segoe UI", "Vazirmatn", "Noto Sans Arabic", system-ui, sans-serif;
+  --prose-font: "Geist", "Vazirmatn", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
+  --app-mono: "Geist Mono", ui-monospace, "Cascadia Mono", "SFMono-Regular", "JetBrains Mono",
+    Menlo, Consolas, "Vazirmatn", "Noto Sans Arabic", monospace;
+  --ui-text-3xs: 10px;
+  --ui-text-2xs: 11px;
+  --ui-text-xs: 12px;
+  --ui-text-sm: 13px;
+  --ui-text-md: 14px;
+  --ui-text-base: 15px;
+  --ui-text-lg: 16px;
+  --ui-text-xl: 18px;
+  --ui-text-2xl: 24px;
+  --ui-text-3xl: 32px;
+  --ui-radius-xs: 4px;
+  --ui-radius-sm: 6px;
+  --ui-radius: 8px;
+  --ui-radius-lg: 12px;
+  --ui-radius-xl: 16px;
+  --ui-radius-pill: 999px;
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+  --ui-space-10: 40px;
+  --ui-space-12: 48px;
+  --control-h: 32px;
+  --control-h-sm: 28px;
+  --ui-bar-title: 48px;
+  --ui-bar-action: 48px;
+  --ui-bar-pane: 40px;
+
+  /* Syntax colors are independent of the interface accent. */
+  --cm-text: var(--ui-text);
+  --cm-strong: var(--geist-foreground);
+  --cm-emphasis: var(--ui-text);
+  --cm-mark: var(--ui-muted);
+  --cm-meta: var(--ui-muted);
+  --cm-comment: var(--ui-muted);
+  --cm-heading: var(--ui-text);
+  --cm-list: var(--ui-muted);
+  --cm-link: var(--ui-accent);
+  --cm-url: var(--ui-muted);
+  --cm-quote: var(--ui-text-soft);
+  --cm-code: #9a3412;
+  --cm-number: #6d28d9;
+  --cm-string: #15803d;
+  --cm-key: #a16207;
+  --cm-function: #1d4ed8;
+  --cm-keyword: #6d28d9;
+  --cm-type: #0f766e;
+  --cm-variable: var(--ui-text);
+  --cm-invalid: var(--ui-danger);
+  --cm-cursor: var(--ui-accent);
+  --cm-selection: color-mix(in srgb, var(--geist-foreground) 21%, transparent);
+  --cm-selection-inactive: color-mix(in srgb, var(--geist-foreground) 12%, transparent);
+  --cm-selection-match: color-mix(in srgb, var(--geist-foreground) 10%, transparent);
+  --cm-active-line: var(--ui-panel-soft);
+  --cm-gutter-text: var(--ui-muted);
+  --cm-gutter-active: var(--ui-text);
+  --cm-gutter-border: transparent;
+  --cm-search: var(--cm-selection-inactive);
+  --cm-search-border: var(--ui-accent);
+  --cm-search-active: var(--cm-selection);
+  --cm-panel: var(--ui-surface-floating);
+  --cm-panel-border: var(--ui-border);
+  --cm-panel-shadow: var(--ui-shadow-float);
+  --cm-accent-soft: var(--ui-selected-bg);
+  --cm-warning: var(--ui-warning);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --geist-foreground: #ffffff;
+  --geist-background: #000000;
+  --geist-background-100: #0a0a0a;
+  --geist-background-200: #000000;
+  --geist-gray-100: #1a1a1a;
+  --geist-gray-200: #1f1f1f;
+  --geist-gray-300: #292929;
+  --geist-gray-400: #2e2e2e;
+  --geist-gray-500: #454545;
+  --geist-gray-900: #a1a1a1;
+  --geist-gray-1000: #ededed;
+  --geist-blue-900: #50a8ff;
+  --geist-red-100: #330a11;
+  --geist-red-900: #ff5e63;
+  --geist-amber-900: #ff9900;
+  --geist-green-900: #00ca52;
+  --geist-purple-900: #c472fb;
+
+  --ui-panel-soft: var(--geist-background-100);
+  --ui-surface-floating: var(--geist-gray-100);
+  --ui-desk: var(--geist-background-100);
+  --ui-scrollbar-thumb: color-mix(in srgb, var(--ui-muted) 25%, transparent);
+  --ui-overlay: rgb(0 0 0 / .62);
+  --ui-shadow: 0 2px 8px rgb(0 0 0 / .08);
+  --ui-shadow-float: 0 12px 36px rgb(0 0 0 / .45);
+
+  --cm-code: #fdba74;
+  --cm-number: #c4b5fd;
+  --cm-string: #86efac;
+  --cm-key: #fbbf24;
+  --cm-function: #93c5fd;
+  --cm-keyword: #c4b5fd;
+  --cm-type: #5eead4;
+}
+
+/* Keep button fills consistent across themes and adapt ink and selection to the surface. */
+:root[data-accent]:where(:not([data-accent="monochrome"])) {
+  --ui-primary-text: #ffffff;
+  --ui-primary-hover: color-mix(in srgb, var(--ui-primary-bg) 88%, black);
+  --ui-accent: var(--ui-primary-bg);
+  --ui-accent-hover: var(--ui-primary-hover);
+  --ui-accent-wash: color-mix(in srgb, var(--ui-primary-bg) 7%, transparent);
+  --ui-selected-bg: color-mix(in srgb, var(--ui-primary-bg) 8%, white);
+  --ui-selected-text: var(--ui-accent);
+  --ui-focus-halo: color-mix(in srgb, var(--ui-primary-bg) 15%, transparent);
+  --cm-selection: color-mix(in srgb, var(--ui-primary-bg) 28%, transparent);
+  --cm-selection-inactive: color-mix(in srgb, var(--ui-primary-bg) 16%, transparent);
+  --cm-search: color-mix(in srgb, var(--ui-primary-bg) 20%, transparent);
+  --cm-search-border: color-mix(in srgb, var(--ui-accent) 55%, transparent);
+  --cm-search-active: color-mix(in srgb, var(--ui-primary-bg) 34%, transparent);
+}
+
+:root[data-theme="dark"][data-accent]:where(:not([data-accent="monochrome"])) {
+  --ui-accent: color-mix(in srgb, var(--ui-primary-bg) 60%, white);
+  --ui-accent-hover: color-mix(in srgb, var(--ui-primary-bg) 40%, white);
+  --ui-accent-line: var(--ui-accent);
+  --ui-selected-bg: color-mix(in srgb, var(--ui-primary-bg) 20%, black);
+}
+
+:root[data-accent="gray"] { --ui-primary-bg: var(--ui-accent-gray); }
+:root[data-accent="red"] { --ui-primary-bg: var(--ui-accent-red); }
+:root[data-accent="amber"] { --ui-primary-bg: var(--ui-accent-amber); }
+:root[data-accent="green"] { --ui-primary-bg: var(--ui-accent-green); }
+:root[data-accent="teal"] { --ui-primary-bg: var(--ui-accent-teal); }
+:root[data-accent="purple"] { --ui-primary-bg: var(--ui-accent-purple); }
+:root[data-accent="pink"] { --ui-primary-bg: var(--ui-accent-pink); }
+:root[data-accent="blue"] {
+  --ui-primary-bg: var(--ui-accent-blue);
+  --ui-primary-hover: #0066e7;
+  --ui-accent: #005cc9;
+  --ui-accent-hover: #004cad;
+  --ui-selected-bg: #edf5ff;
+}
+
+:root[data-theme="dark"][data-accent="blue"] {
+  --ui-accent: #5ba2fe;
+  --ui-accent-hover: #80b8ff;
+  --ui-selected-bg: #112540;
+}

@@ -4,7 +4,7 @@ export const PREFERENCES_STORAGE_KEY = "mardas.desktop.preferences.v1";
 
 export const DEFAULT_PREFERENCES = Object.freeze({
   theme: "system",
-  accent: "blue",
+  accent: "monochrome",
   contentScale: "comfortable",
   writingWidth: "full",
   documentZoom: 100,
@@ -27,7 +27,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
 });
 
 const THEMES = new Set(["system", "light", "dark"]);
-const ACCENTS = new Set(["gray", "blue", "red", "amber", "green", "teal", "purple", "pink"]);
+const ACCENTS = new Set(["monochrome", "gray", "blue", "red", "amber", "green", "teal", "purple", "pink"]);
 const SCALES = new Set(["comfortable", "large", "extra-large"]);
 const WRITING_WIDTHS = new Set(["full", "readable", "wide"]);
 const WRITING_DENSITIES = { compact: [1.5, 4], comfortable: [1.65, 8], relaxed: [1.85, 14] };

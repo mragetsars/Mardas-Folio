@@ -1,0 +1,237 @@
+/* Shared controls and surfaces. Feature styles supply placement and width. */
+button, input, select, textarea { font: inherit; }
+
+:where(button, input, select, textarea, a[href], summary, [tabindex]):focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: 2px;
+}
+
+.button,
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-text);
+  font-size: var(--ui-text-md);
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.button.primary {
+  background: var(--ui-primary-bg);
+  color: var(--ui-primary-text);
+}
+.button.primary:hover:not(:disabled) { background: var(--ui-primary-hover); }
+
+.button.secondary,
+.button.glass {
+  border-color: var(--ui-border);
+  background: var(--ui-panel);
+  color: var(--ui-text-soft);
+}
+.button.secondary:hover:not(:disabled),
+.button.glass:hover:not(:disabled) {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-control-hover);
+  color: var(--ui-text);
+}
+
+.button.danger {
+  border-color: var(--ui-border);
+  background: var(--ui-panel);
+  color: var(--ui-danger);
+}
+.button.danger:hover:not(:disabled) { background: var(--ui-danger-surface); }
+
+.button.compact,
+.text-button {
+  min-height: var(--control-h-sm);
+  padding-inline: 10px;
+  font-size: var(--ui-text-xs);
+}
+.text-button { padding-inline: 8px; color: var(--ui-accent); }
+.text-button:hover:not(:disabled) { color: var(--ui-accent-hover); text-decoration: underline; }
+.button:disabled,
+.text-button:disabled { opacity: .55; cursor: default; }
+.button.primary:disabled {
+  border-color: var(--ui-border);
+  background: var(--ui-panel-muted);
+  color: var(--ui-muted);
+  opacity: 1;
+}
+.button .ui-icon { flex: none; }
+
+.icon-button,
+.toolbar-icon-button {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--control-h);
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-text-soft);
+  cursor: pointer;
+}
+
+/* Commands also appear inside menus outside the workbench DOM. */
+:root body :is(.icon-button, .toolbar-icon-button),
+:root body :is(.document-toolbar, .workspace-view-menu) :is(.view-mode, .document-view-controls button),
+:root body :is(#format-bar, #format-overflow-menu) button {
+  border-radius: var(--ui-radius-sm);
+  border-color: transparent;
+  background: transparent;
+  color: var(--ui-text-soft);
+}
+:root body :is(.icon-button, .toolbar-icon-button, .document-toolbar .view-mode, .workspace-view-menu .view-mode,
+  .document-view-controls button, #format-bar button, #format-overflow-menu button):hover:not(
+    :disabled, [aria-pressed="true"], [aria-checked="true"], [aria-expanded="true"]
+  ) {
+  background: var(--ui-control-hover);
+  color: var(--ui-text);
+}
+:root body :is(.icon-button, .toolbar-icon-button, .document-toolbar .view-mode, .workspace-view-menu .view-mode,
+  .document-view-controls button, #format-bar button, #format-overflow-menu button):is(
+    [aria-pressed="true"], [aria-checked="true"], [aria-expanded="true"]
+  ) {
+  background: var(--ui-selected-bg);
+  color: var(--ui-selected-text);
+}
+:root body :is(.icon-button, .toolbar-icon-button, .document-toolbar .view-mode, .workspace-view-menu .view-mode,
+  .document-view-controls button, #format-bar button, #format-overflow-menu button):focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: -2px;
+}
+:root body :is(.icon-button, .toolbar-icon-button, .document-toolbar .view-mode, .workspace-view-menu .view-mode,
+  .document-view-controls button, #format-bar button, #format-overflow-menu button):disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: var(--control-h);
+  padding: 0 9px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  font-size: var(--ui-text-sm);
+}
+input::placeholder, textarea::placeholder { color: var(--ui-muted); opacity: 1; }
+input[readonly] { direction: ltr; text-align: start; color: var(--ui-text-soft); }
+
+.toggle {
+  position: relative;
+  display: flex !important;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 10px !important;
+  width: max-content;
+  min-height: 24px;
+  cursor: pointer;
+}
+.compact-toggle { gap: 7px !important; }
+.toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.toggle i {
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 22px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-pill);
+  background: var(--ui-panel-muted);
+}
+.toggle i::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-start: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ui-muted);
+  transition: transform 120ms ease;
+}
+.toggle input:checked + i { background: var(--ui-primary-bg); border-color: var(--ui-primary-bg); }
+.toggle input:checked + i::after { background: var(--ui-primary-text); transform: translateX(16px); }
+html[dir="rtl"] .toggle input:checked + i::after { transform: translateX(-16px); }
+.toggle input:focus-visible + i { outline: var(--ui-focus-ring); outline-offset: 3px; }
+.toggle:has(input:disabled) { opacity: .55; cursor: default; }
+
+.panel,
+.template-section {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-panel);
+  box-shadow: var(--ui-shadow);
+}
+
+.modal {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--ui-overlay);
+  backdrop-filter: blur(4px);
+}
+.modal-card {
+  width: min(440px, 100%);
+  max-height: min(760px, calc(100dvh - 48px));
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-xl);
+  color: var(--ui-text);
+  box-shadow: var(--ui-shadow-float);
+}
+.modal-card h2 { margin: 0 0 10px; }
+.modal-card p { color: var(--ui-muted); line-height: 1.7; }
+.modal-card small { color: var(--ui-muted); }
+.modal-card label { color: var(--ui-text-soft); }
+.modal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.modal-heading h2 { font-size: var(--ui-text-2xl); font-weight: 650; }
+.modal-heading h2, .modal-heading p { margin: 0; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 18px; }
+
+:root body :is(.popover-menu, .context-menu, .modal-card, .command-card) {
+  background: var(--ui-surface-floating);
+  --ui-control-hover: var(--ui-panel-active);
+}
+:root body :is(.context-menu-item, .heading-choice, .insert-choice):hover:not(:disabled) {
+  background: var(--ui-control-hover);
+}
+
+@media (max-width: 720px) {
+  .button.compact { padding-inline: 9px; }
+  .modal-card { padding: 20px; }
+}

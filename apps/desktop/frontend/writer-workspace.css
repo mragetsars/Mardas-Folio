@@ -4,7 +4,7 @@ body[data-view="workspace"] .editor-pane { container-type: inline-size; containe
 body[data-view="workspace"] .file-navigator { grid-template-rows: 40px 38px minmax(0, 1fr) auto; }
 .navigator-tabs { display: flex; gap: 4px; padding: 4px 8px; border-bottom: 1px solid var(--ui-border); }
 .navigator-tabs button { flex: 1; min-height: 28px; padding: 3px 12px; border: 0; border-radius: var(--ui-radius-pill); background: transparent; color: var(--ui-muted); font: 550 var(--ui-text-xs)/1.4 var(--app-font); cursor: pointer; }
-.navigator-tabs button[aria-selected="true"] { color: var(--ui-accent); background: var(--ui-accent-soft); }
+.navigator-tabs button[aria-selected="true"] { color: var(--ui-selected-text); background: var(--ui-selected-bg); }
 .navigator-tabs button:disabled { opacity: .45; cursor: default; }
 .navigator-content, .navigator-outline-panel { grid-row: 3; min-height: 0; }
 .navigator-outline-panel { display: flex; flex-direction: column; overflow: hidden; }
@@ -19,7 +19,7 @@ body[data-view="workspace"] .file-navigator { grid-template-rows: 40px 38px minm
 .file-navigator .navigator-footer { grid-row: 4; }
 .document-toolbar .format-bar { display: none; min-width: 0; min-height: 32px; max-width: 100%; padding: 0; border: 0; background: transparent; }
 body[data-view="workspace"] .workspace-view[data-formatting-open="true"] .document-toolbar .format-bar { display: flex; }
-.format-bar button[aria-pressed="true"], .format-overflow-menu button[aria-pressed="true"] { color: var(--ui-accent); background: var(--ui-accent-soft); }
+.format-bar button[aria-pressed="true"], .format-overflow-menu button[aria-pressed="true"] { color: var(--ui-selected-text); background: var(--ui-selected-bg); }
 .writing-appearance { width: 300px; max-width: calc(100vw - 16px); max-height: calc(100vh - 160px); padding: 16px; overflow: auto; }
 .writing-appearance header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .writing-appearance label { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; margin: 12px 0; color: var(--ui-text-soft); font-size: var(--ui-text-sm); }

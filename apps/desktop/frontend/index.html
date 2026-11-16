@@ -7,6 +7,8 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost; object-src 'none'; base-uri 'none'">
   <title>Mardas Folio</title>
   <link rel="icon" href="./assets/app-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./design/tokens.css">
+  <link rel="stylesheet" href="./design/components.css">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./workspace.css">
   <link rel="stylesheet" href="./authoring.css">
@@ -20,6 +22,7 @@
   <link rel="stylesheet" href="./property-panels.css">
   <link rel="stylesheet" href="./bidi-layout.css">
   <link rel="stylesheet" href="./export-workflow.css">
+  <link rel="stylesheet" href="./settings.css">
 </head>
 <body data-view="workspace">
 <a class="skip-link" href="#app-main" data-i18n="skipToContent">رفتن به محتوای اصلی</a>
@@ -47,6 +50,7 @@
   <symbol id="icon-pencil" viewBox="0 0 24 24"><path d="m4.8 19.2.8-3.6 9.8-9.8a2 2 0 0 1 2.8 0l.8.8a2 2 0 0 1 0 2.8l-9.8 9.8z"/><path d="m13.6 7.2 3.2 3.2"/></symbol>
   <symbol id="icon-command" viewBox="0 0 24 24"><path d="M9.6 9.6h4.8v4.8H9.6z"/><path d="M9.6 9.6V7.4a2.2 2.2 0 1 0-2.2 2.2zM14.4 9.6h2.2a2.2 2.2 0 1 0-2.2-2.2zM14.4 14.4v2.2a2.2 2.2 0 1 0 2.2-2.2zM9.6 14.4H7.4a2.2 2.2 0 1 0 2.2 2.2z"/></symbol>
   <symbol id="icon-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.8.7-.8 1.3v.4"/><path d="M12 16.6v.1"/></symbol>
+  <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M12 8v.1M12 11.4v4.6"/></symbol>
   <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M4.6 7.6h9.3M18.1 7.6h1.3M4.6 16.4h1.3M10.1 16.4h9.3"/><circle cx="16" cy="7.6" r="2.1"/><circle cx="8" cy="16.4" r="2.1"/></symbol>
   <symbol id="icon-chevron-down" viewBox="0 0 24 24"><path d="m7.2 9.8 4.8 4.8 4.8-4.8"/></symbol>
   <symbol id="icon-chevron-up" viewBox="0 0 24 24"><path d="m7.2 14.2 4.8-4.8 4.8 4.8"/></symbol>
@@ -137,82 +141,158 @@
   </header>
 
   <main id="app-main" tabindex="-1">
-    <section class="view" id="export-view">
-      <div class="workspace-heading"><button class="back" id="export-back" type="button" data-i18n-title="back" title="قبلی" data-i18n-aria-label="back" aria-label="قبلی"><svg class="ui-icon ui-icon-directional" aria-hidden="true"><use href="#icon-chevron-left"></use></svg></button><div><p class="eyebrow" data-i18n="commandExport">خروجی</p><h1 data-i18n="exportTitle">خروجی PDF</h1></div></div>
-      <div class="export-content" id="export-content">
-      <div class="export-layout">
-        <form class="panel form-panel" id="export-form" novalidate>
-          <section class="step"><header><span>1</span><div><h2 data-i18n="sourceFile">فایل مبدأ</h2><p data-i18n="sourceFileHelp">فایل Markdown را از سیستم انتخاب کن.</p></div></header><div class="path-row"><input id="source-path" readonly data-i18n-aria-label="sourceFile" aria-label="فایل مبدأ" placeholder="report.md"><button class="button secondary compact" id="choose-source" type="button" data-i18n="browse" data-i18n-aria-label="chooseExportSource" aria-label="انتخاب فایل مبدأ">انتخاب</button></div></section>
-          <section class="step"><header><span>2</span><div><h2 id="preset-grid-title" data-i18n="documentPreset">نوع خروجی</h2><p data-i18n="documentPresetHelp">یک preset انتخاب کن؛ جزئیات مناسب خودکار تنظیم می‌شوند.</p></div></header><div class="preset-grid" id="preset-grid" role="radiogroup" aria-labelledby="preset-grid-title"></div></section>
-          <section class="step step-settings"><header><span>3</span><div><h2 data-i18n="documentSettings">تنظیمات سند</h2><p data-i18n="documentSettingsHelp">هر گزینه یک‌بار و در یک جا. خالی‌گذاشتن یعنی از preset، mardas.toml یا مقدار پیش‌فرض ارث ببرد.</p></div></header>
-            <p class="settings-scope-note" data-i18n="exportSettingsScope">این انتخاب‌ها برای همین خروجی PDF هستند و فایل Markdown را تغییر نمی‌دهند.</p>
-            <div class="settings-toolbar">
-              <label class="option-search"><span class="sr-only" id="option-search-label" data-i18n="searchOptions">جست‌وجوی تنظیمات خروجی</span><input id="option-search" type="search" autocomplete="off" data-i18n-placeholder="searchOptions" placeholder="جست‌وجوی تنظیمات خروجی"></label>
-              <label class="toggle compact-toggle expert-toggle"><input id="show-expert" type="checkbox"><i></i><span data-i18n="showExpert">گزینه‌های پیشرفته</span></label>
-              <button class="text-button" id="reset-advanced" type="button" data-i18n="resetAdvanced">بازنشانی</button>
-            </div>
-            <div class="settings-browser">
-              <nav class="option-rail" id="option-rail" role="tablist" aria-orientation="vertical" data-i18n-aria-label="settingsCategories" aria-label="دسته‌های تنظیمات"></nav>
-              <div class="option-pane" id="option-pane" role="tabpanel" tabindex="0"></div>
-            </div>
-          </section>
-        </form>
-        <div class="export-side">
-        <aside class="panel export-preview-panel" id="export-preview-panel" aria-labelledby="export-preview-title">
-          <header class="export-preview-head">
-            <strong id="export-preview-title" data-i18n="exportPreview">پیش‌نمایش خروجی</strong>
-            <span id="export-preview-state" class="export-preview-state" role="status" aria-live="polite"></span>
-          </header>
-          <div class="export-preview-toolbar" role="toolbar" data-i18n-aria-label="previewControls" aria-label="کنترل‌های پیش‌نمایش">
-            <button type="button" class="preview-tool" id="preview-zoom-out" data-i18n-title="zoomOut" title="کوچک‌نمایی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-zoom-out"></use></svg></button>
-            <span class="preview-zoom-level" id="preview-zoom-level">100%</span>
-            <button type="button" class="preview-tool" id="preview-zoom-in" data-i18n-title="zoomIn" title="بزرگ‌نمایی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-zoom-in"></use></svg></button>
-            <span class="preview-tool-divider" aria-hidden="true"></span>
-            <button type="button" class="preview-tool" id="preview-fit-width" aria-pressed="true" data-i18n-title="fitWidth" title="اندازه عرض"><svg class="ui-icon" aria-hidden="true"><use href="#icon-fit-width"></use></svg></button>
-            <button type="button" class="preview-tool" id="preview-fit-page" aria-pressed="false" data-i18n-title="fitPage" title="یک صفحه کامل"><svg class="ui-icon" aria-hidden="true"><use href="#icon-fit-page"></use></svg></button>
-            <span class="preview-tool-divider" aria-hidden="true"></span>
-            <button type="button" class="preview-tool" id="preview-guides" aria-pressed="false" data-i18n-title="showMargins" title="نمایش حاشیه‌ها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-margins"></use></svg></button>
-            <span class="preview-pager">
-              <button type="button" class="preview-tool" id="preview-prev-page" data-i18n-title="previousPage" title="صفحه قبل"><svg class="ui-icon ui-icon-directional" aria-hidden="true"><use href="#icon-chevron-left"></use></svg></button>
-              <span id="preview-page-count" class="preview-page-count">—</span><span id="preview-page-estimate" class="preview-page-count" data-i18n="approximate" hidden>تقریبی</span>
-              <button type="button" class="preview-tool" id="preview-next-page" data-i18n-title="nextPage" title="صفحه بعد"><svg class="ui-icon ui-icon-directional" aria-hidden="true"><use href="#icon-chevron-right"></use></svg></button>
-            </span>
-          </div>
-          <div class="export-preview-stage">
-            <div class="export-preview-page" id="export-preview" data-i18n-aria-label="exportPreview" aria-label="پیش‌نمایش خروجی"></div>
-            <div class="export-preview-empty" id="export-preview-empty" role="status" aria-labelledby="export-preview-empty-title" aria-describedby="export-preview-empty-help">
-              <span class="export-preview-empty-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-file"></use></svg></span>
-              <strong id="export-preview-empty-title" data-i18n="previewEmptyTitle">پیش‌نمایش سند</strong>
-              <p id="export-preview-empty-help" data-i18n="previewChooseSourceHelp">برای دیدن صفحه‌بندی PDF، از بخش «فایل مبدأ» یک سند Markdown انتخاب کن.</p>
-              <span class="export-preview-empty-step"><kbd>1</kbd><span data-i18n="sourceFile">فایل مبدأ</span></span>
-            </div>
-          </div>
-          <p class="export-preview-note hidden" id="export-preview-note"></p>
-        </aside>
-        <aside class="panel status-panel" aria-live="polite">
-          <div class="status-visual" id="status-visual" data-state="idle"><i></i><span id="status-symbol"><svg class="ui-icon" aria-hidden="true"><use href="#icon-check"></use></svg></span></div>
-          <p class="section-label" data-i18n="exportStatus">وضعیت خروجی</p><h2 id="status-title" data-i18n="readyTitle">آماده شروع</h2><p id="status-message" data-i18n="readyMessage">فایل را انتخاب کن و قبل از خروجی، بررسی سند را اجرا کن.</p>
-          <div class="progress hidden" id="progress-wrap"><div><i id="progress-bar"></i></div><span id="progress-label">0%</span></div>
-          <div class="diagnostics hidden" id="diagnostics"></div>
-          <div class="export-result hidden" id="export-result">
-            <span class="export-result-label" data-i18n="resultFile">فایل خروجی</span>
-            <strong id="export-result-name"></strong>
-            <small id="export-result-path"></small>
-            <div class="success-actions" id="success-actions"><button class="button primary compact" id="open-pdf" type="button" data-i18n="openPdf">باز کردن PDF</button><button class="button secondary compact" id="reveal-pdf" type="button" data-i18n="showInFolder">نمایش در پوشه</button></div>
-          </div>
-          <details class="summary-details">
-            <summary data-i18n="settingsSummary">خلاصهٔ تنظیمات</summary>
-            <div class="summary" id="preset-summary"></div>
-          </details>
-        </aside>
+    <section class="view" id="export-view" data-pane="setup" aria-labelledby="export-title">
+      <header class="export-heading">
+        <button class="button secondary compact export-back" id="export-back" type="button" data-i18n-title="exportBack" title="بازگشت به ویرایشگر"><svg class="ui-icon ui-icon-directional" aria-hidden="true"><use href="#icon-chevron-left"></use></svg></button>
+        <div class="export-heading-copy">
+          <h1 id="export-title" tabindex="-1" data-i18n="exportTitle">خروجی PDF</h1>
+          <p data-i18n="exportSubtitle">چیدمان سند را مرور کن و PDF را ذخیره کن.</p>
         </div>
+        <div class="export-format-mark" dir="ltr" aria-hidden="true">
+          <svg class="ui-icon"><use href="#icon-source"></use></svg><span>Markdown</span>
+          <svg class="ui-icon"><use href="#icon-chevron-right"></use></svg><strong>PDF</strong>
+        </div>
+        <div class="export-view-switch" role="group" data-i18n-aria-label="viewMode" aria-label="نما">
+          <button id="export-show-setup" type="button" data-export-pane="setup" aria-controls="export-setup-column" aria-pressed="true" data-i18n="exportSetupShort">آماده‌سازی</button>
+          <button id="export-show-preview" type="button" data-export-pane="preview" aria-controls="export-preview-panel" aria-pressed="false" data-i18n="preview">پیش‌نمایش</button>
+        </div>
+      </header>
+      <div class="export-content export-layout" id="export-content">
+        <div class="export-setup-column" id="export-setup-column">
+          <form class="export-inspector panel" id="export-form" novalidate aria-labelledby="export-inspector-title">
+            <fieldset id="export-inspector-controls" class="export-inspector-controls" aria-labelledby="export-inspector-title">
+            <header class="export-panel-head export-inspector-head">
+              <button class="preview-tool" id="export-close-settings" type="button" hidden data-i18n-title="exportBackToSetup" title="بازگشت به آماده‌سازی"><svg class="ui-icon ui-icon-directional" aria-hidden="true"><use href="#icon-chevron-left"></use></svg></button>
+              <h2 id="export-inspector-title" data-i18n="exportSetup">آماده‌سازی PDF</h2>
+            </header>
+            <div class="export-inspector-scroll" id="export-setup">
+              <div class="export-field">
+                <label for="source-path" data-i18n="sourceFile">فایل مبدأ</label>
+                <div class="export-file export-source" data-selected="false">
+                  <span class="export-file-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-source"></use></svg></span>
+                  <div class="export-file-copy">
+                    <strong class="export-file-placeholder" data-i18n="exportNoSource">فایل Markdown انتخاب نشده</strong>
+                    <strong class="export-file-name"><bdi id="export-source-name"></bdi></strong>
+                    <input class="export-file-path" id="source-path" readonly dir="ltr" aria-describedby="export-source-name">
+                  </div>
+                  <button class="button primary compact" id="choose-source" type="button" data-i18n="exportChooseFile">انتخاب فایل</button>
+                </div>
+              </div>
+              <div class="export-field">
+                <label for="export-preset" data-i18n="exportPreset">قالب خروجی</label>
+                <div class="export-select">
+                  <select id="export-preset" aria-describedby="export-preset-help"></select>
+                  <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
+                </div>
+                <p class="export-field-help" id="export-preset-help"></p>
+              </div>
+              <button class="export-settings-entry" id="export-open-settings" type="button" aria-controls="export-settings" aria-expanded="false">
+                <span class="export-file-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-settings"></use></svg></span>
+                <span class="export-settings-copy"><strong data-i18n="documentSettings">تنظیمات سند</strong><small data-i18n="exportCustomize">ظاهر، صفحه‌بندی، فهرست و گزینه‌های بیشتر</small></span>
+                <span class="export-change-count" id="export-change-count" hidden></span>
+                <svg class="ui-icon ui-icon-directional export-settings-chevron" aria-hidden="true"><use href="#icon-chevron-right"></use></svg>
+              </button>
+              <section class="export-summary" aria-labelledby="export-summary-title">
+                <h3 id="export-summary-title" data-i18n="settingsSummary">خلاصهٔ تنظیمات</h3>
+                <dl class="summary" id="preset-summary"></dl>
+              </section>
+            </div>
+            <div class="export-inspector-scroll" id="export-settings" hidden>
+              <p class="export-field-help export-settings-intro" data-i18n="exportSettingsScope">این انتخاب‌ها برای همین خروجی PDF هستند و فایل Markdown را تغییر نمی‌دهند.</p>
+              <div class="export-settings-filters">
+                <label class="export-search">
+                  <span class="sr-only" id="option-search-label" data-i18n="searchOptions">جست‌وجوی تنظیمات خروجی</span>
+                  <svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg>
+                  <input id="option-search" type="search" autocomplete="off" data-i18n-placeholder="searchOptions" placeholder="جست‌وجوی تنظیمات خروجی">
+                </label>
+                <div class="export-field">
+                  <label for="option-category" data-i18n="exportCategory">دستهٔ تنظیمات</label>
+                  <div class="export-select">
+                    <select id="option-category"></select>
+                    <svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
+                  </div>
+                </div>
+                <div class="export-settings-actions">
+                  <label class="toggle compact-toggle expert-toggle"><input id="show-expert" type="checkbox"><i></i><span data-i18n="showExpert">گزینه‌های پیشرفته</span></label>
+                  <button class="text-button" id="reset-advanced" type="button" data-i18n="exportResetAll">بازنشانی همه</button>
+                </div>
+              </div>
+              <div class="option-pane" id="option-pane" role="region" aria-labelledby="option-category-title"></div>
+            </div>
+            </fieldset>
+          </form>
+          <footer class="export-dock panel">
+            <div class="export-dock-main">
+              <div class="export-file export-destination" data-selected="false">
+                <span class="export-file-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-folder"></use></svg></span>
+                <div class="export-file-copy">
+                  <div class="export-destination-title"><label for="output-path" data-i18n="exportSaveTo">مقصد</label><strong class="export-file-name"><bdi id="export-output-name"></bdi></strong></div>
+                  <small class="export-file-placeholder" id="export-source-required" data-i18n="source_required">ابتدا یک فایل Markdown انتخاب کن.</small>
+                  <input class="export-file-path" id="output-path" readonly dir="ltr" aria-describedby="export-output-name">
+                </div>
+                <button class="button secondary compact" id="choose-output" type="button" disabled data-i18n="exportChange" data-i18n-aria-label="exportChangeOutput" aria-label="تغییر فایل خروجی">تغییر</button>
+              </div>
+              <div class="form-actions">
+                <button class="button secondary" id="validate-button" type="button" disabled data-i18n="checkDocument">بررسی سند</button>
+                <button class="button primary" id="export-button" type="submit" form="export-form" disabled><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg><span data-i18n="exportPdf">ساخت PDF</span></button>
+                <button class="button secondary" id="cancel-button" type="button" hidden data-i18n="cancel">لغو</button>
+              </div>
+            </div>
+            <div class="export-feedback" id="export-feedback" data-state="idle">
+              <div class="export-status" role="status" aria-atomic="true">
+                <span id="status-symbol" aria-hidden="true"></span>
+                <strong id="status-title"></strong><span id="status-message" dir="auto"></span>
+              </div>
+              <div class="export-feedback-actions">
+                <div id="progress-wrap" class="export-progress" hidden>
+                  <progress id="progress-bar" max="100" value="0" data-i18n-aria-label="exportStatus" aria-label="وضعیت خروجی"></progress><span id="progress-label" aria-hidden="true">0%</span>
+                </div>
+                <button class="button secondary compact" id="export-show-details" type="button" aria-haspopup="dialog" hidden data-i18n="exportViewDetails">دیدن جزئیات</button>
+                <div class="export-result-actions" id="export-result" hidden>
+                  <button class="button secondary compact" id="open-pdf" type="button" data-i18n="openPdf">باز کردن PDF</button>
+                  <button class="button secondary compact" id="reveal-pdf" type="button" data-i18n="showInFolder">نمایش در پوشه</button>
+                </div>
+              </div>
+            </div>
+          </footer>
+        </div>
+        <section class="export-preview-panel panel" id="export-preview-panel" aria-labelledby="export-preview-title">
+          <header class="export-panel-head export-preview-head">
+            <h2 id="export-preview-title" tabindex="-1"><svg class="ui-icon" aria-hidden="true"><use href="#icon-preview"></use></svg><span data-i18n="preview">پیش‌نمایش</span></h2>
+            <span id="export-preview-state" class="export-preview-state" role="status"></span>
+            <button class="text-button" id="export-preview-retry" type="button" hidden data-i18n="exportRetry">تلاش دوباره</button>
+            <div class="export-preview-toolbar" role="group" data-i18n-aria-label="previewControls" aria-label="کنترل‌های پیش‌نمایش">
+              <div class="export-preview-tools">
+                <button type="button" class="preview-tool" id="preview-zoom-out" disabled data-i18n-title="zoomOut" title="کوچک‌نمایی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-zoom-out"></use></svg></button>
+                <span class="preview-zoom-level" id="preview-zoom-level" dir="ltr">—</span>
+                <button type="button" class="preview-tool" id="preview-zoom-in" disabled data-i18n-title="zoomIn" title="بزرگ‌نمایی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-zoom-in"></use></svg></button>
+              </div>
+              <div class="export-preview-tools">
+                <button type="button" class="preview-tool" id="preview-fit-width" disabled aria-pressed="false" data-i18n-title="fitWidth" title="اندازه عرض"><svg class="ui-icon" aria-hidden="true"><use href="#icon-fit-width"></use></svg></button>
+                <button type="button" class="preview-tool" id="preview-fit-page" disabled aria-pressed="false" data-i18n-title="fitPage" title="یک صفحه کامل"><svg class="ui-icon" aria-hidden="true"><use href="#icon-fit-page"></use></svg></button>
+                <button type="button" class="preview-tool" id="preview-guides" disabled aria-pressed="false" data-i18n-title="showMargins" title="نمایش حاشیه‌ها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-margins"></use></svg></button>
+              </div>
+              <div class="export-preview-tools preview-pager">
+                <button type="button" class="preview-tool" id="preview-prev-page" disabled data-i18n-title="previousPage" title="صفحه قبل"><svg class="ui-icon ui-icon-directional" aria-hidden="true"><use href="#icon-chevron-left"></use></svg></button>
+                <span id="preview-page-count" class="preview-page-count" dir="ltr">—</span>
+                <button type="button" class="preview-tool" id="preview-next-page" disabled data-i18n-title="nextPage" title="صفحه بعد"><svg class="ui-icon ui-icon-directional" aria-hidden="true"><use href="#icon-chevron-right"></use></svg></button>
+              </div>
+            </div>
+          </header>
+          <div class="export-preview-stage">
+            <div class="export-preview-page" id="export-preview" data-i18n-aria-label="exportPreview" aria-label="پیش‌نمایش خروجی" aria-hidden="true"></div>
+            <div class="export-preview-empty" id="export-preview-empty">
+              <span class="export-empty-paper" aria-hidden="true"><svg class="ui-icon"><use href="#icon-file"></use></svg><i></i><i></i><i></i></span>
+              <h3 data-i18n="previewEmptyTitle">پیش‌نمایش سند</h3>
+              <p data-i18n="exportPreviewEmptyHelp">یک فایل Markdown انتخاب کن تا صفحه‌های PDF را اینجا ببینی.</p>
+              <button class="button secondary compact" id="preview-choose-source" type="button" data-i18n="chooseExportSource">انتخاب فایل مبدأ</button>
+            </div>
+          </div>
+          <div class="export-preview-note" id="export-preview-note" hidden>
+            <svg class="ui-icon" aria-hidden="true"><use href="#icon-info"></use></svg><span id="export-preview-note-copy"></span>
+          </div>
+        </section>
       </div>
-      </div>
-      <footer class="panel export-dock">
-        <div class="export-destination"><label for="output-path" data-i18n="outputFile">فایل خروجی</label><div class="path-row"><input id="output-path" readonly form="export-form" dir="ltr" aria-describedby="output-create-only-help" data-i18n-aria-label="outputFile" aria-label="فایل خروجی" placeholder="report.pdf"><button class="button secondary compact" id="choose-output" type="button" data-i18n="browse" data-i18n-aria-label="chooseExportOutput" aria-label="انتخاب فایل خروجی">انتخاب</button></div><small id="output-create-only-help" data-i18n="outputCreateOnlyHelp">برای خروجی، نام فایلی را انتخاب کن که وجود ندارد.</small></div>
-        <div class="form-actions"><button class="button secondary" id="validate-button" type="button" data-i18n="checkDocument">بررسی سند</button><button class="button primary" id="export-button" type="submit" form="export-form" data-i18n="exportPdf">ساخت PDF</button><button class="button danger hidden" id="cancel-button" type="button" data-i18n="cancel">لغو</button></div>
-        <p id="export-dock-feedback" class="export-dock-feedback hidden"></p>
-      </footer>
     </section>
 
     <section class="view workspace-view active" id="workspace-view" data-empty="true">
@@ -573,51 +653,144 @@
 
 <div class="modal hidden" id="settings-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="settings-title">
   <form class="modal-card settings-card" id="settings-form">
-    <div class="modal-heading"><div><p class="eyebrow" data-i18n="preferences">ترجیحات</p><h2 id="settings-title" data-i18n="settings">تنظیمات</h2></div><button class="icon-button" id="close-settings" type="button" data-i18n-title="close" data-i18n-aria-label="close" aria-label="بستن" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button></div>
-    <label class="settings-search"><span class="sr-only" data-i18n="searchSettings">جست‌وجوی تنظیمات</span><input id="settings-search" type="search" data-i18n-placeholder="searchSettings" placeholder="جست‌وجوی تنظیمات"></label>
-    <div class="settings-sections" id="settings-sections">
-      <section class="settings-section" data-settings-terms="theme appearance accent colour color blue purple teal light dark system ظاهر رنگ آبی بنفش فیروزه روشن تیره">
-        <h3 data-i18n="appearance">ظاهر</h3>
-        <label><span data-i18n="interfaceTheme">پوسته برنامه</span><select id="setting-theme"><option value="system" data-i18n="followSystem">مطابق سیستم</option><option value="light" data-i18n="lightTheme">روشن</option><option value="dark" data-i18n="darkTheme">تیره</option></select></label>
-        <label><span data-i18n="interfaceAccent">رنگ تأکیدی رابط</span><select id="setting-accent"><option value="gray" data-i18n="accentGray">خاکستری</option><option value="blue" data-i18n="accentBlue">آبی</option><option value="red" data-i18n="accentRed">قرمز</option><option value="amber" data-i18n="accentAmber">کهربایی</option><option value="green" data-i18n="accentGreen">سبز</option><option value="teal" data-i18n="accentTeal">فیروزه‌ای</option><option value="purple" data-i18n="accentPurple">بنفش</option><option value="pink" data-i18n="accentPink">صورتی</option></select></label>
-        <label><span data-i18n="documentTextSizePercent">اندازه متن سند (%)</span><input id="setting-document-zoom" type="number" min="60" max="200" step="1" value="100" inputmode="numeric"></label>
-        <p class="settings-help" data-i18n="documentViewHelp">اندازه متن برای نوشتن و خواندن است؛ قالب‌بندی PDF از تنظیمات خروجی پیروی می‌کند.</p>
-      </section>
-      <section class="settings-section" data-settings-terms="writing reading preview automatic typewriter focus distraction نوشتن خواندن پیش نمایش خودکار تایپ فوکوس تمرکز">
-        <h3 data-i18n="writingSettings">نوشتن</h3>
-        <label><span data-i18n="writingWidth">عرض نوشتن</span><select id="setting-writing-width"><option value="full" data-i18n="fullColumn">تمام عرض</option><option value="readable" data-i18n="comfortableColumn">ستون خوانا</option><option value="wide" data-i18n="wideColumn">ستون عریض</option></select></label>
-        <label class="toggle compact-toggle"><input id="setting-typewriter" type="checkbox"><i></i><span data-i18n="typewriterMode">حالت ماشین تحریر</span></label>
-        <p class="settings-help" data-i18n="typewriterHelp">خط در حال نوشتن همیشه در ارتفاع ثابتی از صفحه می‌ماند.</p>
-        <label class="toggle compact-toggle"><input id="setting-auto-preview" type="checkbox"><i></i><span data-i18n="automaticPreview">پیش‌نمایش خودکار</span></label>
-      </section>
-      <section class="settings-section" data-settings-terms="accessibility motion animation دسترسی حرکت">
-        <h3 data-i18n="accessibility">دسترسی‌پذیری</h3>
-        <label><span data-i18n="motion">حرکت و پویانمایی</span><select id="setting-motion"><option value="system" data-i18n="followSystem">مطابق سیستم</option><option value="reduce" data-i18n="reduceMotion">کاهش حرکت</option><option value="full" data-i18n="fullMotion">حرکت کامل</option></select></label>
-      </section>
-      <section class="settings-section" data-settings-terms="language onboarding reset language زبان راهنما بازنشانی">
-        <h3 data-i18n="languageAndHelp">زبان و راهنما</h3>
-        <label><span data-i18n="interfaceLanguage">زبان رابط</span><select id="setting-locale"><option value="fa">فارسی</option><option value="en">English</option></select></label>
-        <button class="button secondary compact" id="restart-onboarding" type="button" data-i18n="restartOnboarding">اجرای دوباره راهنمای شروع</button>
-      </section>
-      <section class="settings-section update-settings" data-settings-terms="update upgrade version release بروزرسانی نسخه انتشار">
-        <h3 data-i18n="softwareUpdates">بروزرسانی نرم‌افزار</h3>
-        <div class="update-summary">
-          <div><span data-i18n="currentVersion">نسخه فعلی</span><strong id="update-current-version">—</strong></div>
-          <div><span data-i18n="updateChannel">کانال انتشار</span><strong id="update-channel">stable</strong></div>
-        </div>
-        <div class="update-state" id="update-state" data-state="ready" role="status" aria-live="polite" data-i18n="updatesReady">آماده بررسی</div>
-        <p class="update-detail" id="update-detail" data-i18n="updatesManualHelp">بررسی بروزرسانی فقط با درخواست شما به GitHub Releases متصل می‌شود.</p>
-        <pre class="update-notes hidden" id="update-notes"></pre>
-        <div class="update-progress hidden" id="update-progress" data-i18n-aria-label="updateProgress" aria-label="پیشرفت بروزرسانی"><i id="update-progress-bar"></i><span id="update-progress-label">0%</span></div>
-        <div class="update-actions">
-          <button class="button secondary compact" id="check-updates" type="button" data-i18n="checkForUpdates">بررسی بروزرسانی</button>
-          <button class="button primary compact hidden" id="install-update" type="button" data-i18n="installUpdate">نصب بروزرسانی</button>
-        </div>
-        <small data-i18n="updateSecurityHelp">فقط بسته‌های امضاشده با کلید رسمی Mardas Folio نصب می‌شوند.</small>
-      </section>
+    <header class="settings-header">
+      <h2 id="settings-title" data-i18n="settings">تنظیمات</h2>
+      <div class="settings-search">
+        <label class="sr-only" for="settings-search" data-i18n="searchSettings">جست‌وجوی تنظیمات</label>
+        <svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg>
+        <input id="settings-search" type="search" dir="auto" autocomplete="off" spellcheck="false" aria-controls="settings-sections" data-i18n-placeholder="searchSettings" placeholder="جست‌وجوی تنظیمات">
+        <button class="icon-button" id="settings-clear-search" type="button" hidden data-i18n-aria-label="clearSettingsSearch" data-i18n-title="clearSettingsSearch" aria-label="پاک‌کردن جست‌وجو" title="پاک‌کردن جست‌وجو"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+      </div>
+      <button class="icon-button" id="close-settings" type="button" data-i18n-title="close" data-i18n-aria-label="close" aria-label="بستن" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+    </header>
+    <div class="settings-body">
+      <nav class="settings-nav" aria-label="دسته‌های تنظیمات" data-i18n-aria-label="settingsCategories">
+        <button class="button" type="button" aria-current="true" aria-controls="settings-appearance"><svg class="ui-icon" aria-hidden="true"><use href="#icon-appearance"></use></svg><span data-i18n="appearance">ظاهر</span></button>
+        <button class="button" type="button" aria-controls="settings-writing"><svg class="ui-icon" aria-hidden="true"><use href="#icon-pencil"></use></svg><span data-i18n="writingSettings">نوشتن</span></button>
+        <button class="button" type="button" aria-controls="settings-accessibility"><svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg><span data-i18n="accessibility">دسترسی‌پذیری</span></button>
+        <button class="button" type="button" aria-controls="settings-language"><svg class="ui-icon" aria-hidden="true"><use href="#icon-help"></use></svg><span data-i18n="languageAndHelp">زبان و راهنما</span></button>
+        <button class="button" type="button" aria-controls="settings-updates"><svg class="ui-icon" aria-hidden="true"><use href="#icon-update"></use></svg><span data-i18n="settingsUpdates">به‌روزرسانی</span></button>
+      </nav>
+      <div class="settings-sections" id="settings-sections">
+        <section class="settings-section" id="settings-appearance" aria-labelledby="settings-appearance-title">
+          <h3 id="settings-appearance-title" data-i18n="appearance">ظاهر</h3>
+          <div class="settings-row" data-settings-terms="theme system light dark تم پوسته روشن تیره">
+            <label class="settings-label" for="setting-theme" data-i18n="interfaceTheme">پوستهٔ برنامه</label>
+            <select class="settings-control" id="setting-theme">
+              <option value="system" data-i18n="followSystem">مطابق سیستم</option>
+              <option value="light" data-i18n="lightTheme">روشن</option>
+              <option value="dark" data-i18n="darkTheme">تیره</option>
+            </select>
+          </div>
+          <div class="settings-row" data-settings-terms="accent color colour monochrome purple آبی بنفش رنگ تاکیدی سیاه سفید">
+            <label class="settings-label" for="setting-accent" data-i18n="interfaceAccent">رنگ تأکیدی رابط</label>
+            <div class="settings-control settings-accent-control">
+              <span class="settings-accent-swatch" aria-hidden="true"></span>
+              <select id="setting-accent">
+                <option value="monochrome" data-i18n="accentMonochrome">سیاه‌وسفید (پیش‌فرض)</option>
+                <option value="gray" data-i18n="accentGray">خاکستری</option>
+                <option value="blue" data-i18n="accentBlue">آبی</option>
+                <option value="red" data-i18n="accentRed">قرمز</option>
+                <option value="amber" data-i18n="accentAmber">کهربایی</option>
+                <option value="green" data-i18n="accentGreen">سبز</option>
+                <option value="teal" data-i18n="accentTeal">فیروزه‌ای</option>
+                <option value="purple" data-i18n="accentPurple">بنفش</option>
+                <option value="pink" data-i18n="accentPink">صورتی</option>
+              </select>
+            </div>
+          </div>
+          <div class="settings-row" data-settings-terms="zoom font size اندازه فونت بزرگنمایی">
+            <div class="settings-copy">
+              <label class="settings-label" for="setting-document-zoom" data-i18n="documentTextSizePercent">اندازهٔ متن سند (%)</label>
+              <p id="settings-zoom-help" class="settings-description" data-i18n="documentViewHelp">اندازهٔ متن برای نوشتن و خواندن است؛ قالب‌بندی PDF از تنظیمات خروجی پیروی می‌کند.</p>
+            </div>
+            <input class="settings-control settings-zoom" id="setting-document-zoom" type="number" min="60" max="200" step="1" value="100" inputmode="numeric" aria-describedby="settings-zoom-help">
+          </div>
+        </section>
+        <section class="settings-section" id="settings-writing" aria-labelledby="settings-writing-title" hidden>
+          <h3 id="settings-writing-title" data-i18n="writingSettings">نوشتن</h3>
+          <div class="settings-row" data-settings-terms="width column عرض ستون">
+            <label class="settings-label" for="setting-writing-width" data-i18n="writingWidth">عرض نوشتن</label>
+            <select class="settings-control" id="setting-writing-width">
+              <option value="full" data-i18n="fullColumn">تمام عرض</option>
+              <option value="readable" data-i18n="comfortableColumn">ستون خوانا</option>
+              <option value="wide" data-i18n="wideColumn">ستون عریض</option>
+            </select>
+          </div>
+          <label class="settings-row settings-switch-row" data-settings-terms="typewriter تایپ ماشین تحریر">
+            <span class="settings-copy">
+              <span class="settings-label" id="settings-typewriter-label" data-i18n="typewriterMode">حالت ماشین تحریر</span>
+              <small class="settings-description" id="settings-typewriter-help" data-i18n="typewriterHelp">خط در حال نوشتن همیشه در ارتفاع ثابتی از صفحه می‌ماند.</small>
+            </span>
+            <span class="toggle compact-toggle"><input id="setting-typewriter" type="checkbox" role="switch" aria-labelledby="settings-typewriter-label" aria-describedby="settings-typewriter-help"><i aria-hidden="true"></i></span>
+          </label>
+          <label class="settings-row settings-switch-row" data-settings-terms="preview automatic پیش نمایش پیشنمایش خودکار">
+            <span class="settings-label" data-i18n="automaticPreview">پیش‌نمایش خودکار</span>
+            <span class="toggle compact-toggle"><input id="setting-auto-preview" type="checkbox" role="switch"><i aria-hidden="true"></i></span>
+          </label>
+        </section>
+        <section class="settings-section" id="settings-accessibility" aria-labelledby="settings-accessibility-title" hidden>
+          <h3 id="settings-accessibility-title" data-i18n="accessibility">دسترسی‌پذیری</h3>
+          <div class="settings-row" data-settings-terms="motion animation accessibility حرکت انیمیشن دسترسی">
+            <label class="settings-label" for="setting-motion" data-i18n="motion">حرکت و پویانمایی</label>
+            <select class="settings-control" id="setting-motion">
+              <option value="system" data-i18n="followSystem">مطابق سیستم</option>
+              <option value="reduce" data-i18n="reduceMotion">کاهش حرکت</option>
+              <option value="full" data-i18n="fullMotion">حرکت کامل</option>
+            </select>
+          </div>
+        </section>
+        <section class="settings-section" id="settings-language" aria-labelledby="settings-language-title" hidden>
+          <h3 id="settings-language-title" data-i18n="languageAndHelp">زبان و راهنما</h3>
+          <div class="settings-row" data-settings-terms="language locale فارسی انگلیسی">
+            <label class="settings-label" for="setting-locale" data-i18n="interfaceLanguage">زبان رابط</label>
+            <select class="settings-control" id="setting-locale">
+              <option value="fa" lang="fa">فارسی</option>
+              <option value="en" lang="en">English</option>
+            </select>
+          </div>
+          <div class="settings-row" data-settings-terms="onboarding help tour راهنما آموزش">
+            <span class="settings-label" data-i18n="settingsQuickTour">راهنمای شروع</span>
+            <button class="button secondary settings-row-action" id="restart-onboarding" type="button" data-i18n="restartOnboarding">اجرای دوبارهٔ راهنمای شروع</button>
+          </div>
+        </section>
+        <section class="settings-section" id="settings-updates" aria-labelledby="settings-updates-title" hidden>
+          <h3 id="settings-updates-title" data-i18n="softwareUpdates">به‌روزرسانی نرم‌افزار</h3>
+          <div class="settings-row settings-value-row" data-settings-terms="version build نسخه">
+            <span class="settings-label" data-i18n="currentVersion">نسخهٔ فعلی</span>
+            <bdi class="settings-value" id="update-current-version" dir="ltr">—</bdi>
+          </div>
+          <div class="settings-row settings-value-row" data-settings-terms="channel release کانال انتشار">
+            <span class="settings-label" data-i18n="updateChannel">کانال انتشار</span>
+            <bdi class="settings-value" id="update-channel" dir="ltr">stable</bdi>
+          </div>
+          <div class="settings-row settings-update-row" data-settings-terms="update upgrade install بروزرسانی به روز رسانی نصب">
+            <div class="settings-copy">
+              <div class="update-state" id="update-state" data-state="ready" role="status" data-i18n="updatesReady">آمادهٔ بررسی</div>
+              <p class="settings-description" id="update-detail" data-i18n="updatesManualHelp">بررسی به‌روزرسانی فقط با درخواست شما به GitHub Releases متصل می‌شود.</p>
+            </div>
+            <div class="update-actions">
+              <button class="button secondary" id="check-updates" type="button" data-i18n="checkForUpdates">بررسی به‌روزرسانی</button>
+              <button class="button primary hidden" id="install-update" type="button" data-i18n="installUpdate">نصب به‌روزرسانی</button>
+            </div>
+            <pre class="update-notes hidden" id="update-notes" dir="auto"></pre>
+            <div class="update-progress hidden" id="update-progress">
+              <progress id="update-progress-bar" max="100" value="0" data-i18n-aria-label="updateProgress" aria-label="پیشرفت به‌روزرسانی"></progress>
+              <span id="update-progress-label" aria-hidden="true" dir="ltr">0%</span>
+            </div>
+            <small class="settings-description update-security" data-i18n="updateSecurityHelp">فقط بسته‌های امضاشده با کلید رسمی Mardas Folio نصب می‌شوند.</small>
+          </div>
+        </section>
+        <p class="settings-empty" id="settings-empty" role="status" hidden data-i18n="noSettingsMatch">تنظیمی با این عبارت پیدا نشد.</p>
+      </div>
     </div>
-    <div class="settings-empty hidden" id="settings-empty" data-i18n="noSettingsMatch">تنظیمی با این عبارت پیدا نشد.</div>
-    <div class="modal-actions"><button class="button secondary" id="reset-settings" type="button" data-i18n="resetSettings">بازنشانی تنظیمات</button><button class="button primary" type="submit" data-i18n="saveSettings">ذخیره تنظیمات</button></div>
+    <footer class="settings-footer">
+      <button class="button secondary" id="reset-settings" type="button" data-i18n="resetSettings">بازنشانی تنظیمات</button>
+      <div class="settings-footer-actions">
+        <button class="button secondary" id="cancel-settings" type="button" data-i18n="cancel">انصراف</button>
+        <button class="button primary" type="submit" data-i18n="saveSettings">ذخیرهٔ تنظیمات</button>
+      </div>
+    </footer>
   </form>
 </div>
 
@@ -684,6 +857,16 @@
   </div>
 </div>
 
+<div class="modal hidden" id="export-details-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="export-details-title">
+  <div class="modal-card export-details-card">
+    <header class="modal-heading">
+      <h2 id="export-details-title" data-i18n="exportDetails">جزئیات خروجی</h2>
+      <button class="icon-button" id="export-close-details" type="button" data-i18n-title="close" title="بستن"><svg class="ui-icon" aria-hidden="true"><use href="#icon-close"></use></svg></button>
+    </header>
+    <p id="export-details-message" dir="auto"></p>
+    <ul id="diagnostics" class="export-diagnostics" hidden></ul>
+  </div>
+</div>
 <div class="modal hidden" id="export-format-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="export-format-title" aria-describedby="export-format-prompt">
   <div class="modal-card export-format-card">
     <header class="modal-heading">

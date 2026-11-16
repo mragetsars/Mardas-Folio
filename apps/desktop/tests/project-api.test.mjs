@@ -1,3 +1,4 @@
+import { installTauriFixture } from "./fixtures/tauri.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -10,12 +11,9 @@ import {
   startProjectSearch,
 } from "../frontend/js/core/project-api.mjs";
 
-test("project API uses bounded versioned sidecar methods", async () => {
-  const calls = [];
-  globalThis.__TAURI__ = {
-    core: { invoke: async (command, args) => { calls.push({ command, args }); return { ok: true }; } },
-    event: { listen: async () => () => {} },
-  };
+test("project API uses bounded versioned sidecar methods", async (t) => {
+  const { calls } = installTauriFixture(t);
+
   await openProject("/project");
   await refreshProject("/project");
   await readProjectFile("/project", "chapter.md");
@@ -55,5 +53,4 @@ test("project API uses bounded versioned sidecar methods", async () => {
   assert.equal(calls[4].args.params.case_sensitive, true);
   assert.equal(calls[5].args.request_id, search.requestId);
   assert.deepEqual(calls[6].args.params.cited_keys, ["ref1"]);
-  delete globalThis.__TAURI__;
 });

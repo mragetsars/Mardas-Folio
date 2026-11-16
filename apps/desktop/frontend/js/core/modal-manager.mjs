@@ -10,7 +10,7 @@ const FOCUSABLE_SELECTOR = [
 function isVisible(element) {
   if (!element) return false;
   if (element.hidden) return false;
-  if (element.closest?.(".hidden")) return false;
+  if (element.closest?.("[hidden], .hidden")) return false;
   return true;
 }
 

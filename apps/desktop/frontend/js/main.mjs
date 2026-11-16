@@ -1,18 +1,9 @@
 import { basename, buildDocumentParams, defaultOutputPath, validateExportSelection } from "./core/export-request.mjs";
 import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
 import { onboardingIntentPresentation, onboardingPrimaryActionKey, normalizeOnboardingIntent } from "./core/onboarding.mjs";
-import { foldForFilter } from "./core/persian.mjs";
 import { PRESETS, presetById } from "./core/presets.mjs";
-import {
-  OPTION_FIELDS,
-  OPTION_GROUPS,
-  collectRenderOptions,
-  fieldIsActive,
-  modifiedCountsByGroup,
-  modifiedKeys,
-  searchOptions,
-  validateOptionValue,
-} from "./core/render-options.mjs";
+import { createExportOptionsPanel } from "./ui/export-options-panel.mjs";
+import { spriteIcon } from "./ui/icons.mjs";
 import { addRecent, readRecents, writeRecents } from "./core/recents.mjs";
 import { invoke, listen } from "./core/tauri.mjs";
 import {
@@ -91,6 +82,7 @@ import { documentNavigationEntries } from "./core/document-navigation.mjs";
 import { createNavigationPicker } from "./core/navigation-picker.mjs";
 import { fitToolbarGroups } from "./core/toolbar-overflow.mjs";
 import { createModalManager, focusableElements } from "./core/modal-manager.mjs";
+import { createSettingsPanel } from "./core/settings-panel.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
 import { typesetPreviewMath } from "./preview/math.mjs";
 import { updaterStatus, checkForUpdates, installUpdate } from "./core/updater-api.mjs";
@@ -129,6 +121,7 @@ import {
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
+const settingsPanel = createSettingsPanel($("#settings-form"));
 const compactSidePanes = matchMedia("(max-width: 1100px)");
 const state = {
   locale: readLocalePreference(undefined, navigator.language),
@@ -294,6 +287,8 @@ function setLocale(value) {
   const localeSetting = $("#setting-locale");
   if (localeSetting) localeSetting.value = state.locale;
   renderPresets();
+  renderExportFiles();
+  renderExportStatus();
   renderRecents();
   renderWorkspace();
   // The settings browser is built from translated strings, so it is rebuilt
@@ -307,6 +302,7 @@ function setLocale(value) {
 
 function showView(name) {
   toggleWorkspaceLayoutMenu(false);
+  if (name !== "export" && document.body.dataset.view === "export") void releaseEngineForJob();
   // Leaving the workspace is a newer intent than any pending file activation.
   if (name !== "workspace") state.documentActivationSequence += 1;
   $$(".view").forEach((element) => element.classList.remove("active"));
@@ -319,22 +315,20 @@ function showView(name) {
 }
 
 
-/** Keep transient notifications above the destination and export controls.
- * The dock can wrap when Cancel appears, the language changes, or the window
- * is resized. Its measured top is therefore the boundary, rather than a
- * guessed footer height that can cover the controls in a smaller window.
- */
+/** Keep notifications in the setup column above the export controls. */
 function syncExportToastPlacement() {
+  if (document.body.dataset.view !== "export") return;
   const region = $("#toast-region");
   const dock = $("#export-view .export-dock");
-  const content = $("#export-content");
-  if (content?.offsetWidth) $("#export-view").style.setProperty("--export-gutter", `${content.offsetWidth - content.clientWidth}px`);
   if (!region || !dock) return;
-  if (document.body.dataset.view !== "export") {
+  const { left, right, top, width } = dock.getBoundingClientRect();
+  const inlineStart = document.documentElement.dir === "rtl" ? window.innerWidth - right : left;
+  region.style.setProperty("--export-toast-start", `${inlineStart}px`);
+  region.style.setProperty("--export-toast-width", `${width}px`);
+  if (getComputedStyle(dock).visibility === "hidden") {
     region.style.removeProperty("--export-toast-bottom");
     return;
   }
-  const top = dock.getBoundingClientRect().top;
   region.style.setProperty("--export-toast-bottom", `${Math.ceil(Math.max(12, window.innerHeight - top + 12))}px`);
 }
 
@@ -767,34 +761,17 @@ function fillSettingsForm() {
   $("#setting-typewriter").checked = state.preferences.typewriter;
   if ($("#setting-writing-width")) $("#setting-writing-width").value = state.preferences.writingWidth;
   $("#setting-locale").value = state.locale;
-  $("#settings-search").value = "";
-  filterSettings("");
+  settingsPanel.updateAccentPreview();
 }
 
-function openSettings() {
+function openSettings(section = "settings-appearance") {
   fillSettingsForm();
+  settingsPanel.showSection(section);
   modalManager.open($("#settings-modal"), { initialFocus: "#settings-search" });
 }
 
 function closeSettings() {
   modalManager.close($("#settings-modal"));
-}
-
-function filterSettings(query = $("#settings-search")?.value || "") {
-  // Read both sides as the same Persian, so a setting is found however its
-  // yeh, kaf and joiners were typed.
-  const needle = foldForFilter(query);
-  let visible = 0;
-  $$(".settings-section").forEach((section) => {
-    const haystack = foldForFilter(
-      `${section.dataset.settingsTerms || ""} ${section.textContent || ""}`,
-    );
-    const show = !needle || haystack.includes(needle);
-    section.classList.toggle("hidden", !show);
-    if (show) visible += 1;
-  });
-  $("#settings-empty")?.classList.toggle("hidden", visible > 0);
-  return visible;
 }
 
 function submitSettings(event) {
@@ -822,6 +799,7 @@ function resetSettings() {
   });
   applyInterfacePreferences();
   fillSettingsForm();
+  settingsPanel.showSection();
   toast(t("settingsReset"), "success");
 }
 
@@ -878,7 +856,7 @@ function updateUi() {
     const total = Number(state.updateTotal) || 0;
     const downloaded = Number(state.updateDownloaded) || 0;
     const percent = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
-    $("#update-progress-bar").style.width = `${percent}%`;
+    $("#update-progress-bar").value = percent;
     $("#update-progress-label").textContent = total > 0 ? `${percent}%` : "…";
     $("#update-detail").textContent = check?.version ? `${t("updateVersion")} ${check.version}` : "";
     return;
@@ -1073,7 +1051,7 @@ function commandDefinitions() {
     { id: "find", symbol: "search", label: t("commandFind"), keywords: "find replace search", shortcut: "Ctrl F", priority: 60, enabled: hasDocument, run: () => openFind({ replace: false }) },
     { id: "settings", symbol: "settings", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
     { id: "support-bundle", symbol: "archive", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
-    { id: "updates", symbol: "update", label: t("commandCheckUpdates"), keywords: "update upgrade release version", priority: 37, run: () => { openSettings(); setTimeout(() => checkUpdates(), 0); } },
+    { id: "updates", symbol: "update", label: t("commandCheckUpdates"), keywords: "update upgrade release version", priority: 37, run: () => { openSettings("settings-updates"); setTimeout(() => checkUpdates(), 0); } },
     // The constructs with no button of their own, so the palette can reach
     // them by name as well as the Insert menu by picture.
     { id: "insert-footnote", symbol: "footnote", label: t("insertFootnote"), keywords: "footnote note reference پانویس", priority: 46, enabled: canEdit, run: () => editorCommand("footnote") },
@@ -1294,580 +1272,128 @@ function errorText(error) {
 /** What the export badge draws, per state. */
 const STATUS_SYMBOLS = {
   idle: "file",
+  notice: "info",
   working: "refresh",
   success: "check",
+  warning: "alert",
   error: "alert",
 };
 
-function setExportStatus(kind, titleKey, message, diagnostics = []) {
-  const visual = $("#status-visual");
-  visual.dataset.state = kind;
-  $(".status-panel").dataset.state = kind;
-  // Colour alone cannot carry this: a failed export used to show a tick in
-  // red, which reads as success to anyone who does not separate the two hues.
-  $("#status-symbol")?.replaceChildren(spriteIcon(STATUS_SYMBOLS[kind] || "file"));
-  $("#status-title").textContent = titleKey ? t(titleKey) : "";
-  $("#status-message").textContent = message || "";
-  const feedback = $("#export-dock-feedback");
-  feedback.classList.toggle("hidden", kind === "idle");
-  feedback.dataset.state = kind;
-  feedback.textContent = kind === "idle" ? "" : [titleKey ? t(titleKey) : "", message].filter(Boolean).join(" — ");
+let exportFeedback = { kind: "idle" };
+let exportActionFocus = null;
+
+function setExportStatus(kind, titleKey, details = {}) {
+  exportFeedback = { kind, titleKey, ...details };
+  renderExportStatus();
+}
+
+function renderExportStatus() {
+  const { kind, titleKey, messageKey, message, diagnostics = [] } = exportFeedback;
+  const title = titleKey ? t(titleKey) : "";
+  const copy = message ?? (messageKey ? t(messageKey) : "");
+  $("#export-feedback").dataset.state = kind;
+  $("#status-symbol").replaceChildren(...(kind === "idle" ? [] : [spriteIcon(STATUS_SYMBOLS[kind])]));
+  $("#status-title").textContent = title;
+  $("#status-message").textContent = copy;
+  $("#status-message").title = copy;
+  $("#export-show-details").hidden = kind !== "error" && diagnostics.length === 0;
+  $("#export-details-message").textContent = [title, copy].filter(Boolean).join(" — ");
   const container = $("#diagnostics");
   container.replaceChildren();
-  if (diagnostics.length) {
-    container.classList.remove("hidden");
-    for (const diagnostic of diagnostics.slice(0, 20)) {
-      const item = document.createElement("div");
-      item.className = `diagnostic ${diagnostic.severity || "info"}`;
-      const location = diagnostic.line ? ` · ${diagnostic.line}:${diagnostic.column || 1}` : "";
-      item.textContent = `${diagnostic.code || ""}${location} — ${diagnostic.message || ""}`;
-      container.append(item);
-    }
-  } else {
-    container.classList.add("hidden");
+  container.hidden = diagnostics.length === 0;
+  for (const diagnostic of diagnostics) {
+    const item = document.createElement("li");
+    item.dataset.severity = diagnostic.severity || "info";
+    item.dir = "auto";
+    const location = diagnostic.line ? ` · ${diagnostic.line}:${diagnostic.column || 1}` : "";
+    item.textContent = `${diagnostic.code || ""}${location} — ${diagnostic.message || ""}`;
+    container.append(item);
   }
 }
 
 function invalidateExportStatus() {
-  if ($("#status-visual").dataset.state === "idle") return;
+  if (exportFeedback.kind === "idle") return;
   hideExportResult();
-  setExportStatus("idle", "readyTitle", t("readyMessage"));
+  setExportStatus("idle");
+}
+
+function setExportProgress(percent) {
+  $("#progress-bar").value = percent;
+  $("#progress-label").textContent = `${percent}%`;
+}
+
+function syncExportControls() {
+  const busy = Boolean(state.activeRequestId);
+  $("#export-back").disabled = busy;
+  $("#export-inspector-controls").disabled = busy;
+  $("#export-form").setAttribute("aria-busy", String(busy));
+  $("#preview-choose-source").disabled = busy;
+  $("#choose-output").disabled = busy || !state.sourcePath;
+  $("#validate-button").disabled = busy || !state.sourcePath || !state.outputPath;
+  $("#export-button").disabled = $("#validate-button").disabled;
 }
 
 function working(enabled, mode = "render") {
-  $("#validate-button").disabled = enabled;
-  $("#export-button").disabled = enabled;
-  $("#cancel-button").disabled = false;
-  $("#cancel-button").classList.toggle("hidden", !enabled);
-  $("#progress-wrap").classList.toggle("hidden", !enabled);
-  $("#export-form").setAttribute("aria-busy", String(enabled));
-  for (const control of [...$("#export-form").querySelectorAll("button,input,select,textarea"), $("#choose-output")]) {
-    if (enabled) {
-      if (!("disabledBeforeExport" in control.dataset)) control.dataset.disabledBeforeExport = String(control.disabled);
-      control.disabled = true;
-    } else if ("disabledBeforeExport" in control.dataset) {
-      control.disabled = control.dataset.disabledBeforeExport === "true";
-      delete control.dataset.disabledBeforeExport;
-    }
-  }
+  const cancel = $("#cancel-button");
+  const focused = document.activeElement;
+  if (enabled) exportActionFocus = focused === $("#validate-button") || focused === $("#export-button") ? focused : null;
+  syncExportControls();
+  cancel.disabled = false;
+  cancel.hidden = !enabled;
+  $("#progress-wrap").hidden = !enabled;
   if (enabled) {
-    $("#progress-bar").style.width = "3%";
-    $("#progress-label").textContent = "3%";
-    setExportStatus("working", mode === "validate" ? "validatingTitle" : "renderingTitle", t(mode === "validate" ? "validatingMessage" : "renderingMessage"));
+    setExportProgress(0);
+    setExportStatus("working", mode === "validate" ? "validatingTitle" : "renderingTitle", {
+      messageKey: mode === "validate" ? "validatingMessage" : "renderingMessage",
+    });
+    if (exportActionFocus) cancel.focus({ preventScroll: true });
+  } else {
+    if (focused === cancel || focused === document.body) exportActionFocus?.focus({ preventScroll: true });
+    exportActionFocus = null;
+    if (exportPreviewDirty) schedulePdfPreview(0);
   }
 }
 
-/**
- * Values the user has typed into the settings panel, keyed by option.
- *
- * Absent means "inherit"; the panel never sends a key the user did not touch,
- * so opening it cannot overwrite what mardas.toml already configured.
- */
-const advancedValues = new Map();
-
-/** Which category the settings browser is showing. */
-let activeOptionGroup = OPTION_GROUPS[0].id;
-let optionSearchQuery = "";
-let showExpertOptions = false;
-
-/**
- * The accent each palette prints with.
- *
- * Mirrored from `appearance.PALETTES` so choosing a palette is a colour
- * decision made against colour, not against seven English words.
- * `tests/test_desktop_app.py` holds these against the engine's own table.
- */
-const PALETTE_ACCENTS = Object.freeze({
-  blue: "#2563eb",
-  emerald: "#047857",
-  violet: "#7c3aed",
-  amber: "#b45309",
-  rose: "#e11d48",
-  slate: "#475569",
-  neutral: "#404040",
+const exportOptions = createExportOptionsPanel({
+  root: $("#export-view"),
+  t,
+  getPresetOptions: () => presetById(state.presetId).options,
+  onChange() {
+    invalidateExportStatus();
+    renderSummary();
+    schedulePdfPreview();
+  },
+  pickPath: (field) => invoke(
+    field.widget === "directory" ? "pick_project_directory" : "pick_document_asset",
+  ),
+  onError: (error) => toast(errorText(error), "error"),
 });
 
-/**
- * An icon from the sprite in `index.html`.
- *
- * `<use>` rather than an inline copy of the path: the sprite is already in the
- * document, and duplicating a symbol per button is how two drawings of the
- * same idea drift apart.
- */
-function spriteIcon(name) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("class", "ui-icon");
-  svg.setAttribute("aria-hidden", "true");
-  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
-  use.setAttribute("href", `#icon-${name}`);
-  svg.append(use);
-  return svg;
-}
-
-function advancedControlId(key) {
-  return `adv-${key.replaceAll("_", "-")}`;
-}
-
-/** A translated label for an engine enum value, falling back to the identifier. */
-function choiceLabel(value) {
-  const label = t(value);
-  return label === value ? value : label;
-}
-
-function optionControlIdentity(control) {
-  if (!control) return "";
-  if (control.id) return `id:${control.id}`;
-  const role = control.getAttribute("role") || control.tagName;
-  const label = control.getAttribute("aria-label");
-  if (label) return `${role}:${label}`;
-  return `${role}:${control.className}:${control.textContent.trim()}`;
-}
-
-function setOptionValue(key, value) {
-  const active = document.activeElement;
-  const row = [...document.querySelectorAll("[data-option-key]")]
-    .find((element) => element.dataset.optionKey === key);
-  const controls = row ? [...row.querySelectorAll("input, select, textarea, button") ] : [];
-  const focusIndex = controls.indexOf(active);
-  const focusIdentity = focusIndex >= 0 ? optionControlIdentity(active) : "";
-  invalidateExportStatus();
-  if (value === undefined) advancedValues.delete(key);
-  else advancedValues.set(key, value);
-  renderOptionRail();
-  renderOptionPane();
-  if (focusIndex >= 0) {
-    const nextRow = [...document.querySelectorAll("[data-option-key]")]
-      .find((element) => element.dataset.optionKey === key);
-    const nextControls = nextRow ? [...nextRow.querySelectorAll("input, select, textarea, button")] : [];
-    const nextControl = nextControls.find((control) => optionControlIdentity(control) === focusIdentity)
-      || nextControls[focusIndex]
-      || nextRow?.querySelector("input, select, textarea, button");
-    nextControl?.focus({ preventScroll: true });
-  }
-  renderSummary();
-  schedulePdfPreview();
-}
-
-/**
- * The three states every boolean option really has.
- *
- * A checkbox can only say on or off, so an unchecked box and an option the user
- * never touched looked identical — and sending "off" for an option the project
- * configuration had turned on is a silent override. The third state is the
- * default one, and it is shown as such.
- */
-function buildToggleControl(field) {
-  const group = document.createElement("div");
-  group.className = "tri-toggle";
-  group.setAttribute("role", "radiogroup");
-  group.setAttribute("aria-labelledby", `${advancedControlId(field.key)}-label`);
-  const current = advancedValues.has(field.key) ? Boolean(advancedValues.get(field.key)) : null;
-  const states = [
-    [null, t("inherit"), "—"],
-    [false, t("off"), t("off")],
-    [true, t("on"), t("on")],
-  ];
-  for (const [index, [value, label, text]] of states.entries()) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "tri-toggle-option";
-    button.setAttribute("role", "radio");
-    button.setAttribute("aria-checked", String(current === value));
-    button.setAttribute("aria-label", label);
-    button.tabIndex = current === value ? 0 : -1;
-    button.textContent = text;
-    const select = (nextIndex) => {
-      setOptionValue(field.key, states[nextIndex][0] ?? undefined);
-      document.querySelector(`[data-option-key="${field.key}"] .tri-toggle-option:nth-child(${nextIndex + 1})`)?.focus();
-    };
-    button.addEventListener("click", () => select(index));
-    button.addEventListener("keydown", (event) => {
-      const rtl = document.documentElement.dir === "rtl";
-      let offset = 0;
-      if (event.key === "ArrowRight") offset = rtl ? -1 : 1;
-      else if (event.key === "ArrowLeft") offset = rtl ? 1 : -1;
-      else if (event.key === "ArrowDown") offset = 1;
-      else if (event.key === "ArrowUp") offset = -1;
-      else return;
-      event.preventDefault();
-      select((index + offset + states.length) % states.length);
-    });
-    group.append(button);
-  }
-  return group;
-}
-
-function buildSelectControl(field) {
-  const control = document.createElement("select");
-  control.id = advancedControlId(field.key);
-  const inherit = document.createElement("option");
-  inherit.value = "";
-  inherit.textContent = `— ${t("inherit")}`;
-  control.append(inherit);
-  for (const choice of field.choices) {
-    const option = document.createElement("option");
-    option.value = choice;
-    option.textContent = choiceLabel(choice);
-    control.append(option);
-  }
-  control.value = advancedValues.has(field.key) ? String(advancedValues.get(field.key)) : "";
-  control.addEventListener("change", () => {
-    setOptionValue(field.key, control.value === "" ? undefined : control.value);
-  });
-  return control;
-}
-
-/** A palette is a colour decision, so it is made against colour. */
-function buildSwatchControl(field) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "swatch-row";
-  wrapper.setAttribute("role", "radiogroup");
-  wrapper.setAttribute("aria-labelledby", `${advancedControlId(field.key)}-label`);
-  const current = advancedValues.get(field.key) ?? "";
-  for (const choice of field.choices) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "swatch";
-    button.setAttribute("role", "radio");
-    button.setAttribute("aria-checked", String(current === choice));
-    button.setAttribute("aria-label", choiceLabel(choice));
-    button.title = choiceLabel(choice);
-    button.style.setProperty("--swatch", PALETTE_ACCENTS[choice] || "#808080");
-    button.addEventListener("click", () => {
-      setOptionValue(field.key, current === choice ? undefined : choice);
-    });
-    wrapper.append(button);
-  }
-  return wrapper;
-}
-
-function buildSliderControl(field) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "slider-row";
-  const slider = document.createElement("input");
-  slider.type = "range";
-  slider.id = advancedControlId(field.key);
-  slider.min = String(field.min ?? 0);
-  slider.max = String(field.max ?? 1);
-  slider.step = String(field.step ?? 0.05);
-  const readout = document.createElement("output");
-  const stored = advancedValues.get(field.key);
-  slider.value = String(stored ?? field.max ?? 1);
-  readout.textContent = stored === undefined ? "—" : String(stored);
-  slider.addEventListener("input", () => {
-    readout.textContent = slider.value;
-  });
-  slider.addEventListener("change", () => setOptionValue(field.key, Number(slider.value)));
-  wrapper.append(slider, readout);
-  return wrapper;
-}
-
-function buildTextControl(field) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "text-row";
-  const control = document.createElement("input");
-  control.id = advancedControlId(field.key);
-  control.type = field.kind === "number" ? "number" : "text";
-  if (field.min !== undefined) control.min = String(field.min);
-  if (field.max !== undefined) control.max = String(field.max);
-  if (field.step !== undefined) control.step = String(field.step);
-  if (field.placeholder) control.placeholder = field.placeholder;
-  if (field.kind === "path") control.dir = "ltr";
-  control.value = advancedValues.has(field.key) ? String(advancedValues.get(field.key)) : "";
-  const problem = document.createElement("small");
-  problem.className = "option-problem";
-
-  const commit = () => {
-    const raw = control.value.trim();
-    const complaint = raw ? validateOptionValue(field.key, raw) : null;
-    problem.textContent = complaint ? t(complaint) : "";
-    control.setAttribute("aria-invalid", String(Boolean(complaint)));
-    wrapper.classList.toggle("has-problem", Boolean(complaint));
-    // An invalid value is kept in the control so it can be corrected, but it is
-    // never sent to the engine, which would only fail the render later.
-    if (complaint) {
-      advancedValues.delete(field.key);
-      renderSummary();
-      return;
-    }
-    setOptionValue(field.key, raw === "" ? undefined : raw);
-  };
-  control.addEventListener("change", commit);
-
-  wrapper.append(control);
-  if (field.unit) {
-    const unit = document.createElement("span");
-    unit.className = "option-unit";
-    unit.textContent = field.unit;
-    wrapper.append(unit);
-  }
-  if (field.kind === "path") {
-    const browse = document.createElement("button");
-    browse.type = "button";
-    browse.className = "button secondary compact";
-    browse.textContent = t("browse");
-    browse.addEventListener("click", async () => {
-      const picked = await invoke(
-        field.widget === "directory" ? "pick_project_directory" : "pick_document_asset",
-      );
-      if (!picked) return;
-      control.value = picked;
-      setOptionValue(field.key, picked);
-    });
-    wrapper.append(browse);
-  }
-  wrapper.append(problem);
-  return wrapper;
-}
-
-function buildOptionControl(field) {
-  if (field.kind === "toggle") return buildToggleControl(field);
-  if (field.widget === "swatches") return buildSwatchControl(field);
-  if (field.widget === "slider") return buildSliderControl(field);
-  if (field.kind === "select") return buildSelectControl(field);
-  return buildTextControl(field);
-}
-
-/**
- * One option: what it is, what it decides, and what it is set to.
- *
- * The help line is not decoration. Fifty-three identically-shaped controls
- * named after engine identifiers is a specification; a sentence saying what
- * each one changes is what makes it a setting someone can decide.
- */
-function buildOptionRow(field, group) {
-  const row = document.createElement("div");
-  row.className = "option-row";
-  row.dataset.optionKey = field.key;
-  // Three states, not two.
-  //
-  // Choosing a preset copies its options into the working set, so every one of
-  // them read as "set by you": the accent rule down the row, the reset dot,
-  // the group's changed-count badge. A value the preset supplied looked
-  // exactly like one the user had overridden, and the summary's "N changed"
-  // — which compares against the preset — disagreed with both.
-  //
-  // Worse, the dot on such a row did not do what it looked like. It deleted
-  // the value, so the engine fell back to `mardas.toml` or its own default
-  // rather than to the preset the user had picked: pressing "reset" on
-  // Style: Modern quietly changed the output away from Modern.
-  const presetOptions = presetById(state.presetId).options;
-  const hasValue = advancedValues.has(field.key);
-  const fromPreset = hasValue
-    && field.key in presetOptions
-    && String(advancedValues.get(field.key)) === String(presetOptions[field.key]);
-  const isSet = hasValue && !fromPreset;
-  row.dataset.modified = String(isSet);
-  row.dataset.source = isSet ? "override" : hasValue ? "preset" : "inherited";
-
-  const head = document.createElement("div");
-  head.className = "option-head";
-  const label = document.createElement("label");
-  label.className = "option-label";
-  label.id = `${advancedControlId(field.key)}-label`;
-  label.textContent = t(`opt.${field.key}`);
-  if (field.kind !== "toggle" && field.widget !== "swatches") {
-    label.setAttribute("for", advancedControlId(field.key));
-  }
-  head.append(label);
-
-  if (field.risky) {
-    const badge = document.createElement("span");
-    badge.className = "option-badge risky";
-    badge.textContent = t("riskyBadge");
-    head.append(badge);
-  }
-  if (fromPreset) {
-    const badge = document.createElement("span");
-    badge.className = "option-badge from-preset";
-    badge.textContent = t("fromPreset");
-    head.append(badge);
-  }
-  if (isSet) {
-    // Back to the preset's value where it has one, and to inherited where it
-    // does not — which is what "reset" has to mean on a screen whose second
-    // step is choosing a preset.
-    const restores = field.key in presetOptions;
-    const label = t(restores ? "resetToPreset" : "resetOption");
-    const reset = document.createElement("button");
-    reset.type = "button";
-    reset.className = "option-reset";
-    reset.title = label;
-    reset.setAttribute("aria-label", `${label}: ${t(`opt.${field.key}`)}`);
-    reset.append(spriteIcon("close"));
-    reset.addEventListener("click", () => setOptionValue(field.key, presetOptions[field.key]));
-    head.append(reset);
-  }
-
-  const help = document.createElement("p");
-  help.className = "option-help";
-  help.textContent = field.helpKey ? t(field.helpKey) : "";
-
-  const active = fieldIsActive(field, Object.fromEntries(advancedValues), presetById(state.presetId).options);
-  if (!active) {
-    row.dataset.inactive = "true";
-    const reason = document.createElement("p");
-    reason.className = "option-inactive";
-    reason.textContent = t("inactiveOption").replace("%s", t(`opt.${field.dependsOn}`));
-    row.append(head, help, buildOptionControl(field), reason);
-    row.querySelectorAll("input, select, textarea, button").forEach((control) => {
-      control.disabled = true;
-    });
-    if (group) row.dataset.group = group.id;
-    return row;
-  }
-
-  row.append(head, help, buildOptionControl(field));
-  if (group) row.dataset.group = group.id;
-  return row;
-}
-
-/** Fields of a group the user should currently see. */
-function visibleFields(group) {
-  return group.fields.filter((field) => showExpertOptions || !field.expert);
-}
-
-function renderOptionRail() {
-  const rail = $("#option-rail");
-  if (!rail) return;
-  const counts = modifiedCountsByGroup(
-    Object.fromEntries(advancedValues),
-    presetById(state.presetId).options,
-  );
-  rail.replaceChildren();
-  for (const group of OPTION_GROUPS) {
-    if (group.expert && !showExpertOptions) continue;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "option-rail-item";
-    button.setAttribute("role", "tab");
-    button.id = `option-tab-${group.id}`;
-    button.setAttribute("aria-controls", "option-pane");
-    button.setAttribute("aria-selected", String(group.id === activeOptionGroup && !optionSearchQuery));
-    button.tabIndex = group.id === activeOptionGroup ? 0 : -1;
-    button.dataset.group = group.id;
-
-    const icon = document.createElement("span");
-    icon.className = "option-rail-icon";
-    icon.setAttribute("aria-hidden", "true");
-    icon.append(spriteIcon(group.icon));
-    const name = document.createElement("span");
-    name.className = "option-rail-name";
-    name.textContent = t(group.labelKey);
-    button.append(icon, name);
-
-    if (counts[group.id]) {
-      const badge = document.createElement("span");
-      badge.className = "option-rail-badge";
-      badge.textContent = String(counts[group.id]);
-      badge.title = `${counts[group.id]} ${t("changedCount")}`;
-      button.append(badge);
-    }
-    button.addEventListener("click", () => {
-      activeOptionGroup = group.id;
-      const search = $("#option-search");
-      if (search) search.value = "";
-      optionSearchQuery = "";
-      renderOptionRail();
-      renderOptionPane();
-      $(`#option-tab-${group.id}`)?.focus({ preventScroll: true });
-    });
-    rail.append(button);
-  }
-}
-
-function renderOptionPane() {
-  const pane = $("#option-pane");
-  if (!pane) return;
-  pane.replaceChildren();
-  pane.setAttribute("role", optionSearchQuery ? "region" : "tabpanel");
-
-  if (optionSearchQuery) {
-    pane.setAttribute("aria-labelledby", "option-search-label");
-    const matches = (searchOptions(optionSearchQuery, t) || [])
-      .filter(({ field, group }) => showExpertOptions || (!field.expert && !group.expert));
-    if (!matches.length) {
-      const empty = document.createElement("p");
-      empty.className = "option-empty";
-      empty.textContent = t("noOptionsMatch");
-      pane.append(empty);
-      return;
-    }
-    let lastGroup = null;
-    for (const { group, field } of matches) {
-      if (group !== lastGroup) {
-        const caption = document.createElement("p");
-        caption.className = "option-search-group";
-        caption.textContent = t(group.labelKey);
-        pane.append(caption);
-        lastGroup = group;
-      }
-      pane.append(buildOptionRow(field, group));
-    }
-    return;
-  }
-
-  const group = OPTION_GROUPS.find((item) => item.id === activeOptionGroup) || OPTION_GROUPS[0];
-  pane.setAttribute("aria-labelledby", `option-tab-${group.id}`);
-  const header = document.createElement("header");
-  header.className = "option-pane-head";
-  const heading = document.createElement("div");
-  const title = document.createElement("strong");
-  title.textContent = t(group.labelKey);
-  const description = document.createElement("small");
-  description.textContent = group.descriptionKey ? t(group.descriptionKey) : "";
-  heading.append(title, description);
-  header.append(heading);
-
-  const groupModified = modifiedCountsByGroup(
-    Object.fromEntries(advancedValues),
-    presetById(state.presetId).options,
-  )[group.id];
-  if (groupModified) {
-    const reset = document.createElement("button");
-    reset.type = "button";
-    reset.className = "text-button";
-    reset.textContent = t("resetGroup");
-    reset.addEventListener("click", () => {
-      invalidateExportStatus();
-      for (const field of group.fields) {
-        const presetOptions = presetById(state.presetId).options;
-        if (field.key in presetOptions) advancedValues.set(field.key, presetOptions[field.key]);
-        else advancedValues.delete(field.key);
-      }
-      renderOptionRail();
-      renderOptionPane();
-      renderSummary();
-      schedulePdfPreview();
-    });
-    header.append(reset);
-  }
-  pane.append(header);
-
-  const fields = visibleFields(group);
-  for (const field of fields) pane.append(buildOptionRow(field, group));
-  if (!fields.length) {
-    const empty = document.createElement("p");
-    empty.className = "option-empty";
-    empty.textContent = t("noOptionsMatch");
-    pane.append(empty);
-  }
-}
-
 function renderAdvancedOptions() {
-  renderOptionRail();
-  renderOptionPane();
+  exportOptions.render();
+}
+
+function setExportSettingsOpen(open, { focus = true } = {}) {
+  $("#export-setup").hidden = open;
+  $("#export-settings").hidden = !open;
+  $("#export-open-settings").setAttribute("aria-expanded", String(open));
+  $("#export-close-settings").hidden = !open;
+  const title = $("#export-inspector-title");
+  title.dataset.i18n = open ? "documentSettings" : "exportSetup";
+  title.textContent = t(title.dataset.i18n);
+  if (focus) $(open ? "#option-search" : "#export-open-settings").focus({ preventScroll: true });
+}
+
+function setExportPane(pane) {
+  $("#export-view").dataset.pane = pane;
+  for (const button of $$("[data-export-pane]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.exportPane === pane));
+  }
+  syncExportToastPlacement();
 }
 
 function resetAdvancedOptions() {
-  invalidateExportStatus();
-  advancedValues.clear();
-  for (const [key, value] of Object.entries(presetById(state.presetId).options)) {
-    if (key in OPTION_FIELDS) advancedValues.set(key, value);
-  }
-  renderAdvancedOptions();
-  renderSummary();
-  schedulePdfPreview();
+  exportOptions.reset();
 }
 
 /**
@@ -1881,6 +1407,7 @@ function resetAdvancedOptions() {
 let exportPreviewTimer = null;
 let exportPreviewSequence = 0;
 let exportPreviewRequestId = null;
+let exportPreviewDirty = false;
 // The engine takes one job at a time, so previews queue behind each other
 // rather than compete for it.
 const exportPreviewFlight = createSingleFlight(() => drawExportPreview());
@@ -1899,11 +1426,11 @@ const exportPreviewFlight = createSingleFlight(() => drawExportPreview());
  * after asking, wait for the engine to actually come free.
  */
 async function releaseEngineForJob() {
+  if (exportPreviewTimer || exportPreviewFlight.isRunning) exportPreviewSequence += 1;
   if (exportPreviewTimer) {
     clearTimeout(exportPreviewTimer);
     exportPreviewTimer = null;
   }
-  exportPreviewSequence += 1;
   const pending = exportPreviewRequestId;
   exportPreviewRequestId = null;
   if (pending) {
@@ -1930,13 +1457,17 @@ let exportPreviewNotePayload = null;
 function setExportPreviewState(key) {
   exportPreviewStateKey = key || "";
   const label = $("#export-preview-state");
-  if (label) label.textContent = key ? t(key) : "";
+  label.textContent = key ? t(key) : "";
+  const retry = $("#export-preview-retry");
+  if (key !== "previewFailedShort" && document.activeElement === retry) $("#export-preview-title").focus({ preventScroll: true });
+  retry.hidden = key !== "previewFailedShort";
 }
 
 function setExportPreviewHasSource(hasSource) {
   const emptyState = $("#export-preview-empty");
   if (emptyState) emptyState.hidden = Boolean(hasSource);
   $("#export-preview")?.setAttribute("aria-hidden", String(!hasSource));
+  $("#export-preview iframe")?.setAttribute("tabindex", hasSource ? "0" : "-1");
 }
 
 /** Put the export preview back into the interface language. */
@@ -1947,17 +1478,21 @@ function retranslateExportPreview() {
   // With no source there is nothing to ask the engine for; with one, the
   // sheet itself carries translated furniture and has to be drawn again.
   setExportPreviewHasSource(Boolean(state.sourcePath));
+  $("#export-preview iframe")?.setAttribute("title", t("exportPreview"));
   if (!state.sourcePath) pageDeck.showMessage(t("previewChooseSource"));
   else schedulePdfPreview(0);
 }
 
 function schedulePdfPreview(delay = 450) {
-  // A job the user asked for owns the engine until it finishes.
-  if (state.activeRequestId) return;
+  exportPreviewDirty = true;
+  exportPreviewSequence += 1;
   if (exportPreviewTimer) clearTimeout(exportPreviewTimer);
+  exportPreviewTimer = null;
+  if (state.activeRequestId || document.body.dataset.view !== "export") return;
+  if (state.sourcePath) setExportPreviewState("previewUpdating");
   exportPreviewTimer = setTimeout(() => {
     exportPreviewTimer = null;
-    void renderExportPreview();
+    void exportPreviewFlight.run();
   }, delay);
 }
 
@@ -1987,7 +1522,6 @@ function renderPreviewToolbar(deckState) {
       ? `${deckState.currentPage} / ${deckState.pageCount}`
       : "—";
   }
-  $("#preview-page-estimate").hidden = !deckState.pageCount;
   $("#preview-fit-width")?.setAttribute("aria-pressed", String(deckState.zoomMode === "fit-width"));
   $("#preview-fit-page")?.setAttribute("aria-pressed", String(deckState.zoomMode === "fit-page"));
   $("#preview-guides")?.setAttribute("aria-pressed", String(Boolean(deckState.guides)));
@@ -1995,13 +1529,18 @@ function renderPreviewToolbar(deckState) {
     const button = $(id);
     if (button) button.disabled = !hasPages;
   }
-  for (const id of ["#preview-prev-page", "#preview-next-page"]) {
+  for (const [id, atEnd] of [
+    ["#preview-prev-page", deckState.currentPage <= 1],
+    ["#preview-next-page", deckState.currentPage >= deckState.pageCount],
+  ]) {
     const button = $(id);
-    if (button) button.disabled = deckState.pageCount < 2;
+    button.disabled = !hasPages;
+    button.setAttribute("aria-disabled", String(!hasPages || atEnd));
   }
 }
 
 function movePreviewPage(delta) {
+  if ($(delta < 0 ? "#preview-prev-page" : "#preview-next-page").getAttribute("aria-disabled") === "true") return;
   const deck = exportPreviewDeck();
   if (!deck?.pageCount) return;
   const counter = $("#preview-page-count");
@@ -2022,8 +1561,8 @@ function renderPreviewNote(payload) {
   const lines = [];
   if (payload) lines.push(t("previewPaginationApproximate"));
   if (payload?.degraded) lines.push(t("previewEngineOutdated"));
-  note.classList.toggle("hidden", lines.length === 0);
-  note.textContent = lines.join(" · ");
+  note.hidden = lines.length === 0;
+  $("#export-preview-note-copy").textContent = lines.join(" · ");
 }
 
 /**
@@ -2076,22 +1615,19 @@ function pagePayloadFromBodyPreview(result) {
  * arrives mid-render is remembered rather than sent, and runs once the engine
  * is free.
  */
-function renderExportPreview() {
-  return exportPreviewFlight.run();
-}
-
 async function drawExportPreview() {
+  if (state.activeRequestId || document.body.dataset.view !== "export") return;
   const deck = exportPreviewDeck();
   if (!deck) return;
   setExportPreviewHasSource(Boolean(state.sourcePath));
   if (!state.sourcePath) {
+    exportPreviewDirty = false;
     setExportPreviewState("");
     renderPreviewNote(null);
     deck.showMessage(t("previewChooseSource"));
     return;
   }
-  const sequence = (exportPreviewSequence += 1);
-  setExportPreviewState("previewUpdating");
+  const sequence = exportPreviewSequence;
   const id = `export-preview-${sequence}-${Date.now()}`;
   exportPreviewRequestId = id;
   try {
@@ -2103,19 +1639,39 @@ async function drawExportPreview() {
       ? await previewDocumentPage(request)
       : pagePayloadFromBodyPreview(await previewDocumentText(request));
     if (sequence !== exportPreviewSequence) return;
-    await deck.render(result);
-    if (sequence !== exportPreviewSequence) return;
-    renderPreviewNote(result);
-    setExportPreviewState("");
+    // Layout and MathJax run in the webview. They must not keep the engine
+    // flight occupied when the user changes files or starts a PDF job.
+    void paintExportPreview(deck, result, sequence);
   } catch (error) {
-    if (sequence !== exportPreviewSequence) return;
-    setExportPreviewState("previewFailedShort");
-    const payload = errorPayload(error);
-    renderPreviewNote(null);
-    deck.showMessage(payload?.message || t("previewFailed"), diagnosticLines(payload));
+    failExportPreview(deck, sequence, error);
   } finally {
     if (exportPreviewRequestId === id) exportPreviewRequestId = null;
   }
+}
+
+function exportPreviewIsCurrent(sequence) {
+  return sequence === exportPreviewSequence && document.body.dataset.view === "export";
+}
+
+async function paintExportPreview(deck, result, sequence) {
+  try {
+    await deck.render(result, { isCurrent: () => exportPreviewIsCurrent(sequence) });
+    if (!exportPreviewIsCurrent(sequence)) return;
+    exportPreviewDirty = false;
+    renderPreviewNote(result);
+    setExportPreviewState("");
+  } catch (error) {
+    failExportPreview(deck, sequence, error);
+  }
+}
+
+function failExportPreview(deck, sequence, error) {
+  if (!exportPreviewIsCurrent(sequence)) return;
+  exportPreviewDirty = false;
+  setExportPreviewState("previewFailedShort");
+  const payload = errorPayload(error);
+  renderPreviewNote(null);
+  deck.showMessage(payload?.message || t("previewFailed"), diagnosticLines(payload));
 }
 
 /**
@@ -2127,46 +1683,13 @@ async function drawExportPreview() {
  * won depended on merge order rather than on anything the user could see.
  */
 function exportOverrides() {
-  return collectRenderOptions(Object.fromEntries(advancedValues));
+  return exportOptions.overrides();
 }
 
 function renderPresets() {
-  const grid = $("#preset-grid");
-  if (!grid) return;
-  grid.replaceChildren();
-  for (const preset of Object.values(PRESETS)) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `preset-card${preset.id === state.presetId ? " selected" : ""}`;
-    button.dataset.preset = preset.id;
-    button.setAttribute("role", "radio");
-    button.setAttribute("aria-checked", String(preset.id === state.presetId));
-    button.tabIndex = preset.id === state.presetId ? 0 : -1;
-    button.innerHTML = `<strong></strong><small></small><i aria-hidden="true"></i>`;
-    button.querySelector("i").append(spriteIcon("check"));
-    button.querySelector("strong").textContent = t(preset.titleKey);
-    button.querySelector("small").textContent = t(preset.descriptionKey);
-    button.addEventListener("click", () => {
-      selectPreset(preset.id);
-      grid.querySelector(`[data-preset="${preset.id}"]`)?.focus();
-    });
-    button.addEventListener("keydown", (event) => {
-      const presets = Object.keys(PRESETS);
-      const index = presets.indexOf(preset.id);
-      const rtl = document.documentElement.dir === "rtl";
-      let offset = 0;
-      if (event.key === "ArrowRight") offset = rtl ? -1 : 1;
-      else if (event.key === "ArrowLeft") offset = rtl ? 1 : -1;
-      else if (event.key === "ArrowDown") offset = 1;
-      else if (event.key === "ArrowUp") offset = -1;
-      else return;
-      event.preventDefault();
-      const next = presets[(index + offset + presets.length) % presets.length];
-      selectPreset(next);
-      grid.querySelector(`[data-preset="${next}"]`)?.focus();
-    });
-    grid.append(button);
-  }
+  const select = $("#export-preset");
+  select.replaceChildren(...Object.values(PRESETS).map((preset) => new Option(t(preset.titleKey), preset.id)));
+  select.value = state.presetId;
 }
 
 /**
@@ -2174,49 +1697,37 @@ function renderPresets() {
  *
  * The preset is a starting point the user can then adjust in place, so its
  * choices have to be visible in the same controls they would use to change
- * them — not held invisibly behind the card.
+ * them.
  */
 function selectPreset(id) {
   invalidateExportStatus();
   const preset = presetById(id);
   state.presetId = preset.id;
-  advancedValues.clear();
-  for (const [key, value] of Object.entries(preset.options)) {
-    if (key in OPTION_FIELDS) advancedValues.set(key, value);
-  }
-  renderAdvancedOptions();
-  renderPresets();
-  renderSummary();
-  schedulePdfPreview();
+  $("#export-preset").value = preset.id;
+  exportOptions.reset();
 }
 
-/**
- * What this export will actually do, in four lines.
- *
- * The summary answers the question a settings panel cannot: after all those
- * decisions, what am I about to produce. The last row counts what has been
- * changed away from the preset, because that is the part worth double-checking.
- */
 function renderSummary() {
   const container = $("#preset-summary");
-  if (!container) return;
   const preset = presetById(state.presetId);
   const options = exportOverrides();
-  const changed = modifiedKeys(Object.fromEntries(advancedValues), preset.options).length;
+  const changed = exportOptions.modifiedCount();
+  $("#export-preset-help").textContent = t(preset.descriptionKey);
+  const count = $("#export-change-count");
+  count.hidden = changed === 0;
+  count.textContent = changed ? `${changed} ${t("changedCount")}` : "";
   const rows = [
-    [t("preset"), t(preset.titleKey)],
-    [t("page"), options.page_size ?? t("inherit")],
+    [t("pageSize"), options.page_size ?? t("inherit")],
     [t("toc"), options.toc === undefined ? t("inherit") : t(options.toc ? "enabled" : "disabled")],
     [t("quality"), options.quality_profile === undefined ? t("inherit")
       : t(options.quality_profile === "strict-publication" ? "strict" : "standard")],
-    [t("settingsSummary"), changed ? `${changed} ${t("changedCount")}` : t("noChanges")],
   ];
   container.replaceChildren(...rows.map(([label, value]) => {
     const row = document.createElement("div");
     row.className = "summary-row";
-    const caption = document.createElement("span");
+    const caption = document.createElement("dt");
     caption.textContent = label;
-    const detail = document.createElement("strong");
+    const detail = document.createElement("dd");
     setTruncatableText(detail, value);
     row.append(caption, detail);
     return row;
@@ -2252,16 +1763,15 @@ function saveRecent(path) {
 
 function hideExportResult() {
   state.outputResult = null;
-  $("#export-result")?.classList.add("hidden");
+  $("#export-result").hidden = true;
 }
 
 function showExportResult(path) {
   const resultPath = String(path || "").trim();
   const container = $("#export-result");
-  if (!container || !resultPath) return;
-  setTruncatableText($("#export-result-name"), basename(resultPath));
-  setTruncatableText($("#export-result-path"), resultPath);
-  container.classList.remove("hidden");
+  if (!resultPath) return;
+  container.title = resultPath;
+  container.hidden = false;
 }
 
 function openExportFormat(onPdf, { book = false, returnFocus } = {}) {
@@ -2304,33 +1814,56 @@ function openWorkspaceExport() {
   }, { returnFocus: $("#workspace-export") });
 }
 
+function renderExportFiles() {
+  for (const [kind, path] of [["source", state.sourcePath], ["output", state.outputPath]]) {
+    const input = $(`#${kind}-path`);
+    input.value = path;
+    input.title = path;
+    input.closest(".export-file").dataset.selected = String(Boolean(path));
+    setTruncatableText($(`#export-${kind}-name`), basename(path));
+  }
+  const choose = $("#choose-source");
+  choose.classList.toggle("primary", !state.sourcePath);
+  choose.classList.toggle("secondary", Boolean(state.sourcePath));
+  choose.dataset.i18n = state.sourcePath ? "exportChange" : "exportChooseFile";
+  choose.textContent = t(choose.dataset.i18n);
+  if (state.sourcePath) choose.setAttribute("aria-label", t("exportChangeSource"));
+  else choose.removeAttribute("aria-label");
+  syncExportControls();
+}
+
 function openExportSource(path) {
+  if (state.activeRequestId) return;
+  const entering = document.body.dataset.view !== "export";
   hideExportResult();
-  if (state.sourcePath !== path) {
+  if (entering || state.sourcePath !== path) {
     exportPreviewSequence += 1;
     setExportPreviewState("");
     renderPreviewNote(null);
     pageDeck?.showMessage(t(path ? "previewUpdating" : "previewChooseSource"));
   }
   state.sourcePath = path;
-  setExportPreviewHasSource(Boolean(path));
   state.outputPath = defaultOutputPath(path);
-  $("#source-path").value = path;
-  $("#output-path").value = state.outputPath;
-  $("#source-path").title = path;
-  $("#output-path").title = state.outputPath;
-  setExportStatus("idle", "readyTitle", t("readyMessage"));
-  showView("export");
-  // The document is the preview's only subject. Without this the panel stayed
-  // on "choose a source file" until some unrelated option was touched, which
-  // is the one moment the user is least expecting to have to.
+  renderExportFiles();
+  setExportPreviewHasSource(Boolean(path));
+  setExportStatus("idle");
+  if (entering) {
+    setExportPane("setup");
+    setExportSettingsOpen(false, { focus: false });
+    $("#export-setup").scrollTop = 0;
+    showView("export");
+    $(path ? "#export-title" : "#choose-source").focus({ preventScroll: true });
+  }
   schedulePdfPreview(path ? 120 : 0);
 }
 
-async function chooseExportSource() {
+async function chooseExportSource(event) {
   try {
+    const fromPreview = event.currentTarget.id === "preview-choose-source";
     const path = await invoke("pick_markdown_file");
-    if (path) openExportSource(path);
+    if (!path || state.activeRequestId || document.body.dataset.view !== "export") return;
+    openExportSource(path);
+    $(fromPreview ? "#export-preview-title" : "#choose-source").focus({ preventScroll: true });
   } catch (error) {
     toast(errorText(error), "error");
   }
@@ -2345,8 +1878,7 @@ async function chooseExportOutput() {
     const path = await invoke("pick_pdf_output", { suggested_path: state.outputPath || defaultOutputPath(state.sourcePath) });
     if (path) {
       state.outputPath = path;
-      $("#output-path").value = path;
-      $("#output-path").title = path;
+      renderExportFiles();
       invalidateExportStatus();
     }
   } catch (error) {
@@ -2357,13 +1889,23 @@ async function chooseExportOutput() {
 function exportSelectionValid() {
   const errors = validateExportSelection({ sourcePath: state.sourcePath, outputPath: state.outputPath });
   if (!errors.length) return true;
-  setExportStatus("error", "errorTitle", errors.map((code) => t(code)).join(" "));
+  setExportStatus("error", "errorTitle", { message: errors.map((code) => t(code)).join(" ") });
   if (errors.some((code) => code === "source_required" || code === "source_markdown")) {
+    setExportPane("setup");
+    setExportSettingsOpen(false, { focus: false });
     $("#choose-source").focus();
   } else if (errors.some((code) => code === "output_required" || code === "output_pdf" || code === "paths_differ")) {
     $("#choose-output").focus();
   }
   return false;
+}
+
+function markExportCancelled() {
+  setExportStatus("notice", null, { messageKey: "operationCancelled" });
+}
+
+function exportErrorCode(payload) {
+  return payload?.application_code || payload?.data?.application_code || payload?.code;
 }
 
 async function validateExportDocument() {
@@ -2372,22 +1914,26 @@ async function validateExportDocument() {
   const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, options: exportOverrides() });
   state.activeRequestId = id;
   state.cancelledExportRequestId = null;
+  hideExportResult();
   working(true, "validate");
   try {
     await releaseEngineForJob();
     if (state.cancelledExportRequestId === id) {
-      setExportStatus("idle", "readyTitle", t("operationCancelled"));
+      markExportCancelled();
       return;
     }
     const result = await invoke("sidecar_request", { request_id: id, method: "validate.document", params });
     const diagnostics = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
-    setExportStatus(result?.ok ? "success" : "error", result?.ok ? "validTitle" : "invalidTitle", t(result?.ok ? "validMessage" : "invalidMessage"), diagnostics);
+    if (!result?.ok) setExportStatus("error", "invalidTitle", { messageKey: "invalidMessage", diagnostics });
+    else if (diagnostics.some((item) => item.severity === "warning")) {
+      setExportStatus("warning", "exportCheckedWithWarnings", { messageKey: "exportCheckedWithWarningsHelp", diagnostics });
+    } else setExportStatus("success", "validTitle", { diagnostics });
   } catch (error) {
     const payload = errorPayload(error);
-    if ((payload?.application_code || payload?.data?.application_code || payload?.code) === "MARDAS-JOB-CANCELLED") {
-      setExportStatus("idle", "readyTitle", t("operationCancelled"));
+    if (exportErrorCode(payload) === "MARDAS-JOB-CANCELLED") {
+      markExportCancelled();
     } else {
-      setExportStatus("error", "errorTitle", errorText(error));
+      setExportStatus("error", "exportCheckFailed", { message: errorText(error) });
     }
   } finally {
     state.activeRequestId = null;
@@ -2403,13 +1949,13 @@ async function exportDocument(event) {
   params.create_only = true;
   state.activeRequestId = id;
   state.cancelledExportRequestId = null;
-  working(true);
   hideExportResult();
+  working(true);
   let focusOutput = false;
   try {
     await releaseEngineForJob();
     if (state.cancelledExportRequestId === id) {
-      setExportStatus("idle", "readyTitle", t("operationCancelled"));
+      markExportCancelled();
       return;
     }
     const inspection = await invoke("sidecar_request", {
@@ -2418,30 +1964,31 @@ async function exportDocument(event) {
       params: { output_path: params.output_path },
     });
     if (state.cancelledExportRequestId === id) {
-      setExportStatus("idle", "readyTitle", t("operationCancelled"));
+      markExportCancelled();
       return;
     }
     if (inspection?.exists) {
-      setExportStatus("error", "errorTitle", t("outputExistsChooseNew"));
+      setExportStatus("error", "errorTitle", { messageKey: "outputExistsChooseNew" });
       focusOutput = true;
       return;
     }
     const result = await invoke("sidecar_request", { request_id: id, method: "render.document", params });
     state.outputResult = result;
-    $("#progress-bar").style.width = "100%";
-    $("#progress-label").textContent = "100%";
     const resultPath = result.output_path || state.outputPath;
-    setExportStatus("success", "successTitle", t("successMessage"));
+    setExportStatus("success", "successTitle");
     showExportResult(resultPath);
     saveRecent(state.sourcePath);
   } catch (error) {
     const payload = errorPayload(error);
-    if ((payload?.application_code || payload?.data?.application_code || payload?.code) === "MARDAS-JOB-CANCELLED") {
-      setExportStatus("idle", "readyTitle", t("operationCancelled"));
+    const code = exportErrorCode(payload);
+    if (code === "MARDAS-JOB-CANCELLED") {
+      markExportCancelled();
+    } else if (code === "MARDAS-OUTPUT-EXISTS") {
+      setExportStatus("error", "errorTitle", { messageKey: "outputExistsChooseNew" });
+      focusOutput = true;
     } else {
-      const message = errorText(error);
-      setExportStatus("error", "errorTitle", message);
-      toast(message, "error");
+      const diagnostics = Array.isArray(payload?.details?.diagnostics) ? payload.details.diagnostics : [];
+      setExportStatus("error", "errorTitle", { message: errorText(error), diagnostics });
     }
   } finally {
     state.activeRequestId = null;
@@ -2453,15 +2000,18 @@ async function exportDocument(event) {
 async function cancelExport() {
   const id = state.activeRequestId;
   if (!id || state.cancelledExportRequestId === id) return;
+  const runningStatus = exportFeedback;
   state.cancelledExportRequestId = id;
   $("#cancel-button").disabled = true;
-  setExportStatus("working", null, t("cancellingOperation"));
+  setExportStatus("working", null, { messageKey: "cancellingOperation" });
   try {
     await invoke("sidecar_cancel", { request_id: id });
   } catch (error) {
     if (state.activeRequestId === id) {
       state.cancelledExportRequestId = null;
       $("#cancel-button").disabled = false;
+      exportFeedback = runningStatus;
+      renderExportStatus();
       toast(errorText(error), "error");
     }
   }
@@ -5573,7 +5123,7 @@ function bindEvents() {
   $("#workflow-new").addEventListener("click", createUntitledDocument);
   $("#command-button").addEventListener("click", openCommandPalette);
   $("#help-button").addEventListener("click", openHelp);
-  $("#settings-button").addEventListener("click", openSettings);
+  $("#settings-button").addEventListener("click", () => openSettings());
   for (const button of $$("button[data-view-mode]")) {
     button.addEventListener("click", () => setViewMode(button.dataset.viewMode));
     button.addEventListener("keydown", (event) => {
@@ -5590,32 +5140,12 @@ function bindEvents() {
     });
   }
   $("#reset-advanced").addEventListener("click", resetAdvancedOptions);
-  $("#option-search").addEventListener("input", (event) => {
-    optionSearchQuery = event.target.value;
-    renderOptionRail();
-    renderOptionPane();
-  });
-  $("#show-expert").addEventListener("change", (event) => {
-    showExpertOptions = event.target.checked;
-    // A hidden expert group must not stay selected, or the pane would be empty.
-    const group = OPTION_GROUPS.find((item) => item.id === activeOptionGroup);
-    if (group?.expert && !showExpertOptions) activeOptionGroup = OPTION_GROUPS[0].id;
-    renderAdvancedOptions();
-  });
-  $("#option-rail").addEventListener("keydown", (event) => {
-    if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
-    const items = [...$("#option-rail").querySelectorAll(".option-rail-item")];
-    const index = items.indexOf(document.activeElement);
-    if (index < 0) return;
-    event.preventDefault();
-    let next = index;
-    if (event.key === "ArrowUp") next = (index - 1 + items.length) % items.length;
-    if (event.key === "ArrowDown") next = (index + 1) % items.length;
-    if (event.key === "Home") next = 0;
-    if (event.key === "End") next = items.length - 1;
-    items[next].click();
-    $(`#option-tab-${items[next].dataset.group}`)?.focus({ preventScroll: true });
-  });
+  $("#export-preset").addEventListener("change", (event) => selectPreset(event.target.value));
+  $("#export-open-settings").addEventListener("click", () => setExportSettingsOpen(true));
+  $("#export-close-settings").addEventListener("click", () => setExportSettingsOpen(false));
+  for (const button of $$("[data-export-pane]")) {
+    button.addEventListener("click", () => setExportPane(button.dataset.exportPane));
+  }
   $("#preview-zoom-in").addEventListener("click", () => exportPreviewDeck()?.zoomBy(1));
   $("#preview-zoom-out").addEventListener("click", () => exportPreviewDeck()?.zoomBy(-1));
   $("#preview-fit-width").addEventListener("click", () => exportPreviewDeck()?.setZoomMode("fit-width"));
@@ -5623,6 +5153,7 @@ function bindEvents() {
   $("#preview-guides").addEventListener("click", () => exportPreviewDeck()?.toggleGuides());
   $("#preview-prev-page").addEventListener("click", () => movePreviewPage(-1));
   $("#preview-next-page").addEventListener("click", () => movePreviewPage(1));
+  $("#export-preview-retry").addEventListener("click", () => schedulePdfPreview(0));
   $("#workflow-quick").addEventListener("click", openFileExport);
   $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
   $("#workflow-project").addEventListener("click", chooseProjectDirectory);
@@ -5634,10 +5165,15 @@ function bindEvents() {
   });
   $("#close-export-format").addEventListener("click", () => modalManager.close($("#export-format-modal")));
   $("#choose-source").addEventListener("click", chooseExportSource);
+  $("#preview-choose-source").addEventListener("click", chooseExportSource);
   $("#choose-output").addEventListener("click", chooseExportOutput);
   $("#validate-button").addEventListener("click", validateExportDocument);
   $("#export-form").addEventListener("submit", exportDocument);
   $("#cancel-button").addEventListener("click", cancelExport);
+  $("#export-show-details").addEventListener("click", () => modalManager.open($("#export-details-modal"), {
+    initialFocus: "#export-close-details",
+  }));
+  $("#export-close-details").addEventListener("click", () => modalManager.close($("#export-details-modal")));
   $("#open-pdf").addEventListener("click", () => openResult(false));
   $("#reveal-pdf").addEventListener("click", () => openResult(true));
   $("#clear-recents").addEventListener("click", () => {
@@ -5944,7 +5480,7 @@ function bindEvents() {
   $("#discard-recovery").addEventListener("click", () => resolveRecovery(false));
   $("#settings-form").addEventListener("submit", submitSettings);
   $("#close-settings").addEventListener("click", closeSettings);
-  $("#settings-search").addEventListener("input", (event) => filterSettings(event.target.value));
+  $("#cancel-settings").addEventListener("click", closeSettings);
   $("#reset-settings").addEventListener("click", resetSettings);
   $("#restart-onboarding").addEventListener("click", () => {
     closeSettings();
@@ -6199,9 +5735,12 @@ async function boot() {
         return;
       }
       if (params.request_id !== state.activeRequestId) return;
-      $("#progress-bar").style.width = `${percent}%`;
-      $("#progress-label").textContent = `${percent}%`;
-      if (params.message) $("#status-message").textContent = params.message;
+      setExportProgress(percent);
+      if (params.message && !state.cancelledExportRequestId) {
+        exportFeedback.message = params.message;
+        $("#status-message").textContent = params.message;
+        $("#status-message").title = params.message;
+      }
     });
     await listen("desktop-update-progress", (event) => {
       const payload = event.payload || {};

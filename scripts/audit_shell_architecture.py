@@ -459,15 +459,17 @@ def run(dist: Path, output: Path) -> dict:
                 page.screenshot(path=str(output / f"{locale}-{width}-workspace.png"))
                 open_workspace_export(page)
                 edges = page.evaluate("""() => {
-                  const r=s=>{const a=document.querySelector(s).getBoundingClientRect();return {left:a.left,right:a.right,width:a.width}};
-                  return {content:r('.export-content'),layout:r('.export-layout'),dock:r('.export-dock')};
+                  const rect = selector => document.querySelector(selector).getBoundingClientRect().toJSON();
+                  return {setup: rect('#export-form'), layout: rect('.export-layout'),
+                    dock: rect('.export-dock'), preview: rect('#export-preview-panel')};
                 }""")
                 case["export_edges"] = edges
-                assert abs(edges["layout"]["left"] - edges["dock"]["left"]) <= 1, edges
-                assert abs(edges["layout"]["right"] - edges["dock"]["right"]) <= 1, edges
+                assert abs(edges["setup"]["left"] - edges["dock"]["left"]) <= 1, edges
+                assert abs(edges["setup"]["right"] - edges["dock"]["right"]) <= 1, edges
+                assert abs(edges["layout"]["bottom"] - edges["preview"]["bottom"]) <= 1, edges
                 assert not page.evaluate("document.documentElement.scrollWidth>innerWidth+1")
                 page.screenshot(path=str(output / f"{locale}-{width}-export.png"))
-                case["checks"].append("export destination dock and two-column layout have identical outer edges")
+                case["checks"].append("export actions align with setup and the preview fills the workspace height")
                 page.locator("#export-back").click()
                 expect(page.locator("#document-tabs .document-tab")).to_have_count(4)
                 expect(page.locator("#markdown-editor")).to_have_value(expected)

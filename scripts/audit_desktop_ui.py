@@ -89,13 +89,19 @@ def _visible(page: Any, selector: str) -> bool:
     return bool(page.locator(selector).evaluate("(node) => !node.classList.contains('hidden')"))
 
 
-def open_settings(page: Any) -> None:
+def select_settings_section(page: Any, section: str) -> None:
+    page.locator(f'.settings-nav button[aria-controls="settings-{section}"]').click()
+
+
+def open_settings(page: Any, section: str = "appearance") -> None:
     """Use the single global utility, including its compact disclosure."""
     if page.locator("#exit-focus-mode").is_visible():
         page.locator("#exit-focus-mode").click()
     if not page.locator("#settings-button").is_visible():
         page.locator(".app-utilities > summary").click()
     page.locator("#settings-button").click()
+    if section != "appearance":
+        select_settings_section(page, section)
 
 
 def run_workspace_command(page: Any, command_id: str) -> None:
@@ -163,7 +169,7 @@ def run_audit(
         checks["workspace_starts_without_modal"] = (
             _visible(page, "#workspace-empty") and not _visible(page, "#onboarding-modal")
         )
-        open_settings(page)
+        open_settings(page, "language")
         page.locator("#restart-onboarding").click()
         checks["onboarding_visible"] = _visible(page, "#onboarding-modal")
         checks["background_inert"] = page.locator(".shell").evaluate("(node) => node.inert")
@@ -337,6 +343,7 @@ def run_audit(
         page.keyboard.press("Control+N")
         checks["modal_shortcuts_blocked"] = page.locator(".document-tab").count() == tab_count
         page.locator("#setting-theme").select_option("dark")
+        select_settings_section(page, "accessibility")
         page.locator("#setting-motion").select_option("reduce")
         page.locator("#settings-form button[type='submit']").click()
         checks["dark_theme"] = page.locator("html").get_attribute("data-theme") == "dark"
@@ -351,7 +358,7 @@ def run_audit(
         checks["help_visible"] = _visible(page, "#help-modal")
         page.locator("#help-done").click()
 
-        open_settings(page)
+        open_settings(page, "language")
         page.locator("#setting-locale").select_option("fa")
         page.locator("#settings-form button[type='submit']").click()
         checks["rtl_locale"] = page.locator("html").get_attribute("dir") == "rtl"
@@ -376,6 +383,8 @@ def run_audit(
         open_workspace_export(page, None)
         page.wait_for_timeout(900)
         page.screenshot(path=str(output_dir / "export-empty-fa-dark.png"), full_page=True)
+        checks["export_settings_start_closed"] = page.locator("#export-settings").is_hidden()
+        page.locator("#export-open-settings").click()
         # A value the preset supplied is not a value the user overrode, and
         # "reset" on this screen has to mean "back to the preset" — deleting
         # it sends the engine to its own default instead, which is a different
@@ -403,21 +412,19 @@ def run_audit(
                 const pane = document.querySelector('#option-pane');
                 return pane?.getAttribute('role') === 'region'
                     && pane.getAttribute('aria-labelledby') === 'option-search-label'
-                    && !!document.querySelector('#option-search-label')?.textContent.trim()
-                    && !document.querySelector('.option-rail-item[aria-selected="true"]');
+                    && !!document.querySelector('#option-search-label')?.textContent.trim();
             }"""
         )
         page.locator("#option-search").fill("")
-        page.locator(".option-rail-item").first.focus()
+        page.locator("#option-category").focus()
         page.keyboard.press("ArrowDown")
         checks["option_category_keyboard_focus_survives_rendering"] = page.evaluate(
             """() => {
                 const pane = document.querySelector('#option-pane');
-                const tab = document.activeElement;
-                return tab?.classList.contains('option-rail-item')
-                    && tab.getAttribute('aria-selected') === 'true'
-                    && pane?.getAttribute('role') === 'tabpanel'
-                    && pane.getAttribute('aria-labelledby') === tab.id;
+                const category = document.querySelector('#option-category');
+                return document.activeElement === category && category.value !== 'appearance'
+                    && pane?.getAttribute('role') === 'region'
+                    && pane.getAttribute('aria-labelledby') === 'option-category-title';
             }"""
         )
 
@@ -450,6 +457,7 @@ def run_audit(
                     && canvas?.getAttribute('aria-hidden') === 'true';
             }"""
         )
+        page.locator("#export-close-settings").click()
         page.locator("#choose-source").click()
         page.wait_for_function(
             "() => !!document.querySelector('#export-preview iframe')?.contentDocument?.querySelector('.pv-page')"
@@ -459,23 +467,31 @@ def run_audit(
             and page.locator("#preview-zoom-in").is_enabled()
             and page.locator("#preview-page-count").inner_text() != "—"
         )
-        page.locator("#option-tab-appearance").click()
+        page.locator("#export-open-settings").click()
+        page.locator("#option-category").select_option("appearance")
         page.locator("#adv-style").focus()
         page.locator("#adv-style").select_option("academic")
         checks["export_option_keeps_focus_after_update"] = (
             page.evaluate("document.activeElement?.id") == "adv-style"
         )
-        page.locator("#option-tab-contents").click()
+        page.locator("#option-category").select_option("contents")
         page.locator('[data-option-key="toc"] .tri-toggle-option').nth(1).click()
         checks["dependent_export_option_is_disabled"] = page.locator("#adv-toc-depth").is_disabled()
-        page.set_viewport_size({"width": 1000, "height": 820})
-        preview_top = page.locator("#export-view .export-side").bounding_box()["y"]
-        settings_top = page.locator("#export-view .form-panel").bounding_box()["y"]
-        checks["narrow_export_keeps_preview_above_long_settings"] = (
-            page.locator("#export-view .export-side").is_visible()
-            and preview_top < settings_top
+        page.set_viewport_size({"width": 840, "height": 640})
+        page.locator("#export-show-preview").click()
+        compact_preview = (
+            page.locator("#export-preview-panel").is_visible()
+            and page.locator("#export-settings").is_hidden()
+            and page.locator("#export-button").is_hidden()
+        )
+        page.locator("#export-show-setup").click()
+        checks["narrow_export_switches_panes_without_losing_settings"] = (
+            compact_preview and page.locator("#option-category").input_value() == "contents"
+            and page.locator("#adv-toc-depth").is_disabled()
+            and page.locator("#export-button").is_visible()
         )
         page.set_viewport_size({"width": 1280, "height": 900})
+        page.locator("#export-close-settings").click()
         page.screenshot(path=str(output_dir / "export-selected-source-fa-dark.png"), full_page=True)
 
         # Keep close available in the inspector tab that owns the current

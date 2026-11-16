@@ -19,6 +19,8 @@ Generated PDF versions are stored in:
 - [Changelog](./CHANGELOG.md) — version-by-version release ledger.
 - [Release checklist](./RELEASE.md) — release gate, build, tag, and artifact workflow.
 - [Maintenance workflow](./MAINTENANCE.md) — routine local checks, guide builds, distribution builds, and patch hygiene.
+- [Engineering guide](./ENGINEERING.md) — module ownership, fixtures, behavioral testing, design-system rules and verification commands.
+- [گزارش بازبینی مهندسی](./ENGINEERING_REVIEW.fa.md) — implemented refactoring, validation evidence and review limits (November 2026).
 - [Security policy](./SECURITY.md) — trust boundaries for Markdown, HTML, assets, Studio, Chromium, and PDF metadata.
 - [Native distribution](./DISTRIBUTION.md) — Windows/macOS/Linux package contracts and clean-machine release boundary.
 - [Desktop update readiness](./UPDATES.md) — signed updater metadata, key handling, and activation gates.
@@ -27,6 +29,7 @@ Generated PDF versions are stored in:
   - [Desktop product boundaries](./architecture/ADR-001-desktop-product-boundaries.md)
   - [Sidecar IPC](./architecture/ADR-002-sidecar-ipc.md)
   - [Frozen runtime](./architecture/ADR-003-frozen-runtime.md)
+  - [Service and UI module boundaries](./architecture/ADR-005-service-and-ui-module-boundaries.md)
   - [Sidecar protocol v1](./architecture/SIDECAR-PROTOCOL-v1.md)
 
 ## Rule of thumb

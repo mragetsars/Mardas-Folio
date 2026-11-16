@@ -8,7 +8,7 @@ from typing import Callable
 
 import pytest
 
-from mardas_folio import application, renderer, runtime
+from mardas_folio import application, file_io, renderer, runtime
 from mardas_folio.application import EngineError, EngineService
 from mardas_folio.diagnostics import Diagnostic
 from mardas_folio.quality import RenderQualityLog
@@ -21,13 +21,13 @@ def test_atomic_text_write_honors_umask_and_preserves_existing_mode(
     target = tmp_path / "preview.html"
     old_umask = os.umask(0o027)
     try:
-        application._atomic_write_text(target, "first")
+        file_io.atomic_write_text(target, "first")
     finally:
         os.umask(old_umask)
     if os.name != "nt":
         assert stat.S_IMODE(target.stat().st_mode) == 0o640
         target.chmod(0o600)
-    application._atomic_write_text(target, "second")
+    file_io.atomic_write_text(target, "second")
     assert target.read_text(encoding="utf-8") == "second"
     if os.name != "nt":
         assert stat.S_IMODE(target.stat().st_mode) == 0o600

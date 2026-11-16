@@ -23,7 +23,10 @@ class Element {
   }
   querySelectorAll() { return this.focusables; }
   querySelector(selector) { return selector === ".modal-card" ? this.child : null; }
-  closest(selector) { return selector === ".hidden" && this.classList.contains("hidden") ? this : null; }
+  closest(selector) {
+    if (selector === "[hidden], .hidden" && (this.hidden || this.classList.contains("hidden"))) return this;
+    return this.parent?.closest(selector) ?? null;
+  }
   focus(options) {
     this.focusedWithScroll = !options?.preventScroll;
     this.document.activeElement = this;
@@ -75,6 +78,29 @@ test("modal manager makes background inert and restores focus", async () => {
   assert.equal(documentRef.activeElement, opener);
   manager.destroy();
   delete globalThis.CustomEvent;
+});
+
+test("Tab skips controls in a hidden settings section", async () => {
+  const documentRef = new Document();
+  const visible = new Element("appearance");
+  const hiddenField = new Element("writing");
+  const save = new Element("save");
+  const section = new Element("settings-section");
+  section.classList.remove("hidden");
+  section.hidden = true;
+  hiddenField.parent = section;
+  for (const field of [visible, hiddenField, save]) {
+    field.classList.remove("hidden");
+    field.document = documentRef;
+  }
+  const modal = new Element("settings", [visible, hiddenField, save]);
+  const manager = createModalManager(documentRef);
+  manager.open(modal);
+  await new Promise((resolve) => queueMicrotask(resolve));
+
+  documentRef.listeners.get("keydown")({ key: "Tab", preventDefault() {} });
+  assert.equal(documentRef.activeElement, save);
+  manager.destroy();
 });
 
 test("Escape uses the modal close callback for control-specific ARIA cleanup", async () => {

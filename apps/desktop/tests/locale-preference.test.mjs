@@ -37,7 +37,7 @@ test("native accessibility labels are routed through the interface locale", () =
   const source = readFileSync(new URL("../frontend/index.html", import.meta.url), "utf8");
   assert.match(source, /id="document-tabs"[^>]*data-i18n-aria-label="openDocuments"/);
   assert.match(source, /class="book-metrics"[^>]*data-i18n-aria-label="bookStatus"/);
-  assert.match(source, /id="update-progress"[^>]*data-i18n-aria-label="updateProgress"/);
+  assert.match(source, /id="update-progress-bar"[^>]*data-i18n-aria-label="updateProgress"/);
 });
 
 test("every interface string exists in both languages", () => {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Review Notes-inspired theme roles, focus and surfaces in a real browser.
+"""Review Geist theme roles, focus and surfaces in a real browser.
 
 This is a visual acceptance aid, not a rendering-engine or native-shell test.
 It reuses the editor UX audit's isolated native-transport fixture. No installed
@@ -16,7 +16,7 @@ from typing import Any
 from playwright.sync_api import expect, sync_playwright
 
 from audit_desktop_editor_ux import editor, initialise
-from audit_desktop_ui import DEFAULT_DIST, click_workspace_layout_control, open_settings, serve
+from audit_desktop_ui import DEFAULT_DIST, click_workspace_layout_control, open_settings, select_settings_section, serve
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,14 +39,16 @@ COLOURS = """() => {
     ['--ui-text','--ui-panel',4.5],
     ['--ui-text-soft','--ui-panel',4.5],
     ['--ui-muted','--ui-panel',4.5],
-    ['--ui-accent','--ui-accent-soft',4.5],
-    ['--ui-on-accent','--ui-accent-fill',4.5],
+    ['--ui-selected-text','--ui-selected-bg',4.5],
+    ['--ui-primary-text','--ui-primary-bg',4.5],
+    ['--ui-primary-text','--ui-primary-hover',4.5],
     ['--cm-text','--ui-page',4.5],
-    ['--ui-accent','--ui-panel',3]
+    ['--ui-accent','--ui-panel',4.5],
+    ['--ui-accent','--ui-selected-bg',3]
   ];
   return {
-    roles:Object.fromEntries(['--ui-bg','--ui-panel','--ui-accent',
-      '--ui-accent-fill','--ui-accent-soft','--ui-on-accent'].map(key => [key,root.getPropertyValue(key).trim()])),
+    roles:Object.fromEntries(['--ui-bg','--ui-panel','--ui-accent','--ui-danger','--ui-warning',
+      '--ui-success','--ui-primary-bg','--ui-selected-bg','--ui-primary-text'].map(key => [key,root.getPropertyValue(key).trim()])),
     pairs:pairs.map(([foreground,background,minimum]) => {
       const a=luminance(rgb(foreground)), b=luminance(rgb(background));
       return {foreground,background,minimum,ratio:+((Math.max(a,b)+.05)/(Math.min(a,b)+.05)).toFixed(3)};
@@ -84,15 +86,20 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                         try:
                             initialise(page, url, locale, theme, source=False)
                             expect(page.locator("html")).to_have_attribute("data-theme", theme, timeout=20_000)
+                            expect(page.locator("html")).to_have_attribute("data-accent", "monochrome")
                             expect(page.locator("#workflow-new")).to_be_visible()
                             colours = page.evaluate(COLOURS)
-                            assert colours["roles"]["--ui-accent-fill"], "Primary fill role is missing"
+                            ink = "#ffffff" if theme == "dark" else "#000000"
+                            assert colours["roles"]["--ui-primary-bg"] == colours["roles"]["--ui-accent"] == ink, colours
                             assert all(pair["ratio"] >= pair["minimum"] for pair in colours["pairs"]), colours
-                            for accent in ("gray", "blue", "red", "amber", "green", "teal", "purple", "pink"):
+                            accents = page.locator("#setting-accent option").evaluate_all("options => options.map(option => option.value)")
+                            for accent in accents:
                                 page.evaluate("(value) => { document.documentElement.dataset.accent = value; }", accent)
                                 accent_colours = page.evaluate(COLOURS)
                                 assert all(pair["ratio"] >= pair["minimum"] for pair in accent_colours["pairs"]), (accent, accent_colours)
-                            page.evaluate("() => { document.documentElement.dataset.accent = 'blue'; }")
+                                for role in ("--ui-bg", "--ui-panel", "--ui-danger", "--ui-warning", "--ui-success"):
+                                    assert accent_colours["roles"][role] == colours["roles"][role], (accent, role)
+                            page.evaluate("() => { document.documentElement.dataset.accent = 'monochrome'; }")
                             scenario["colours"] = colours
                             page.screenshot(path=str(output / f"{prefix}-home.png"), full_page=True)
                             save = page.locator("#workspace-save")
@@ -128,6 +135,8 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
 
                             open_settings(page)
                             expect(page.locator("#settings-modal")).to_be_visible()
+                            expect(page.locator("#settings-appearance")).to_be_visible()
+                            expect(page.locator("#settings-writing")).to_be_hidden()
                             placeholder = page.locator("#settings-search").evaluate("""input => {
                               const ctx = document.createElement('canvas').getContext('2d', {willReadFrequently:true});
                               const sample = colour => {ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = colour;
@@ -142,23 +151,89 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                             }""")
                             assert placeholder["ratio"] >= 4.5, placeholder
                             scenario["placeholder"] = placeholder
+                            if width == 360:
+                                page.set_viewport_size({"width": width, "height": 540})
+                            modal = page.locator("#settings-form").bounding_box()
+                            assert modal and modal["x"] >= -1 and modal["x"] + modal["width"] <= width + 1, modal
+                            assert page.evaluate("Boolean(document.activeElement?.closest('#settings-modal'))")
+                            settings_geometry = page.evaluate("""() => {
+                              const content = document.querySelector('#settings-sections');
+                              const footer = document.querySelector('.settings-footer');
+                              return {
+                                fits: content.scrollWidth <= content.clientWidth + 1,
+                                footerPinned: content.getBoundingClientRect().bottom <= footer.getBoundingClientRect().top + 1,
+                                footerVisible: footer.getBoundingClientRect().bottom <= innerHeight + 1,
+                              };
+                            }""")
+                            assert all(settings_geometry.values()), settings_geometry
+                            scenario["settings"] = settings_geometry
+                            page.screenshot(path=str(output / f"{prefix}-settings.png"))
+
+                            select_settings_section(page, "writing")
+                            expect(page.locator("#settings-appearance")).to_be_hidden()
                             expect(page.locator("#setting-auto-preview")).to_be_checked()
                             switch = page.locator("#setting-auto-preview").evaluate("""input => {
                               const root = getComputedStyle(document.documentElement);
                               const ctx = document.createElement('canvas').getContext('2d');
                               const normalize = colour => {ctx.fillStyle=colour;return ctx.fillStyle;};
-                              return {fill:normalize(root.getPropertyValue('--ui-accent-fill')),
+                              return {fill:normalize(root.getPropertyValue('--ui-primary-bg')),
                                 track:normalize(getComputedStyle(input.nextElementSibling).backgroundColor),
-                                ink:normalize(root.getPropertyValue('--ui-on-accent')),
+                                ink:normalize(root.getPropertyValue('--ui-primary-text')),
                                 thumb:normalize(getComputedStyle(input.nextElementSibling,'::after').backgroundColor)};
                             }""")
                             assert switch["fill"] == switch["track"] and switch["ink"] == switch["thumb"], switch
                             scenario["checked_switch"] = switch
-                            modal = page.locator("#settings-form").bounding_box()
-                            assert modal and modal["x"] >= -1 and modal["x"] + modal["width"] <= width + 1, modal
-                            assert page.evaluate("Boolean(document.activeElement?.closest('#settings-modal'))")
-                            page.screenshot(path=str(output / f"{prefix}-settings.png"), full_page=True)
-                            page.keyboard.press("Escape")
+                            if width == 1440:
+                                search = page.locator("#settings-search")
+                                search.fill("ماشين تحرير" if locale == "fa" else "typewriter")
+                                expect(page.locator("#setting-typewriter")).to_be_visible()
+                                expect(page.locator("#setting-auto-preview")).to_be_hidden()
+                                search.fill("monochrome")
+                                expect(page.locator("#setting-accent")).to_be_visible()
+                                expect(page.locator("#setting-theme")).to_be_hidden()
+                                search.press("Enter")
+                                expect(page.locator("#settings-modal")).to_be_visible()
+                                search.fill("no-matching-setting-47")
+                                expect(page.locator("#settings-empty")).to_be_visible()
+                                page.locator("#settings-clear-search").click()
+                                expect(page.locator("#settings-writing")).to_be_visible()
+                                expect(search).to_be_focused()
+                                select_settings_section(page, "appearance")
+                                picker = page.locator("#setting-accent")
+                                submit = page.locator("#settings-form button[type='submit']")
+                                zoom = page.locator("#setting-document-zoom")
+                                zoom.fill("999")
+                                select_settings_section(page, "writing")
+                                submit.click()
+                                expect(page.locator("#settings-modal")).to_be_visible()
+                                expect(zoom).to_be_focused()
+                                zoom.fill("100")
+                                page.mouse.move(0, 0)
+                                expect(picker).to_have_value("monochrome")
+                                picker.select_option("blue")
+                                expect(page.locator(".settings-accent-swatch")).to_have_css("background-color", "rgb(0, 110, 254)")
+                                page.locator("#cancel-settings").click()
+                                expect(page.locator("html")).to_have_attribute("data-accent", "monochrome")
+                                open_settings(page)
+                                expect(picker).to_have_value("monochrome")
+                                picker.select_option("purple")
+                                expect(page.locator(".settings-accent-swatch")).to_have_css("background-color", "rgb(126, 58, 184)")
+                                select_settings_section(page, "writing")
+                                select_settings_section(page, "appearance")
+                                expect(picker).to_have_value("purple")
+                                submit.click()
+                                expect(page.locator("html")).to_have_attribute("data-accent", "purple")
+                                saved = page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).accent")
+                                assert saved == "purple", saved
+                                open_settings(page)
+                                expect(picker).to_have_value("purple")
+                                expect(submit).to_have_css("background-color", "rgb(126, 58, 184)")
+                                expect(submit).to_have_css("color", "rgb(255, 255, 255)")
+                                picker.select_option("monochrome")
+                                submit.click()
+                                expect(page.locator("html")).to_have_attribute("data-accent", "monochrome")
+                            else:
+                                page.keyboard.press("Escape")
                             expect(page.locator("#settings-modal")).to_be_hidden()
                             if width == 1440:
                                 click_workspace_layout_control(page, "#workspace-focus")

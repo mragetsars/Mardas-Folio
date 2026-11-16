@@ -1,7 +1,7 @@
 /* Code is editable text with an explicit boundary, not a paragraph-sized pill. */
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line {
   font-family: var(--app-mono);
-  font-size: calc(14px * var(--document-text-scale, 1));
+  font-size: calc(var(--ui-text-md) * var(--document-text-scale, 1));
   font-weight: 400;
   line-height: 1.65;
   padding: 0 16px;
@@ -38,13 +38,13 @@
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-unclosed-end { padding-bottom: 10px; border-bottom: 1px solid var(--ui-border); border-radius: 0 0 10px 10px; }
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-open.cm-code-unclosed-end,
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-indented-open.cm-code-indented-close { border-radius: 10px; }
-.cm-code-header { display: inline-flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; direction: ltr; vertical-align: middle; user-select: none; font: 500 12px/1.4 var(--app-font); }
+.cm-code-header { display: inline-flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; direction: ltr; vertical-align: middle; user-select: none; font: 500 var(--ui-text-xs)/1.4 var(--app-font); }
 .cm-code-language { max-width: min(45%, 200px); min-height: 28px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--ui-text-soft); padding: 3px 7px; font: inherit; }
 .cm-code-language:hover, .cm-code-language:focus-visible { border-color: var(--ui-border-strong); background: var(--ui-panel-soft); }
 .cm-code-language option { background: var(--ui-panel); color: var(--ui-text); }
 .cm-code-actions { display: inline-flex; gap: 4px; }
 .cm-code-header button { min-height: 28px; padding: 3px 9px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--ui-muted); font: inherit; cursor: pointer; }
 .cm-code-header button:hover { background: var(--ui-panel-muted); color: var(--ui-text); }
-.cm-code-header :is(button, select):focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
+.cm-code-header :is(button, select):focus-visible { outline: var(--ui-focus-ring); outline-offset: 1px; }
 .cm-code-header :is(button, select):disabled { cursor: default; opacity: .5; }
 @media(max-width:520px) { .cm-code-header { gap: 4px; } .cm-code-header button { padding-inline: 6px; } }

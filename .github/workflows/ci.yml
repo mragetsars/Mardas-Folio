@@ -358,6 +358,12 @@ jobs:
       - name: Run browser-backed desktop UI smoke
         run: python scripts/audit_desktop_ui.py --output-dir build/desktop-ui-audit
 
+      - name: Run isolated browser component tests
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+          MARDAS_BROWSER_TESTS: '1'
+        run: python -m pytest -q tests/browser
+
       - name: Exercise document history and metadata in both languages and themes
         run: python scripts/audit_desktop_documents.py --output-dir build/desktop-document-audit
 

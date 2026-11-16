@@ -9,6 +9,13 @@ tests/          Node.js frontend contract tests
 dist/           generated frontend output; never commit
 ```
 
+`frontend/js/core/` contains state, schemas and host adapters; `frontend/js/ui/`
+contains DOM components with explicit dependencies and teardown. `main.mjs`
+composes the workspace. Export controls share the radio-group and icon primitives.
+Behavioral component tests live in `tests/browser/` at the repository root and run
+with `MARDAS_BROWSER_TESTS=1 python -m pytest -q tests/browser`. See the
+[engineering guide](../../docs/ENGINEERING.md) for ownership and fixture rules.
+
 Published packages target Windows 11 x86-64 (or Windows Server 2019+),
 macOS 14+ on ARM64 and x86-64, and x86-64 Linux with Ubuntu 22.04 as the
 release-tested baseline. Native runtimes and packages are built on their target
@@ -44,6 +51,19 @@ The authoring workspace provides a conflict-safe document lifecycle on top of th
 - validation and sanitized preview of unsaved text without overwriting the source file.
 
 The former textarea foundation is now replaced by CodeMirror 6 behind the editor adapter. The editor source is bundled deterministically into `frontend/js/vendor/`, committed with third-party notices, and loaded only from application resources; no CDN or runtime network dependency is used. PDF export remains authoritative for MathJax, Mermaid, pagination, and print fidelity.
+
+## Interface design
+
+The desktop interface uses Geist Sans, Geist Mono, and the Geist neutral and status scales.
+`frontend/design/tokens.css` owns light and dark colors, typography, spacing, and control sizes.
+Use its `--ui-*` roles in the workbench and feature styles. [Geist foundations](https://vercel.com/geist/introduction) · [Geist colors](https://vercel.com/geist/colors)
+
+`frontend/design/components.css` defines buttons, fields, switches, focus rings, panels, and dialogs.
+Use the shared classes for appearance and set placement and sizing in the feature stylesheet.
+The interface accent supplies primary action fills, ink and tints for selected controls, links,
+focus indicators, and editor selection. The original Trial palette supplies the eight accent options.
+Black and white (`monochrome`) is the default for a new installation and after resetting preferences.
+Document palettes are configured in the publishing engine.
 
 ## Local contract checks
 

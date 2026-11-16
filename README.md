@@ -4,7 +4,7 @@
 
 > Desktop Markdown authoring and publishing for Persian, English, and mixed RTL/LTR technical documents
 
-![Language](https://img.shields.io/badge/Python-3.10%2B-9b4d00?style=flat-square&labelColor=292929) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-9b4d00?style=flat-square&labelColor=292929) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-9b4d00?style=flat-square&labelColor=292929) ![Version](https://img.shields.io/badge/Version-v2.0.3-9b4d00?style=flat-square&labelColor=292929) ![License](https://img.shields.io/badge/License-MIT-9b4d00?style=flat-square&labelColor=292929)
+![Language](https://img.shields.io/badge/Python-3.10%2B-9b4d00?style=flat-square&labelColor=292929) ![Renderer](https://img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-9b4d00?style=flat-square&labelColor=292929) ![Desktop](https://img.shields.io/badge/Desktop-Tauri-9b4d00?style=flat-square&labelColor=292929) ![Version](https://img.shields.io/badge/Version-v2.1.0-9b4d00?style=flat-square&labelColor=292929) ![License](https://img.shields.io/badge/License-MIT-9b4d00?style=flat-square&labelColor=292929)
 
 ## Overview
 
@@ -20,9 +20,9 @@ The project ships three process interfaces around one engine — a native deskto
 
 ## Design
 
-Warm orange, quiet surfaces, and room for the document. The workspace draws on the classic orange era of Samsung Notes and the [One UI design principles](https://developer.samsung.com/one-ui/index.html): clear hierarchy, rounded groups, comfortable contrast, and controls that belong to the current task. Light and dark themes, app icons, and repository artwork share the same visual language. The original Mardas mark remains the product identity.
+The workspace uses Geist typography and neutral surfaces, with semantic color, spacing, and control tokens shared by light and dark themes. A monochrome accent is the default; eight accent colors are available in Appearance. The original Mardas mark remains the product identity. Interface colors and publication palettes have separate roles, so changing the workspace theme does not change the document's PDF appearance.
 
-Write and Source edit the same Markdown file; Read presents its content without editing. The optional side preview shares Read's rendering and typography. Document width and text zoom change the workspace view, while publishing settings control the PDF. See the [design system and verification record](./docs/NOTES_DESIGN_SYSTEM.fa.md).
+Write and Source edit the same Markdown file; Read presents its content without editing. The optional side preview shares Read's rendering and typography. Document width and text zoom change the workspace view, while publishing settings control the PDF. See the [current design system](./docs/DESIGN_SYSTEM_2.1.fa.md) and [engineering guide](./docs/ENGINEERING.md).
 
 ## Features
 
@@ -190,7 +190,7 @@ python -m pip install -e '.[desktop]'
 python -m playwright install chromium --only-shell
 python scripts/build_standalone_runtime.py --clean
 python scripts/verify_standalone_runtime.py \
-  build/standalone-runtime/Mardas-Folio-2.0.3-runtime-linux-x86_64 \
+  build/standalone-runtime/Mardas-Folio-2.1.0-runtime-linux-x86_64 \
   --render
 ```
 
@@ -209,6 +209,12 @@ Mardas-Folio/
 │   ├── citations.py            # Offline BibTeX/CSL JSON parsing and bibliography output
 │   ├── book.py                 # Chapter manifest, namespacing, cross-links, book assembly
 │   ├── application.py          # Application API shared by the CLI and the sidecar
+│   ├── document_store.py       # Bounded reads, revisions and conflict-aware saves
+│   ├── document_assets.py      # Bounded discovery and anchored asset imports
+│   ├── render_requests.py      # Request validation and publication configuration
+│   ├── render_contracts.py     # Browser-independent publishing types and errors
+│   ├── page_geometry.py        # Physical page sizes, units and preview geometry
+│   ├── print_layout.py         # Dynamic print variables and packaged print CSS
 │   ├── sidecar.py              # Stdio JSON-RPC process for the desktop client
 │   ├── protocol.py             # Versioned JSON-RPC envelope and error contract
 │   ├── cli.py                  # Conversion command-line interface

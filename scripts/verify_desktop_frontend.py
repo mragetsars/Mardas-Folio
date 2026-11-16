@@ -61,11 +61,15 @@ def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[
     required = {
         "THIRD_PARTY_NOTICES.md",
         "assets/app-icon.svg",
+        "design/components.css",
+        "design/tokens.css",
         "index.html",
+        "js/core/settings-panel.mjs",
         "js/main.mjs",
         "js/preview/math.mjs",
         "js/vendor/codemirror-editor.bundle.mjs",
         "js/vendor/mathjax/tex-svg-full.js",
+        "settings.css",
         "styles.css",
         "workspace.css",
     }

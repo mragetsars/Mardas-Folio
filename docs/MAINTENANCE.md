@@ -2,6 +2,9 @@
 
 This document keeps routine project work predictable and patch-friendly.
 
+See [Engineering](./ENGINEERING.md) for module ownership, test and fixture rules,
+and the independently runnable Chromium component suite.
+
 ## Desktop document lifecycle checks
 
 After changing editor state, tab activation, metadata forms or undo behavior,
@@ -38,7 +41,7 @@ Run the default quality gate before creating a patch or tag:
 python -m pytest -q tests/test_project_config.py tests/test_book_mode.py tests/test_cross_references.py
 ```
 
-The script runs Ruff, the scoped Pyright contract, and pytest from the repository root. `check_critical_coverage.sh` separately enforces branch coverage on the publication-quality and PDF-navigation modules. It disables third-party pytest plugin autoload by default so local virtualenv plugins cannot change release-gate behavior; set `MARDAS_ALLOW_PYTEST_PLUGINS=1` only when intentionally debugging pytest plugins. To include real Chromium render smoke tests, including PDF metadata and outline inspection, enable the optional environment flag:
+The script runs Ruff, the scoped Pyright contract, and pytest from the repository root. `check_critical_coverage.sh` separately measures line and branch coverage across publication quality, PDF navigation, protocol, application and workspace operations, and the extracted file, request and layout services. It disables third-party pytest plugin autoload by default so local virtualenv plugins cannot change release-gate behavior; set `MARDAS_ALLOW_PYTEST_PLUGINS=1` only when intentionally debugging pytest plugins. To include real Chromium render smoke tests, including PDF metadata and outline inspection, enable the optional environment flag:
 
 ```bash
 MARDAS_RENDER_SMOKE=1 ./scripts/check.sh

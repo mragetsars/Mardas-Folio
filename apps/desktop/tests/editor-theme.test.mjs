@@ -11,7 +11,7 @@ import {
 } from "../editor-src/editor-theme.mjs";
 
 const themeSource = readFileSync(new URL("../editor-src/editor-theme.mjs", import.meta.url), "utf8");
-const workspaceCss = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
+const designTokens = readFileSync(new URL("../frontend/design/tokens.css", import.meta.url), "utf8");
 
 /**
  * Every `--cm-` property the highlight style and theme read, whether written
@@ -24,10 +24,10 @@ function referencedTokens(source) {
   ]);
 }
 
-/** Custom properties declared for a given selector block in workspace.css. */
+/** Custom properties declared for a given selector block. */
 function declaredTokens(css, selector) {
   const start = css.indexOf(selector);
-  assert.notEqual(start, -1, `expected a ${selector} block in workspace.css`);
+  assert.notEqual(start, -1, `expected a ${selector} block in the design tokens`);
   const block = css.slice(start, css.indexOf("}", start));
   return new Set([...block.matchAll(/--cm-([a-z-]+)\s*:/g)].map((match) => match[1]));
 }
@@ -59,19 +59,15 @@ test("the tokens the editor reads are declared for both themes", () => {
   const referenced = referencedTokens(themeSource);
   assert.ok(referenced.size > 20, "expected the theme to reference a real palette");
 
-  const light = declaredTokens(workspaceCss, ":root {");
-  const dark = declaredTokens(workspaceCss, 'html[data-theme="dark"] {');
+  const light = declaredTokens(designTokens, ":root {");
+  const dark = declaredTokens(designTokens, 'html[data-theme="dark"] {');
 
   const missingLight = [...referenced].filter((name) => !light.has(name));
   assert.deepEqual(missingLight, [], "light theme is missing --cm- declarations");
 
-  // Dark inherits the structural tokens it does not need to override; the
-  // syntax colours must all be restated so no light-only value leaks through.
-  const syntax = [
-    "text", "strong", "emphasis", "mark", "meta", "comment", "heading", "list",
-    "link", "url", "quote", "code", "number", "string", "key", "function",
-    "keyword", "type", "variable", "invalid",
-  ];
+  // Dark inherits semantic UI roles from the root. Only the fixed colors of
+  // syntax categories need their own dark declarations.
+  const syntax = ["code", "number", "string", "key", "function", "keyword", "type"];
   const missingDark = syntax.filter((name) => !dark.has(name));
   assert.deepEqual(missingDark, [], "dark theme is missing syntax --cm- declarations");
 });
