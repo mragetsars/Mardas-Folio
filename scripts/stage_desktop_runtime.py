@@ -12,8 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
-from runtime_manifest import validate_local_symlink  # noqa: E402
-from build_paths import mark_output, validate_output  # noqa: E402
+from lib.build.runtime_manifest import validate_local_symlink  # noqa: E402
+from lib.build.paths import mark_output, validate_output  # noqa: E402
 from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
 
 DEFAULT_TARGET = ROOT / "apps" / "desktop" / "src-tauri" / "resources" / "sidecar"

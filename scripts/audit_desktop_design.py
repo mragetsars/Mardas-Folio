@@ -36,7 +36,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from audit_desktop_ui import (
+from lib.audit.desktop import (
     click_workspace_layout_control,
     open_settings,
     open_template,

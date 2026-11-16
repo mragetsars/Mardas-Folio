@@ -9,8 +9,8 @@ import traceback
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_editor_ux import CONTENT_A, FIXTURE_B, initialise, replace_content
-from audit_desktop_ui import DEFAULT_DIST, click_workspace_layout_control, serve
+from lib.audit.editor import CONTENT_A, FIXTURE_B, initialise, replace_content
+from lib.audit.desktop import DEFAULT_DIST, click_workspace_layout_control, serve
 from audit_table_editing import SAMPLE
 
 

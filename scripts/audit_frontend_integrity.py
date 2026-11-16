@@ -11,7 +11,7 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, open_template, serve
+from lib.audit.desktop import DEFAULT_DIST, INIT_SCRIPT, open_template, serve
 
 
 def run_audit(dist: Path, output: Path) -> dict[str, object]:

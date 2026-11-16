@@ -12,8 +12,8 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_editor_ux import BRIDGE_SCRIPT, FIXTURE_B, mode, replace_content
-from audit_desktop_ui import (
+from lib.audit.editor import BRIDGE_SCRIPT, FIXTURE_B, mode, replace_content
+from lib.audit.desktop import (
     DEFAULT_DIST,
     INIT_SCRIPT,
     ROOT,

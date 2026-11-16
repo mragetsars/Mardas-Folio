@@ -17,8 +17,8 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from build_desktop_frontend import build_frontend  # noqa: E402
-from build_paths import prepare_output  # noqa: E402
-from build_publish import publish_verified  # noqa: E402
+from lib.build.paths import prepare_output  # noqa: E402
+from lib.build.publish import publish_verified  # noqa: E402
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402
 from verify_desktop_installer import verify_installer  # noqa: E402

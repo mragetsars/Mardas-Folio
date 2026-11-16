@@ -17,7 +17,7 @@ from typing import Any
 from bs4 import BeautifulSoup
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_ui import DEFAULT_DIST, ROOT, serve
+from lib.audit.desktop import DEFAULT_DIST, ROOT, serve
 from mardas_folio.application import preview_document_text, preview_page_document_text
 from mardas_folio.renderer import PdfOptions
 

@@ -15,8 +15,8 @@ from typing import Any
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_book_workflow import engine_server
-from audit_desktop_ui import DEFAULT_DIST, ROOT, click_workspace_layout_control, run_workspace_command
+from lib.audit.engine import engine_server
+from lib.audit.desktop import DEFAULT_DIST, ROOT, click_workspace_layout_control, run_workspace_command
 from audit_document_preview import RICH, wait_math
 
 

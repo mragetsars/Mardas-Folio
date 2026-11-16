@@ -16,7 +16,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from runtime_manifest import (  # noqa: E402
+from lib.build.runtime_manifest import (  # noqa: E402
     LEGACY_RUNTIME_MANIFEST_SCHEMA,
     RUNTIME_FILE_TYPE,
     RUNTIME_MANIFEST_SCHEMA,

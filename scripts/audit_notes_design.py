@@ -15,8 +15,8 @@ from typing import Any
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_editor_ux import editor, initialise
-from audit_desktop_ui import DEFAULT_DIST, click_workspace_layout_control, open_settings, select_settings_section, serve
+from lib.audit.editor import editor, initialise
+from lib.audit.desktop import DEFAULT_DIST, click_workspace_layout_control, open_settings, select_settings_section, serve
 
 ROOT = Path(__file__).resolve().parents[1]
 

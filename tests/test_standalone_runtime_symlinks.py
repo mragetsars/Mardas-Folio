@@ -24,7 +24,7 @@ from release_provenance import (  # noqa: E402
     ReleaseProvenanceError,
     verify_standalone_runtime,
 )
-from runtime_manifest import (  # noqa: E402
+from lib.build.runtime_manifest import (  # noqa: E402
     RUNTIME_FILE_TYPE,
     RUNTIME_MANIFEST_SCHEMA,
     RUNTIME_SYMLINK_TYPE,

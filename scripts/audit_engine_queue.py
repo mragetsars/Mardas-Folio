@@ -8,7 +8,7 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, serve
+from lib.audit.desktop import DEFAULT_DIST, INIT_SCRIPT, serve
 
 
 FIXTURE = r"""

@@ -12,8 +12,8 @@ import argparse
 import json
 from pathlib import Path
 
-from audit_desktop_editor_ux import initialise, replace_content, mode
-from audit_desktop_ui import DEFAULT_DIST, open_template, serve
+from lib.audit.editor import initialise, replace_content, mode
+from lib.audit.desktop import DEFAULT_DIST, open_template, serve
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]

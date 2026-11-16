@@ -7,7 +7,7 @@ import stat
 import sys
 from pathlib import Path, PurePosixPath
 
-from build_desktop_frontend import MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, project_version, sha256
+from lib.build.frontend import MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, project_version, sha256
 
 
 def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[str, object]:

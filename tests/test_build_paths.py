@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from build_paths import MARKER, prepare_output, validate_output  # noqa: E402
-from build_publish import publish_directory, publish_verified  # noqa: E402
+from lib.build.paths import MARKER, prepare_output, validate_output  # noqa: E402
+from lib.build.publish import publish_directory, publish_verified  # noqa: E402
 
 
 def test_clean_rejects_sources_ancestors_and_unowned_content(tmp_path: Path) -> None:

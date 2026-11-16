@@ -15,7 +15,7 @@ from typing import Any
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_ui import DEFAULT_DIST, ROOT, open_settings, serve
+from lib.audit.desktop import DEFAULT_DIST, ROOT, open_settings, serve
 
 DEFAULT_OUTPUT = ROOT / "build" / "export-layout-audit"
 SOURCE_PATH = r"E:\Downloads\اسناد آزمایشی\Markdown\گزارش تجربه کاربری.md"

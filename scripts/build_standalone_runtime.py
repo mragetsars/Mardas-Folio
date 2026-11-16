@@ -21,10 +21,10 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from build_paths import prepare_output, validate_output  # noqa: E402
-from build_publish import publish_directory  # noqa: E402
+from lib.build.paths import prepare_output, validate_output  # noqa: E402
+from lib.build.publish import publish_directory  # noqa: E402
 from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
-from runtime_manifest import (  # noqa: E402
+from lib.build.runtime_manifest import (  # noqa: E402
     RUNTIME_FILE_TYPE,
     RUNTIME_MANIFEST_SCHEMA,
     RUNTIME_SYMLINK_TYPE,

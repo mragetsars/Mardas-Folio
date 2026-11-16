@@ -16,8 +16,8 @@ import traceback
 from playwright.sync_api import expect, sync_playwright
 
 from audit_authoring_workspace import BRIDGE
-from audit_book_workflow import engine_server
-from audit_desktop_ui import DEFAULT_DIST, click_workspace_layout_control
+from lib.audit.engine import engine_server
+from lib.audit.desktop import DEFAULT_DIST, click_workspace_layout_control
 
 SAMPLE = (
     "# Search and image reference\n\n"

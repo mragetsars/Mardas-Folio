@@ -31,7 +31,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from audit_desktop_ui import open_settings, open_template, select_settings_section
+from lib.audit.desktop import open_settings, open_template, select_settings_section
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]

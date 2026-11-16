@@ -9,13 +9,13 @@ import traceback
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_ui import ROOT, serve
+from lib.audit.desktop import ROOT, serve
 
 HTML = """<!doctype html><html lang="__LANG__" dir="__DIR__" data-theme="__THEME__"><head><meta charset="utf-8">
-<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/workspace.css">
-<link rel="stylesheet" href="/authoring.css"><link rel="stylesheet" href="/writer-workspace.css">
-<link rel="stylesheet" href="/interaction-details.css"><link rel="stylesheet" href="/code-blocks.css">
-<link rel="stylesheet" href="/table-editing.css"><link rel="stylesheet" href="/bidi-layout.css">
+<link rel="stylesheet" href="/styles/base.css"><link rel="stylesheet" href="/styles/workspace.css">
+<link rel="stylesheet" href="/styles/authoring.css"><link rel="stylesheet" href="/styles/writer-workspace.css">
+<link rel="stylesheet" href="/styles/interaction-details.css"><link rel="stylesheet" href="/styles/code-blocks.css">
+<link rel="stylesheet" href="/styles/table-editing.css"><link rel="stylesheet" href="/styles/bidi-layout.css">
 <style>body{margin:0;display:block;overflow:hidden}.fixture{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:540px minmax(0,1fr);gap:16px;width:100%;height:100vh;box-sizing:border-box;padding:16px}body[data-view=workspace] .fixture>.editor-pane{grid-column:1;grid-row:1;height:540px;min-width:0;width:100%;display:block}#document{grid-column:1;grid-row:2;height:300px;min-width:0;overflow:auto;padding:12px;box-sizing:border-box}.cm-md-table{max-width:100%}</style></head>
 <body data-view="workspace"><div class="fixture"><div class="editor-pane"><textarea id="source"></textarea></div>
 <article id="document" class="document-content" dir="rtl"><p>عبارت <code>AdaptiveCruiseTest</code> در متن فارسی.</p>

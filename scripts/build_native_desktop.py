@@ -20,8 +20,8 @@ for path in (SCRIPTS, ROOT / "src"):
         sys.path.insert(0, str(path))
 
 from build_desktop_frontend import build_frontend  # noqa: E402
-from build_paths import prepare_output  # noqa: E402
-from build_publish import publish_verified  # noqa: E402
+from lib.build.paths import prepare_output  # noqa: E402
+from lib.build.publish import publish_verified  # noqa: E402
 from release_provenance import deterministic_zip, sha256_file, source_date_epoch  # noqa: E402
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402

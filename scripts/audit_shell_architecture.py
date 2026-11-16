@@ -10,8 +10,8 @@ import traceback
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_editor_ux import BRIDGE_SCRIPT
-from audit_desktop_ui import DEFAULT_DIST, INIT_SCRIPT, click_workspace_layout_control, open_workspace_export, serve
+from lib.audit.editor import BRIDGE_SCRIPT
+from lib.audit.desktop import DEFAULT_DIST, INIT_SCRIPT, click_workspace_layout_control, open_workspace_export, serve
 
 
 def click_control(page, selector):

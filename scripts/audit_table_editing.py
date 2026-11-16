@@ -8,7 +8,7 @@ from pathlib import Path
 import traceback
 
 from playwright.sync_api import expect, sync_playwright
-from audit_desktop_ui import serve
+from lib.audit.desktop import serve
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE = (
@@ -23,9 +23,9 @@ SAMPLE = (
 )
 
 HTML = """<!doctype html><html><head><meta charset="utf-8">
-<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/workspace.css">
-<link rel="stylesheet" href="/authoring.css"><link rel="stylesheet" href="/writer-workspace.css">
-<link rel="stylesheet" href="/table-editing.css"><link rel="stylesheet" href="/interaction-details.css"></head>
+<link rel="stylesheet" href="/styles/base.css"><link rel="stylesheet" href="/styles/workspace.css">
+<link rel="stylesheet" href="/styles/authoring.css"><link rel="stylesheet" href="/styles/writer-workspace.css">
+<link rel="stylesheet" href="/styles/table-editing.css"><link rel="stylesheet" href="/styles/interaction-details.css"></head>
 <body data-view="workspace"><button id="outside">Outside</button>
 <div class="editor-pane" style="display:block;height:850px;width:100%"><textarea id="source"></textarea></div>
 <script type="module">import {createCodeMirrorEditorAdapter} from '/js/vendor/codemirror-editor.bundle.mjs';

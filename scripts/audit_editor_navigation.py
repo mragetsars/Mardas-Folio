@@ -8,10 +8,10 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-from audit_desktop_ui import ROOT, serve
+from lib.audit.desktop import ROOT, serve
 
 FIXTURE = """<!doctype html><html><head><meta charset="utf-8">
-<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/workspace.css">
+<link rel="stylesheet" href="/styles/base.css"><link rel="stylesheet" href="/styles/workspace.css">
 <style>body{margin:0;padding:16px}.codemirror-mount{height:400px;width:640px;max-width:100%}</style>
 </head><body data-view="workspace"><textarea id="editor"></textarea></body></html>"""
 CONTENT = "\n".join(
