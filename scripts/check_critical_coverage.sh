@@ -8,7 +8,7 @@ export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 critical_modules=(
   quality pdf_navigation protocol runtime application sidecar workspace
   document_store document_assets render_requests request_validation engine_errors file_io
-  render_contracts page_geometry print_layout
+  render_contracts page_geometry print_layout projects publishing
 )
 critical_sources=()
 for module in "${critical_modules[@]}"; do

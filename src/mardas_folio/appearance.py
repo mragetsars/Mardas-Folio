@@ -245,7 +245,7 @@ def math_scale_vars(style: str) -> tuple[str, str]:
     return "100%", "130%"
 
 
-def footer_kind(style: str, mode: str) -> str:
+def footer_kind(style: str | None, mode: str | None) -> str:
     appearance = resolve_appearance(style=style, mode=mode)
     if appearance.style == "textbook":
         return "textbook-dark" if appearance.mode == "dark" else "textbook-light"

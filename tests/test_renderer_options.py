@@ -228,8 +228,10 @@ def test_windows_chromium_avoids_a_separate_gpu_log_writer(tmp_path, monkeypatch
     from mardas_folio import renderer
 
     options = renderer.PdfOptions(tmp_path / "input.md", tmp_path / "output.pdf")
+    from mardas_folio.publishing import browser_session
+
     for platform in ("win32", "linux", "darwin"):
-        monkeypatch.setattr(renderer, "sys", SimpleNamespace(platform=platform))
+        monkeypatch.setattr(browser_session, "sys", SimpleNamespace(platform=platform))
         args = renderer._chromium_launch_args(options)
         assert ("--in-process-gpu" in args) == (platform == "win32")
         assert "--disable-gpu" in args

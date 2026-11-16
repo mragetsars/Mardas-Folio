@@ -27,7 +27,7 @@
  */
 import { Facet, RangeSetBuilder, StateField } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
-import { onlineImageControl } from "../frontend/js/core/online-images.mjs";
+import { onlineImageControl } from "../frontend/js/preview/online-images.mjs";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import { appendTableInline } from "./table-inline.mjs";

@@ -71,7 +71,7 @@ BeautifulSoup و pypdf را بارگذاری نمی‌کند. این ویژگی 
 
 ### مؤلفهٔ تنظیمات خروجی و تعامل یکپارچه
 
-`ui/export-options-panel.mjs` اکنون draft تنظیمات، جست‌وجو، دسته‌بندی، کنترل‌ها،
+`features/export/export-options-panel.mjs` اکنون draft تنظیمات، جست‌وجو، دسته‌بندی، کنترل‌ها،
 بازنشانی و lifecycle را مالک است. entrypoint ترجمه، preset، انتخاب مسیر و
 نمایش خطا را به آن تزریق می‌کند. مؤلفه مستقیماً به Tauri وابسته نیست.
 

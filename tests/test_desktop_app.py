@@ -456,7 +456,6 @@ def test_workbench_takes_its_direction_from_the_interface_language() -> None:
     """
     styles = (DESKTOP / "frontend" / "styles/base.css").read_text(encoding="utf-8")
     workspace_css = (DESKTOP / "frontend" / "styles/workspace.css").read_text(encoding="utf-8")
-    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
 
     pinned = (
         ".authoring-grid",

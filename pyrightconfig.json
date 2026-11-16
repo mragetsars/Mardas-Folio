@@ -21,7 +21,9 @@
     "src/mardas_folio/file_io.py",
     "src/mardas_folio/render_contracts.py",
     "src/mardas_folio/page_geometry.py",
-    "src/mardas_folio/print_layout.py"
+    "src/mardas_folio/print_layout.py",
+    "src/mardas_folio/projects",
+    "src/mardas_folio/publishing"
   ],
   "extraPaths": [
     "src",
