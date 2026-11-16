@@ -11,33 +11,117 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
 
+
+from .markup.frontmatter import (
+    FRONTMATTER_RE as FRONTMATTER_RE,
+    MAX_FRONTMATTER_DEPTH as MAX_FRONTMATTER_DEPTH,
+    MAX_FRONTMATTER_NODES as MAX_FRONTMATTER_NODES,
+    MAX_FRONTMATTER_SCALAR_CHARS as MAX_FRONTMATTER_SCALAR_CHARS,
+    MarkdownInputError as MarkdownInputError,
+    _validate_frontmatter_graph as _validate_frontmatter_graph,
+    extract_frontmatter as extract_frontmatter,
+)
+
+from .markup.bidi import (
+    ARABIC_DIGIT_RE as ARABIC_DIGIT_RE,
+    ARABIC_RANGES as ARABIC_RANGES,
+    ASCII_DIGIT_RE as ASCII_DIGIT_RE,
+    ASCII_RTL_PUNCTUATION_RE as ASCII_RTL_PUNCTUATION_RE,
+    LATIN_RANGES as LATIN_RANGES,
+    LTR_ISOLATE_CONTEXT_TAGS as LTR_ISOLATE_CONTEXT_TAGS,
+    LTR_ISOLATE_RUN_RE as LTR_ISOLATE_RUN_RE,
+    LTR_ISOLATE_SKIP_CLASSES as LTR_ISOLATE_SKIP_CLASSES,
+    LTR_ISOLATE_SKIP_TAGS as LTR_ISOLATE_SKIP_TAGS,
+    PERSIAN_DIGIT_TRANSLATION as PERSIAN_DIGIT_TRANSLATION,
+    PERSIAN_PUNCTUATION_RE as PERSIAN_PUNCTUATION_RE,
+    RTL_ISOLATE_RUN_RE as RTL_ISOLATE_RUN_RE,
+    RTL_LANG_PREFIXES as RTL_LANG_PREFIXES,
+    _add_classes as _add_classes,
+    _dir_for_profile as _dir_for_profile,
+    _group_ltr_isolate_footnote_refs as _group_ltr_isolate_footnote_refs,
+    _inside_class as _inside_class,
+    _inside_tag as _inside_tag,
+    _mixed_script_context as _mixed_script_context,
+    _new_ltr_isolate_span as _new_ltr_isolate_span,
+    _next_meaningful_sibling as _next_meaningful_sibling,
+    _parent_chain as _parent_chain,
+    direction_profile as direction_profile,
+    dominant_direction as dominant_direction,
+    has_ascii_rtl_punctuation as has_ascii_rtl_punctuation,
+    has_latin as has_latin,
+    has_mixed_numerals as has_mixed_numerals,
+    has_persian as has_persian,
+    has_persian_punctuation as has_persian_punctuation,
+    is_rtl_language as is_rtl_language,
+    isolate_ltr_runs_in_mixed_persian_text as isolate_ltr_runs_in_mixed_persian_text,
+    isolate_rtl_phrase_lists_in_ltr_prose as isolate_rtl_phrase_lists_in_ltr_prose,
+    language_family as language_family,
+    localize_digits as localize_digits,
+    localized_number_class as localized_number_class,
+    mixed_text_direction as mixed_text_direction,
+    normalize_language as normalize_language,
+    numeral_profile as numeral_profile,
+    strong_direction_counts as strong_direction_counts,
+    text_quality_classes as text_quality_classes,
+    ui_label as ui_label,
+)
+
+from .markup.code_blocks import (
+    CODE_FENCE_ATTR_CLASS_RE as CODE_FENCE_ATTR_CLASS_RE,
+    CODE_FENCE_BRACE_RE as CODE_FENCE_BRACE_RE,
+    CODE_FENCE_HIGHLIGHT_KEYS as CODE_FENCE_HIGHLIGHT_KEYS,
+    CODE_FENCE_KV_RE as CODE_FENCE_KV_RE,
+    CODE_FENCE_LABEL_CANDIDATE_RE as CODE_FENCE_LABEL_CANDIDATE_RE,
+    CODE_FENCE_LABEL_RE as CODE_FENCE_LABEL_RE,
+    CODE_FENCE_LABEL_VALUE_RE as CODE_FENCE_LABEL_VALUE_RE,
+    CODE_FENCE_LANGUAGE_ALIASES as CODE_FENCE_LANGUAGE_ALIASES,
+    CODE_FENCE_LINE_NUMBER_CLASSES as CODE_FENCE_LINE_NUMBER_CLASSES,
+    CODE_FENCE_LINE_NUMBER_KEYS as CODE_FENCE_LINE_NUMBER_KEYS,
+    CODE_FENCE_LINE_NUMBER_KEY_SET as CODE_FENCE_LINE_NUMBER_KEY_SET,
+    CODE_FENCE_LINE_START_KEYS as CODE_FENCE_LINE_START_KEYS,
+    CODE_FENCE_LINE_START_KEY_SET as CODE_FENCE_LINE_START_KEY_SET,
+    CODE_FENCE_TITLE_KEYS as CODE_FENCE_TITLE_KEYS,
+    CodeHtmlFormatter as CodeHtmlFormatter,
+    HIGHLIGHT_TRAILING_NEWLINE_RE as HIGHLIGHT_TRAILING_NEWLINE_RE,
+    _first_language_class as _first_language_class,
+    _normalize_code_language as _normalize_code_language,
+    _normalize_highlight_line_breaks as _normalize_highlight_line_breaks,
+    _parse_code_fence_key_values as _parse_code_fence_key_values,
+    _parse_line_highlights as _parse_line_highlights,
+    _positive_int_attr as _positive_int_attr,
+    _truthy_attr_value as _truthy_attr_value,
+    guess_code_language as guess_code_language,
+    highlight_code as highlight_code,
+    normalize_raw_code_blocks as normalize_raw_code_blocks,
+    parse_code_fence_info as parse_code_fence_info,
+)
+
+from .markup.math import (
+    DISPLAY_MATH_FENCE_RE as DISPLAY_MATH_FENCE_RE,
+    FENCE_RE as FENCE_RE,
+    INLINE_MATH_RE as INLINE_MATH_RE,
+    PROTECTED_CODE_TOKEN_PREFIX as PROTECTED_CODE_TOKEN_PREFIX,
+    PROTECTED_CODE_TOKEN_SUFFIX as PROTECTED_CODE_TOKEN_SUFFIX,
+    _fence_transition as _fence_transition,
+    _protect_code_regions as _protect_code_regions,
+    _protected_code_token as _protected_code_token,
+    _replace_outside_inline_code as _replace_outside_inline_code,
+    _restore_code_regions as _restore_code_regions,
+    protect_and_transform_math as protect_and_transform_math,
+)
 if TYPE_CHECKING:
     from .citations import BibliographyLibrary
 
-try:
-    import yaml
-except Exception:  # pragma: no cover - PyYAML is declared as dependency
-    yaml = None
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 from markdown_it import MarkdownIt
-from pygments import highlight
-from pygments.formatters import HtmlFormatter
-from pygments.lexers import TextLexer, get_lexer_by_name
-from pygments.util import ClassNotFound
 
 from .appearance import appearance_from_metadata, code_style_for_appearance, resolve_appearance
 from .diagnostics import Diagnostic
 from .mermaid import render_mermaid_to_svg
 
-ARABIC_RANGES = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
-LATIN_RANGES = re.compile(r"[A-Za-z]")
-FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*(?:\n|$)", re.DOTALL)
 FOOTNOTE_DEF_RE = re.compile(r"^\[\^([^\]]+)\]:\s*(.*)$")
 INLINE_FOOTNOTE_RE = re.compile(r"\[\^([^\]]+)\]")
-INLINE_MATH_RE = re.compile(r"(?<!\\)\$(?![\s$])(.+?)(?<!\\)\$(?!\d)")
-DISPLAY_MATH_FENCE_RE = re.compile(r"^\s*\$\$\s*$")
-FENCE_RE = re.compile(r"^\s*(```+|~~~+)")
 HEADING_RE = re.compile(r"<h([1-6])([^>]*)>(.*?)</h\1>", re.DOTALL | re.IGNORECASE)
 BLOCKED_RAW_HTML_TAGS = {"script", "style", "iframe", "object", "embed", "form", "meta", "link", "base"}
 SAFE_RAW_HTML_TAGS = {
@@ -136,108 +220,7 @@ TAG_SAFE_ATTRS = {
 SAFE_URL_SCHEMES = {"", "http", "https", "mailto", "data"}
 SAFE_DATA_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/avif"}
 MAX_EMBED_IMAGE_BYTES = 20 * 1024 * 1024
-MAX_FRONTMATTER_DEPTH = 16
-MAX_FRONTMATTER_NODES = 2048
-MAX_FRONTMATTER_SCALAR_CHARS = 256 * 1024
 TRANSPARENT_IMAGE_DATA_URI = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-RTL_LANG_PREFIXES = ("ar", "fa", "he", "iw", "ku", "ps", "sd", "ug", "ur", "yi")
-
-
-class MarkdownInputError(ValueError):
-    """Raised when Markdown metadata or document structure is invalid or unsafe."""
-
-
-def normalize_language(value: Any, fallback: str = "auto") -> str:
-    """Return a compact BCP-47-ish language code used for UI labels.
-
-    The converter only needs the primary subtag for built-in labels such as the
-    table-of-contents title and callout captions. Unknown or empty values are
-    kept as ``fallback`` so direction detection can still infer a sensible
-    default from the actual Markdown body.
-    """
-    text = str(value or "").strip().replace("_", "-").lower()
-    return text or fallback
-
-
-def is_rtl_language(lang: str | None) -> bool:
-    return normalize_language(lang, "").startswith(RTL_LANG_PREFIXES)
-
-
-def language_family(lang: str | None, text_hint: str = "") -> str:
-    """Choose ``fa`` or ``en`` for bundled UI strings.
-
-    Persian is used for RTL languages and Persian-dominant documents. English is
-    used for explicit English metadata and for LTR/Latin-dominant documents.
-    """
-    normalized = normalize_language(lang, "auto")
-    if normalized.startswith("en"):
-        return "en"
-    if is_rtl_language(normalized):
-        return "fa"
-    if normalized not in {"", "auto", "und"}:
-        return "en"
-    return "fa" if dominant_direction(text_hint) == "rtl" else "en"
-
-
-def ui_label(key: str, *, lang: str | None = None, text_hint: str = "") -> str:
-    labels = {
-        "fa": {
-            "toc_title": "فهرست مطالب",
-            "toc_aria": "فهرست مطالب",
-            "callout_note": "نکته",
-            "callout_tip": "پیشنهاد",
-            "callout_important": "مهم",
-            "callout_warning": "هشدار",
-            "callout_caution": "احتیاط",
-            "callout_info": "اطلاعات",
-            "callout_success": "موفقیت",
-            "callout_question": "پرسش",
-            "callout_failure": "خطا",
-            "callout_danger": "خطر",
-            "callout_bug": "اشکال",
-            "callout_example": "نمونه",
-            "callout_quote": "نقل‌قول",
-            "callout_abstract": "خلاصه",
-            "footnote": "پانویس",
-            "footnotes": "پانویس‌ها",
-            "footnote_backref": "بازگشت به ارجاع",
-            "caption_figure": "شکل",
-            "caption_table": "جدول",
-            "caption_code": "کد",
-            "caption_diagram": "نمودار",
-            "caption_equation": "معادله",
-            "bibliography_title": "منابع",
-        },
-        "en": {
-            "toc_title": "Table of Contents",
-            "toc_aria": "Table of contents",
-            "callout_note": "Note",
-            "callout_tip": "Tip",
-            "callout_important": "Important",
-            "callout_warning": "Warning",
-            "callout_caution": "Caution",
-            "callout_info": "Info",
-            "callout_success": "Success",
-            "callout_question": "Question",
-            "callout_failure": "Failure",
-            "callout_danger": "Danger",
-            "callout_bug": "Bug",
-            "callout_example": "Example",
-            "callout_quote": "Quote",
-            "callout_abstract": "Abstract",
-            "footnote": "Footnote",
-            "footnotes": "Footnotes",
-            "footnote_backref": "Back to reference",
-            "caption_figure": "Figure",
-            "caption_table": "Table",
-            "caption_code": "Listing",
-            "caption_diagram": "Diagram",
-            "caption_equation": "Equation",
-            "bibliography_title": "References",
-        },
-    }
-    family = language_family(lang, text_hint)
-    return labels[family].get(key, labels["en"].get(key, key))
 
 
 @dataclass(slots=True)
@@ -269,119 +252,7 @@ class TocItem:
     children: list["TocItem"] = field(default_factory=list)
 
 
-class CodeHtmlFormatter(HtmlFormatter):
-    """Pygments formatter. The Pygments style is selected by the resolved appearance."""
-
-    def __init__(
-        self,
-        style: str = "github-dark",
-        *,
-        linenos: bool = False,
-        hl_lines: list[int] | None = None,
-        line_start: int = 1,
-    ) -> None:
-        super().__init__(
-            style=style,
-            cssclass="codehilite",
-            nowrap=False,
-            linenos="table" if linenos else False,
-            linenostart=max(1, int(line_start or 1)),
-            hl_lines=hl_lines or [],
-        )
-
-
-HIGHLIGHT_TRAILING_NEWLINE_RE = re.compile(
-    r'(<span class="hll">.*?)(\r?\n)(</span>)',
-    re.DOTALL,
-)
 # Private-use parser sentinels; these are not credentials.
-PROTECTED_CODE_TOKEN_PREFIX = "\ue000FOLIOCODE"  # nosec B105
-PROTECTED_CODE_TOKEN_SUFFIX = "\ue001"  # nosec B105
-
-
-def _normalize_highlight_line_breaks(highlighted_html: str) -> str:
-    """Keep Pygments highlighted-line wrappers from swallowing the next line's indent.
-
-    Pygments emits highlighted lines as ``<span class="hll">...\n</span>``.
-    When print CSS turns that wrapper into a full-width highlight strip, the
-    following line's leading spaces can visually attach to the highlighted inline
-    box and disappear at the start of the next code row. Moving the line break
-    outside the wrapper preserves the logical code text while keeping the
-    highlighter scoped to a single physical line.
-    """
-    return HIGHLIGHT_TRAILING_NEWLINE_RE.sub(r"\1\3\2", highlighted_html)
-
-
-def _validate_frontmatter_graph(value: Any) -> None:
-    """Reject recursive or excessively amplified YAML object graphs."""
-    node_count = 0
-    scalar_chars = 0
-    active: set[int] = set()
-
-    def visit(item: Any, depth: int) -> None:
-        nonlocal node_count, scalar_chars
-        node_count += 1
-        if node_count > MAX_FRONTMATTER_NODES:
-            raise MarkdownInputError(
-                f"Front matter exceeds the {MAX_FRONTMATTER_NODES}-item complexity limit."
-            )
-        if depth > MAX_FRONTMATTER_DEPTH:
-            raise MarkdownInputError(
-                f"Front matter exceeds the maximum nesting depth of {MAX_FRONTMATTER_DEPTH}."
-            )
-
-        if isinstance(item, dict):
-            identity = id(item)
-            if identity in active:
-                raise MarkdownInputError("Front matter contains a recursive YAML alias.")
-            active.add(identity)
-            try:
-                for key, child in item.items():
-                    visit(key, depth + 1)
-                    visit(child, depth + 1)
-            finally:
-                active.remove(identity)
-            return
-        if isinstance(item, (list, tuple, set)):
-            identity = id(item)
-            if identity in active:
-                raise MarkdownInputError("Front matter contains a recursive YAML alias.")
-            active.add(identity)
-            try:
-                for child in item:
-                    visit(child, depth + 1)
-            finally:
-                active.remove(identity)
-            return
-
-        scalar_chars += len(str(item))
-        if scalar_chars > MAX_FRONTMATTER_SCALAR_CHARS:
-            raise MarkdownInputError(
-                "Front matter scalar content exceeds the supported size limit."
-            )
-
-    visit(value, 0)
-
-
-def extract_frontmatter(text: str) -> tuple[dict[str, Any], str]:
-    match = FRONTMATTER_RE.match(text)
-    if not match:
-        return {}, text
-    raw = match.group(1)
-    body = text[match.end() :]
-    if yaml is None:
-        return {}, body
-    try:
-        data = yaml.safe_load(raw) or {}
-    except Exception as exc:
-        problem = getattr(exc, "problem", None) or str(exc).splitlines()[0]
-        mark = getattr(exc, "problem_mark", None)
-        location = f" at line {mark.line + 1}, column {mark.column + 1}" if mark else ""
-        raise MarkdownInputError(f"Invalid YAML front matter{location}: {problem}") from exc
-    if not isinstance(data, dict):
-        raise MarkdownInputError("YAML front matter must contain a mapping/object at the top level.")
-    _validate_frontmatter_graph(data)
-    return data, body
 
 
 def guess_title(markdown: str, metadata: dict[str, Any]) -> str:
@@ -400,376 +271,7 @@ def guess_title(markdown: str, metadata: dict[str, Any]) -> str:
     return "Document"
 
 
-def has_persian(text: str) -> bool:
-    return bool(ARABIC_RANGES.search(text or ""))
-
-
-def has_latin(text: str) -> bool:
-    return bool(LATIN_RANGES.search(text or ""))
-
-
-def dominant_direction(text: str) -> str:
-    """Return rtl/ltr/auto by scanning the first strong directional character."""
-    for char in text:
-        direction = unicodedata.bidirectional(char)
-        if direction in {"R", "AL"}:
-            return "rtl"
-        if direction == "L":
-            return "ltr"
-    return "auto"
-
-
-
-ASCII_DIGIT_RE = re.compile(r"[0-9]")
-ARABIC_DIGIT_RE = re.compile(r"[\u0660-\u0669\u06F0-\u06F9]")
-PERSIAN_PUNCTUATION_RE = re.compile(r"[،؛؟]")
-ASCII_RTL_PUNCTUATION_RE = re.compile(r"[?,;](?=\s|$)")
 PERSIAN_CAPTION_PREFIX_RE = re.compile(r"^(?:شکل|تصویر|جدول|کد|نمودار)\b")
-PERSIAN_DIGIT_TRANSLATION = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
-LTR_ISOLATE_RUN_RE = re.compile(
-    r"(?<![\w@])"
-    r"(?P<run>"
-    r"(?:[A-Za-z][A-Za-z0-9]*(?:[._:/-][A-Za-z0-9]+)*"
-    r"|[0-9]+(?:[._:/-][A-Za-z0-9]+)+)"
-    r"(?:\s+(?:[A-Za-z][A-Za-z0-9]*(?:[._:/-][A-Za-z0-9]+)*"
-    r"|[0-9]+(?:[._:/-][A-Za-z0-9]+)+))*"
-    r")"
-    r"(?P<punct>[.,:;!?])?"
-)
-LTR_ISOLATE_SKIP_TAGS = {"a", "code", "kbd", "pre", "samp", "script", "style", "textarea"}
-LTR_ISOLATE_SKIP_CLASSES = {"math", "math-inline", "math-display", "mjx-container"}
-LTR_ISOLATE_CONTEXT_TAGS = {"p", "li", "td", "th", "caption", "figcaption", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6"}
-RTL_ISOLATE_RUN_RE = re.compile(
-    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]"
-    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9\u200c\u200d]*"
-    r"(?:[ \t]+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9]"
-    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9\u200c\u200d]*)*"
-)
-
-
-def strong_direction_counts(text: str) -> tuple[int, int]:
-    """Return ``(rtl, ltr)`` strong-character counts for bidi-sensitive text.
-
-    ``dir=auto`` is useful for paragraphs, but tables, captions, and mixed
-    Persian/English technical prose need more stable CSS hooks. Counting strong
-    directional characters gives the renderer a deterministic profile without
-    rewriting the author's text.
-    """
-    rtl = 0
-    ltr = 0
-    for char in text or "":
-        direction = unicodedata.bidirectional(char)
-        if direction in {"R", "AL"}:
-            rtl += 1
-        elif direction == "L":
-            ltr += 1
-    return rtl, ltr
-
-
-def direction_profile(text: str) -> str:
-    """Classify text as ``rtl``, ``ltr``, ``mixed``, or ``neutral``."""
-    rtl, ltr = strong_direction_counts(text)
-    if rtl and ltr:
-        return "mixed"
-    if rtl:
-        return "rtl"
-    if ltr:
-        return "ltr"
-    return "neutral"
-
-
-def mixed_text_direction(text: str, *, lang: str | None = None) -> str:
-    """Return a concrete direction for mixed-script prose.
-
-    ``dir=auto`` is usually fine for ordinary paragraphs, but mixed Persian/Latin
-    table cells often start with a Latin technical token or inherit an LTR table
-    direction. In those cases Chromium lays the whole Persian sentence out as if
-    it were LTR. This helper keeps pure LTR/RTL text unchanged and gives Persian
-    mixed prose an explicit RTL base direction while preserving isolated Latin
-    identifiers inside the cell.
-    """
-    profile = direction_profile(text)
-    if profile in {"rtl", "ltr"}:
-        return profile
-    if profile == "neutral":
-        return "auto"
-
-    rtl, ltr = strong_direction_counts(text)
-    family = language_family(lang, text)
-    if has_persian(text) and family == "fa":
-        return "rtl"
-    if rtl > ltr:
-        return "rtl"
-    if ltr > rtl:
-        return "ltr"
-    return "rtl" if family == "fa" else "ltr"
-
-
-def has_mixed_numerals(text: str) -> bool:
-    """Return whether Persian/Arabic and ASCII digits appear together."""
-    return bool(ASCII_DIGIT_RE.search(text or "") and ARABIC_DIGIT_RE.search(text or ""))
-
-
-def numeral_profile(text: str) -> str:
-    """Classify digit usage for Persian/Latin number rendering hooks."""
-    has_ascii = bool(ASCII_DIGIT_RE.search(text or ""))
-    has_arabic = bool(ARABIC_DIGIT_RE.search(text or ""))
-    if has_ascii and has_arabic:
-        return "mixed"
-    if has_arabic:
-        return "persian"
-    if has_ascii:
-        return "latin"
-    return "none"
-
-
-def has_persian_punctuation(text: str) -> bool:
-    """Return whether Persian punctuation marks are present."""
-    return bool(PERSIAN_PUNCTUATION_RE.search(text or ""))
-
-
-def has_ascii_rtl_punctuation(text: str) -> bool:
-    """Return whether ASCII punctuation appears inside an RTL-dominant string."""
-    if not ASCII_RTL_PUNCTUATION_RE.search(text or ""):
-        return False
-    rtl, ltr = strong_direction_counts(text)
-    return rtl > 0 and rtl >= ltr
-
-
-def localize_digits(value: Any, *, lang: str | None = None, text_hint: str = "") -> str:
-    """Return ``value`` with ASCII digits shaped for Persian UI labels when appropriate.
-
-    The renderer does not rewrite author prose. This helper is reserved for
-    generated navigation and reference labels such as TOC section numbers and
-    footnote markers where the converter owns the number text.
-    """
-    text = str(value)
-    if language_family(lang, text_hint) == "fa":
-        return text.translate(PERSIAN_DIGIT_TRANSLATION)
-    return text
-
-
-def localized_number_class(value: Any, *, lang: str | None = None, text_hint: str = "") -> str:
-    """Return a stable class for generated localized number labels."""
-    return "persian-generated-number" if language_family(lang, text_hint) == "fa" else "latin-generated-number"
-
-
-def text_quality_classes(text: str) -> list[str]:
-    """Return stable CSS hooks for bidi, numeral, and punctuation quality."""
-    profile = direction_profile(text)
-    classes: list[str] = []
-    direction_class = {
-        "rtl": "md2pdf-rtl-text",
-        "ltr": "md2pdf-ltr-text",
-        "mixed": "mixed-script",
-    }.get(profile)
-    if direction_class:
-        classes.append(direction_class)
-    if has_persian(text) and has_latin(text):
-        classes.append("mixed-script")
-
-    digits = numeral_profile(text)
-    if digits == "mixed":
-        classes.append("mixed-numeral")
-    elif digits == "persian":
-        classes.append("persian-numeral")
-    elif digits == "latin":
-        classes.append("latin-numeral")
-
-    if has_persian_punctuation(text):
-        classes.append("persian-punctuation")
-    if has_ascii_rtl_punctuation(text):
-        classes.append("rtl-ascii-punctuation")
-    return sorted(set(classes))
-
-
-def _add_classes(tag: Tag, *classes: str) -> None:
-    existing = set(tag.get("class", []))
-    existing.update(item for item in classes if item)
-    if existing:
-        tag["class"] = sorted(existing)
-
-
-def _parent_chain(tag: Tag | None) -> list[Tag]:
-    chain: list[Tag] = []
-    current = tag
-    while isinstance(current, Tag):
-        chain.append(current)
-        current = current.parent if isinstance(current.parent, Tag) else None
-    return chain
-
-
-def _inside_tag(tag: Tag | None, names: set[str]) -> bool:
-    return any((ancestor.name or "").lower() in names for ancestor in _parent_chain(tag))
-
-
-def _inside_class(tag: Tag | None, classes: set[str]) -> bool:
-    for ancestor in _parent_chain(tag):
-        ancestor_classes = {str(item) for item in ancestor.get("class", [])}
-        if ancestor_classes & classes:
-            return True
-    return False
-
-
-def _mixed_script_context(tag: Tag | None) -> bool:
-    for ancestor in _parent_chain(tag):
-        name = (ancestor.name or "").lower()
-        if name in LTR_ISOLATE_CONTEXT_TAGS:
-            text = ancestor.get_text(" ", strip=True)
-            if has_persian(text) and has_latin(text):
-                return True
-            classes = set(ancestor.get("class", []))
-            if "md2pdf-rtl-text" in classes or "mixed-script" in classes:
-                return True
-            direction = str(ancestor.get("dir") or "").lower()
-            if direction == "rtl" and has_latin(text):
-                return True
-            return False
-    return False
-
-
-def _new_ltr_isolate_span(soup: BeautifulSoup, text: str, *, has_trailing_punctuation: bool = False) -> Tag:
-    span = soup.new_tag("span")
-    classes = ["md2pdf-ltr-isolate"]
-    if has_trailing_punctuation:
-        classes.append("md2pdf-ltr-isolate--punct")
-    span["class"] = classes
-    span["dir"] = "ltr"
-    span["lang"] = "en"
-    span.string = text
-    return span
-
-
-def _next_meaningful_sibling(tag: Tag) -> Tag | None:
-    sibling = tag.next_sibling
-    while isinstance(sibling, NavigableString) and not str(sibling).strip():
-        sibling = sibling.next_sibling
-    return sibling if isinstance(sibling, Tag) else None
-
-
-def _group_ltr_isolate_footnote_refs(soup: BeautifulSoup) -> None:
-    for span in list(soup.find_all("span", class_=lambda c: c and "md2pdf-ltr-isolate--punct" in c)):
-        if span.parent and "md2pdf-ltr-isolate-group" in span.parent.get("class", []):
-            continue
-        sibling = _next_meaningful_sibling(span)
-        if not sibling or sibling.name != "sup" or "footnote-ref" not in sibling.get("class", []):
-            continue
-        wrapper = soup.new_tag("span")
-        wrapper["class"] = ["md2pdf-ltr-isolate-group", "md2pdf-ltr-isolate-group--footnote"]
-        wrapper["dir"] = "ltr"
-        wrapper["lang"] = "en"
-        span.wrap(wrapper)
-        wrapper.append(sibling.extract())
-
-
-def isolate_ltr_runs_in_mixed_persian_text(soup: BeautifulSoup) -> None:
-    """Wrap Latin technical runs inside Persian prose with bidi isolation spans.
-
-    Chromium's bidi handling is generally reliable for full blocks, but short
-    Latin identifiers followed by neutral punctuation can still drift visually in
-    Persian paragraphs. This pass keeps author text unchanged while adding an
-    inline isolation boundary around Latin/version-like runs and their immediate
-    ASCII punctuation. Code, math, preformatted content, and links are skipped so
-    semantic Markdown constructs keep their original structure.
-    """
-    for node in list(soup.find_all(string=True)):
-        parent = node.parent if isinstance(node.parent, Tag) else None
-        if (
-            parent is None
-            or _inside_tag(parent, LTR_ISOLATE_SKIP_TAGS)
-            or _inside_class(parent, LTR_ISOLATE_SKIP_CLASSES)
-        ):
-            continue
-        text = str(node)
-        if not text.strip() or not has_latin(text):
-            continue
-        if not _mixed_script_context(parent):
-            continue
-
-        parts: list[str | Tag] = []
-        pos = 0
-        changed = False
-        for match in LTR_ISOLATE_RUN_RE.finditer(text):
-            run = match.group("run") or ""
-            punct = match.group("punct") or ""
-            if not has_latin(run):
-                continue
-            start, end = match.span()
-            if start > pos:
-                parts.append(text[pos:start])
-            isolated = run + punct
-            parts.append(_new_ltr_isolate_span(soup, isolated, has_trailing_punctuation=bool(punct)))
-            pos = end
-            changed = True
-        if not changed:
-            continue
-        if pos < len(text):
-            parts.append(text[pos:])
-
-        for fragment in reversed(parts):
-            if isinstance(fragment, str):
-                if fragment:
-                    node.insert_after(NavigableString(fragment))
-            else:
-                node.insert_after(fragment)
-        node.extract()
-
-    _group_ltr_isolate_footnote_refs(soup)
-
-
-def isolate_rtl_phrase_lists_in_ltr_prose(soup: BeautifulSoup) -> None:
-    """Keep comma-separated Persian phrases in the source order of English prose."""
-    contexts = {
-        id(tag)
-        for tag in soup.find_all(class_="md2pdf-mixed-prose")
-        if tag.get("dir") == "ltr"
-        and "," in tag.get_text()
-        and sum(
-            strong_direction_counts(phrase)[0] > 0
-            for phrase in RTL_ISOLATE_RUN_RE.findall(tag.get_text())
-        ) > 1
-    }
-    if not contexts:
-        return
-    for node in list(soup.find_all(string=True)):
-        parent = node.parent if isinstance(node.parent, Tag) else None
-        if (
-            parent is None
-            or _inside_tag(parent, LTR_ISOLATE_SKIP_TAGS)
-            or _inside_class(parent, LTR_ISOLATE_SKIP_CLASSES | {"md2pdf-rtl-isolate"})
-        ):
-            continue
-        context = next(
-            (ancestor for ancestor in _parent_chain(parent) if ancestor.name in LTR_ISOLATE_CONTEXT_TAGS),
-            None,
-        )
-        if context is None or id(context) not in contexts:
-            continue
-        text = str(node)
-        position = 0
-        fragments: list[str | Tag] = []
-        for match in RTL_ISOLATE_RUN_RE.finditer(text):
-            if strong_direction_counts(match.group())[0] == 0:
-                continue
-            if match.start() > position:
-                fragments.append(text[position:match.start()])
-            span = soup.new_tag("span")
-            span["class"] = ["md2pdf-rtl-isolate"]
-            span["dir"] = "rtl"
-            span.string = match.group()
-            fragments.append(span)
-            position = match.end()
-        if not fragments:
-            continue
-        if position < len(text):
-            fragments.append(text[position:])
-        for fragment in reversed(fragments):
-            if isinstance(fragment, str):
-                if fragment:
-                    node.insert_after(NavigableString(fragment))
-            else:
-                node.insert_after(fragment)
-        node.extract()
 
 
 CALLOUT_KIND_ALIASES = {
@@ -852,302 +354,7 @@ def normalize_github_callouts(soup: BeautifulSoup, *, lang: str | None = None) -
             first_p.append("\n" + remainder.strip())
 
 
-def _dir_for_profile(profile: str) -> str:
-    return profile if profile in {"rtl", "ltr"} else "auto"
-
-
-
 CODE_FENCE_TITLE_RE = re.compile(r"(?:^|\s)(?:title|filename|file)=(?P<quote>[\"\'])(?P<value>.*?)(?P=quote)")
-CODE_FENCE_BRACE_RE = re.compile(r"\{(?P<spec>[^}]*)\}")
-CODE_FENCE_KV_RE = re.compile(
-    r"(?P<key>[A-Za-z][\w-]*)\s*=\s*"
-    r"(?:(?P<quote>[\"'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s}]+))"
-)
-CODE_FENCE_ATTR_CLASS_RE = re.compile(r"(?<!\S)\.(?P<class>[A-Za-z_][\w.-]*)")
-CODE_FENCE_LABEL_RE = re.compile(
-    r"(?:^|[\s{])#(?P<label>(?:fig|tbl|eq|lst):[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?)(?=[\s}]|$)"
-)
-CODE_FENCE_LABEL_CANDIDATE_RE = re.compile(
-    r"(?:^|[\s{])#(?P<label>(?:fig|tbl|eq|lst):[^\s}]*)"
-)
-CODE_FENCE_LABEL_VALUE_RE = re.compile(
-    r"^(?:fig|tbl|eq|lst):[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$"
-)
-CODE_FENCE_TITLE_KEYS = {"title", "filename", "file", "caption", "name"}
-CODE_FENCE_HIGHLIGHT_KEYS = {
-    "hl_lines",
-    "hl-lines",
-    "highlight",
-    "line-highlight",
-    "lines",
-    "emphasize-lines",
-}
-CODE_FENCE_LINE_NUMBER_KEYS = {
-    "linenos",
-    "line-numbers",
-    "linenumbers",
-    "numbered",
-    "numberlines",
-    "lineNumbers",
-}
-CODE_FENCE_LINE_START_KEYS = {
-    "start",
-    "startline",
-    "start-line",
-    "line-start",
-    "linenostart",
-    "lineno-start",
-    "first-line",
-}
-CODE_FENCE_LINE_NUMBER_CLASSES = {
-    "linenos",
-    "line-numbers",
-    "linenumbers",
-    "numbered",
-    "numberlines",
-    "numberLines",
-}
-CODE_FENCE_LINE_NUMBER_KEY_SET = {item.lower() for item in CODE_FENCE_LINE_NUMBER_KEYS}
-CODE_FENCE_LINE_START_KEY_SET = {item.lower() for item in CODE_FENCE_LINE_START_KEYS}
-CODE_FENCE_LANGUAGE_ALIASES = {
-    "mmd": "mermaid",
-    "py": "python",
-    "js": "javascript",
-    "ts": "typescript",
-    "sh": "bash",
-    "shell": "bash",
-    "zsh": "bash",
-    "md": "markdown",
-    "yml": "yaml",
-}
-
-
-def _parse_line_highlights(spec: str | None) -> list[int]:
-    if not spec:
-        return []
-    values: set[int] = set()
-    cleaned = str(spec).strip().strip("{}[]()\"'").replace(";", ",")
-    for part in re.split(r"[,\s]+", cleaned):
-        part = part.strip()
-        if not part:
-            continue
-        if '-' in part:
-            start_text, end_text = [chunk.strip() for chunk in part.split('-', 1)]
-            if start_text.isdigit() and end_text.isdigit():
-                start, end = int(start_text), int(end_text)
-                if start > 0 and end >= start:
-                    values.update(range(start, end + 1))
-            continue
-        if part.isdigit() and int(part) > 0:
-            values.add(int(part))
-    return sorted(values)
-
-
-def _normalize_code_language(value: str | None) -> str:
-    language = (value or "").strip().strip(".").lower()
-    return CODE_FENCE_LANGUAGE_ALIASES.get(language, language)
-
-
-def _parse_code_fence_key_values(attrs: str) -> dict[str, str]:
-    values: dict[str, str] = {}
-    for match in CODE_FENCE_KV_RE.finditer(attrs or ""):
-        key = match.group("key").strip()
-        value = match.group("quoted") if match.group("quote") else match.group("bare")
-        values[key] = (value or "").strip()
-    return values
-
-
-def _truthy_attr_value(value: str | None) -> bool:
-    if value is None:
-        return False
-    return str(value).strip().lower() not in {"", "0", "false", "no", "off", "none"}
-
-
-def _positive_int_attr(value: str | None, *, fallback: int = 1) -> int:
-    try:
-        parsed = int(str(value or "").strip())
-    except (TypeError, ValueError):
-        return fallback
-    return parsed if parsed > 0 else fallback
-
-
-def _first_language_class(attrs: str) -> str:
-    for match in CODE_FENCE_ATTR_CLASS_RE.finditer(attrs or ""):
-        name = match.group("class")
-        if name in CODE_FENCE_LINE_NUMBER_CLASSES:
-            continue
-        if name.startswith("language-"):
-            return _normalize_code_language(name.removeprefix("language-"))
-        return _normalize_code_language(name)
-    return ""
-
-
-def parse_code_fence_info(info: str | None) -> dict[str, Any]:
-    """Parse documentation-style fenced code metadata.
-
-    The parser accepts the common variants used by GitHub, MkDocs, Pandoc,
-    Quarto, and documentation generators, for example::
-
-        ```python title="renderer.py" {2,5-6} linenos
-        ```{.python .numberLines hl_lines="2 5-6" title=renderer.py}
-
-    Unknown attributes are intentionally preserved in ``attrs`` but ignored by
-    the renderer so future syntax can be added without breaking existing input.
-    """
-    text = (info or "").strip()
-    language = ""
-    attrs = ""
-
-    if text.startswith("{"):
-        match = CODE_FENCE_BRACE_RE.match(text)
-        if match:
-            attrs = match.group("spec").strip()
-            remainder = text[match.end() :].strip()
-            if remainder:
-                attrs = f"{attrs} {remainder}".strip()
-            language = _first_language_class(attrs)
-        else:
-            attrs = text
-    else:
-        parts = text.split(maxsplit=1)
-        if parts:
-            language = _normalize_code_language(parts[0])
-        attrs = parts[1] if len(parts) > 1 else ""
-        brace_language = _first_language_class(attrs)
-        if not language and brace_language:
-            language = brace_language
-
-    kv = _parse_code_fence_key_values(attrs)
-
-    title = ""
-    for key, value in kv.items():
-        if key.lower() in CODE_FENCE_TITLE_KEYS:
-            title = value
-            break
-
-    highlight_values: list[int] = []
-    for brace_match in CODE_FENCE_BRACE_RE.finditer(attrs):
-        spec = brace_match.group("spec")
-        if re.fullmatch(r"[0-9,;\-\s]+", spec.strip()):
-            highlight_values.extend(_parse_line_highlights(spec))
-    for key, value in kv.items():
-        if key.lower() in CODE_FENCE_HIGHLIGHT_KEYS:
-            highlight_values.extend(_parse_line_highlights(value))
-
-    attrs_lower = attrs.lower()
-    linenos = bool(
-        re.search(
-            r"(?:^|\s)(?:linenos|line-numbers|numbered|numberlines|lineNumbers)(?:\s|$)",
-            attrs,
-            re.I,
-        )
-        or any(f".{name.lower()}" in attrs_lower for name in CODE_FENCE_LINE_NUMBER_CLASSES)
-        or any(
-            key.lower() in CODE_FENCE_LINE_NUMBER_KEY_SET and _truthy_attr_value(value)
-            for key, value in kv.items()
-        )
-    )
-
-    line_start = 1
-    for key, value in kv.items():
-        if key.lower() in CODE_FENCE_LINE_START_KEY_SET:
-            line_start = _positive_int_attr(value, fallback=1)
-            break
-
-    reference_labels = list(
-        dict.fromkeys(match.group("label") for match in CODE_FENCE_LABEL_RE.finditer(attrs))
-    )
-    reference_label = reference_labels[0] if reference_labels else ""
-    invalid_reference_label = ""
-    for candidate_match in CODE_FENCE_LABEL_CANDIDATE_RE.finditer(attrs):
-        candidate = candidate_match.group("label")
-        if not CODE_FENCE_LABEL_VALUE_RE.fullmatch(candidate):
-            invalid_reference_label = candidate
-            break
-
-    return {
-        "language": language,
-        "title": title,
-        "reference_label": reference_label,
-        "reference_labels": reference_labels,
-        "invalid_reference_label": invalid_reference_label,
-        "linenos": linenos,
-        "highlight_lines": sorted(set(highlight_values)),
-        "line_start": line_start,
-        "attrs": attrs,
-    }
-
-
-def highlight_code(
-    code: str,
-    lang: str | None,
-    attrs: str | None = None,
-    *,
-    code_style: str = "github-dark",
-    caption: str | None = None,
-    extra_classes: str = "",
-    linenos: bool = False,
-    highlight_lines: list[int] | None = None,
-    line_start: int = 1,
-    reference_label: str | None = None,
-) -> str:
-    parts = (lang or "").strip().split()
-    language = parts[0] if parts else ""
-    label = language or "text"
-    try:
-        lexer = get_lexer_by_name(language, stripall=False) if language else TextLexer(stripall=False)
-    except ClassNotFound:
-        lexer = TextLexer(stripall=False)
-        label = language or "text"
-    normalized_highlight_lines = highlight_lines or []
-    if line_start > 1 and normalized_highlight_lines and all(
-        line >= line_start for line in normalized_highlight_lines
-    ):
-        normalized_highlight_lines = [line - line_start + 1 for line in normalized_highlight_lines]
-    formatter = CodeHtmlFormatter(
-        code_style,
-        linenos=linenos,
-        hl_lines=normalized_highlight_lines,
-        line_start=line_start,
-    )
-    highlighted = _normalize_highlight_line_breaks(highlight(code, lexer, formatter))
-    caption_value = caption if caption not in (None, "") else label.upper()
-    caption_html = (
-        '<figcaption class="md2pdf-caption md2pdf-caption--code" dir="auto">'
-        f'{html.escape(caption_value)}'
-        '</figcaption>'
-        if caption_value
-        else ""
-    )
-    line_count = max(1, len(code.rstrip("\n").splitlines()))
-    extra_attrs = f" data-lang=\"{html.escape(language)}\"" if language else ""
-    if reference_label:
-        extra_attrs += f" data-md2pdf-label=\"{html.escape(reference_label)}\""
-    extra_attrs += f" data-lines=\"{line_count}\""
-    if linenos and line_start > 1:
-        extra_attrs += f" data-line-start=\"{line_start}\""
-    classes = "code-block" + (f" {html.escape(extra_classes)}" if extra_classes else "")
-    if has_persian(code):
-        classes += " code-block--rtl-script"
-    if has_persian(code) and has_latin(code):
-        classes += " code-block--mixed-script"
-    if linenos:
-        classes += " code-block--numbered"
-    if highlight_lines:
-        classes += " code-block--highlighted"
-    if line_count >= 18:
-        classes += " code-block--medium"
-    if line_count >= 36:
-        classes += " code-block--long"
-    if line_count >= 90:
-        classes += " code-block--very-long"
-    return (
-        f'<figure class="{classes}" dir="ltr"{extra_attrs}>'
-        f"{caption_html}"
-        f"{highlighted}"
-        f"</figure>"
-    )
-
 
 
 def mermaid_placeholder(
@@ -1245,230 +452,6 @@ def render_mermaid_placeholders(soup: BeautifulSoup) -> None:
         classes.discard("mermaid-diagram--pending")
         classes.add("mermaid-diagram--rendered")
         figure["class"] = sorted(classes)
-
-def guess_code_language(code: str) -> tuple[str, str]:
-    """Best-effort language guess for indented Markdown code blocks.
-
-    Fenced blocks already carry their language, but many reports use 4-space
-    indented blocks. markdown-it emits those as plain ``<pre><code>`` nodes,
-    so we infer a readable highlighter and caption here. The heuristic is
-    deliberately conservative: when unsure, it returns plain text.
-    """
-    stripped = code.strip("\n")
-    lowered = stripped.lower()
-    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
-    first = lines[0] if lines else ""
-
-    if not stripped:
-        return "text", ""
-    if "#include" in stripped or re.search(r"\bpid_t\b|\bint\s+main\s*\(", stripped):
-        return "c", "C"
-    if re.search(r"^\s*#\s*define\s+SYS_", stripped, re.M) or "SYSCALL(" in stripped:
-        return "c", "C"
-    if re.search(r"\bdef\s+\w+\s*\(|\bimport\s+\w+|\bfrom\s+\w+\s+import\b", stripped):
-        return "python", "PYTHON"
-    if re.search(r"\bconst\s+\w+\s*=|\blet\s+\w+\s*=|console\.log\s*\(", stripped):
-        return "javascript", "JAVASCRIPT"
-    if re.search(r"^\s*</?[-a-zA-Z][^>]*>\s*$", stripped, re.M):
-        return "html", "HTML"
-    if re.search(r"^\s*(make|gdb|qemu|cat|dice|ksort|usort|pidtest|ptest|makenums)(\s|$)", stripped, re.M):
-        return "bash", "BASH"
-    if re.search(r"^\s*\(gdb\)\s+", stripped, re.M):
-        return "bash", "GDB"
-    if first.startswith("# terminal") or "inside xv6" in lowered:
-        return "bash", "BASH"
-    if re.search(r"^\s*#\d+\s+\w+", stripped, re.M):
-        return "text", "TRACE"
-    if re.fullmatch(r"[-+*/=()0-9A-Za-z_\s.]+", stripped) and any(ch.isdigit() for ch in stripped):
-        return "text", ""
-    return "text", ""
-
-
-def _replace_outside_inline_code(
-    text: str,
-    pattern: re.Pattern[str],
-    repl: Any,
-) -> str:
-    """Apply a regex replacement only outside Markdown inline code spans.
-
-    The Markdown parser will later turn backtick-delimited spans into ``<code>``.
-    Pre-processing steps such as math and footnote expansion must therefore leave
-    literal examples like ``$x$`` and ``[^note]`` untouched. This lightweight
-    scanner follows the common Markdown rule that a code span opens with one or
-    more backticks and closes with the same run length on the same line.
-    """
-    output: list[str] = []
-    index = 0
-    while index < len(text):
-        marker_match = re.search(r"`+", text[index:])
-        if not marker_match:
-            output.append(pattern.sub(repl, text[index:]))
-            break
-
-        start = index + marker_match.start()
-        marker = marker_match.group(0)
-        output.append(pattern.sub(repl, text[index:start]))
-
-        content_start = start + len(marker)
-        close = text.find(marker, content_start)
-        if close == -1:
-            output.append(pattern.sub(repl, text[start:]))
-            break
-
-        output.append(text[start : close + len(marker)])
-        index = close + len(marker)
-    return "".join(output)
-
-
-def _protected_code_token(index: int) -> str:
-    return f"{PROTECTED_CODE_TOKEN_PREFIX}{index:08d}{PROTECTED_CODE_TOKEN_SUFFIX}"
-
-
-def _protect_code_regions(markdown: str) -> tuple[str, list[str]]:
-    """Protect fenced, indented, and multiline inline code before preprocessing."""
-    protected: list[str] = []
-
-    def store(value: str) -> str:
-        token = _protected_code_token(len(protected))
-        protected.append(value)
-        return token
-
-    lines = markdown.splitlines(keepends=True)
-    block_output: list[str] = []
-    parser = MarkdownIt("gfm-like", {"html": True, "linkify": False})
-    code_ranges = {
-        token.map[0]: token.map[1]
-        for token in parser.parse(markdown)
-        if token.type in {"fence", "code_block"} and token.map
-    }
-    index = 0
-    while index < len(lines):
-        end = code_ranges.get(index)
-        if end is not None:
-            segment = "".join(lines[index:end])
-            ending = "\r\n" if segment.endswith("\r\n") else ("\n" if segment.endswith("\n") else "")
-            block_output.append(store(segment) + ending)
-            index = end
-            continue
-
-        block_output.append(lines[index])
-        index += 1
-
-    text = "".join(block_output)
-    inline_output: list[str] = []
-    cursor = 0
-    while cursor < len(text):
-        opening = re.search(r"`+", text[cursor:])
-        if not opening:
-            inline_output.append(text[cursor:])
-            break
-        start = cursor + opening.start()
-        marker = opening.group(0)
-        inline_output.append(text[cursor:start])
-        search_from = start + len(marker)
-        close = -1
-        while True:
-            candidate = text.find(marker, search_from)
-            if candidate < 0:
-                break
-            before_is_tick = candidate > 0 and text[candidate - 1] == "`"
-            after_index = candidate + len(marker)
-            after_is_tick = after_index < len(text) and text[after_index] == "`"
-            if not before_is_tick and not after_is_tick:
-                close = candidate
-                break
-            search_from = candidate + len(marker)
-        if close < 0:
-            inline_output.append(text[start:])
-            break
-        end = close + len(marker)
-        inline_output.append(store(text[start:end]))
-        cursor = end
-    return "".join(inline_output), protected
-
-
-def _restore_code_regions(markdown: str, protected: list[str]) -> str:
-    for index, value in enumerate(protected):
-        token = _protected_code_token(index)
-        if value.endswith("\r\n"):
-            markdown = markdown.replace(token + "\r\n", value)
-        elif value.endswith("\n"):
-            markdown = markdown.replace(token + "\n", value)
-        markdown = markdown.replace(token, value)
-    return markdown
-
-
-def _fence_transition(
-    line: str, in_fence: bool, fence_char: str, fence_len: int
-) -> tuple[bool, str, int]:
-    match = FENCE_RE.match(line)
-    if not match:
-        return in_fence, fence_char, fence_len
-
-    marker = match.group(1)
-    marker_char = marker[0]
-    marker_len = len(marker)
-    if not in_fence:
-        return True, marker_char, marker_len
-    if marker_char == fence_char and marker_len >= fence_len:
-        return False, "", 0
-    return in_fence, fence_char, fence_len
-
-
-def protect_and_transform_math(markdown: str) -> str:
-    """Transform $...$ and $$...$$ into HTML MathJax wrappers outside code."""
-    output: list[str] = []
-    in_fence = False
-    fence_char = ""
-    fence_len = 0
-    in_display_math = False
-    display_buffer: list[str] = []
-
-    def repl_inline(match: re.Match[str]) -> str:
-        expr = match.group(1).strip()
-        if not expr:
-            return match.group(0)
-        return f'<span class="math inline">\\\\({html.escape(expr)}\\\\)</span>'
-
-    for line in markdown.splitlines(keepends=True):
-        next_in_fence, next_fence_char, next_fence_len = _fence_transition(
-            line, in_fence, fence_char, fence_len
-        )
-        fence_changed = (next_in_fence, next_fence_char, next_fence_len) != (
-            in_fence,
-            fence_char,
-            fence_len,
-        )
-        if fence_changed and not in_display_math:
-            in_fence, fence_char, fence_len = next_in_fence, next_fence_char, next_fence_len
-            output.append(line)
-            continue
-
-        if in_fence:
-            output.append(line)
-            continue
-
-        if DISPLAY_MATH_FENCE_RE.match(line):
-            if in_display_math:
-                expr = "".join(display_buffer).strip()
-                output.append(f'<div class="math display">$${html.escape(expr)}$$</div>\n')
-                display_buffer.clear()
-                in_display_math = False
-            else:
-                in_display_math = True
-                display_buffer.clear()
-            continue
-
-        if in_display_math:
-            display_buffer.append(line)
-            continue
-
-        output.append(_replace_outside_inline_code(line, INLINE_MATH_RE, repl_inline))
-
-    if in_display_math:
-        output.append("$$\n")
-        output.extend(display_buffer)
-    return "".join(output)
 
 
 def _dedent_footnote_line(line: str) -> str:
@@ -1637,7 +620,6 @@ def replace_footnote_refs(
             continue
         output.append(_replace_outside_inline_code(line, INLINE_FOOTNOTE_RE, repl))
     return "".join(output)
-
 
 
 def _render_footnote_item(
@@ -1944,37 +926,6 @@ def build_toc(
         f'{_render_toc_items(tree, lang=lang, text_hint=text_hint)}'
         '</nav>'
     )
-
-
-def normalize_raw_code_blocks(soup: BeautifulSoup, *, code_style: str) -> None:
-    """Wrap and highlight raw indented code blocks.
-
-    markdown-it applies the custom highlighter to fenced code, but not to every
-    4-space indented block. Without this pass, those blocks inherit light code
-    text without the dark/bright container, which makes them nearly invisible in
-    Chromium PDFs.
-    """
-    skip_parent_classes = {"code-block", "codehilite", "highlight"}
-    for pre in list(soup.find_all("pre")):
-        parents = list(pre.parents)
-        if any(skip_parent_classes.intersection(set(parent.get("class", []))) for parent in parents if isinstance(parent, Tag)):
-            continue
-        code_tag = pre.find("code")
-        code = code_tag.get_text() if code_tag else pre.get_text()
-        lang, caption = guess_code_language(code)
-        fragment = BeautifulSoup(
-            highlight_code(
-                code.rstrip("\n"),
-                lang,
-                code_style=code_style,
-                caption=caption,
-                extra_classes="raw-code-block",
-            ),
-            "html.parser",
-        )
-        figure = fragment.find("figure")
-        if figure is not None:
-            pre.replace_with(figure)
 
 
 def _is_path_inside(path: Path, root: Path) -> bool:

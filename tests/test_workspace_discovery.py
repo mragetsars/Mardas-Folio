@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mardas_folio.projects import discovery
+
 from pathlib import Path
 
 import pytest
@@ -59,8 +61,8 @@ def test_workspace_file_limit_stops_consuming_the_tree(
         yield from files
         raise AssertionError("Discovery scanned past its output limit")
 
-    monkeypatch.setattr(workspace, "MAX_WORKSPACE_FILES", 2)
-    monkeypatch.setattr(workspace, "_iter_workspace_files", bounded_tree)
+    monkeypatch.setattr(discovery, "MAX_WORKSPACE_FILES", 2)
+    monkeypatch.setattr(discovery, "_iter_workspace_files", bounded_tree)
     found, diagnostics = workspace._workspace_files(tmp_path, None)
     assert [item.path for item in found] == ["a.md", "b.md"]
     assert diagnostics[0].code == "MARDAS-W801"
@@ -165,7 +167,7 @@ def test_workspace_scan_bounds_nontext_entries_without_materializing_the_directo
             return False
 
     monkeypatch.setattr(workspace.os, "scandir", lambda path: Entries())
-    monkeypatch.setattr(workspace, "MAX_WORKSPACE_SCAN_ENTRIES", 4)
+    monkeypatch.setattr(discovery, "MAX_WORKSPACE_SCAN_ENTRIES", 4)
     files, diagnostics = workspace._workspace_files(tmp_path, None)
     assert files == ()
     assert examined == [0, 1, 2, 3]
@@ -189,7 +191,7 @@ def test_workspace_scan_keeps_collected_files_and_reports_truncation(
             return False
 
     monkeypatch.setattr(workspace.os, "scandir", lambda path: Entries())
-    monkeypatch.setattr(workspace, "MAX_WORKSPACE_SCAN_ENTRIES", 3)
+    monkeypatch.setattr(discovery, "MAX_WORKSPACE_SCAN_ENTRIES", 3)
     files, diagnostics = workspace._workspace_files(tmp_path, None)
     # The budget applies to entries, including files that are not accepted text.
     assert [item.path for item in files] == ["a-first.md"]
@@ -203,7 +205,7 @@ def test_workspace_depth_limit_keeps_shallow_siblings_and_reports_omissions(
         path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("# Chapter", encoding="utf-8")
-    monkeypatch.setattr(workspace, "MAX_WORKSPACE_DEPTH", 2)
+    monkeypatch.setattr(discovery, "MAX_WORKSPACE_DEPTH", 2)
     files, diagnostics = workspace._workspace_files(tmp_path, None)
     assert [item.path for item in files] == ["a/b/at-limit.md", "z/shallow.md"]
     assert [item.code for item in diagnostics] == ["MARDAS-W803"]

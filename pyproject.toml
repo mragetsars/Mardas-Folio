@@ -55,9 +55,12 @@ folio-gui = "mardas_folio.gui:main"
 folio-sidecar = "mardas_folio.sidecar:main"
 
 [tool.setuptools]
-packages = ["mardas_folio", "mardas_folio.assets", "mardas_folio.assets.mathjax"]
 package-dir = {"" = "src"}
 include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["mardas_folio*"]
 
 [tool.setuptools.package-data]
 mardas_folio = [
