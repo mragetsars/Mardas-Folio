@@ -1,4 +1,4 @@
-import { foldForFilter } from "./persian.mjs";
+import { foldForFilter } from "../core/persian.mjs";
 
 /** Build a hierarchy even when an author skips heading levels. */
 export function buildOutlineTree(items = []) {

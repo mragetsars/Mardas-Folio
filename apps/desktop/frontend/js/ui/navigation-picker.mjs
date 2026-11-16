@@ -1,4 +1,4 @@
-import { filterNavigationEntries } from "./document-navigation.mjs";
+import { filterNavigationEntries } from "../core/document-navigation.mjs";
 
 /** One keyboard picker, with distinct file and in-document heading scopes. */
 export function createNavigationPicker({ manager, getEntries, onChoose, t, documentRef = document }) {

@@ -7,7 +7,7 @@ import {
   normalizeWorkspaceLayout,
   readWorkspaceLayout,
   writeWorkspaceLayout,
-} from "../frontend/js/core/workspace-layout.mjs";
+} from "../frontend/js/features/workspace/workspace-layout.mjs";
 
 function storage(initial = {}) {
   const values = new Map(Object.entries(initial));

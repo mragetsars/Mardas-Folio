@@ -25,9 +25,10 @@ test("full-book preview sanitizes body content without injecting renderer head s
 });
 
 test("command palette delegates every close path to shared ARIA cleanup", () => {
-  const start = main.indexOf("function openCommandPalette");
-  const end = main.indexOf("async function runCommand", start);
-  const implementation = main.slice(start, end);
+  const palette = readFileSync(new URL("../frontend/js/ui/command-palette.mjs", import.meta.url), "utf8");
+  const start = palette.indexOf("function openCommandPalette");
+  const end = palette.indexOf("async function runCommand", start);
+  const implementation = palette.slice(start, end);
   assert.match(implementation, /onClose: resetCommandPaletteA11y/);
   assert.match(implementation, /aria-expanded["'], ["']false/);
   assert.match(implementation, /removeAttribute\(["']aria-activedescendant/);

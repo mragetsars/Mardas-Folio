@@ -202,7 +202,7 @@ test("the editor does not open a second search panel", () => {
 test("focus mode restates the workspace rows it empties", () => {
   // Taking the tab strip out of the flow takes its grid row with it; without
   // restating the rows the authoring grid lands in the 40px tab track.
-  const css = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../frontend/styles/workspace.css", import.meta.url), "utf8");
   assert.match(css, /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.tab-bar/);
   assert.match(css, /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.workspace-view\.active \{\s*grid-template-rows/);
   assert.match(css, /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.editor-pane \{[^}]*grid-template-rows/);

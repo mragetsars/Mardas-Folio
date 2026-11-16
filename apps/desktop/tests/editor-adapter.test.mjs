@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createEditorAdapter } from "../frontend/js/core/editor-adapter.mjs";
+import { createEditorAdapter } from "../frontend/js/features/documents/editor-adapter.mjs";
 
 class FakeTextArea {
   constructor() {

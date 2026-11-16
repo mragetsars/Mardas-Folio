@@ -1,4 +1,4 @@
-import { optionalLocalStorage } from "./storage.mjs";
+import { optionalLocalStorage } from "../../adapters/storage.mjs";
 
 export const WORKSPACE_LAYOUT_STORAGE_KEY = "mardas.desktop.workspace-layout.v2";
 

@@ -1,5 +1,5 @@
-import { pathIdentity } from "./path-identity.mjs";
-import { optionalLocalStorage } from "./storage.mjs";
+import { pathIdentity } from "../../core/path-identity.mjs";
+import { optionalLocalStorage } from "../../adapters/storage.mjs";
 
 export const RECOVERY_STORAGE_KEY = "mardas.desktop.authoring-recovery.v1";
 export const MAX_RECOVERY_DOCUMENTS = 12;

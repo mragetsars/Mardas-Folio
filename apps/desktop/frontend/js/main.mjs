@@ -1,11 +1,16 @@
-import { basename, buildDocumentParams, defaultOutputPath, validateExportSelection } from "./core/export-request.mjs";
+import { createNotifications } from "./ui/notifications.mjs";
+import { createUpdater } from "./features/settings/updater.mjs";
+import { createSettingsController } from "./features/settings/controller.mjs";
+import { createCommandPalette } from "./ui/command-palette.mjs";
+import { createWorkspacePanes } from "./features/workspace/panes.mjs";
+import { basename, buildDocumentParams, defaultOutputPath, validateExportSelection } from "./features/export/export-request.mjs";
 import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
 import { onboardingIntentPresentation, onboardingPrimaryActionKey, normalizeOnboardingIntent } from "./core/onboarding.mjs";
-import { PRESETS, presetById } from "./core/presets.mjs";
-import { createExportOptionsPanel } from "./ui/export-options-panel.mjs";
+import { PRESETS, presetById } from "./features/export/presets.mjs";
+import { createExportOptionsPanel } from "./features/export/export-options-panel.mjs";
 import { spriteIcon } from "./ui/icons.mjs";
-import { addRecent, readRecents, writeRecents } from "./core/recents.mjs";
-import { invoke, listen } from "./core/tauri.mjs";
+import { addRecent, readRecents, writeRecents } from "./features/documents/recents.mjs";
+import { invoke, listen } from "./adapters/tauri.mjs";
 import {
   createDocument,
   closeDocument,
@@ -22,8 +27,8 @@ import {
   recoveryKey,
   removeRecovery,
   saveRecovery,
-} from "./core/recovery.mjs";
-import { readSession, writeSession } from "./core/session.mjs";
+} from "./features/documents/recovery.mjs";
+import { readSession, writeSession } from "./features/documents/session.mjs";
 import {
   bodyStartOffset,
   extractCitationKeys,
@@ -35,9 +40,9 @@ import {
 import { prefixSelectedLines, replaceSelection, wrapSelection } from "./core/editor-commands.mjs";
 import { createFindSession, replaceAllLiteral } from "./core/find-replace.mjs";
 import { documentImageAlts, documentImageSources, localImageDestination } from "./core/document-assets.mjs";
-import { createEditorAdapter } from "./core/editor-adapter.mjs";
-import { mountDocumentContent } from "./core/document-renderer.mjs";
-import { safeOnlineImageURL } from "./core/online-images.mjs";
+import { createEditorAdapter } from "./features/documents/editor-adapter.mjs";
+import { mountDocumentContent } from "./preview/document-content.mjs";
+import { safeOnlineImageURL } from "./preview/online-images.mjs";
 import { interpolatePosition } from "./core/content-position.mjs";
 import {
   captureDocumentContext,
@@ -46,20 +51,18 @@ import {
   projectContextCurrent,
 } from "./core/request-context.mjs";
 import { createSaveCoordinator } from "./core/save-coordinator.mjs";
-import { createOutlineNavigator } from "./core/outline-navigator.mjs";
+import { createOutlineNavigator } from "./ui/outline-navigator.mjs";
 import { createDocumentMetrics } from "./core/document-metrics.mjs";
 import { authoringShortcutKey } from "./core/keyboard-shortcuts.mjs";
-import { createWorkspaceToolbar } from "./core/workspace-toolbar.mjs";
+import { createWorkspaceToolbar } from "./features/workspace/workspace-toolbar.mjs";
 import { compactDocumentLocation } from "./core/path-display.mjs";
 import { createConfirmationQueue } from "./core/confirmation-queue.mjs";
-import { saveDocumentsBeforeUpdate } from "./core/update-preparation.mjs";
 import { prepareBookFiles } from "./core/book-preparation.mjs";
 import { createSingleFlight } from "./core/single-flight.mjs";
 import { beginCancellationHandoff } from "./core/task-handoff.mjs";
 import { diagnosticLines, inlineDiagnosticsForDocument } from "./core/diagnostics.mjs";
 import { bookTaskBlocked, claimBookTask } from "./core/book-task-state.mjs";
 import {
-  DEFAULT_PREFERENCES,
   DOCUMENT_ZOOM_MIN,
   DOCUMENT_ZOOM_MAX,
   applyPreferences,
@@ -68,24 +71,18 @@ import {
   previewVisibleForView,
   readPreferences,
   writePreferences,
-} from "./core/preferences.mjs";
+} from "./features/settings/preferences.mjs";
 import { templateContent, templateList } from "./core/templates.mjs";
 import {
-  DEFAULT_WORKSPACE_LAYOUT,
-  clampWorkspaceWidth,
-  fitWorkspaceWidths,
   readWorkspaceLayout,
   writeWorkspaceLayout,
-} from "./core/workspace-layout.mjs";
-import { filterCommands } from "./core/command-palette.mjs";
+} from "./features/workspace/workspace-layout.mjs";
 import { documentNavigationEntries } from "./core/document-navigation.mjs";
-import { createNavigationPicker } from "./core/navigation-picker.mjs";
+import { createNavigationPicker } from "./ui/navigation-picker.mjs";
 import { fitToolbarGroups } from "./core/toolbar-overflow.mjs";
-import { createModalManager, focusableElements } from "./core/modal-manager.mjs";
-import { createSettingsPanel } from "./core/settings-panel.mjs";
+import { createModalManager, focusableElements } from "./ui/modal-manager.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
 import { typesetPreviewMath } from "./preview/math.mjs";
-import { updaterStatus, checkForUpdates, installUpdate } from "./core/updater-api.mjs";
 import {
   bibliographyIndex,
   cancelSidecarRequest,
@@ -94,7 +91,7 @@ import {
   refreshProject,
   saveProjectFile,
   startProjectSearch,
-} from "./core/project-api.mjs";
+} from "./adapters/project-api.mjs";
 import { resetProjectSession } from "./core/project-lifecycle.mjs";
 import {
   addBookChapter,
@@ -105,7 +102,7 @@ import {
   startBookExport,
   startBookPreview,
   startBookValidation,
-} from "./core/book-api.mjs";
+} from "./adapters/book-api.mjs";
 import {
   importDocumentAsset,
   listDocumentAssets,
@@ -117,11 +114,10 @@ import {
   saveDocument,
   saveTextDocument,
   validateDocumentText,
-} from "./core/authoring-api.mjs";
+} from "./adapters/authoring-api.mjs";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
-const settingsPanel = createSettingsPanel($("#settings-form"));
 const compactSidePanes = matchMedia("(max-width: 1100px)");
 const state = {
   locale: readLocalePreference(undefined, navigator.language),
@@ -170,8 +166,6 @@ const state = {
   compactDrawer: null,
   onboardingStep: 0,
   onboardingIntent: null,
-  commandIndex: 0,
-  visibleCommands: [],
   engineMethods: null,
   updateStatus: null,
   updateCheck: null,
@@ -194,6 +188,22 @@ const findSession = createFindSession();
 const askConfirmation = createConfirmationQueue(presentConfirmation);
 const translator = createTranslator(state.locale);
 const t = (key) => translator.t(key);
+
+const { toast } = createNotifications({ query: $ });
+const { updateUi, initializeUpdater, checkUpdates, installAvailableUpdate } = createUpdater({
+  state, query: $, t, toast, errorText, isDirty: documentDirty, confirm: askConfirmation,
+  save: (model) => saveCoordinator.save(model, () => persistDocumentModel(model)),
+  refreshAuthoring: () => updateAuthoringMode(activeDocument()),
+});
+const { openSettings, closeSettings, submitSettings, resetSettings } = createSettingsController({
+  state, query: $, getModalManager: () => modalManager, applyInterfacePreferences, setLocale, t, toast,
+});
+const { renderCommandPalette, openCommandPalette, closeCommandPalette, commandKeydown, resetCommandSelection } = createCommandPalette({
+  query: $, queryAll: $$, getModalManager: () => modalManager, commandDefinitions, t, toast, errorText,
+});
+const { applyWorkspaceLayout, applyNavigatorContext, activateNavigator, isCompactDrawer, workspacePaneOpen, setWorkspacePaneOpen, toggleWorkspacePane, resetWorkspacePaneSizes, closeCompactDrawer, beginPaneResize, resizePaneWithKeyboard } = createWorkspacePanes({
+  state, query: $, queryAll: $$, compactSidePanes, activeDocument, isMarkdownModel, focusDocument,
+});
 
 function currentEditor() {
   return editorAdapter || $("#markdown-editor");
@@ -533,188 +543,6 @@ function changeDocumentZoom(direction) {
   updateDocumentView({ documentZoom: direction === 0 ? 100 : nextDocumentZoom(state.preferences.documentZoom, direction) });
 }
 
-function applyWorkspaceLayout({ persist = false } = {}) {
-  const grid = $(".authoring-grid");
-  const workspace = $("#workspace-view");
-  if (!grid || !workspace) return;
-  if (persist) state.workspaceLayout = writeWorkspaceLayout(state.workspaceLayout);
-  const layout = {
-    ...state.workspaceLayout,
-    filesOpen: workspacePaneOpen("files"),
-    sidebarOpen: workspacePaneOpen("sidebar"),
-  };
-  const fitted = fitWorkspaceWidths(layout, grid.clientWidth || innerWidth);
-  for (const element of [workspace, grid]) {
-    element.dataset.filesOpen = String(layout.filesOpen);
-    element.dataset.formattingOpen = String(layout.formattingOpen);
-    element.dataset.sidebarOpen = String(layout.sidebarOpen);
-    element.dataset.previewOpen = String(layout.previewOpen);
-    element.style.setProperty("--sidebar-width", `${fitted.sidebarWidth}px`);
-    element.style.setProperty("--files-width", `${fitted.filesWidth}px`);
-    element.style.setProperty("--preview-width", `${fitted.previewWidth}px`);
-  }
-  const sidebarButton = $("#workspace-toggle-sidebar");
-  const sidebarResizer = $("#sidebar-resizer");
-  const previewResizer = $("#preview-resizer");
-  $("#workspace-toggle-files")?.setAttribute("aria-pressed", String(layout.filesOpen));
-  $("#workspace-toggle-formatting")?.setAttribute("aria-pressed", String(layout.formattingOpen));
-  $("#workspace-toggle-formatting")?.setAttribute("aria-expanded", String(layout.formattingOpen));
-  $("#file-resizer")?.setAttribute("aria-valuenow", String(fitted.filesWidth));
-  $("#file-navigator").inert = !layout.filesOpen;
-  $("#author-sidebar").inert = !layout.sidebarOpen;
-  sidebarButton?.setAttribute("aria-pressed", String(layout.sidebarOpen));
-  if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(fitted.sidebarWidth));
-  if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(fitted.previewWidth));
-  applyNavigatorContext();
-}
-
-function applyNavigatorContext() {
-  const model = activeDocument();
-  const markdown = Boolean(model && isMarkdownModel(model));
-  const tab = markdown ? state.workspaceLayout.navigatorTab : "files";
-  for (const button of $$("[data-navigator-tab]")) {
-    const active = button.dataset.navigatorTab === tab;
-    button.setAttribute("aria-selected", String(active));
-    button.tabIndex = active ? 0 : -1;
-    button.disabled = button.dataset.navigatorTab === "outline" && !markdown;
-  }
-  for (const [name, selector] of [["files", "#navigator-panel-files"], ["outline", "#sidebar-panel-outline"]]) {
-    const panel = $(selector);
-    if (panel) { panel.hidden = tab !== name; panel.inert = tab !== name; }
-  }
-  $(".navigator-footer")?.classList.toggle("hidden", tab === "outline");
-}
-
-function activateNavigator(name) {
-  if (name === "outline" && (!activeDocument() || !isMarkdownModel(activeDocument()))) return;
-  state.workspaceLayout.navigatorTab = name;
-  setWorkspacePaneOpen("files", true);
-  applyWorkspaceLayout({ persist: true });
-}
-
-function isCompactDrawer(name) {
-  return compactSidePanes.matches && (name === "files" || name === "sidebar");
-}
-
-function workspacePaneOpen(name) {
-  return isCompactDrawer(name) ? state.compactDrawer === name : state.workspaceLayout[`${name}Open`];
-}
-
-function setWorkspacePaneOpen(name, open) {
-  if (isCompactDrawer(name)) {
-    if (open || state.compactDrawer === name) state.compactDrawer = open ? name : null;
-    return;
-  }
-  state.workspaceLayout[`${name}Open`] = open;
-}
-
-function toggleWorkspacePane(name, { keepFocus = false } = {}) {
-  const open = !workspacePaneOpen(name);
-  setWorkspacePaneOpen(name, open);
-  applyWorkspaceLayout({ persist: !isCompactDrawer(name) });
-  if (!open && !keepFocus) focusDocument();
-}
-
-function resetWorkspacePaneSizes() {
-  for (const pane of ["files", "sidebar", "preview"]) {
-    state.workspaceLayout[`${pane}Width`] = DEFAULT_WORKSPACE_LAYOUT[`${pane}Width`];
-  }
-  applyWorkspaceLayout({ persist: true });
-}
-
-function closeCompactDrawer(name = state.compactDrawer) {
-  if (!name || state.compactDrawer !== name) return;
-  state.compactDrawer = null;
-  applyWorkspaceLayout();
-}
-
-function setWorkspacePaneWidth(name, value, { persist = false } = {}) {
-  const key = `${name}Width`;
-  state.workspaceLayout = {
-    ...state.workspaceLayout,
-    [key]: clampWorkspaceWidth(name, value),
-  };
-  applyWorkspaceLayout({ persist });
-}
-
-/**
- * Which way a pane grows when the pointer moves right.
- *
- * The side bar sits on the inline start of the workbench and the preview on
- * the inline end, so in a right-to-left interface both are on the opposite
- * physical edge and a drag that widened a pane now has to narrow it. Reading
- * the sign from the document's direction keeps the handle following the
- * pointer in either language instead of running away from it.
- */
-function paneResizeSign(name) {
-  const mirrored = document.documentElement.dir === "rtl" ? -1 : 1;
-  return (name === "files" ? 1 : -1) * mirrored;
-}
-
-let finishPaneResize = null;
-function beginPaneResize(event, name) {
-  if (event.button !== 0 || isCompactDrawer(name) || (name === "preview" && innerWidth <= 760)) return;
-  finishPaneResize?.();
-  event.preventDefault();
-  const handle = event.currentTarget;
-  const startX = event.clientX;
-  const sign = paneResizeSign(name);
-  const preferredWidth = state.workspaceLayout[`${name}Width`];
-  const startWidth = Number(handle.getAttribute("aria-valuenow")) || preferredWidth;
-  handle.classList.add("is-dragging");
-  document.documentElement.dataset.paneResizing = name;
-  handle.setPointerCapture?.(event.pointerId);
-  const move = (moveEvent) => {
-    if (moveEvent.pointerId !== event.pointerId) return;
-    const delta = moveEvent.clientX - startX;
-    setWorkspacePaneWidth(name, startWidth + sign * delta);
-  };
-  let finished = false;
-  const finish = (revert = false) => {
-    if (finished) return;
-    finished = true;
-    if (revert) setWorkspacePaneWidth(name, preferredWidth);
-    handle.classList.remove("is-dragging");
-    delete document.documentElement.dataset.paneResizing;
-    handle.removeEventListener("pointermove", move);
-    handle.removeEventListener("pointerup", end);
-    handle.removeEventListener("pointercancel", end);
-    handle.removeEventListener("lostpointercapture", end);
-    document.removeEventListener("keydown", keydown, true);
-    window.removeEventListener("blur", end);
-    if (handle.hasPointerCapture?.(event.pointerId)) handle.releasePointerCapture(event.pointerId);
-    state.workspaceLayout = writeWorkspaceLayout(state.workspaceLayout);
-    finishPaneResize = null;
-  };
-  const end = () => finish();
-  const keydown = (keyEvent) => {
-    if (keyEvent.key !== "Escape") return;
-    keyEvent.preventDefault();
-    keyEvent.stopImmediatePropagation();
-    finish(true);
-  };
-  finishPaneResize = end;
-  handle.addEventListener("pointermove", move);
-  handle.addEventListener("pointerup", end);
-  handle.addEventListener("pointercancel", end);
-  handle.addEventListener("lostpointercapture", end);
-  document.addEventListener("keydown", keydown, true);
-  window.addEventListener("blur", end);
-}
-
-function resizePaneWithKeyboard(event, name) {
-  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-  event.preventDefault();
-  const current = Number(event.currentTarget.getAttribute("aria-valuenow")) || state.workspaceLayout[`${name}Width`];
-  const sign = paneResizeSign(name);
-  let next = current;
-  if (event.key === "ArrowLeft") next -= sign * 16;
-  if (event.key === "ArrowRight") next += sign * 16;
-  if (event.key === "Home") next = clampWorkspaceWidth(name, 0);
-  if (event.key === "End") next = clampWorkspaceWidth(name, 9999);
-  setWorkspacePaneWidth(name, next, { persist: true });
-}
-
 function renderTemplateGallery() {
   const container = $("#template-grid");
   if (!container) return;
@@ -751,58 +579,6 @@ function createDocumentFromTemplate(templateId = "blank") {
   return model;
 }
 
-function fillSettingsForm() {
-  $("#setting-theme").value = state.preferences.theme;
-  $("#setting-accent").value = state.preferences.accent;
-  const zoomSetting = $("#setting-document-zoom");
-  if (zoomSetting) zoomSetting.value = String(state.preferences.documentZoom);
-  $("#setting-motion").value = state.preferences.reducedMotion;
-  $("#setting-auto-preview").checked = state.preferences.autoPreview;
-  $("#setting-typewriter").checked = state.preferences.typewriter;
-  if ($("#setting-writing-width")) $("#setting-writing-width").value = state.preferences.writingWidth;
-  $("#setting-locale").value = state.locale;
-  settingsPanel.updateAccentPreview();
-}
-
-function openSettings(section = "settings-appearance") {
-  fillSettingsForm();
-  settingsPanel.showSection(section);
-  modalManager.open($("#settings-modal"), { initialFocus: "#settings-search" });
-}
-
-function closeSettings() {
-  modalManager.close($("#settings-modal"));
-}
-
-function submitSettings(event) {
-  event.preventDefault();
-  state.preferences = writePreferences({
-    ...state.preferences,
-    theme: $("#setting-theme").value,
-    accent: $("#setting-accent").value,
-    documentZoom: Number($("#setting-document-zoom").value),
-    writingWidth: $("#setting-writing-width")?.value || "full",
-    reducedMotion: $("#setting-motion").value,
-    autoPreview: $("#setting-auto-preview").checked,
-    typewriter: $("#setting-typewriter").checked,
-  });
-  applyInterfacePreferences();
-  setLocale($("#setting-locale").value);
-  closeSettings();
-  toast(t("settingsSaved"), "success");
-}
-
-function resetSettings() {
-  state.preferences = writePreferences({
-    ...DEFAULT_PREFERENCES,
-    onboardingComplete: state.preferences.onboardingComplete,
-  });
-  applyInterfacePreferences();
-  fillSettingsForm();
-  settingsPanel.showSection();
-  toast(t("settingsReset"), "success");
-}
-
 function openHelp() {
   // The first control is the close button in the heading, which is where a
   // dialog should open. Naming the one at the far end scrolled past the title.
@@ -832,138 +608,6 @@ async function saveSupportBundle() {
   }
 }
 
-
-function updateUi() {
-  const status = state.updateStatus;
-  const check = state.updateCheck;
-  const configured = Boolean(status?.configured);
-  const current = status?.current_version || $("#app-version")?.textContent || "";
-  $("#update-current-version").textContent = current;
-  $("#update-channel").textContent = status?.channel || "stable";
-  $("#check-updates").disabled = !configured || state.updateInstalling;
-  $("#install-update").disabled = state.updateInstalling || !check?.available;
-  $("#install-update").classList.toggle("hidden", !check?.available);
-  $("#update-progress").classList.toggle("hidden", !state.updateInstalling);
-  if (!configured) {
-    $("#update-state").dataset.state = "disabled";
-    $("#update-state").textContent = t("updatesUnavailable");
-    $("#update-detail").textContent = t("updatesUnavailableHelp");
-    return;
-  }
-  if (state.updateInstalling) {
-    $("#update-state").dataset.state = "working";
-    $("#update-state").textContent = t(state.updatePreparing ? "updateSavingDocuments" : "updateInstalling");
-    const total = Number(state.updateTotal) || 0;
-    const downloaded = Number(state.updateDownloaded) || 0;
-    const percent = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
-    $("#update-progress-bar").value = percent;
-    $("#update-progress-label").textContent = total > 0 ? `${percent}%` : "…";
-    $("#update-detail").textContent = check?.version ? `${t("updateVersion")} ${check.version}` : "";
-    return;
-  }
-  if (check?.available) {
-    $("#update-state").dataset.state = "available";
-    $("#update-state").textContent = t("updateAvailable");
-    $("#update-detail").textContent = `${t("updateVersion")} ${check.version}${check.pub_date ? ` · ${check.pub_date}` : ""}`;
-    $("#update-notes").textContent = check.notes || t("noReleaseNotes");
-    $("#update-notes").classList.remove("hidden");
-    return;
-  }
-  $("#update-notes").classList.add("hidden");
-  if (check && !check.available) {
-    $("#update-state").dataset.state = "ready";
-    $("#update-state").textContent = t("upToDate");
-    $("#update-detail").textContent = `${t("currentVersion")} ${current}`;
-  } else {
-    $("#update-state").dataset.state = "ready";
-    $("#update-state").textContent = t("updatesReady");
-    $("#update-detail").textContent = t("updatesManualHelp");
-  }
-}
-
-async function initializeUpdater() {
-  try {
-    state.updateStatus = await updaterStatus();
-  } catch {
-    state.updateStatus = {
-      configured: false,
-      current_version: $("#app-version")?.textContent || "",
-      channel: "stable",
-      reason: "unavailable",
-    };
-  }
-  updateUi();
-}
-
-async function checkUpdates() {
-  if (!state.updateStatus?.configured || state.updateInstalling) {
-    updateUi();
-    return;
-  }
-  const button = $("#check-updates");
-  button.disabled = true;
-  $("#update-state").dataset.state = "working";
-  $("#update-state").textContent = t("checkingUpdates");
-  $("#update-detail").textContent = t("checkingUpdatesHelp");
-  $("#update-notes").classList.add("hidden");
-  try {
-    state.updateCheck = await checkForUpdates();
-    updateUi();
-    if (!state.updateCheck?.available) toast(t("upToDate"), "success");
-  } catch (error) {
-    state.updateCheck = null;
-    $("#update-state").dataset.state = "error";
-    $("#update-state").textContent = t("updateCheckFailed");
-    $("#update-detail").textContent = errorText(error);
-    button.disabled = false;
-  }
-}
-
-async function installAvailableUpdate() {
-  if (!state.updateCheck?.available || state.updateInstalling) return;
-  if (state.activeRequestId || state.activeBookRequestId || state.activeProjectSearchRequestId) {
-    toast(t("updateFinishTasks"), "info");
-    return;
-  }
-  state.updateInstalling = true;
-  state.updatePreparing = true;
-  state.updateDownloaded = 0;
-  state.updateTotal = 0;
-  updateAuthoringMode(activeDocument());
-  updateUi();
-  try {
-    const ready = await saveDocumentsBeforeUpdate({
-      getDocuments: () => state.documents,
-      isDirty: documentDirty,
-      confirm: () => askConfirmation({
-        title: t("updateSaveDocuments"),
-        message: t("updateSaveDocumentsHelp"),
-        confirmLabel: t("saveAndInstallUpdate"),
-      }),
-      save: (model) => saveCoordinator.save(model, () => persistDocumentModel(model)),
-    });
-    if (!ready) {
-      toast(t("updatePostponed"), "info");
-      return;
-    }
-    state.updatePreparing = false;
-    updateUi();
-    await installUpdate(state.updateCheck.version);
-    toast(t("updateInstalled"), "success");
-  } catch (error) {
-    $("#update-state").dataset.state = "error";
-    $("#update-state").textContent = t("updateInstallFailed");
-    $("#update-detail").textContent = errorText(error);
-    $("#check-updates").disabled = false;
-    $("#install-update").disabled = false;
-  } finally {
-    state.updateInstalling = false;
-    state.updatePreparing = false;
-    updateAuthoringMode(activeDocument());
-    if ($("#update-state").dataset.state !== "error") updateUi();
-    $("#update-progress").classList.add("hidden");
-  }
-}
 
 function renderOnboardingIntent() {
   const presentation = onboardingIntentPresentation(state.onboardingIntent);
@@ -1073,172 +717,6 @@ function commandDefinitions() {
     { id: "document-readable-width", symbol: "book", label: t("useReadableWidth"), keywords: "document width readable column عرض ستون خوانا", priority: 37, run: () => updateDocumentView({ writingWidth: "readable" }) },
     { id: "help", symbol: "help", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
   ];
-}
-
-function highlightCommand(index) {
-  const length = state.visibleCommands.length;
-  if (!length) {
-    state.commandIndex = 0;
-    return;
-  }
-  state.commandIndex = Math.max(0, Math.min(length - 1, Number(index) || 0));
-  $$("#command-list .command-item").forEach((item, itemIndex) => {
-    const active = itemIndex === state.commandIndex;
-    item.classList.toggle("active", active);
-    item.setAttribute("aria-selected", String(active));
-  });
-  const active = $("#command-list .command-item.active");
-  if (active) $("#command-query").setAttribute("aria-activedescendant", active.id);
-  else $("#command-query").removeAttribute("aria-activedescendant");
-  $("#command-list .command-item.active")?.scrollIntoView?.({ block: "nearest" });
-}
-
-function renderCommandPalette() {
-  const query = $("#command-query")?.value || "";
-  state.visibleCommands = filterCommands(commandDefinitions(), query, 12);
-  state.commandIndex = Math.max(0, Math.min(state.commandIndex, Math.max(0, state.visibleCommands.length - 1)));
-  const container = $("#command-list");
-  container.replaceChildren();
-  if (!state.visibleCommands.length) {
-    $("#command-query").removeAttribute("aria-activedescendant");
-    const empty = document.createElement("div");
-    empty.className = "command-empty";
-    empty.textContent = t("noCommands");
-    container.append(empty);
-    return;
-  }
-  state.visibleCommands.forEach((command, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `command-item${index === state.commandIndex ? " active" : ""}`;
-    button.dataset.commandId = command.id;
-    button.id = `command-option-${command.id}`;
-    button.setAttribute("role", "option");
-    button.setAttribute("aria-selected", String(index === state.commandIndex));
-    button.innerHTML = "<i></i><span><strong></strong></span><kbd></kbd>";
-    button.querySelector("i").replaceChildren(spriteIcon(command.symbol || "file"));
-    button.querySelector("strong").textContent = command.label;
-    const shortcut = button.querySelector("kbd");
-    shortcut.textContent = command.shortcut || "";
-    shortcut.classList.toggle("hidden", !command.shortcut);
-    button.addEventListener("mouseenter", () => highlightCommand(index));
-    button.addEventListener("click", () => runCommand(command));
-    container.append(button);
-  });
-  container.querySelector(".command-item.active")?.scrollIntoView?.({ block: "nearest" });
-  const active = container.querySelector(".command-item.active");
-  if (active) $("#command-query").setAttribute("aria-activedescendant", active.id);
-}
-
-function openCommandPalette() {
-  if (modalManager.hasOpenModal()) return;
-  state.commandIndex = 0;
-  $("#command-query").value = "";
-  renderCommandPalette();
-  $("#command-query").setAttribute("aria-expanded", "true");
-  modalManager.open($("#command-modal"), {
-    initialFocus: "#command-query",
-    onClose: resetCommandPaletteA11y,
-  });
-}
-
-function resetCommandPaletteA11y() {
-  $("#command-query").setAttribute("aria-expanded", "false");
-  $("#command-query").removeAttribute("aria-activedescendant");
-}
-
-function closeCommandPalette() {
-  modalManager.close($("#command-modal"));
-}
-
-async function runCommand(command = state.visibleCommands[state.commandIndex]) {
-  if (!command) return;
-  closeCommandPalette();
-  try {
-    await command.run?.();
-  } catch (error) {
-    toast(errorText(error), "error");
-  }
-}
-
-function commandKeydown(event) {
-  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-    event.preventDefault();
-    const direction = event.key === "ArrowDown" ? 1 : -1;
-    const length = state.visibleCommands.length;
-    if (length) highlightCommand((state.commandIndex + direction + length) % length);
-    return;
-  }
-  if (event.key === "Enter") {
-    event.preventDefault();
-    runCommand();
-  }
-}
-
-/**
- * How many notices may stand at once, and how long each one waits.
- *
- * Every call used to append a card and nothing ever looked at what was already
- * there. Five saves left five identical "Settings saved" cards stacked over the
- * sidebar, and a busy moment could put seven on screen at once — a wall of text
- * that says one thing.
- */
-const TOAST_LIMIT = 3;
-const TOAST_TTL = 4200;
-
-function dismissToast(element) {
-  if (!element) return;
-  clearTimeout(Number(element.dataset.toastTimer || 0));
-  element.remove();
-}
-
-function toast(message, kind = "info") {
-  const region = $("#toast-region");
-  if (!region) return;
-  const text = String(message ?? "");
-
-  // A repeat counts up on the notice already standing rather than adding
-  // another copy of it.
-  const repeat = [...region.children].find(
-    (item) => item.dataset.toastMessage === text && item.dataset.toastKind === kind,
-  );
-  if (repeat) {
-    const count = Number(repeat.dataset.toastCount || "1") + 1;
-    repeat.dataset.toastCount = String(count);
-    const badge = repeat.querySelector(".toast-count");
-    if (badge) {
-      badge.textContent = `\u00d7${count}`;
-      badge.hidden = false;
-    }
-    clearTimeout(Number(repeat.dataset.toastTimer || 0));
-    repeat.dataset.toastTimer = String(setTimeout(() => dismissToast(repeat), TOAST_TTL));
-    return;
-  }
-
-  // Nothing is learned from a fourth card; the oldest makes room.
-  while (region.children.length >= TOAST_LIMIT) dismissToast(region.firstElementChild);
-
-  const element = document.createElement("div");
-  element.className = `toast ${kind}`;
-  element.setAttribute("role", kind === "error" ? "alert" : "status");
-  element.setAttribute("aria-atomic", "true");
-  element.dataset.toastMessage = text;
-  element.dataset.toastKind = kind;
-  element.dataset.toastCount = "1";
-  const label = document.createElement("span");
-  label.className = "toast-text";
-  // A notice can be either language: an engine or filesystem message arrives in
-  // English even when the interface is Persian, and in an RTL container its
-  // full stop was drawn at the head of the sentence. The run decides its own
-  // direction.
-  label.dir = "auto";
-  label.textContent = text;
-  const badge = document.createElement("span");
-  badge.className = "toast-count";
-  badge.hidden = true;
-  element.append(label, badge);
-  region.append(element);
-  element.dataset.toastTimer = String(setTimeout(() => dismissToast(element), TOAST_TTL));
 }
 
 function errorPayload(error) {
@@ -5500,7 +4978,7 @@ function bindEvents() {
     setOnboardingStep(1);
   }));
   $("#command-query").addEventListener("input", () => {
-    state.commandIndex = 0;
+    resetCommandSelection();
     renderCommandPalette();
   });
   $("#command-query").addEventListener("keydown", commandKeydown);

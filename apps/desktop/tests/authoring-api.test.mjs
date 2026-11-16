@@ -10,7 +10,7 @@ import {
   saveDocument,
   saveTextDocument,
   validateDocumentText,
-} from "../frontend/js/core/authoring-api.mjs";
+} from "../frontend/js/adapters/authoring-api.mjs";
 
 test("authoring API uses versioned sidecar methods", async (t) => {
   const { calls } = installTauriFixture(t);

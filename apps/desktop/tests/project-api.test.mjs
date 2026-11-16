@@ -9,7 +9,7 @@ import {
   refreshProject,
   saveProjectFile,
   startProjectSearch,
-} from "../frontend/js/core/project-api.mjs";
+} from "../frontend/js/adapters/project-api.mjs";
 
 test("project API uses bounded versioned sidecar methods", async (t) => {
   const { calls } = installTauriFixture(t);

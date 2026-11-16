@@ -12,7 +12,7 @@ import {
   optionKeys,
   searchOptions,
   validateOptionValue,
-} from "../frontend/js/core/render-options.mjs";
+} from "../frontend/js/features/export/render-options.mjs";
 
 const engine = JSON.parse(
   readFileSync(new URL("../../../tests/fixtures/render_options.json", import.meta.url), "utf8"),

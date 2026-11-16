@@ -1,5 +1,5 @@
-import { pathIdentity } from "./path-identity.mjs";
-import { optionalLocalStorage } from "./storage.mjs";
+import { pathIdentity } from "../../core/path-identity.mjs";
+import { optionalLocalStorage } from "../../adapters/storage.mjs";
 
 export const SESSION_STORAGE_KEY = "mardas.desktop.authoring-session.v1";
 export const MAX_SESSION_PATHS = 10;

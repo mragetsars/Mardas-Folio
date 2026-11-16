@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createModalManager } from "../frontend/js/core/modal-manager.mjs";
+import { createModalManager } from "../frontend/js/ui/modal-manager.mjs";
 
 class ClassList {
   constructor(...values) { this.values = new Set(values); }

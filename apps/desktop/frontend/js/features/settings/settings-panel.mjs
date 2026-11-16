@@ -1,4 +1,4 @@
-import { foldForFilter } from "./persian.mjs";
+import { foldForFilter } from "../../core/persian.mjs";
 
 export function createSettingsPanel(form) {
   const search = form.querySelector("#settings-search");

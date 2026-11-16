@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createEngineQueue } from "../frontend/js/core/engine-queue.mjs";
-import { invoke } from "../frontend/js/core/tauri.mjs";
+import { invoke } from "../frontend/js/adapters/tauri.mjs";
 
 function deferred() {
   let resolve;

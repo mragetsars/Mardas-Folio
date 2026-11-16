@@ -1,9 +1,9 @@
 import {
   OPTION_FIELDS, OPTION_GROUPS, collectRenderOptions, fieldIsActive,
   modifiedCountsByGroup, modifiedKeys, searchOptions, validateOptionValue,
-} from "../core/render-options.mjs";
-import { spriteIcon } from "./icons.mjs";
-import { bindRadioGroup } from "./radio-group.mjs";
+} from "./render-options.mjs";
+import { spriteIcon } from "../../ui/icons.mjs";
+import { bindRadioGroup } from "../../ui/radio-group.mjs";
 
 /** Publication colors, checked against appearance.PALETTES by test_desktop_app.py. */
 const PALETTE_ACCENTS = Object.freeze({

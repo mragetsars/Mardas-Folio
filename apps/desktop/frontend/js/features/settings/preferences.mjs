@@ -1,4 +1,4 @@
-import { optionalLocalStorage } from "./storage.mjs";
+import { optionalLocalStorage } from "../../adapters/storage.mjs";
 
 export const PREFERENCES_STORAGE_KEY = "mardas.desktop.preferences.v1";
 

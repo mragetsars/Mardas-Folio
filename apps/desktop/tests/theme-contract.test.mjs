@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 
 const frontend = new URL("../frontend/", import.meta.url);
-const styles = readFileSync(new URL("../frontend/styles.css", import.meta.url), "utf8");
-const workspaceStyles = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
-const shellStyles = readFileSync(new URL("../frontend/shell-system.css", import.meta.url), "utf8");
-const settingsStyles = readFileSync(new URL("settings.css", frontend), "utf8");
+const styles = readFileSync(new URL("../frontend/styles/base.css", import.meta.url), "utf8");
+const workspaceStyles = readFileSync(new URL("../frontend/styles/workspace.css", import.meta.url), "utf8");
+const shellStyles = readFileSync(new URL("../frontend/styles/shell-system.css", import.meta.url), "utf8");
+const settingsStyles = readFileSync(new URL("styles/settings.css", frontend), "utf8");
 const designTokens = readFileSync(new URL("design/tokens.css", frontend), "utf8");
 const components = readFileSync(new URL("design/components.css", frontend), "utf8");
 const sheets = readdirSync(frontend, { recursive: true })

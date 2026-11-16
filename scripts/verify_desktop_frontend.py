@@ -64,14 +64,14 @@ def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[
         "design/components.css",
         "design/tokens.css",
         "index.html",
-        "js/core/settings-panel.mjs",
+        "js/features/settings/settings-panel.mjs",
         "js/main.mjs",
         "js/preview/math.mjs",
         "js/vendor/codemirror-editor.bundle.mjs",
         "js/vendor/mathjax/tex-svg-full.js",
-        "settings.css",
-        "styles.css",
-        "workspace.css",
+        "styles/settings.css",
+        "styles/base.css",
+        "styles/workspace.css",
     }
     if not required.issubset(names):
         raise ValueError(f"Desktop frontend is missing required files: {sorted(required-names)}")

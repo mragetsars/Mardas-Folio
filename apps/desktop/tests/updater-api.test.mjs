@@ -1,7 +1,7 @@
 import { installTauriFixture } from "./fixtures/tauri.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { updaterStatus, checkForUpdates, installUpdate } from "../frontend/js/core/updater-api.mjs";
+import { updaterStatus, checkForUpdates, installUpdate } from "../frontend/js/adapters/updater-api.mjs";
 
 test("updater API uses native commands without direct network access", async (t) => {
   const { calls } = installTauriFixture(t);

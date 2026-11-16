@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { OPTION_FIELDS } from "../frontend/js/core/render-options.mjs";
+import { OPTION_FIELDS } from "../frontend/js/features/export/render-options.mjs";
 import { createTranslator } from "../frontend/js/core/i18n.mjs";
 import {
   PRESETS,
@@ -11,7 +11,7 @@ import {
   SUPPORTED_EXPORT_STYLES,
   mergePresetOptions,
   presetById,
-} from "../frontend/js/core/presets.mjs";
+} from "../frontend/js/features/export/presets.mjs";
 
 test("presets expose stable user choices", () => {
   assert.deepEqual(Object.keys(PRESETS), ["general", "academic", "technical", "minimal"]);

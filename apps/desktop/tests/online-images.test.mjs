@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { onlineImageControl, safeOnlineImageURL } from "../frontend/js/core/online-images.mjs";
+import { onlineImageControl, safeOnlineImageURL } from "../frontend/js/preview/online-images.mjs";
 
 test("online image URLs normalize HTTPS and protocol-relative public domains", () => {
   assert.equal(safeOnlineImageURL("//img.shields.io/badge/Renderer-Playwright%20%2B%20Chromium-green.svg"),

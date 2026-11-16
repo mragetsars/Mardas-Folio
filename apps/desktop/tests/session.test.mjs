@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readSession, writeSession } from "../frontend/js/core/session.mjs";
+import { readSession, writeSession } from "../frontend/js/features/documents/session.mjs";
 
 function storage() {
   const values = new Map();

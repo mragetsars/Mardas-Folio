@@ -1,4 +1,4 @@
-import { basename } from "./export-request.mjs";
+import { basename } from "./path-names.mjs";
 import { pathIdentity } from "./path-identity.mjs";
 
 let untitledSequence = 1;

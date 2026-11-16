@@ -1,17 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { readPreferences, writePreferences } from "../frontend/js/core/preferences.mjs";
-import { readWorkspaceLayout, writeWorkspaceLayout } from "../frontend/js/core/workspace-layout.mjs";
-import { readRecents, writeRecents } from "../frontend/js/core/recents.mjs";
-import { readSession, writeSession } from "../frontend/js/core/session.mjs";
+import { readPreferences, writePreferences } from "../frontend/js/features/settings/preferences.mjs";
+import { readWorkspaceLayout, writeWorkspaceLayout } from "../frontend/js/features/workspace/workspace-layout.mjs";
+import { readRecents, writeRecents } from "../frontend/js/features/documents/recents.mjs";
+import { readSession, writeSession } from "../frontend/js/features/documents/session.mjs";
 import {
   readRecoveries,
   recoveryForPath,
   removeRecovery,
   saveRecovery,
   writeRecoveries,
-} from "../frontend/js/core/recovery.mjs";
+} from "../frontend/js/features/documents/recovery.mjs";
 
 function withThrowingLocalStorage(callback) {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");

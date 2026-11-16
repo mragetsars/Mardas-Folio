@@ -65,7 +65,7 @@ def export_panel(component_browser, frontend_url, request):
         page.goto(f"{frontend_url}/__component__.html")
         page.evaluate(
             """async (locale) => {
-          const {createExportOptionsPanel} = await import('/js/ui/export-options-panel.mjs');
+          const {createExportOptionsPanel} = await import('/js/features/export/export-options-panel.mjs');
           const {createTranslator} = await import('/js/core/i18n.mjs');
           const translator = createTranslator(locale);
           document.documentElement.dir = locale === 'fa' ? 'rtl' : 'ltr';

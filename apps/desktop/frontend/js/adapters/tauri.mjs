@@ -1,4 +1,4 @@
-import { createEngineQueue } from "./engine-queue.mjs";
+import { createEngineQueue } from "../core/engine-queue.mjs";
 
 const queues = new WeakMap();
 const IMMEDIATE_METHODS = new Set(["system.health", "system.capabilities", "system.shutdown", "job.cancel"]);

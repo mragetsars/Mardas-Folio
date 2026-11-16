@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildOutlineTree, OutlineNavigatorModel } from "../frontend/js/core/outline-navigator.mjs";
+import { buildOutlineTree, OutlineNavigatorModel } from "../frontend/js/ui/outline-navigator.mjs";
 
 const sample = [
   { level: 1, title: "Book", line: 1 },

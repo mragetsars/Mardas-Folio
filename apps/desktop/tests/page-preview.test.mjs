@@ -223,7 +223,7 @@ test("the export screen asks for the page, not just the body", () => {
   const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
   assert.match(main, /previewDocumentPage/);
   const api = readFileSync(
-    new URL("../frontend/js/core/authoring-api.mjs", import.meta.url),
+    new URL("../frontend/js/adapters/authoring-api.mjs", import.meta.url),
     "utf8",
   );
   assert.match(api, /preview\.document_page/);

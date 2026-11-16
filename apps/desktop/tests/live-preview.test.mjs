@@ -19,7 +19,7 @@ import {
   editorModeForView,
   normalizePreferences,
   previewVisibleForView,
-} from "../frontend/js/core/preferences.mjs";
+} from "../frontend/js/features/settings/preferences.mjs";
 
 const source = readFileSync(new URL("../editor-src/live-preview.mjs", import.meta.url), "utf8");
 
@@ -129,7 +129,7 @@ test("line decorations never add box spacing that desynchronises the caret", () 
   // which is built from text layout. Margin sits outside the measured box and
   // padding proved to desynchronise the map as well: every line below a spaced
   // heading was offset, so the caret landed a line away from the click.
-  const css = readFileSync(new URL("../frontend/workspace.css", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../frontend/styles/workspace.css", import.meta.url), "utf8");
   const headingRules = [...css.matchAll(/\.cm-md-h(?:eading|\d)\s*\{([^}]*)\}/g)].map((m) => m[1]);
   assert.ok(headingRules.length >= 3, "expected the heading line rules");
   for (const rule of headingRules) {

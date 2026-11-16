@@ -10,7 +10,7 @@ import {
   startBookExport,
   startBookPreview,
   startBookValidation,
-} from "../frontend/js/core/book-api.mjs";
+} from "../frontend/js/adapters/book-api.mjs";
 
 test("book API maps UI workflows to versioned sidecar methods", async (t) => {
   const { calls } = installTauriFixture(t);

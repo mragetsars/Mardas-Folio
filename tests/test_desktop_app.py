@@ -296,8 +296,8 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
     ):
         assert f'id="{element_id}"' in index
     assert 'type="module" src="./js/main.mjs"' in index
-    assert '<link rel="stylesheet" href="./workspace.css">' in index
-    assert (DESKTOP / "frontend" / "workspace.css").is_file()
+    assert '<link rel="stylesheet" href="./styles/workspace.css">' in index
+    assert (DESKTOP / "frontend" / "styles/workspace.css").is_file()
     assert "sidecar_request" in main
     assert "sidecar_cancel" in main
     assert "desktop-open-files" in main
@@ -312,9 +312,9 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "preview.document_text",
         "validate.document_text",
     ):
-        authoring_api = DESKTOP / "frontend" / "js" / "core" / "authoring-api.mjs"
+        authoring_api = DESKTOP / "frontend" / "js" / "adapters" / "authoring-api.mjs"
         assert method in authoring_api.read_text(encoding="utf-8")
-    project_api = DESKTOP / "frontend" / "js" / "core" / "project-api.mjs"
+    project_api = DESKTOP / "frontend" / "js" / "adapters" / "project-api.mjs"
     for method in (
         "project.open",
         "project.refresh",
@@ -324,7 +324,7 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "bibliography.index",
     ):
         assert method in project_api.read_text(encoding="utf-8")
-    book_api = DESKTOP / "frontend" / "js" / "core" / "book-api.mjs"
+    book_api = DESKTOP / "frontend" / "js" / "adapters" / "book-api.mjs"
     for method in (
         "book.create",
         "book.add_chapter",
@@ -337,25 +337,25 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
     ):
         assert method in book_api.read_text(encoding="utf-8")
     for module in (
-        "authoring-api.mjs",
-        "documents.mjs",
-        "editor-commands.mjs",
-        "find-replace.mjs",
-        "markdown-analysis.mjs",
-        "recovery.mjs",
-        "session.mjs",
-        "editor-adapter.mjs",
-        "project-api.mjs",
-        "book-api.mjs",
-        "preferences.mjs",
-        "workspace-layout.mjs",
-        "i18n.mjs",
-        "templates.mjs",
-        "command-palette.mjs",
-        "modal-manager.mjs",
-        "updater-api.mjs",
+        "adapters/authoring-api.mjs",
+        "core/documents.mjs",
+        "core/editor-commands.mjs",
+        "core/find-replace.mjs",
+        "core/markdown-analysis.mjs",
+        "features/documents/recovery.mjs",
+        "features/documents/session.mjs",
+        "features/documents/editor-adapter.mjs",
+        "adapters/project-api.mjs",
+        "adapters/book-api.mjs",
+        "features/settings/preferences.mjs",
+        "features/workspace/workspace-layout.mjs",
+        "core/i18n.mjs",
+        "core/templates.mjs",
+        "core/command-palette.mjs",
+        "ui/modal-manager.mjs",
+        "adapters/updater-api.mjs",
     ):
-        assert (DESKTOP / "frontend" / "js" / "core" / module).is_file()
+        assert (DESKTOP / "frontend" / "js" / module).is_file()
     assert "fetch(" not in main
     assert "window.open" not in main
     assert "devUrl" not in index
@@ -366,7 +366,7 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
 def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() -> None:
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
     main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
-    workspace_css = (DESKTOP / "frontend" / "workspace.css").read_text(encoding="utf-8")
+    workspace_css = (DESKTOP / "frontend" / "styles/workspace.css").read_text(encoding="utf-8")
     soup = BeautifulSoup(index, "html.parser")
 
     sidebar = soup.select_one("#author-sidebar")
@@ -430,8 +430,9 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     assert "writeWorkspaceLayout" in main
     assert "beginPaneResize" in main
     assert "resizePaneWithKeyboard" in main
-    assert 'sidebarResizer.setAttribute("aria-valuenow"' in main
-    assert 'previewResizer.setAttribute("aria-valuenow"' in main
+    panes = (DESKTOP / "frontend/js/features/workspace/panes.mjs").read_text(encoding="utf-8")
+    assert 'sidebarResizer.setAttribute("aria-valuenow"' in panes
+    assert 'previewResizer.setAttribute("aria-valuenow"' in panes
     assert 'document.body.dataset.view = name' in main
     assert soup.select_one("#mardas-ui-icons") is not None
     assert len(sidebar.select(".sidebar-tab-icon .ui-icon")) == 6
@@ -453,8 +454,8 @@ def test_workbench_takes_its_direction_from_the_interface_language() -> None:
     mirrored. Nothing here may re-pin a region; the direction comes from
     ``<html dir>`` and reaches the panes by inheritance.
     """
-    styles = (DESKTOP / "frontend" / "styles.css").read_text(encoding="utf-8")
-    workspace_css = (DESKTOP / "frontend" / "workspace.css").read_text(encoding="utf-8")
+    styles = (DESKTOP / "frontend" / "styles/base.css").read_text(encoding="utf-8")
+    workspace_css = (DESKTOP / "frontend" / "styles/workspace.css").read_text(encoding="utf-8")
     main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
 
     pinned = (
@@ -481,8 +482,9 @@ def test_workbench_takes_its_direction_from_the_interface_language() -> None:
     # The panes swap edges when the layout mirrors, so a drag that widened one
     # has to narrow it. Without a sign taken from the document the handle runs
     # away from the pointer in Persian.
-    assert "paneResizeSign" in main
-    assert 'document.documentElement.dir === "rtl" ? -1 : 1' in main
+    panes = (DESKTOP / "frontend/js/features/workspace/panes.mjs").read_text(encoding="utf-8")
+    assert "paneResizeSign" in panes
+    assert 'document.documentElement.dir === "rtl" ? -1 : 1' in panes
 
     # The preview shows the document, not the interface, so it resolves its own
     # direction from the text rather than inheriting the locale's.
@@ -506,7 +508,7 @@ def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
     templates = (DESKTOP / "frontend" / "js" / "core" / "templates.mjs").read_text(
         encoding="utf-8"
     )
-    document_renderer = (DESKTOP / "frontend" / "js" / "core" / "document-renderer.mjs").read_text(
+    document_renderer = (DESKTOP / "frontend" / "js" / "preview" / "document-content.mjs").read_text(
         encoding="utf-8"
     )
 
@@ -777,13 +779,23 @@ def test_authoring_dom_ids_are_unique_and_controller_targets_exist() -> None:
     soup = BeautifulSoup(index, "html.parser")
     ids = [element["id"] for element in soup.find_all(id=True)]
     assert len(ids) == len(set(ids))
-    controller_ids = set(re.findall(r'\$\("#([A-Za-z0-9_-]+)"\)', main))
+    controllers = main + "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            DESKTOP / "frontend/js/features/settings/controller.mjs",
+            DESKTOP / "frontend/js/features/settings/updater.mjs",
+            DESKTOP / "frontend/js/features/workspace/panes.mjs",
+            DESKTOP / "frontend/js/ui/command-palette.mjs",
+            DESKTOP / "frontend/js/ui/notifications.mjs",
+        )
+    )
+    controller_ids = set(re.findall(r'\$\("#([A-Za-z0-9_-]+)"\)', controllers))
     assert controller_ids <= set(ids)
 
 
 def test_desktop_accessibility_contracts_cover_navigation_and_modals() -> None:
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
-    modal_manager = (DESKTOP / "frontend" / "js" / "core" / "modal-manager.mjs").read_text(
+    modal_manager = (DESKTOP / "frontend" / "js" / "ui" / "modal-manager.mjs").read_text(
         encoding="utf-8"
     )
     soup = BeautifulSoup(index, "html.parser")
@@ -842,7 +854,7 @@ def test_runtime_built_menu_controls_carry_accessible_names() -> None:
 def test_desktop_ux_is_offline_and_exposes_guided_entry_points() -> None:
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
     main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
-    styles = (DESKTOP / "frontend" / "styles.css").read_text(encoding="utf-8")
+    styles = (DESKTOP / "frontend" / "styles/base.css").read_text(encoding="utf-8")
     tokens = (DESKTOP / "frontend" / "design" / "tokens.css").read_text(encoding="utf-8")
     assert 'id="template-grid"' in index
     assert 'id="settings-search"' in index
@@ -983,7 +995,7 @@ def test_live_preview_mode_is_presentation_only() -> None:
     # The writing tools belong to the document, not to the window chrome.
     assert '<div class="format-bar"' in index
     assert index.index('class="format-bar"') > index.index('class="editor-pane"')
-    assert "viewMode" in (DESKTOP / "frontend" / "js" / "core" / "preferences.mjs").read_text(
+    assert "viewMode" in (DESKTOP / "frontend" / "js" / "features" / "settings" / "preferences.mjs").read_text(
         encoding="utf-8"
     )
 
@@ -1006,7 +1018,7 @@ def test_every_engine_render_option_has_a_control() -> None:
     )
 
     schema = (
-        DESKTOP / "frontend" / "js" / "core" / "render-options.mjs"
+        DESKTOP / "frontend" / "js" / "features" / "export" / "render-options.mjs"
     ).read_text(encoding="utf-8")
     missing = [key for key in RENDER_OPTION_SPECS if f'key: "{key}"' not in schema]
     assert missing == [], f"these engine options have no interface control: {missing}"
@@ -1019,7 +1031,7 @@ def test_editor_recognises_every_callout_the_engine_publishes() -> None:
     only knows some of the kinds, the rest are written as plain quotations and
     the difference appears for the first time in the PDF.
     """
-    engine_source = (ROOT / "src" / "mardas_folio" / "markdown.py").read_text(encoding="utf-8")
+    engine_source = (ROOT / "src" / "mardas_folio" / "markup" / "bidi.py").read_text(encoding="utf-8")
     engine_kinds = set(re.findall(r'"callout_([a-z]+)"', engine_source))
     assert engine_kinds, "the engine's callout label table moved"
     live = (DESKTOP / "editor-src" / "live-preview.mjs").read_text(encoding="utf-8")
@@ -1029,7 +1041,7 @@ def test_editor_recognises_every_callout_the_engine_publishes() -> None:
         f"the editor does not recognise these callouts: {sorted(engine_kinds - editor_kinds)}"
     )
 
-    styles = (DESKTOP / "frontend" / "workspace.css").read_text(encoding="utf-8")
+    styles = (DESKTOP / "frontend" / "styles/workspace.css").read_text(encoding="utf-8")
     unstyled = [kind for kind in engine_kinds if f".cm-md-callout-{kind}" not in styles]
     assert unstyled == [], f"these callouts have no colour: {sorted(unstyled)}"
 
@@ -1044,7 +1056,7 @@ def test_palette_swatches_show_the_colour_the_engine_prints() -> None:
     """
     from mardas_folio.appearance import PALETTES
 
-    main = (DESKTOP / "frontend" / "js" / "ui" / "export-options-panel.mjs").read_text(encoding="utf-8")
+    main = (DESKTOP / "frontend" / "js" / "features" / "export" / "export-options-panel.mjs").read_text(encoding="utf-8")
     block = main.split("const PALETTE_ACCENTS = Object.freeze({", 1)[1].split("});", 1)[0]
     shown = dict(
         re.findall(r'(\w+):\s*"(#[0-9a-fA-F]{6})"', block)
@@ -1061,7 +1073,7 @@ def test_settings_panel_explains_every_option_it_offers() -> None:
     explanation renders as ``help.margin_x`` is worse than no explanation.
     """
     schema = (
-        DESKTOP / "frontend" / "js" / "core" / "render-options.mjs"
+        DESKTOP / "frontend" / "js" / "features" / "export" / "render-options.mjs"
     ).read_text(encoding="utf-8")
     help_keys = set(re.findall(r'helpKey:\s*"([^"]+)"', schema))
     assert len(help_keys) >= 50, "options lost their help text"

@@ -6,7 +6,7 @@ import {
   recoveryForPath,
   removeRecovery,
   saveRecovery,
-} from "../frontend/js/core/recovery.mjs";
+} from "../frontend/js/features/documents/recovery.mjs";
 
 function memoryStorage() {
   const values = new Map();

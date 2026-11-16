@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const index = readFileSync(new URL("../frontend/index.html", import.meta.url), "utf8");
-const panel = readFileSync(new URL("../frontend/js/ui/export-options-panel.mjs", import.meta.url), "utf8");
+const panel = readFileSync(new URL("../frontend/js/features/export/export-options-panel.mjs", import.meta.url), "utf8");
 const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
 
 test("PDF creation submits the export form from the separate action bar", () => {
-  assert.match(index, /stylesheet" href="\.\/export-workflow\.css"/);
+  assert.match(index, /stylesheet" href="\.\/styles\/export-workflow\.css"/);
   assert.match(index, /<\/form>[\s\S]*?<footer class="export-dock panel">[\s\S]*?<button[^>]+id="export-button"[^>]+type="submit"[^>]+form="export-form"/);
 });
 

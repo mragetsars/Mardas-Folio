@@ -9,7 +9,7 @@ import {
   previewVisibleForView,
   readPreferences,
   writePreferences,
-} from "../frontend/js/core/preferences.mjs";
+} from "../frontend/js/features/settings/preferences.mjs";
 
 function storage(initial = {}) {
   const values = new Map(Object.entries(initial));

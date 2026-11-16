@@ -22,10 +22,10 @@ def test_content_controls_and_notes_are_readable(theme, width, surface):
     source = "# Heading\n\n- [ ] کار نخست\n- [x] Done\n\n> [!WARNING]\n> Warning text\n\nمتن [^a].\n\n[^a]: متن پانویس\n"
     result = render_markdown(source, language="fa")
     frontend = Path(__file__).resolve().parents[1] / "apps/desktop/frontend"
-    styles = "\n".join((frontend / name).read_text(encoding="utf-8") for name in ("styles.css", "workspace.css", "shell-system.css"))
+    styles = "\n".join((frontend / name).read_text(encoding="utf-8") for name in ("styles/base.css", "styles/workspace.css", "styles/shell-system.css"))
     old_css = os.environ.get("MF09_OLD_CSS")
     if old_css:
-        styles = (frontend / "styles.css").read_text(encoding="utf-8") + "\n" + Path(old_css).read_text(encoding="utf-8")
+        styles = (frontend / "styles/base.css").read_text(encoding="utf-8") + "\n" + Path(old_css).read_text(encoding="utf-8")
     html = f'<html data-theme="{theme}"><head><style>{styles}</style></head><body><article class="document-content {surface}">{result.body_html}</article></body></html>'
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
