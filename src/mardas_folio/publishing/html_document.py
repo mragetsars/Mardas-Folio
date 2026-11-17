@@ -1,5 +1,7 @@
 """Publication HTML, cover composition, embedded assets, and appearance payloads."""
+
 from __future__ import annotations
+
 import base64
 import html
 import mimetypes
@@ -12,7 +14,16 @@ from functools import lru_cache
 from importlib import resources
 from pathlib import Path
 from typing import Any
-from ..appearance import Appearance, appearance_body_classes, appearance_from_metadata, footer_kind, palette_css, resolve_appearance, style_css_file
+
+from ..appearance import (
+    Appearance,
+    appearance_body_classes,
+    appearance_from_metadata,
+    footer_kind,
+    palette_css,
+    resolve_appearance,
+    style_css_file,
+)
 from ..brand_assets import product_logo_path
 from ..markdown import MarkdownRenderResult
 from ..page_geometry import page_geometry
@@ -35,7 +46,6 @@ ALLOWED_EMBED_ASSET_MIME_TYPES = {
 PRODUCT_BRAND_NAME = "Mardas Folio"
 PRODUCT_BRAND_FOOTER = "Markdown to PDF Engine"
 _MATH_SPAN_RE = re.compile(r'<(?:span|div)[^>]*\bclass="[^"]*\bmath\b', re.IGNORECASE)
-
 
 
 def _layout_css(
@@ -106,7 +116,9 @@ def _font_faces(font_dir: Path | None, *, embed: bool = False) -> str:
         for filename in filenames:
             path = font_dir / filename
             if path.exists():
-                weight = "100 900" if "[wght]" in filename else ("800" if "Bold" in family else "400")
+                weight = (
+                    "100 900" if "[wght]" in filename else ("800" if "Bold" in family else "400")
+                )
                 family_name = "Vazirmatn"
                 font_format = "truetype" if filename.lower().endswith(".ttf") else "woff2"
                 url = _font_source_url(path, font_format, embed=embed)
@@ -260,9 +272,7 @@ def _path_uri(path: Path | None) -> str | None:
 
 
 @lru_cache(maxsize=16)
-def _cached_small_image_data_uri(
-    path_text: str, mtime_ns: int, size: int, mime_type: str
-) -> str:
+def _cached_small_image_data_uri(path_text: str, mtime_ns: int, size: int, mime_type: str) -> str:
     del mtime_ns, size
     encoded = base64.b64encode(Path(path_text).read_bytes()).decode("ascii")
     return f"data:{mime_type};base64,{encoded}"
@@ -314,7 +324,9 @@ def _default_logo_path(*, variant: str = "default") -> Path | None:
 def _cover_logo_uri(options: PdfOptions) -> str | None:
     if not options.cover_logo_enabled:
         return None
-    return _image_data_uri(options.cover_logo or options.brand_logo or _default_logo_path(variant="cover-label"))
+    return _image_data_uri(
+        options.cover_logo or options.brand_logo or _default_logo_path(variant="cover-label")
+    )
 
 
 def _metadata_dict(value: Any) -> dict[str, Any]:
@@ -347,7 +359,9 @@ class FooterContext:
     document_direction: str = "ltr"
 
 
-def _resolve_cover_branding(metadata: dict[str, Any], options: PdfOptions, base_dir: Path) -> CoverBranding:
+def _resolve_cover_branding(
+    metadata: dict[str, Any], options: PdfOptions, base_dir: Path
+) -> CoverBranding:
     branding_meta = _metadata_dict(metadata.get("branding"))
     explicit_mode = (
         options.branding
@@ -378,12 +392,16 @@ def _resolve_cover_branding(metadata: dict[str, Any], options: PdfOptions, base_
     metadata_brand_logo = _metadata_path(logo_value, base_dir)
     logo = options.brand_logo or metadata_brand_logo or options.cover_logo
 
-    has_user_brand = bool(_stringify_metadata_value(brand_name) or _stringify_metadata_value(brand_footer) or logo)
+    has_user_brand = bool(
+        _stringify_metadata_value(brand_name) or _stringify_metadata_value(brand_footer) or logo
+    )
     mode = validate_branding_mode(explicit_mode or ("full" if has_user_brand else "off"))
 
     product_brand = not has_user_brand
     name = _stringify_metadata_value(brand_name) or PRODUCT_BRAND_NAME
-    footer = _stringify_metadata_value(brand_footer) or (PRODUCT_BRAND_FOOTER if product_brand else "")
+    footer = _stringify_metadata_value(brand_footer) or (
+        PRODUCT_BRAND_FOOTER if product_brand else ""
+    )
 
     if not options.cover_logo_enabled:
         logo = None
@@ -408,12 +426,16 @@ def _cover_brand_html(branding: CoverBranding) -> str:
         return (
             '<div class="md2pdf-cover__brand md2pdf-cover__brand--subtle" dir="ltr">'
             '<span class="md2pdf-cover__brand-copy">'
-            f'<strong>Generated with {html.escape(PRODUCT_BRAND_NAME)}</strong>'
-            '</span>'
-            '</div>'
+            f"<strong>Generated with {html.escape(PRODUCT_BRAND_NAME)}</strong>"
+            "</span>"
+            "</div>"
         )
-    mark_html = '' if branding.mode == "subtle" else f'<span class="md2pdf-cover__mark">{_brand_logo_html(branding)}</span>'
-    footer_html = f'<em>{html.escape(branding.footer)}</em>' if branding.footer else ""
+    mark_html = (
+        ""
+        if branding.mode == "subtle"
+        else f'<span class="md2pdf-cover__mark">{_brand_logo_html(branding)}</span>'
+    )
+    footer_html = f"<em>{html.escape(branding.footer)}</em>" if branding.footer else ""
     brand_kind = "product" if branding.product else "custom"
     brand_classes = (
         f"md2pdf-cover__brand md2pdf-cover__brand--{html.escape(branding.mode)} "
@@ -421,12 +443,12 @@ def _cover_brand_html(branding: CoverBranding) -> str:
     )
     return (
         f'<div class="{brand_classes}" dir="ltr">'
-        f'{mark_html}'
+        f"{mark_html}"
         '<span class="md2pdf-cover__brand-copy">'
-        f'<strong>{html.escape(branding.name)}</strong>'
-        f'{footer_html}'
-        '</span>'
-        '</div>'
+        f"<strong>{html.escape(branding.name)}</strong>"
+        f"{footer_html}"
+        "</span>"
+        "</div>"
     )
 
 
@@ -438,14 +460,14 @@ def _watermark_html(options: PdfOptions) -> str:
                 '<div class="md2pdf-watermark md2pdf-watermark--image" aria-hidden="true" '
                 f'style="--watermark-opacity: {options.watermark_opacity}; --watermark-width: {html.escape(options.watermark_width)};">'
                 f'<img src="{html.escape(image_uri)}" alt="">'
-                '</div>'
+                "</div>"
             )
     if options.watermark_text:
         return (
             '<div class="md2pdf-watermark md2pdf-watermark--text" aria-hidden="true" '
             f'style="--watermark-opacity: {options.watermark_opacity};">'
-            f'{html.escape(options.watermark_text)}'
-            '</div>'
+            f"{html.escape(options.watermark_text)}"
+            "</div>"
         )
     return ""
 
@@ -611,12 +633,16 @@ def _detect_document_direction(text: str, lang: str | None = None) -> str:
     return "ltr"
 
 
-def _resolved_document_direction(result: MarkdownRenderResult, options: PdfOptions, lang: str) -> str:
+def _resolved_document_direction(
+    result: MarkdownRenderResult, options: PdfOptions, lang: str
+) -> str:
     metadata = result.metadata
     requested = normalize_document_direction(
         options.document_direction
         if options.document_direction not in (None, "")
-        else _first_metadata_value(metadata, "dir", "direction", "text_direction", "document_direction"),
+        else _first_metadata_value(
+            metadata, "dir", "direction", "text_direction", "document_direction"
+        ),
         default="auto",
     )
     if requested in {"rtl", "ltr"}:
@@ -663,7 +689,9 @@ def _footer_context(result: MarkdownRenderResult, options: PdfOptions, title: st
         value = _stringify_metadata_value(metadata.get(key)).strip()
         if value and value not in pieces:
             pieces.append(value)
-    course = _stringify_metadata_value(_first_metadata_value(metadata, "course", "institution")).strip()
+    course = _stringify_metadata_value(
+        _first_metadata_value(metadata, "course", "institution")
+    ).strip()
     if course and course not in pieces:
         pieces.insert(0, course)
     metadata_line = " · ".join(pieces[:3])
@@ -711,9 +739,9 @@ def _cover_detail(label: str, value: Any, *, multiline: bool = False) -> str:
         value_html = html.escape(text).replace("\n", "<br>")
     return (
         '<div class="md2pdf-cover__detail" dir="auto">'
-        f'<span>{html.escape(label)}</span>'
-        f'<strong>{value_html}</strong>'
-        '</div>'
+        f"<span>{html.escape(label)}</span>"
+        f"<strong>{value_html}</strong>"
+        "</div>"
     )
 
 
@@ -735,9 +763,7 @@ def _metadata_path(value: Any, base_dir: Path) -> Path | None:
             f'Front-matter image path "{text}" is missing or outside the Markdown document directory.'
         ) from exc
     if not path.is_file() or not stat.S_ISREG(path.stat().st_mode):
-        raise DocumentAssetError(
-            f'Front-matter image path "{text}" must reference a regular file.'
-        )
+        raise DocumentAssetError(f'Front-matter image path "{text}" must reference a regular file.')
     mime_type = (mimetypes.guess_type(str(path))[0] or "").lower()
     if mime_type not in ALLOWED_EMBED_ASSET_MIME_TYPES:
         raise DocumentAssetError(
@@ -779,11 +805,15 @@ def _cover_html(
             detail_cards.append(card)
     subtitle_text = _stringify_metadata_value(subtitle)
     subtitle_html = (
-        f'<p class="md2pdf-cover__subtitle" dir="auto">{html.escape(subtitle_text)}</p>' if subtitle_text else ""
+        f'<p class="md2pdf-cover__subtitle" dir="auto">{html.escape(subtitle_text)}</p>'
+        if subtitle_text
+        else ""
     )
     summary_html = _paragraph_block_html(description, "md2pdf-cover__summary")
-    details_html = ''.join(detail_cards)
-    branding = branding or CoverBranding(mode="off", name=PRODUCT_BRAND_NAME, footer=PRODUCT_BRAND_FOOTER, logo=None, product=True)
+    details_html = "".join(detail_cards)
+    branding = branding or CoverBranding(
+        mode="off", name=PRODUCT_BRAND_NAME, footer=PRODUCT_BRAND_FOOTER, logo=None, product=True
+    )
     brand_html = _cover_brand_html(branding)
     cover_classes = f"md2pdf-cover md2pdf-cover--branding-{branding.mode}"
     if branding.mode == "off":
@@ -802,7 +832,7 @@ def _cover_html(
           {subtitle_html}
           {summary_html}
         </section>
-        {'<section class="md2pdf-cover__details">' + details_html + '</section>' if details_html else '<div></div>'}
+        {'<section class="md2pdf-cover__details">' + details_html + "</section>" if details_html else "<div></div>"}
       </header>
     """
 
@@ -882,13 +912,19 @@ def compose_document(
     if include_mathjax is not None:
         options = replace(options, no_mathjax=not include_mathjax)
     appearance = _resolved_appearance(result.metadata, options)
-    options = replace(options, style=appearance.style, palette=appearance.palette, mode=appearance.mode)
+    options = replace(
+        options, style=appearance.style, palette=appearance.palette, mode=appearance.mode
+    )
     style_css = _style_css(appearance)
     appearance_css = palette_css(appearance.palette, appearance.mode, appearance.style)
     font_faces = _font_faces(options.font_dir, embed=embed_fonts)
     metadata = result.metadata
     title = options.title or _stringify_metadata_value(metadata.get("title")) or result.title
-    author = options.author if options.author is not None else _first_metadata_value(metadata, "authors", "author")
+    author = (
+        options.author
+        if options.author is not None
+        else _first_metadata_value(metadata, "authors", "author")
+    )
     description = (
         options.description
         if options.description is not None

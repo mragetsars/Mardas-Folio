@@ -9,7 +9,8 @@ export function buildOutlineTree(items = []) {
   for (const item of items) {
     const level = Number(item?.level);
     const line = Number(item?.line);
-    if (!Number.isInteger(level) || level < 1 || level > 6 || !Number.isInteger(line) || line < 1) continue;
+    if (!Number.isInteger(level) || level < 1 || level > 6 || !Number.isInteger(line) || line < 1)
+      continue;
     const title = String(item?.title ?? "").trim();
     while (stack.length && stack.at(-1).level >= level) stack.pop();
     const parent = stack.at(-1) || null;
@@ -20,9 +21,19 @@ export function buildOutlineTree(items = []) {
     // its line number, otherwise every paragraph insertion unfolds the tree.
     // Code-point keys also tolerate a transient lone UTF-16 surrogate while
     // text is edited; encodeURIComponent would throw and break navigation.
-    const titleKey = Array.from(title, (character) => character.codePointAt(0).toString(16)).join(".");
+    const titleKey = Array.from(title, (character) => character.codePointAt(0).toString(16)).join(
+      ".",
+    );
     const id = `${parent?.id || ""}/${level}:${titleKey}:${occurrence}`;
-    const node = { id, level, line, title, depth: stack.length, parentId: parent?.id || null, children: [] };
+    const node = {
+      id,
+      level,
+      line,
+      title,
+      depth: stack.length,
+      parentId: parent?.id || null,
+      children: [],
+    };
     if (parent) parent.children.push(node);
     else roots.push(node);
     flat.push(node);
@@ -49,11 +60,17 @@ export class OutlineNavigatorModel {
     if (state.signature !== signature) {
       const tree = buildOutlineTree(items);
       const ids = new Set(tree.flat.map((node) => node.id));
-      state = { ...state, ...tree, signature, collapsed: new Set([...state.collapsed].filter((key) => ids.has(key))) };
+      state = {
+        ...state,
+        ...tree,
+        signature,
+        collapsed: new Set([...state.collapsed].filter((key) => ids.has(key))),
+      };
     }
     this.documents.delete(id);
     this.documents.set(id, state);
-    while (this.documents.size > this.documentLimit) this.documents.delete(this.documents.keys().next().value);
+    while (this.documents.size > this.documentLimit)
+      this.documents.delete(this.documents.keys().next().value);
     this.documentId = id;
     this.current = state;
     return changed;
@@ -99,10 +116,14 @@ export class OutlineNavigatorModel {
     return true;
   }
 
-  expandAll() { this.current.collapsed.clear(); }
+  expandAll() {
+    this.current.collapsed.clear();
+  }
 
   collapseAll() {
-    this.current.collapsed = new Set(this.current.flat.filter((node) => node.children.length).map((node) => node.id));
+    this.current.collapsed = new Set(
+      this.current.flat.filter((node) => node.children.length).map((node) => node.id),
+    );
   }
 
   visibleNodes() {
@@ -146,11 +167,24 @@ export class OutlineNavigatorModel {
 }
 
 /** A lightweight DOM controller; labels belong to the application's i18n. */
-export function createOutlineNavigator({ container, onNavigate, labels = {}, follow = false, documentLimit } = {}) {
+export function createOutlineNavigator({
+  container,
+  onNavigate,
+  labels = {},
+  follow = false,
+  documentLimit,
+} = {}) {
   if (!container) throw new TypeError("Outline container is required");
   const documentRef = container.ownerDocument;
   const model = new OutlineNavigatorModel({ documentLimit });
-  let text = { empty: "No headings yet.", noMatches: "No matching headings.", expand: "Expand section", collapse: "Collapse section", label: "Document outline", ...labels };
+  let text = {
+    empty: "No headings yet.",
+    noMatches: "No matching headings.",
+    expand: "Expand section",
+    collapse: "Collapse section",
+    label: "Document outline",
+    ...labels,
+  };
   let following = Boolean(follow);
   let lastManualNavigation = 0;
   let focusedId = null;
@@ -178,11 +212,19 @@ export function createOutlineNavigator({ container, onNavigate, labels = {}, fol
     const visibleActive = model.visibleActiveNode();
     for (const [id, button] of buttons) {
       button.classList.toggle("active", id === active?.id);
-      button.classList.toggle("outline-branch-current", id === visibleActive?.id && id !== active?.id);
+      button.classList.toggle(
+        "outline-branch-current",
+        id === visibleActive?.id && id !== active?.id,
+      );
       if (id === active?.id) button.setAttribute("aria-current", "location");
       else button.removeAttribute("aria-current");
     }
-    if (scroll && following && Date.now() - lastManualNavigation > 3000 && container.getClientRects().length) {
+    if (
+      scroll &&
+      following &&
+      Date.now() - lastManualNavigation > 3000 &&
+      container.getClientRects().length
+    ) {
       buttons.get(visibleActive?.id)?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
     }
   }
@@ -195,10 +237,13 @@ export function createOutlineNavigator({ container, onNavigate, labels = {}, fol
     container.setAttribute("role", rows.length ? "tree" : "region");
     const fragment = documentRef.createDocumentFragment();
     const active = model.visibleActiveNode();
-    const tabId = rows.some((node) => node.id === focusedId) ? focusedId : active?.id || rows[0]?.id;
+    const tabId = rows.some((node) => node.id === focusedId)
+      ? focusedId
+      : active?.id || rows[0]?.id;
     const siblingCounts = new Map();
     const siblingPositions = new Map();
-    for (const node of rows) siblingCounts.set(node.parentId, (siblingCounts.get(node.parentId) || 0) + 1);
+    for (const node of rows)
+      siblingCounts.set(node.parentId, (siblingCounts.get(node.parentId) || 0) + 1);
     container.dataset.filtered = String(Boolean(model.query.trim()));
     if (!rows.length) {
       const empty = documentRef.createElement("p");
@@ -307,7 +352,9 @@ export function createOutlineNavigator({ container, onNavigate, labels = {}, fol
     if (destination) focusNode(destination.id);
   }
 
-  function pauseFollow() { lastManualNavigation = Date.now(); }
+  function pauseFollow() {
+    lastManualNavigation = Date.now();
+  }
   container.addEventListener("keydown", onKeyDown);
   container.addEventListener("wheel", pauseFollow, { passive: true });
 
@@ -321,8 +368,13 @@ export function createOutlineNavigator({ container, onNavigate, labels = {}, fol
       }
       return false;
     },
-    setActiveLine(line, options) { model.setActiveLine(line); markActive(options); },
-    setFilter(query) { if (model.setQuery(query)) render(); },
+    setActiveLine(line, options) {
+      model.setActiveLine(line);
+      markActive(options);
+    },
+    setFilter(query) {
+      if (model.setQuery(query)) render();
+    },
     setFollow(enabled) {
       following = Boolean(enabled);
       if (following) {
@@ -330,13 +382,31 @@ export function createOutlineNavigator({ container, onNavigate, labels = {}, fol
         markActive({ scroll: true, force: true });
       }
     },
-    setLabels(next) { text = { ...text, ...next }; container.setAttribute("aria-label", text.label); render(); },
-    expandAll() { model.expandAll(); render(); },
-    collapseAll() { model.collapseAll(); render(); },
-    forgetDocument(id) { model.forgetDocument(id); },
-    get count() { return model.current.flat.length; },
-    get activeLine() { return model.activeNode()?.line || null; },
-    focus() { focusNode(focusedId || model.visibleActiveNode()?.id || rows[0]?.id); },
+    setLabels(next) {
+      text = { ...text, ...next };
+      container.setAttribute("aria-label", text.label);
+      render();
+    },
+    expandAll() {
+      model.expandAll();
+      render();
+    },
+    collapseAll() {
+      model.collapseAll();
+      render();
+    },
+    forgetDocument(id) {
+      model.forgetDocument(id);
+    },
+    get count() {
+      return model.current.flat.length;
+    },
+    get activeLine() {
+      return model.activeNode()?.line || null;
+    },
+    focus() {
+      focusNode(focusedId || model.visibleActiveNode()?.id || rows[0]?.id);
+    },
     destroy() {
       container.removeEventListener("keydown", onKeyDown);
       container.removeEventListener("wheel", pauseFollow);

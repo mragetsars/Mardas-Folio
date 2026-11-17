@@ -5,6 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from generate_update_manifest import verify_update_manifest
 from release_provenance import (
     ReleaseProvenanceError,
     build_release_manifest,
@@ -22,7 +23,6 @@ from release_provenance import (
     write_json,
 )
 from verify_native_desktop import verify_native_artifact
-from generate_update_manifest import verify_update_manifest
 
 MANIFEST_NAME = "RELEASE-MANIFEST.json"
 CHECKSUMS_NAME = "CHECKSUMS.sha256"
@@ -87,13 +87,9 @@ def verify_release(
             "Checksum inventory does not exactly match the release manifest and manifest file"
         )
 
-    wheel_names = [
-        item["name"] for item in payload["artifacts"] if item["kind"] == "python-wheel"
-    ]
+    wheel_names = [item["name"] for item in payload["artifacts"] if item["kind"] == "python-wheel"]
     sdist_names = [
-        item["name"]
-        for item in payload["artifacts"]
-        if item["kind"] == "source-distribution"
+        item["name"] for item in payload["artifacts"] if item["kind"] == "source-distribution"
     ]
     if len(wheel_names) != 1 or len(sdist_names) != 1:
         raise ReleaseProvenanceError(
@@ -116,9 +112,7 @@ def verify_release(
         elif item["kind"] == "standalone-runtime":
             verify_standalone_runtime(directory / item["name"], expected_version=version)
         elif item["kind"] == "desktop-installer":
-            verify_desktop_installer_artifact(
-                directory / item["name"], expected_version=version
-            )
+            verify_desktop_installer_artifact(directory / item["name"], expected_version=version)
             verify_native_artifact(directory / item["name"], expected_version=version)
         elif item["kind"] in {
             "desktop-portable",

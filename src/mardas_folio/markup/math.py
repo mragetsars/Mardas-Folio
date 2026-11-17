@@ -1,9 +1,11 @@
 """Code-region protection and inline/display math transformation."""
+
 from __future__ import annotations
 
 import html
 import re
 from typing import Any
+
 from markdown_it import MarkdownIt
 
 INLINE_MATH_RE = re.compile(r"(?<!\\)\$(?![\s$])(.+?)(?<!\\)\$(?!\d)")
@@ -11,17 +13,6 @@ DISPLAY_MATH_FENCE_RE = re.compile(r"^\s*\$\$\s*$")
 FENCE_RE = re.compile(r"^\s*(```+|~~~+)")
 PROTECTED_CODE_TOKEN_PREFIX = "\ue000FOLIOCODE"  # nosec B105
 PROTECTED_CODE_TOKEN_SUFFIX = "\ue001"  # nosec B105
-
-
-
-
-
-
-
-
-
-
-
 
 
 def _replace_outside_inline_code(
@@ -86,7 +77,9 @@ def _protect_code_regions(markdown: str) -> tuple[str, list[str]]:
         end = code_ranges.get(index)
         if end is not None:
             segment = "".join(lines[index:end])
-            ending = "\r\n" if segment.endswith("\r\n") else ("\n" if segment.endswith("\n") else "")
+            ending = (
+                "\r\n" if segment.endswith("\r\n") else ("\n" if segment.endswith("\n") else "")
+            )
             block_output.append(store(segment) + ending)
             index = end
             continue

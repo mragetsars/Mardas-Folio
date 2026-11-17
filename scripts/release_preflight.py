@@ -103,8 +103,10 @@ def _private_key_pem(value: str) -> bool:
 
 
 def _safe_path_text(value: str) -> bool:
-    if not value or len(value.encode("utf-8")) > 4096 or any(
-        character in value for character in ("\x00", "\r", "\n")
+    if (
+        not value
+        or len(value.encode("utf-8")) > 4096
+        or any(character in value for character in ("\x00", "\r", "\n"))
     ):
         return False
     candidate = Path(value).expanduser()
@@ -132,8 +134,7 @@ def evaluate(env: dict[str, str], *, mode: str) -> list[Check]:
                 env.get("MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT", "").strip()
             )
         )
-        and env.get("MARDAS_WINDOWS_DIGEST_ALGORITHM", "sha256").strip().lower()
-        == "sha256"
+        and env.get("MARDAS_WINDOWS_DIGEST_ALGORITHM", "sha256").strip().lower() == "sha256"
         and _timestamp_url(env.get("MARDAS_WINDOWS_TIMESTAMP_URL", ""))
     )
     mac_certificate = (
@@ -155,19 +156,14 @@ def evaluate(env: dict[str, str], *, mode: str) -> list[Check]:
         and bool(APPLE_API_KEY_RE.fullmatch(env.get("APPLE_API_KEY", "").strip()))
         and api_material
     )
-    identity_match = APPLE_IDENTITY_RE.fullmatch(
-        env.get("APPLE_SIGNING_IDENTITY", "").strip()
-    )
+    identity_match = APPLE_IDENTITY_RE.fullmatch(env.get("APPLE_SIGNING_IDENTITY", "").strip())
     apple_id = env.get("APPLE_ID", "").strip()
     team_id = env.get("APPLE_TEAM_ID", "").strip()
     apple_id_present = any(env.get(name, "").strip() for name in ("APPLE_ID", "APPLE_PASSWORD"))
-    team_consistent = (
-        not team_id
-        or (
-            bool(TEAM_ID_RE.fullmatch(team_id))
-            and identity_match is not None
-            and identity_match.group("team") == team_id
-        )
+    team_consistent = not team_id or (
+        bool(TEAM_ID_RE.fullmatch(team_id))
+        and identity_match is not None
+        and identity_match.group("team") == team_id
     )
     notarization_id_complete = (
         bool(APPLE_ID_RE.fullmatch(apple_id))

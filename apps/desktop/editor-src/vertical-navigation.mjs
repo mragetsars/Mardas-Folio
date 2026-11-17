@@ -18,7 +18,9 @@ export function moveAcrossCompressedSpacer(view, forward, extend = false) {
   const destination = doc.lineAt(visual.head).number;
   if (forward ? destination <= adjacentNumber : destination >= adjacentNumber) return false;
   view.dispatch({
-    selection: extend ? EditorSelection.range(current.anchor, adjacent.from) : EditorSelection.cursor(adjacent.from),
+    selection: extend
+      ? EditorSelection.range(current.anchor, adjacent.from)
+      : EditorSelection.cursor(adjacent.from),
     scrollIntoView: true,
     annotations: Transaction.userEvent.of("select.keyboard"),
   });

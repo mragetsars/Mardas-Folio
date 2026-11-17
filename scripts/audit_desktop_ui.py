@@ -1,29 +1,46 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 import argparse
 import json
 from pathlib import Path
+
 from playwright.sync_api import sync_playwright
+
+from lib.audit.desktop import (
+    INIT_SCRIPT as INIT_SCRIPT,
+)
 from lib.audit.desktop import (
     QuietHandler as QuietHandler,
-    serve as serve,
-    INIT_SCRIPT as INIT_SCRIPT,
+)
+from lib.audit.desktop import (
     _visible as _visible,
-    select_settings_section as select_settings_section,
-    open_settings as open_settings,
-    run_workspace_command as run_workspace_command,
-    open_workspace_export as open_workspace_export,
-    open_template as open_template,
+)
+from lib.audit.desktop import (
     click_workspace_layout_control as click_workspace_layout_control,
 )
-
-
+from lib.audit.desktop import (
+    open_settings as open_settings,
+)
+from lib.audit.desktop import (
+    open_template as open_template,
+)
+from lib.audit.desktop import (
+    open_workspace_export as open_workspace_export,
+)
+from lib.audit.desktop import (
+    run_workspace_command as run_workspace_command,
+)
+from lib.audit.desktop import (
+    select_settings_section as select_settings_section,
+)
+from lib.audit.desktop import (
+    serve as serve,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DIST = ROOT / "apps" / "desktop" / "dist"
 DEFAULT_OUTPUT = ROOT / "build" / "desktop-ui-audit"
-
-
 
 
 def run_audit(
@@ -49,15 +66,17 @@ def run_audit(
         page.on("pageerror", lambda error: page_errors.append(str(error)))
         page.on(
             "console",
-            lambda message: console_issues.append(f"{message.type}: {message.text}")
-            if message.type in {"error", "warning"}
-            else None,
+            lambda message: (
+                console_issues.append(f"{message.type}: {message.text}")
+                if message.type in {"error", "warning"}
+                else None
+            ),
         )
         page.goto(url, wait_until="networkidle")
 
-        checks["workspace_starts_without_modal"] = (
-            _visible(page, "#workspace-empty") and not _visible(page, "#onboarding-modal")
-        )
+        checks["workspace_starts_without_modal"] = _visible(
+            page, "#workspace-empty"
+        ) and not _visible(page, "#onboarding-modal")
         open_settings(page, "language")
         page.locator("#restart-onboarding").click()
         checks["onboarding_visible"] = _visible(page, "#onboarding-modal")
@@ -77,7 +96,9 @@ def run_audit(
         checks["professional_editor"] = (
             page.locator(".editor-surface").get_attribute("data-editor") == "codemirror"
         )
-        checks["editor_line_numbers"] = page.locator(".cm-lineNumbers .cm-gutterElement").count() > 0
+        checks["editor_line_numbers"] = (
+            page.locator(".cm-lineNumbers .cm-gutterElement").count() > 0
+        )
         editor = page.locator("#markdown-editor")
         checks["template_content"] = "# Executive Summary" in editor.input_value()
         # Write mode opens on the document. The caret used to start at offset
@@ -94,9 +115,7 @@ def run_audit(
         page.locator(".codemirror-mount .cm-content").click()
         page.keyboard.press("Control+End")
         page.keyboard.insert_text("\n\nمتن فارسی and English")
-        checks["professional_editor_input"] = (
-            "متن فارسی and English" in editor.input_value()
-        )
+        checks["professional_editor_input"] = "متن فارسی and English" in editor.input_value()
         # Everything that truncates has to carry the whole value somewhere.
         # These three are the ones that hold a file name and a path, in a
         # status bar and a tab strip narrower than either.
@@ -181,7 +200,9 @@ def run_audit(
             click_workspace_layout_control(page, "#workspace-toggle-preview")
         page.locator("#preview-preview-heading").wait_for(state="visible")
         checks["split_view_shows_preview"] = page.locator("#preview-pane").is_visible()
-        checks["preview_contract"] = page.locator("#preview-preview-heading").inner_text() == "Preview"
+        checks["preview_contract"] = (
+            page.locator("#preview-preview-heading").inner_text() == "Preview"
+        )
         # The compact pane header names its document scope; its accessible
         # description explains that print pagination belongs to export.
         checks["preview_says_what_it_shows"] = page.evaluate(
@@ -218,9 +239,7 @@ def run_audit(
         )
         page.keyboard.press("Escape")
         page.wait_for_timeout(300)
-        checks["cancelling_keeps_the_document"] = (
-            page.locator(".document-tab").count() > 0
-        )
+        checks["cancelling_keeps_the_document"] = page.locator(".document-tab").count() > 0
 
         checks["accessible_document_tab"] = (
             active_tab.count() == 1 and active_tab.get_attribute("tabindex") == "0"
@@ -375,7 +394,8 @@ def run_audit(
         )
         page.locator("#export-show-setup").click()
         checks["narrow_export_switches_panes_without_losing_settings"] = (
-            compact_preview and page.locator("#option-category").input_value() == "contents"
+            compact_preview
+            and page.locator("#option-category").input_value() == "contents"
             and page.locator("#adv-toc-depth").is_disabled()
             and page.locator("#export-button").is_visible()
         )
@@ -388,7 +408,9 @@ def run_audit(
         page.locator("#export-back").click()
         page.locator("#sidebar-tab-project").click()
         page.locator("#sidebar-open-project").click()
-        page.wait_for_function("() => !document.querySelector('#navigator-project-section')?.classList.contains('hidden')")
+        page.wait_for_function(
+            "() => !document.querySelector('#navigator-project-section')?.classList.contains('hidden')"
+        )
         checks["book_project_close_action_is_discoverable"] = (
             page.locator("#sidebar-panel-project #close-project").is_visible()
             and page.locator("#sidebar-tab-book").is_visible()
@@ -398,14 +420,17 @@ def run_audit(
             "#close-book-project"
         ).is_visible()
         page.locator("#sidebar-tab-project").click()
-        page.screenshot(path=str(output_dir / "book-project-close-action-fa-dark.png"), full_page=True)
+        page.screenshot(
+            path=str(output_dir / "book-project-close-action-fa-dark.png"), full_page=True
+        )
         open_tabs = page.locator(".document-tab").count()
         page.locator("#sidebar-panel-project #close-project").click()
-        page.wait_for_function("() => document.querySelector('#navigator-project-section')?.classList.contains('hidden')")
-        checks["closing_book_keeps_open_documents"] = (
-            page.locator(".document-tab").count() == open_tabs
-            and _visible(page, "#book-empty")
+        page.wait_for_function(
+            "() => document.querySelector('#navigator-project-section')?.classList.contains('hidden')"
         )
+        checks["closing_book_keeps_open_documents"] = page.locator(
+            ".document-tab"
+        ).count() == open_tabs and _visible(page, "#book-empty")
 
         # Escaping a book-creation dialog while its native request is pending
         # invalidates that request's intent. Its late result must not reopen
@@ -435,10 +460,9 @@ def run_audit(
             files: [], book: {enabled: true, title: 'Cancelled book', output: 'dist/book.pdf', chapter_count: 0, chapters: []}
         }})""")
         page.wait_for_timeout(80)
-        checks["cancelled_book_creation_does_not_reopen_project"] = (
-            not _visible(page, "#navigator-project-section")
-            and not _visible(page, "#project-tools")
-        )
+        checks["cancelled_book_creation_does_not_reopen_project"] = not _visible(
+            page, "#navigator-project-section"
+        ) and not _visible(page, "#project-tools")
 
         # A chapter mutation may finish after the project is closed. Its
         # response belongs to the old project generation and must be ignored.
@@ -460,7 +484,9 @@ def run_audit(
         }""")
         page.locator("#sidebar-tab-project").click()
         page.locator("#sidebar-open-project").click()
-        page.wait_for_function("() => !document.querySelector('#project-tools')?.classList.contains('hidden')")
+        page.wait_for_function(
+            "() => !document.querySelector('#project-tools')?.classList.contains('hidden')"
+        )
         page.locator("#sidebar-tab-book").click()
         page.locator("#book-add-chapter").click()
         page.locator("#chapter-title-input").fill("Late chapter")
@@ -474,10 +500,9 @@ def run_audit(
             files: [], book: {enabled: true, title: 'Book QA', output: 'dist/book.pdf', chapter_count: 1, chapters: []}
         }})""")
         page.wait_for_timeout(80)
-        checks["late_chapter_response_does_not_reopen_closed_project"] = (
-            not _visible(page, "#navigator-project-section")
-            and not _visible(page, "#project-tools")
-        )
+        checks["late_chapter_response_does_not_reopen_closed_project"] = not _visible(
+            page, "#navigator-project-section"
+        ) and not _visible(page, "#project-tools")
 
         checks["page_errors"] = page_errors
         checks["console_issues"] = console_issues
@@ -489,9 +514,7 @@ def run_audit(
         if key not in {"page_errors", "console_issues", "onboarding_focus"}
     }
     passed = (
-        all(value is True for value in required.values())
-        and not page_errors
-        and not console_issues
+        all(value is True for value in required.values()) and not page_errors and not console_issues
     )
     payload = {
         "schema_version": 1,
@@ -511,7 +534,9 @@ def run_audit(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run browser-backed smoke checks for desktop UI workflows.")
+    parser = argparse.ArgumentParser(
+        description="Run browser-backed smoke checks for desktop UI workflows."
+    )
     parser.add_argument("--dist", type=Path, default=DEFAULT_DIST)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--executable-path")

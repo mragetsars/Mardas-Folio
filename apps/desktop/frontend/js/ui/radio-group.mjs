@@ -9,10 +9,20 @@ export function bindRadioGroup(group, { buttons, selectedIndex, onSelect }) {
     button.addEventListener("click", () => onSelect(index));
     button.addEventListener("keydown", (event) => {
       const rtl = documentRef.documentElement.dir === "rtl";
-      const offset = event.key === "ArrowDown" ? 1
-        : event.key === "ArrowUp" ? -1
-        : event.key === "ArrowRight" ? (rtl ? -1 : 1)
-        : event.key === "ArrowLeft" ? (rtl ? 1 : -1) : 0;
+      const offset =
+        event.key === "ArrowDown"
+          ? 1
+          : event.key === "ArrowUp"
+            ? -1
+            : event.key === "ArrowRight"
+              ? rtl
+                ? -1
+                : 1
+              : event.key === "ArrowLeft"
+                ? rtl
+                  ? 1
+                  : -1
+                : 0;
       if (!offset || event.altKey || event.ctrlKey || event.metaKey) return;
       event.preventDefault();
       onSelect((index + offset + buttons.length) % buttons.length);

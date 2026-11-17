@@ -1,5 +1,7 @@
 """Thread-affine Chromium lifecycle and per-document browser rendering."""
+
 from __future__ import annotations
+
 import logging
 import os
 import shutil
@@ -8,7 +10,9 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
+
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
+
 from ..page_geometry import _playwright_page_size_kwargs
 from ..quality import FontValidationError, MathJaxRenderError
 from ..render_contracts import PdfOptions
@@ -104,7 +108,6 @@ async () => {
 """
 
 
-
 def _validate_browser_fonts(page: Page, options: PdfOptions, *, artifact: Path) -> None:
     if not options.required_fonts and options.quality_report is None:
         return
@@ -138,7 +141,9 @@ def _validate_browser_fonts(page: Page, options: PdfOptions, *, artifact: Path) 
     options.quality_log.record(
         "fonts",
         "passed",
-        "Required publication fonts are available." if options.required_fonts else "Browser font evidence collected.",
+        "Required publication fonts are available."
+        if options.required_fonts
+        else "Browser font evidence collected.",
         details=details,
     )
 
@@ -164,7 +169,9 @@ def _typeset_and_validate_mathjax(page: Page, options: PdfOptions, *, artifact: 
     errors = list(details.get("errors") or [])
     exception = str(details.get("exception") or "")
     available = bool(details.get("available"))
-    failed = bool(exception or errors or unresolved or (detected and not available) or rendered != detected)
+    failed = bool(
+        exception or errors or unresolved or (detected and not available) or rendered != detected
+    )
     if failed:
         _enforce_quality_issue(
             options,
@@ -327,12 +334,12 @@ class RenderSession:
     def _ensure_browser(self, options: PdfOptions) -> tuple[Browser, bool]:
         self._claim_thread()
         _resolve_pdf_chromium_path(options)
-        executable = options.chromium_path or shutil.which("chromium") or shutil.which("google-chrome")
+        executable = (
+            options.chromium_path or shutil.which("chromium") or shutil.which("google-chrome")
+        )
         key = (executable, tuple(_chromium_launch_args(options)))
         reusable = bool(
-            self._browser is not None
-            and self._browser_key == key
-            and self._browser.is_connected()
+            self._browser is not None and self._browser_key == key and self._browser.is_connected()
         )
         if reusable and self._browser is not None:
             return self._browser, True
@@ -372,9 +379,7 @@ class RenderSession:
 
 
 @contextmanager
-def _render_page(
-    options: PdfOptions, session: RenderSession | None
-) -> Iterator[tuple[Page, bool]]:
+def _render_page(options: PdfOptions, session: RenderSession | None) -> Iterator[tuple[Page, bool]]:
     if session is not None:
         with session.page(options) as page:
             yield page, session.last_page_reused_browser

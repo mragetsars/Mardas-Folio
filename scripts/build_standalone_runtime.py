@@ -21,9 +21,10 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
+
 from lib.build.paths import prepare_output, validate_output  # noqa: E402
 from lib.build.publish import publish_directory  # noqa: E402
-from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
 from lib.build.runtime_manifest import (  # noqa: E402
     RUNTIME_FILE_TYPE,
     RUNTIME_MANIFEST_SCHEMA,
@@ -169,9 +170,7 @@ def _write_manifest(runtime_dir: Path, *, browser_source: Path | None) -> Path:
         elif stat.S_ISLNK(mode):
             target = validate_local_symlink(runtime_dir, path)
             symlinks[relative] = target
-            entries.append(
-                {"path": relative, "type": RUNTIME_SYMLINK_TYPE, "target": target}
-            )
+            entries.append({"path": relative, "type": RUNTIME_SYMLINK_TYPE, "target": target})
         else:
             entries.append(
                 {
@@ -187,9 +186,7 @@ def _write_manifest(runtime_dir: Path, *, browser_source: Path | None) -> Path:
         directories=directories,
     )
     regular_files = {
-        str(entry["path"])
-        for entry in entries
-        if entry.get("type") == RUNTIME_FILE_TYPE
+        str(entry["path"]) for entry in entries if entry.get("type") == RUNTIME_FILE_TYPE
     }
     browser_bundled = browser_source is not None
     if browser_bundled and not has_bundled_browser_file(regular_files):
@@ -274,7 +271,9 @@ def build(args: argparse.Namespace) -> tuple[Path, Path | None]:
     browser_executable = args.chromium_path or _playwright_browser()
     browser_source = _browser_root(browser_executable) if browser_executable is not None else None
     build_root = prepare_output(
-        args.build_root, workspace=ROOT, clean=args.clean,
+        args.build_root,
+        workspace=ROOT,
+        clean=args.clean,
         protected=(browser_source,) if browser_source is not None else (),
     )
     dist_root = build_root / "dist"
@@ -316,6 +315,7 @@ def build(args: argparse.Namespace) -> tuple[Path, Path | None]:
         raise SystemExit(f"PyInstaller did not create the expected runtime directory: {produced}")
     final_dir = build_root / f"Mardas-Folio-{__version__}-runtime-{_platform_tag()}"
     validate_output(final_dir, workspace=ROOT, generated=(build_root,))
+
     def verify_produced(directory: Path) -> None:
         _write_manifest(directory, browser_source=browser_source)
         load_and_verify_manifest(
@@ -334,8 +334,7 @@ def build(args: argparse.Namespace) -> tuple[Path, Path | None]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Build a self-contained PyInstaller onedir runtime for the "
-            "Mardas desktop sidecar."
+            "Build a self-contained PyInstaller onedir runtime for the Mardas desktop sidecar."
         )
     )
     parser.add_argument("--build-root", type=Path, default=DEFAULT_BUILD_ROOT)

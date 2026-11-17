@@ -1,9 +1,12 @@
 """Document and book validation shared by CLI and project services."""
+
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Callable
+
 from bs4 import BeautifulSoup
+
 from ..book import BookManifest, BookRenderBundle, load_book_manifest, render_book
 from ..config import LoadedProjectConfig
 from ..diagnostics import Diagnostic, has_errors
@@ -211,9 +214,7 @@ def _book_validation(
         diagnostics.extend(chapter_diagnostics)
     bundle, render_diagnostics = render_book(
         manifest,
-        progress=(
-            (lambda stage, value: progress(stage, 0.3 + value * 0.7)) if progress else None
-        ),
+        progress=((lambda stage, value: progress(stage, 0.3 + value * 0.7)) if progress else None),
         cancelled=cancelled,
     )
     diagnostics.extend(render_diagnostics)

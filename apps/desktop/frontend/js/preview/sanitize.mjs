@@ -1,4 +1,3 @@
-
 export function createPreviewSanitizer({ t }) {
   function isRelativeMarkdownDocumentHref(value) {
     const path = String(value || "").split(/[?#]/, 1)[0];
@@ -13,7 +12,9 @@ export function createPreviewSanitizer({ t }) {
     const template = document.createElement("template");
     template.innerHTML = String(value || "");
     template.content
-      .querySelectorAll("script,style,iframe,object,embed,meta,base,link,form,button,select,option,textarea")
+      .querySelectorAll(
+        "script,style,iframe,object,embed,meta,base,link,form,button,select,option,textarea",
+      )
       .forEach((element) => element.remove());
     const idMap = new Map();
     // Rendered headings and notes share the page with the application shell.
@@ -21,20 +22,32 @@ export function createPreviewSanitizer({ t }) {
     // reading-document or preview-document containers.
     const reservedIds = new Set(
       [...document.querySelectorAll("[id]")]
-        .filter((element) => !element.closest(".document-content") || element.matches(".document-content"))
+        .filter(
+          (element) =>
+            !element.closest(".document-content") || element.matches(".document-content"),
+        )
         .map((element) => element.id),
     );
     template.content.querySelectorAll("[id]").forEach((element) => {
       const original = element.id;
       let prefixed = `${prefix}${original}`;
-      while (reservedIds.has(prefixed)) prefixed = `${prefix}content-${prefixed.slice(prefix.length)}`;
+      while (reservedIds.has(prefixed))
+        prefixed = `${prefix}content-${prefixed.slice(prefix.length)}`;
       reservedIds.add(prefixed);
       if (!idMap.has(original)) idMap.set(original, prefixed);
       element.dataset.previewSourceId = original;
       element.id = prefixed;
     });
     template.content.querySelectorAll("*").forEach((element) => {
-      const reservedClasses = new Set(["active", "hidden", "modal", "toast", "view", "sidebar-panel", "source-active"]);
+      const reservedClasses = new Set([
+        "active",
+        "hidden",
+        "modal",
+        "toast",
+        "view",
+        "sidebar-panel",
+        "source-active",
+      ]);
       for (const className of [...element.classList]) {
         if (reservedClasses.has(className)) element.classList.remove(className);
       }
@@ -47,18 +60,24 @@ export function createPreviewSanitizer({ t }) {
           element.setAttribute("tabindex", "0");
           element.removeAttribute("aria-disabled");
           element.setAttribute("title", t("openLinkedMarkdown"));
-          element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("openLinkedMarkdown")}`);
+          element.setAttribute(
+            "aria-label",
+            `${element.textContent.trim()} — ${t("openLinkedMarkdown")}`,
+          );
         } else {
           element.setAttribute("aria-disabled", "true");
           element.setAttribute("title", t("previewLinkUnavailable"));
-          element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("previewLinkUnavailable")}`);
+          element.setAttribute(
+            "aria-label",
+            `${element.textContent.trim()} — ${t("previewLinkUnavailable")}`,
+          );
         }
       }
       for (const attribute of [...element.attributes]) {
         const name = attribute.name.toLowerCase();
         if (
-          name.startsWith("on")
-          || [
+          name.startsWith("on") ||
+          [
             "action",
             "autofocus",
             "background",
@@ -82,13 +101,20 @@ export function createPreviewSanitizer({ t }) {
         if (name === "href") {
           if (attribute.value.startsWith("#")) {
             let target = attribute.value.slice(1);
-            try { target = decodeURIComponent(target); } catch { /* Keep malformed fragments inert. */ }
+            try {
+              target = decodeURIComponent(target);
+            } catch {
+              /* Keep malformed fragments inert. */
+            }
             element.setAttribute("href", `#${idMap.get(target) || `${prefix}${target}`}`);
           } else {
             element.removeAttribute("href");
             element.setAttribute("aria-disabled", "true");
             element.setAttribute("title", t("previewLinkUnavailable"));
-            element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("previewLinkUnavailable")}`);
+            element.setAttribute(
+              "aria-label",
+              `${element.textContent.trim()} — ${t("previewLinkUnavailable")}`,
+            );
             continue;
           }
         }
@@ -106,8 +132,19 @@ export function createPreviewSanitizer({ t }) {
         // Prefixing ids also has to prefix what points at them. A Mermaid
         // arrowhead is a `<marker id=…>` referenced by `marker-end="url(#…)"`,
         // so rewriting one without the other left every diagram without arrows.
-        if (["marker-start", "marker-mid", "marker-end", "clip-path", "mask", "fill", "stroke", "filter"].includes(name)
-          && /url\s*\(/i.test(attribute.value)) {
+        if (
+          [
+            "marker-start",
+            "marker-mid",
+            "marker-end",
+            "clip-path",
+            "mask",
+            "fill",
+            "stroke",
+            "filter",
+          ].includes(name) &&
+          /url\s*\(/i.test(attribute.value)
+        ) {
           const localReference = /url\(\s*["']?#([^\s)"']+)["']?\s*\)/g;
           if (/url\s*\(/i.test(attribute.value.replace(localReference, ""))) {
             element.removeAttribute(attribute.name);
@@ -131,7 +168,10 @@ export function createPreviewSanitizer({ t }) {
         }
       }
       if (element.classList.contains("md2pdf-mermaid-svg")) {
-        const viewBox = (element.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+        const viewBox = (element.getAttribute("viewBox") || "")
+          .trim()
+          .split(/[\s,]+/)
+          .map(Number);
         if (viewBox.length === 4 && viewBox.every(Number.isFinite) && viewBox[2] > 0) {
           element.setAttribute("width", String(Math.min(viewBox[2], 960)));
         }

@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import shutil
+
 # Security: subprocess calls use explicit trusted executables and fixed argument arrays.
 import subprocess  # nosec B404
 import sys
@@ -24,7 +25,7 @@ from release_provenance import (
     verify_offline_bundle,
 )
 
-INSTALL_PY = r'''#!/usr/bin/env python3
+INSTALL_PY = r"""#!/usr/bin/env python3
 from __future__ import annotations
 
 import argparse
@@ -101,7 +102,7 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-'''
+"""
 
 README_TEMPLATE = """# Mardas Folio offline Python bundle
 
@@ -159,21 +160,29 @@ exit $LASTEXITCODE
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Build a deterministic offline Python wheel bundle")
+    parser = argparse.ArgumentParser(
+        description="Build a deterministic offline Python wheel bundle"
+    )
     wheel_group = parser.add_mutually_exclusive_group(required=True)
     wheel_group.add_argument("--wheel", type=Path, help="Project wheel")
-    wheel_group.add_argument("--wheel-dir", type=Path, help="Directory containing exactly one project wheel")
+    wheel_group.add_argument(
+        "--wheel-dir", type=Path, help="Directory containing exactly one project wheel"
+    )
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--platform-label", required=True)
     parser.add_argument("--python", type=Path, default=Path(sys.executable))
-    parser.add_argument("--wheelhouse-dir", type=Path, help="Use an existing wheelhouse instead of pip download")
+    parser.add_argument(
+        "--wheelhouse-dir", type=Path, help="Use an existing wheelhouse instead of pip download"
+    )
     parser.add_argument("--source-date-epoch")
     return parser
 
 
 def _project_version(wheel: Path) -> str:
     with zipfile.ZipFile(wheel) as archive:
-        metadata_names = [name for name in archive.namelist() if name.endswith(".dist-info/METADATA")]
+        metadata_names = [
+            name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+        ]
         if len(metadata_names) != 1:
             raise ReleaseProvenanceError("Project wheel has an invalid METADATA layout")
         metadata = archive.read(metadata_names[0]).decode("utf-8", errors="strict")
@@ -243,11 +252,23 @@ def _bundle_members(
         "wheels": wheel_records,
     }
     static_members = [
-        ("README.md", README_TEMPLATE.format(version=version, platform_label=platform_label, python_version=python_version).encode("utf-8"), 0o644),
+        (
+            "README.md",
+            README_TEMPLATE.format(
+                version=version, platform_label=platform_label, python_version=python_version
+            ).encode("utf-8"),
+            0o644,
+        ),
         ("install.py", INSTALL_PY.encode("utf-8"), 0o755),
         ("install.sh", INSTALL_SH.encode("utf-8"), 0o755),
         ("install.ps1", INSTALL_PS1.encode("utf-8"), 0o644),
-        ("BUNDLE-MANIFEST.json", (json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8"), 0o644),
+        (
+            "BUNDLE-MANIFEST.json",
+            (json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
+                "utf-8"
+            ),
+            0o644,
+        ),
     ]
     members.extend(static_members)
     checksum_lines = []
@@ -307,9 +328,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"Could not determine the Python major/minor version: {python_version!r}"
                 )
             python_tag = f"py{version_parts[0]}{version_parts[1]}"
-            output_name = (
-                f"mardas-folio-{version}-offline-{platform_label}-{python_tag}.zip"
-            )
+            output_name = f"mardas-folio-{version}-offline-{platform_label}-{python_tag}.zip"
             output_path = args.output_dir.resolve() / output_name
             deterministic_zip(output_path, members, epoch=epoch)
             verify_offline_bundle(output_path, expected_version=version)

@@ -45,7 +45,9 @@ def platform_tag() -> str:
     try:
         return {"Windows": "windows", "Darwin": "macos", "Linux": "linux"}[system]
     except KeyError as exc:
-        raise SigningVerificationError(f"Unsupported signing verification platform: {system}") from exc
+        raise SigningVerificationError(
+            f"Unsupported signing verification platform: {system}"
+        ) from exc
 
 
 def sha256_file(path: Path) -> str:
@@ -106,17 +108,19 @@ def _run_command(
             env=environment,
         )
     except (FileNotFoundError, PermissionError, OSError) as exc:
-        raise SigningVerificationError(f"Required signing tool is unavailable: {command[0]}") from exc
+        raise SigningVerificationError(
+            f"Required signing tool is unavailable: {command[0]}"
+        ) from exc
     if completed.returncode != 0:
         detail = _bounded_output("\n".join((completed.stdout, completed.stderr)))
         suffix = f": {detail}" if detail else ""
-        raise SigningVerificationError(f"Signing verification command failed ({command[0]}){suffix}")
+        raise SigningVerificationError(
+            f"Signing verification command failed ({command[0]}){suffix}"
+        )
     return completed
 
 
-def _artifact_records(
-    manifest: Mapping[str, Any], artifact_dir: Path
-) -> list[dict[str, Any]]:
+def _artifact_records(manifest: Mapping[str, Any], artifact_dir: Path) -> list[dict[str, Any]]:
     raw_records = manifest.get("artifacts")
     if not isinstance(raw_records, list) or not raw_records:
         raise SigningVerificationError("Native manifest has no artifact inventory")
@@ -135,7 +139,9 @@ def _artifact_records(
         size = path.stat().st_size
         digest = sha256_file(path)
         if raw.get("size") != size or raw.get("sha256") != digest:
-            raise SigningVerificationError(f"Native artifact no longer matches its manifest: {name}")
+            raise SigningVerificationError(
+                f"Native artifact no longer matches its manifest: {name}"
+            )
         records.append(
             {
                 "kind": str(raw.get("kind", "")),
@@ -194,9 +200,7 @@ def _windows_signature(path: Path, *, expected_thumbprint: str) -> dict[str, Any
     if not isinstance(payload, dict):
         raise SigningVerificationError("PowerShell returned malformed Authenticode evidence")
     signer_thumbprint = str(payload.get("SignerThumbprint", "")).replace(" ", "").upper()
-    timestamp_thumbprint = (
-        str(payload.get("TimeStamperThumbprint", "")).replace(" ", "").upper()
-    )
+    timestamp_thumbprint = str(payload.get("TimeStamperThumbprint", "")).replace(" ", "").upper()
     if str(payload.get("Status", "")) != "Valid":
         raise SigningVerificationError(f"Authenticode status is not Valid for {path.name}")
     if signer_thumbprint != expected_thumbprint:
@@ -208,12 +212,17 @@ def _windows_signature(path: Path, *, expected_thumbprint: str) -> dict[str, Any
     if (
         not signer_subject
         or not timestamp_subject
-        or any("\x00" in value or len(value.encode("utf-8")) > 4096 for value in (
-            signer_subject,
-            timestamp_subject,
-        ))
+        or any(
+            "\x00" in value or len(value.encode("utf-8")) > 4096
+            for value in (
+                signer_subject,
+                timestamp_subject,
+            )
+        )
     ):
-        raise SigningVerificationError(f"Authenticode certificate metadata is invalid for {path.name}")
+        raise SigningVerificationError(
+            f"Authenticode certificate metadata is invalid for {path.name}"
+        )
     return {
         "artifact": path.name,
         "size": path.stat().st_size,
@@ -271,7 +280,9 @@ def _verify_windows(
         or digest != "sha256"
         or contract.get("timestamp_url") != timestamp_url
     ):
-        raise SigningVerificationError("Windows signing thumbprint contract does not match the runner")
+        raise SigningVerificationError(
+            "Windows signing thumbprint contract does not match the runner"
+        )
     installer = _single_artifact(records, kind="desktop-installer")
     assert installer is not None
     executable = tauri_root / "target" / "release" / "mardas-folio.exe"
@@ -412,8 +423,10 @@ def _validate_contract(
     if contract.get("release_mode") != mode or contract.get("verified") is not False:
         raise SigningVerificationError("Native signing contract has an invalid release state")
     required = mode == "public" and platform_name in {"windows", "macos"}
-    expected_status = "pending-verification" if required else (
-        "not-required" if mode == "public" else "not-requested"
+    expected_status = (
+        "pending-verification"
+        if required
+        else ("not-required" if mode == "public" else "not-requested")
     )
     if (
         contract.get("required") is not required
@@ -469,9 +482,7 @@ def verify_runner_signing(
         verified = True
         status = "verified"
 
-    evidence_name = (
-        f"Mardas-Folio-{version}-{platform_name}-{architecture}-signing-evidence.json"
-    )
+    evidence_name = f"Mardas-Folio-{version}-{platform_name}-{architecture}-signing-evidence.json"
     evidence_path = artifact_dir / evidence_name
     evidence: dict[str, Any] = {
         "schema_version": 1,
@@ -520,7 +531,9 @@ def _parse_expected_counts(values: Sequence[str]) -> dict[str, int]:
         try:
             count = int(raw_count)
         except ValueError as exc:
-            raise SigningVerificationError(f"Expected platform count is invalid: {value!r}") from exc
+            raise SigningVerificationError(
+                f"Expected platform count is invalid: {value!r}"
+            ) from exc
         if not 1 <= count <= 10 or platform_name in counts:
             raise SigningVerificationError(f"Expected platform count is invalid: {value!r}")
         counts[platform_name] = count
@@ -586,11 +599,11 @@ def _validate_verified_evidence(
             or installer_signature.get("sha256") != installer.get("sha256")
             or binary_signature is None
             or binary_signature.get("sha256")
-            != _portable_executable_digest(
-                artifact_dir / str(portable_records[0].get("name", ""))
-            )
+            != _portable_executable_digest(artifact_dir / str(portable_records[0].get("name", "")))
         ):
-            raise SigningVerificationError("Windows signature proof is not bound to release payloads")
+            raise SigningVerificationError(
+                "Windows signature proof is not bound to release payloads"
+            )
     elif platform_name == "macos":
         identity = str(signer.get("identity", ""))
         identity_match = APPLE_IDENTITY_RE.fullmatch(identity)
@@ -606,8 +619,7 @@ def _validate_verified_evidence(
         }
         if (
             payload.get("method") != "developer-id"
-            or payload.get("notarization_method")
-            not in {"app-store-connect-api", "apple-id"}
+            or payload.get("notarization_method") not in {"app-store-connect-api", "apple-id"}
             or identity_match is None
             or signer.get("team_identifier") != identity_match.group("team")
             or any(checks.get(name) is not True for name in required_checks)
@@ -666,8 +678,10 @@ def verify_evidence_set(
         targets.add(target)
         observed_counts[platform_name] += 1
         os_signing_required = mode == "public" and platform_name in {"windows", "macos"}
-        expected_status = "verified" if os_signing_required else (
-            "not-required" if mode == "public" else "not-requested"
+        expected_status = (
+            "verified"
+            if os_signing_required
+            else ("not-required" if mode == "public" else "not-requested")
         )
         if (
             payload.get("required") is not os_signing_required
@@ -677,22 +691,29 @@ def verify_evidence_set(
         ):
             raise SigningVerificationError(f"Signing evidence state is invalid: {path.name}")
         if not os_signing_required and payload.get("signer") is not None:
-            raise SigningVerificationError(f"Unsigned evidence must not claim a signer: {path.name}")
+            raise SigningVerificationError(
+                f"Unsigned evidence must not claim a signer: {path.name}"
+            )
         records = payload.get("artifacts")
         if not isinstance(records, list) or not records:
-            raise SigningVerificationError(f"Signing evidence has no artifact inventory: {path.name}")
+            raise SigningVerificationError(
+                f"Signing evidence has no artifact inventory: {path.name}"
+            )
         for record in records:
             if not isinstance(record, dict):
-                raise SigningVerificationError(f"Signing evidence artifact is malformed: {path.name}")
+                raise SigningVerificationError(
+                    f"Signing evidence artifact is malformed: {path.name}"
+                )
             name = str(record.get("name", ""))
             if not name or PurePath(name).name != name:
-                raise SigningVerificationError(f"Signing evidence artifact name is unsafe: {name!r}")
+                raise SigningVerificationError(
+                    f"Signing evidence artifact name is unsafe: {name!r}"
+                )
             artifact = artifact_dir / name
             if artifact.is_symlink() or not artifact.is_file():
                 raise SigningVerificationError(f"Evidence references a missing artifact: {name}")
-            if (
-                record.get("size") != artifact.stat().st_size
-                or record.get("sha256") != sha256_file(artifact)
+            if record.get("size") != artifact.stat().st_size or record.get("sha256") != sha256_file(
+                artifact
             ):
                 raise SigningVerificationError(f"Evidence artifact integrity failed: {name}")
         if os_signing_required:
@@ -736,7 +757,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.verify_evidence_set:
             if not args.version:
-                raise SigningVerificationError("--version is required for evidence-set verification")
+                raise SigningVerificationError(
+                    "--version is required for evidence-set verification"
+                )
             counts = _parse_expected_counts(args.expected_platform_count)
             paths = verify_evidence_set(
                 args.artifact_dir,

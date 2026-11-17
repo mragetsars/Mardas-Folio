@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import asyncio
 import io
 import json
@@ -14,6 +12,7 @@ import pytest
 
 from mardas_folio import application, protocol, runtime, sidecar
 from mardas_folio.application import EngineError
+from tests._paths import ROOT
 
 
 def _lines(stream: io.StringIO) -> list[dict[str, object]]:
@@ -142,8 +141,6 @@ style = "academic"
     assert options.palette == "emerald"
 
 
-
-
 def test_desktop_project_methods_are_allowed_sidecar_jobs() -> None:
     expected = {
         "document.read_text",
@@ -159,14 +156,15 @@ def test_desktop_project_methods_are_allowed_sidecar_jobs() -> None:
 
 
 def test_sidecar_health_and_shutdown_round_trip() -> None:
-    requests = "\n".join(
-        [
-            json.dumps({"jsonrpc": "2.0", "id": 1, "method": "system.health", "params": {}}),
-            json.dumps(
-                {"jsonrpc": "2.0", "id": 2, "method": "system.shutdown", "params": {}}
-            ),
-        ]
-    ) + "\n"
+    requests = (
+        "\n".join(
+            [
+                json.dumps({"jsonrpc": "2.0", "id": 1, "method": "system.health", "params": {}}),
+                json.dumps({"jsonrpc": "2.0", "id": 2, "method": "system.shutdown", "params": {}}),
+            ]
+        )
+        + "\n"
+    )
     output = io.StringIO()
     server = sidecar.SidecarServer(stdin=io.BytesIO(requests.encode()), stdout=output)
     assert server.run() == 0
@@ -200,18 +198,21 @@ def test_sidecar_reports_progress_and_result(monkeypatch: pytest.MonkeyPatch) ->
             return None
 
     monkeypatch.setattr(sidecar, "EngineService", FakeService)
-    requests = "\n".join(
-        [
-            json.dumps(
-                {
-                    "jsonrpc": "2.0",
-                    "id": "validate-1",
-                    "method": "validate.document",
-                    "params": {"input_path": "doc.md"},
-                }
-            ),
-        ]
-    ) + "\n"
+    requests = (
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": "validate-1",
+                        "method": "validate.document",
+                        "params": {"input_path": "doc.md"},
+                    }
+                ),
+            ]
+        )
+        + "\n"
+    )
     output = io.StringIO()
     server = sidecar.SidecarServer(stdin=io.BytesIO(requests.encode()), stdout=output)
     assert server.run() == 0
@@ -489,8 +490,7 @@ def test_rpc_envelope_covers_worst_case_editor_content_escaping() -> None:
 
 def test_sidecar_request_schema_matches_capability_methods() -> None:
     schema = json.loads(
-        (ROOT / "schemas" / "sidecar" / "v1" / "request.schema.json")
-        .read_text(encoding="utf-8")
+        (ROOT / "schemas" / "sidecar" / "v1" / "request.schema.json").read_text(encoding="utf-8")
     )
     schema_methods = set(schema["properties"]["method"]["enum"])
     capability_methods = set(application.EngineService().capabilities()["methods"])
@@ -517,6 +517,4 @@ def test_every_advertised_method_is_actually_routed() -> None:
     assert advertised - routed == set(), (
         "these methods are advertised but the sidecar refuses to route them"
     )
-    assert routed - advertised == set(), (
-        "these methods are routed but never advertised"
-    )
+    assert routed - advertised == set(), "these methods are routed but never advertised"

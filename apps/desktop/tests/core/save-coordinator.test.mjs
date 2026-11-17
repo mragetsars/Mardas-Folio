@@ -4,13 +4,17 @@ import { createSaveCoordinator } from "../../frontend/js/core/save-coordinator.m
 
 function deferred() {
   let resolve;
-  const promise = new Promise((done) => { resolve = done; });
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
 
 test("saves for one document are serialized and a dirty follow-up uses the latest buffer", async () => {
   const document = { id: "a", content: "A", savedContent: "old" };
-  const coordinator = createSaveCoordinator({ isDirty: (model) => model.content !== model.savedContent });
+  const coordinator = createSaveCoordinator({
+    isDirty: (model) => model.content !== model.savedContent,
+  });
   const firstGate = deferred();
   const snapshots = [];
   const first = coordinator.save(document, async (model) => {
@@ -48,23 +52,27 @@ test("different documents can save independently", async () => {
 
 test("three queued saves keep one per-document tail and preserve snapshot order", async () => {
   const document = { id: "a", content: "A", savedContent: "old" };
-  const coordinator = createSaveCoordinator({ isDirty: (model) => model.content !== model.savedContent });
+  const coordinator = createSaveCoordinator({
+    isDirty: (model) => model.content !== model.savedContent,
+  });
   const firstGate = deferred();
   const secondGate = deferred();
   let active = 0;
   let maximumActive = 0;
   const snapshots = [];
 
-  const operation = (gate = null) => async (model) => {
-    const snapshot = model.content;
-    snapshots.push(snapshot);
-    active += 1;
-    maximumActive = Math.max(maximumActive, active);
-    if (gate) await gate.promise;
-    model.savedContent = snapshot;
-    active -= 1;
-    return true;
-  };
+  const operation =
+    (gate = null) =>
+    async (model) => {
+      const snapshot = model.content;
+      snapshots.push(snapshot);
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      if (gate) await gate.promise;
+      model.savedContent = snapshot;
+      active -= 1;
+      return true;
+    };
 
   const first = coordinator.save(document, operation(firstGate));
   await Promise.resolve();

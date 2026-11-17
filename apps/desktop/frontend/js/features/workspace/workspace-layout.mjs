@@ -53,16 +53,20 @@ export function fitWorkspaceWidths(value, availableWidth) {
   const layout = normalizeWorkspaceLayout(value);
   const width = Math.max(0, Number(availableWidth) || 0);
   if (width <= 1100) {
-    if (width > 760 && layout.previewOpen) layout.previewWidth = Math.min(layout.previewWidth, Math.max(340, width - 321));
+    if (width > 760 && layout.previewOpen)
+      layout.previewWidth = Math.min(layout.previewWidth, Math.max(340, width - 321));
     return layout;
   }
-  const kinds = ["files", "preview", "sidebar"].filter(kind => layout[`${kind}Open`]);
+  const kinds = ["files", "preview", "sidebar"].filter((kind) => layout[`${kind}Open`]);
   const minimum = kinds.reduce((total, kind) => total + LIMITS[kind].min, 0);
   const desired = kinds.reduce((total, kind) => total + layout[`${kind}Width`], 0);
   const budget = Math.max(minimum, width - 320 - kinds.length);
   if (desired <= budget) return layout;
   const fraction = (budget - minimum) / (desired - minimum);
-  for (const kind of kinds) layout[`${kind}Width`] = Math.floor(LIMITS[kind].min + (layout[`${kind}Width`] - LIMITS[kind].min) * fraction);
+  for (const kind of kinds)
+    layout[`${kind}Width`] = Math.floor(
+      LIMITS[kind].min + (layout[`${kind}Width`] - LIMITS[kind].min) * fraction,
+    );
   return layout;
 }
 

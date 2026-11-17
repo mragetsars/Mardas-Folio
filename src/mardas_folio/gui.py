@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
-from collections import Counter
 import hashlib
 import ipaddress
 import json
@@ -15,6 +14,7 @@ import socket
 import tempfile
 import threading
 import webbrowser
+from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
 from pathlib import Path
@@ -22,17 +22,19 @@ from typing import Any, Callable
 from urllib.parse import parse_qs, quote, urlsplit
 
 from . import __version__
-from .brand_assets import asset_content_type, gui_brand_asset_filename, packaged_asset_path
 from .appearance import (
     code_style_for_appearance,
     validate_mode_name,
     validate_palette_name,
     validate_style_name,
 )
+from .brand_assets import asset_content_type, gui_brand_asset_filename, packaged_asset_path
 from .markdown import MarkdownInputError, render_markdown_file
+from .quality import validate_error_policy, validate_quality_profile
+from .render_pool import RenderQueueFullError
 from .renderer import (
-    DocumentAssetError,
     NAMED_PAGE_DIMENSIONS,
+    DocumentAssetError,
     PdfOptions,
     RenderCancelledError,
     RenderSession,
@@ -41,10 +43,7 @@ from .renderer import (
     validate_branding_mode,
     validate_page_size,
 )
-from .render_pool import RenderQueueFullError
-from .quality import validate_error_policy, validate_quality_profile
 from .studio_jobs import StudioExportJob, StudioExportJobError, StudioExportManager
-
 from .workspace import (
     ProjectWorkspace,
     WorkspaceError,
@@ -155,7 +154,9 @@ def _decode_json_payload(raw: bytes) -> dict[str, Any]:
             "Render request body must be UTF-8 encoded.", code="invalid_encoding"
         ) from exc
     try:
-        payload = json.loads(text, parse_constant=_reject_json_constant, parse_float=_finite_json_float)
+        payload = json.loads(
+            text, parse_constant=_reject_json_constant, parse_float=_finite_json_float
+        )
     except (ValueError, RecursionError) as exc:
         raise StudioRequestError(
             "Render request body must be valid JSON with finite numbers and supported nesting.",
@@ -1396,9 +1397,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", artifact.content_type)
             self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header(
-                "Content-Disposition", _attachment_disposition(artifact.filename)
-            )
+            self.send_header("Content-Disposition", _attachment_disposition(artifact.filename))
             self.send_header("Content-Length", str(size))
             self.end_headers()
             with artifact.path.open("rb") as handle:
@@ -1585,8 +1584,7 @@ class GuiRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - stdlib API
         request_path = self._request_path()
         if request_path == "/api/export-jobs" or (
-            (route := _studio_export_job_route(request_path)) is not None
-            and route[1] == "cancel"
+            (route := _studio_export_job_route(request_path)) is not None and route[1] == "cancel"
         ):
             try:
                 if self._handle_export_job_post(request_path):

@@ -7,7 +7,6 @@ import zipfile
 from pathlib import Path
 
 import pytest
-
 from scripts.verify_native_desktop import (
     MIN_NATIVE_BYTES,
     classify_native_artifact,
@@ -141,7 +140,9 @@ def test_native_artifact_classification() -> None:
         assert (kind, platform_name) == expected
 
 
-def test_native_builder_ignores_stale_and_wrong_version_bundles(tmp_path: Path, monkeypatch) -> None:
+def test_native_builder_ignores_stale_and_wrong_version_bundles(
+    tmp_path: Path, monkeypatch
+) -> None:
     from scripts import build_native_desktop as builder
 
     monkeypatch.setattr(builder, "TAURI_ROOT", tmp_path)
@@ -165,7 +166,9 @@ def test_native_builder_ignores_stale_and_wrong_version_bundles(tmp_path: Path, 
         builder._latest_candidate("appimage", produced=produced)
 
 
-def test_macos_updater_requires_a_payload_produced_by_this_build(tmp_path: Path, monkeypatch) -> None:
+def test_macos_updater_requires_a_payload_produced_by_this_build(
+    tmp_path: Path, monkeypatch
+) -> None:
     from scripts import build_native_desktop as builder
 
     monkeypatch.setattr(builder, "TAURI_ROOT", tmp_path)
@@ -191,7 +194,9 @@ def test_native_builder_rejects_a_stale_detached_signature(tmp_path: Path) -> No
     output = tmp_path / "release"
     output.mkdir()
     with pytest.raises(SystemExit, match="updater signature"):
-        builder._copy_signature(candidate, output / "payload.tar.gz", output, produced=frozenset({candidate}))
+        builder._copy_signature(
+            candidate, output / "payload.tar.gz", output, produced=frozenset({candidate})
+        )
 
 
 def test_native_binary_signatures_are_verified(tmp_path: Path) -> None:
@@ -207,7 +212,9 @@ def test_native_binary_signatures_are_verified(tmp_path: Path) -> None:
     body[-512:-508] = b"koly"
     dmg.write_bytes(body)
 
-    assert verify_native_artifact(installer, expected_version=version)["kind"] == "desktop-installer"
+    assert (
+        verify_native_artifact(installer, expected_version=version)["kind"] == "desktop-installer"
+    )
     assert verify_native_artifact(appimage, expected_version=version)["kind"] == "desktop-appimage"
     assert verify_native_artifact(deb, expected_version=version)["kind"] == "desktop-deb"
     assert verify_native_artifact(dmg, expected_version=version)["kind"] == "desktop-dmg"
@@ -233,7 +240,9 @@ def test_native_artifact_verifier_rejects_symlink_input(tmp_path: Path) -> None:
         verify_native_artifact(link, expected_version=version)
 
 
-def test_portable_archive_requires_exact_integrity_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_portable_archive_requires_exact_integrity_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     version = "1.29.0"
     architecture = "x86_64"
     root = f"Mardas-Folio-{version}-windows-{architecture}-portable"
@@ -267,7 +276,9 @@ def test_portable_archive_requires_exact_integrity_manifest(tmp_path: Path, monk
 
     original = zipfile.ZipFile.read
 
-    def metadata_reads_only(archive: zipfile.ZipFile, name: str, *args: object, **kwargs: object) -> bytes:
+    def metadata_reads_only(
+        archive: zipfile.ZipFile, name: str, *args: object, **kwargs: object
+    ) -> bytes:
         assert name.endswith("PORTABLE-MANIFEST.json"), "Payload hashes must be streamed"
         return original(archive, name, *args, **kwargs)
 

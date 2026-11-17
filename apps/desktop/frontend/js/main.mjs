@@ -8,16 +8,36 @@ import { createUpdater } from "./features/settings/updater.mjs";
 import { createSettingsController } from "./features/settings/controller.mjs";
 import { createCommandPalette } from "./ui/command-palette.mjs";
 import { createWorkspacePanes } from "./features/workspace/panes.mjs";
-import { basename, defaultOutputPath, validateExportSelection } from "./features/export/export-request.mjs";
+import {
+  basename,
+  defaultOutputPath,
+  validateExportSelection,
+} from "./features/export/export-request.mjs";
 import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
-import { onboardingIntentPresentation, onboardingPrimaryActionKey, normalizeOnboardingIntent } from "./core/onboarding.mjs";
+import {
+  onboardingIntentPresentation,
+  onboardingPrimaryActionKey,
+  normalizeOnboardingIntent,
+} from "./core/onboarding.mjs";
 import { PRESETS, presetById } from "./features/export/presets.mjs";
 import { createExportOptionsPanel } from "./features/export/export-options-panel.mjs";
 import { spriteIcon } from "./ui/icons.mjs";
 import { addRecent, readRecents, writeRecents } from "./features/documents/recents.mjs";
 import { invoke, listen } from "./adapters/tauri.mjs";
-import { createDocument, documentDirty, findDocumentByPath, markDocumentSaved, pathKey, updateDocumentContent } from "./core/documents.mjs";
-import { readRecoveries, recoveryForPath, removeRecovery, saveRecovery } from "./features/documents/recovery.mjs";
+import {
+  createDocument,
+  documentDirty,
+  findDocumentByPath,
+  markDocumentSaved,
+  pathKey,
+  updateDocumentContent,
+} from "./core/documents.mjs";
+import {
+  readRecoveries,
+  recoveryForPath,
+  removeRecovery,
+  saveRecovery,
+} from "./features/documents/recovery.mjs";
 import { readSession, writeSession } from "./features/documents/session.mjs";
 import {
   bodyStartOffset,
@@ -29,7 +49,11 @@ import {
 } from "./core/markdown-analysis.mjs";
 import { prefixSelectedLines, replaceSelection, wrapSelection } from "./core/editor-commands.mjs";
 import { createFindSession, replaceAllLiteral } from "./core/find-replace.mjs";
-import { documentImageAlts, documentImageSources, localImageDestination } from "./core/document-assets.mjs";
+import {
+  documentImageAlts,
+  documentImageSources,
+  localImageDestination,
+} from "./core/document-assets.mjs";
 import { createEditorAdapter } from "./features/documents/editor-adapter.mjs";
 import { mountDocumentContent } from "./preview/document-content.mjs";
 import { safeOnlineImageURL } from "./preview/online-images.mjs";
@@ -70,10 +94,31 @@ import { fitToolbarGroups } from "./core/toolbar-overflow.mjs";
 import { createModalManager, focusableElements } from "./ui/modal-manager.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
 import { typesetPreviewMath } from "./preview/math.mjs";
-import { bibliographyIndex, cancelSidecarRequest, openProject, readProjectFile, refreshProject, startProjectSearch } from "./adapters/project-api.mjs";
+import {
+  bibliographyIndex,
+  cancelSidecarRequest,
+  openProject,
+  readProjectFile,
+  refreshProject,
+  startProjectSearch,
+} from "./adapters/project-api.mjs";
 import { resetProjectSession } from "./core/project-lifecycle.mjs";
-import { createBookProject, startBookExport, startBookPreview, startBookValidation } from "./adapters/book-api.mjs";
-import { importDocumentAsset, listDocumentAssets, previewDocumentPage, previewDocumentText, readDocument, readTextDocument, resolveMarkdownLink, validateDocumentText } from "./adapters/authoring-api.mjs";
+import {
+  createBookProject,
+  startBookExport,
+  startBookPreview,
+  startBookValidation,
+} from "./adapters/book-api.mjs";
+import {
+  importDocumentAsset,
+  listDocumentAssets,
+  previewDocumentPage,
+  previewDocumentText,
+  readDocument,
+  readTextDocument,
+  resolveMarkdownLink,
+  validateDocumentText,
+} from "./adapters/authoring-api.mjs";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -150,39 +195,136 @@ const t = (key) => translator.t(key);
 
 const { toast } = createNotifications({ query: $ });
 const { updateUi, initializeUpdater, checkUpdates, installAvailableUpdate } = createUpdater({
-  state, query: $, t, toast, errorText, isDirty: documentDirty, confirm: askConfirmation,
+  state,
+  query: $,
+  t,
+  toast,
+  errorText,
+  isDirty: documentDirty,
+  confirm: askConfirmation,
   save: (model) => saveCoordinator.save(model, () => persistDocumentModel(model)),
   refreshAuthoring: () => updateAuthoringMode(activeDocument()),
 });
 const { openSettings, closeSettings, submitSettings, resetSettings } = createSettingsController({
-  state, query: $, getModalManager: () => modalManager, applyInterfacePreferences, setLocale, t, toast,
+  state,
+  query: $,
+  getModalManager: () => modalManager,
+  applyInterfacePreferences,
+  setLocale,
+  t,
+  toast,
 });
-const { renderCommandPalette, openCommandPalette, commandKeydown, resetCommandSelection } = createCommandPalette({
-  query: $, queryAll: $$, getModalManager: () => modalManager, commandDefinitions, t, toast, errorText,
-});
-const { applyWorkspaceLayout, applyNavigatorContext, activateNavigator, isCompactDrawer, workspacePaneOpen, setWorkspacePaneOpen, toggleWorkspacePane, resetWorkspacePaneSizes, closeCompactDrawer, beginPaneResize, resizePaneWithKeyboard } = createWorkspacePanes({
-  state, query: $, queryAll: $$, compactSidePanes, activeDocument, isMarkdownModel, focusDocument,
+const { renderCommandPalette, openCommandPalette, commandKeydown, resetCommandSelection } =
+  createCommandPalette({
+    query: $,
+    queryAll: $$,
+    getModalManager: () => modalManager,
+    commandDefinitions,
+    t,
+    toast,
+    errorText,
+  });
+const {
+  applyWorkspaceLayout,
+  applyNavigatorContext,
+  activateNavigator,
+  isCompactDrawer,
+  workspacePaneOpen,
+  setWorkspacePaneOpen,
+  toggleWorkspacePane,
+  resetWorkspacePaneSizes,
+  closeCompactDrawer,
+  beginPaneResize,
+  resizePaneWithKeyboard,
+} = createWorkspacePanes({
+  state,
+  query: $,
+  queryAll: $$,
+  compactSidePanes,
+  activeDocument,
+  isMarkdownModel,
+  focusDocument,
 });
 
-const { saveActiveDocument, persistDocumentModel, requestCloseDocument, scheduleRecovery } = createDocumentPersistence({
- state, query: $, getEditor: () => editorAdapter, activeDocument, isMarkdownModel, saveCoordinator,
- activateDocument, activateStartTab, focusDocument, saveRecent, persistSession, renderWorkspace,
- renderDocumentTabs: () => renderDocumentTabs(), refreshActiveProject, setSaveState,
- askConfirmation, t, toast, errorText, errorPayload,
-});
+const { saveActiveDocument, persistDocumentModel, requestCloseDocument, scheduleRecovery } =
+  createDocumentPersistence({
+    state,
+    query: $,
+    getEditor: () => editorAdapter,
+    activeDocument,
+    isMarkdownModel,
+    saveCoordinator,
+    activateDocument,
+    activateStartTab,
+    focusDocument,
+    saveRecent,
+    persistSession,
+    renderWorkspace,
+    renderDocumentTabs: () => renderDocumentTabs(),
+    refreshActiveProject,
+    setSaveState,
+    askConfirmation,
+    t,
+    toast,
+    errorText,
+    errorPayload,
+  });
 const { renderDocumentTabs, revealActiveTab, renderFileNavigator } = createDocumentTabs({
- state, query: $, activeDocument, activateDocument, activateStartTab, closeStartTab,
- requestCloseDocument, closeCompactDrawer, setTruncatableText, t,
+  state,
+  query: $,
+  activeDocument,
+  activateDocument,
+  activateStartTab,
+  closeStartTab,
+  requestCloseDocument,
+  closeCompactDrawer,
+  setTruncatableText,
+  t,
 });
-const { openChapterModal, closeChapterModal, bookProject, submitChapterModal, bookChapterRow } = createBookChapters({
- state, query: $, getModalManager: () => modalManager, activeDocument, currentProjectContext,
- projectContextIsCurrent, applyProjectPayload, openProjectRelativeFile, askConfirmation,
- setTruncatableText, t, toast, errorText,
-});
-const { setExportStatus, renderExportStatus, invalidateExportStatus, setExportProgress, syncExportControls, validateExportDocument, exportDocument, cancelExport, openResult, updateExportMessage } = createExportController({
- state, query: $, t, toast, errorText, errorPayload, requestId, exportSelectionValid,
- exportOverrides, hideExportResult, showExportResult, saveRecent, releaseEngineForJob,
- refreshPreviewIfDirty: () => { if (exportPreviewDirty) schedulePdfPreview(0); },
+const { openChapterModal, closeChapterModal, bookProject, submitChapterModal, bookChapterRow } =
+  createBookChapters({
+    state,
+    query: $,
+    getModalManager: () => modalManager,
+    activeDocument,
+    currentProjectContext,
+    projectContextIsCurrent,
+    applyProjectPayload,
+    openProjectRelativeFile,
+    askConfirmation,
+    setTruncatableText,
+    t,
+    toast,
+    errorText,
+  });
+const {
+  setExportStatus,
+  renderExportStatus,
+  invalidateExportStatus,
+  setExportProgress,
+  syncExportControls,
+  validateExportDocument,
+  exportDocument,
+  cancelExport,
+  openResult,
+  updateExportMessage,
+} = createExportController({
+  state,
+  query: $,
+  t,
+  toast,
+  errorText,
+  errorPayload,
+  requestId,
+  exportSelectionValid,
+  exportOverrides,
+  hideExportResult,
+  showExportResult,
+  saveRecent,
+  releaseEngineForJob,
+  refreshPreviewIfDirty: () => {
+    if (exportPreviewDirty) schedulePdfPreview(0);
+  },
 });
 const { safePreviewHtml } = createPreviewSanitizer({ t });
 
@@ -200,16 +342,27 @@ function activeDocument() {
 
 function documentEditable() {
   const model = activeDocument();
-  return Boolean(model && !model.readOnly && !state.updateInstalling && !state.bookPreparing && effectiveViewMode() !== "read");
+  return Boolean(
+    model &&
+    !model.readOnly &&
+    !state.updateInstalling &&
+    !state.bookPreparing &&
+    effectiveViewMode() !== "read",
+  );
 }
 
 function effectiveViewMode() {
-  return activeDocument() && !isMarkdownModel(activeDocument()) ? "source" : state.preferences.viewMode;
+  return activeDocument() && !isMarkdownModel(activeDocument())
+    ? "source"
+    : state.preferences.viewMode;
 }
 
 function contentViewVisible() {
-  return effectiveViewMode() === "read" || (isMarkdownModel(activeDocument())
-    && previewVisibleForView(effectiveViewMode(), state.preferences.sidePreview));
+  return (
+    effectiveViewMode() === "read" ||
+    (isMarkdownModel(activeDocument()) &&
+      previewVisibleForView(effectiveViewMode(), state.preferences.sidePreview))
+  );
 }
 
 function focusDocument() {
@@ -227,11 +380,15 @@ function requestContext(model = activeDocument()) {
 }
 
 function contextIsCurrent(context, options = {}) {
-  return documentContextCurrent(context, {
-    documents: state.documents,
-    activeDocumentId: state.activeDocumentId,
-    projectPath: activeProjectPath(),
-  }, options);
+  return documentContextCurrent(
+    context,
+    {
+      documents: state.documents,
+      activeDocumentId: state.activeDocumentId,
+      projectPath: activeProjectPath(),
+    },
+    options,
+  );
 }
 
 function currentProjectContext() {
@@ -258,18 +415,18 @@ function setLocale(value) {
   translator.locale = state.locale;
   document.documentElement.lang = state.locale;
   document.documentElement.dir = state.locale === "fa" ? "rtl" : "ltr";
-  $$('[data-i18n]').forEach((element) => {
+  $$("[data-i18n]").forEach((element) => {
     element.textContent = t(element.dataset.i18n);
   });
-  $$('[data-i18n-placeholder]').forEach((element) => {
+  $$("[data-i18n-placeholder]").forEach((element) => {
     element.placeholder = t(element.dataset.i18nPlaceholder);
   });
-  $$('[data-i18n-title]').forEach((element) => {
+  $$("[data-i18n-title]").forEach((element) => {
     const label = t(element.dataset.i18nTitle);
     element.title = label;
     if (element.matches("button")) element.setAttribute("aria-label", label);
   });
-  $$('[data-i18n-aria-label]').forEach((element) => {
+  $$("[data-i18n-aria-label]").forEach((element) => {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
   });
   editorAdapter?.setAriaLabel?.(t("markdownEditor"));
@@ -305,7 +462,6 @@ function showView(name) {
   syncExportToastPlacement();
 }
 
-
 /** Keep notifications in the setup column above the export controls. */
 function syncExportToastPlacement() {
   if (document.body.dataset.view !== "export") return;
@@ -320,9 +476,11 @@ function syncExportToastPlacement() {
     region.style.removeProperty("--export-toast-bottom");
     return;
   }
-  region.style.setProperty("--export-toast-bottom", `${Math.ceil(Math.max(12, window.innerHeight - top + 12))}px`);
+  region.style.setProperty(
+    "--export-toast-bottom",
+    `${Math.ceil(Math.max(12, window.innerHeight - top + 12))}px`,
+  );
 }
-
 
 /**
  * Map a Markdown image path to a URL the webview may load.
@@ -334,7 +492,8 @@ function syncExportToastPlacement() {
  */
 function resolveEditorAsset(source) {
   const online = safeOnlineImageURL(source);
-  if (online) return onlineImageOrigins.get(activeDocument())?.has(new URL(online).origin) ? online : null;
+  if (online)
+    return onlineImageOrigins.get(activeDocument())?.has(new URL(online).origin) ? online : null;
   const raw = localImageDestination(source);
   if (!raw) return null;
   const model = activeDocument();
@@ -360,7 +519,7 @@ function resolveEditorAsset(source) {
 function onlineImageOptions(model = activeDocument()) {
   const alts = documentImageAlts(model?.content);
   return {
-    altFor: source => alts.get(source) || "",
+    altFor: (source) => alts.get(source) || "",
     isAllowed(source) {
       const url = safeOnlineImageURL(source);
       return Boolean(url && onlineImageOrigins.get(model)?.has(new URL(url).origin));
@@ -399,7 +558,13 @@ function applyViewMode() {
   const model = activeDocument();
   const markdown = Boolean(model && isMarkdownModel(model));
   editorAdapter?.setMode?.(editorModeForView(mode));
-  editorAdapter?.setReadOnly?.(!model || model.readOnly || mode === "read" || state.updateInstalling || Boolean(state.bookPreparing));
+  editorAdapter?.setReadOnly?.(
+    !model ||
+      model.readOnly ||
+      mode === "read" ||
+      state.updateInstalling ||
+      Boolean(state.bookPreparing),
+  );
 
   const showPreview = markdown && previewVisibleForView(mode, state.preferences.sidePreview);
   if (state.workspaceLayout.previewOpen !== showPreview) {
@@ -436,7 +601,10 @@ function setViewMode(mode) {
   if (mode === previousMode) return;
   const previousLine = previousMode === "read" ? readingSourceLine() : null;
   if (mode === "read" && previousMode !== "read" && activeDocument()) {
-    pendingReadingLine = { id: activeDocument().id, line: editorAdapter?.firstVisibleLine?.() || 1 };
+    pendingReadingLine = {
+      id: activeDocument().id,
+      line: editorAdapter?.firstVisibleLine?.() || 1,
+    };
   }
   // Keep command-palette/deep-link compatibility with the old combined mode.
   if (mode === "split") {
@@ -451,7 +619,8 @@ function setViewMode(mode) {
   }
   updatePreference({ viewMode: mode });
   if (mode === "read") renderReading(activeDocument());
-  else if (previousLine !== null) requestAnimationFrame(() => editorAdapter?.scrollToLine?.(previousLine));
+  else if (previousLine !== null)
+    requestAnimationFrame(() => editorAdapter?.scrollToLine?.(previousLine));
   if (contentViewVisible()) schedulePreview(120, { entering: true });
   if (mode === "read") $("#reading-document")?.focus({ preventScroll: true });
   else editorAdapter?.focus?.();
@@ -473,7 +642,8 @@ function applyInterfacePreferences({ persist = false } = {}) {
   editorAdapter?.setTypewriter?.(state.preferences.typewriter);
   $("#workspace-focus")?.setAttribute("aria-pressed", String(state.preferences.focusMode));
   applyViewMode();
-  for (const autoPreview of $$('[data-content-auto]')) autoPreview.checked = Boolean(state.preferences.autoPreview);
+  for (const autoPreview of $$("[data-content-auto]"))
+    autoPreview.checked = Boolean(state.preferences.autoPreview);
 }
 
 function updatePreference(next, { persist = true } = {}) {
@@ -485,14 +655,19 @@ function updatePreference(next, { persist = true } = {}) {
 function renderDocumentViewControls() {
   if ($("#writing-font")) $("#writing-font").value = state.preferences.writingFont;
   if ($("#writing-density")) $("#writing-density").value = state.preferences.writingDensity;
-  for (const selector of ["#writing-font", "#writing-density"]) if ($(selector)) $(selector).disabled = effectiveViewMode() === "source";
+  for (const selector of ["#writing-font", "#writing-density"])
+    if ($(selector)) $(selector).disabled = effectiveViewMode() === "source";
   if ($("#writing-zoom")) $("#writing-zoom").value = String(state.preferences.documentZoom);
-  if ($("#writing-zoom-label")) $("#writing-zoom-label").textContent = `${state.preferences.documentZoom}%`;
+  if ($("#writing-zoom-label"))
+    $("#writing-zoom-label").textContent = `${state.preferences.documentZoom}%`;
   const zoom = state.preferences.documentZoom;
   const reset = $("#document-zoom-reset");
   if (reset) {
     reset.textContent = `${zoom}%`;
-    reset.setAttribute("aria-label", `${t("documentTextSize")}: ${zoom}%. ${t("resetDocumentZoom")}`);
+    reset.setAttribute(
+      "aria-label",
+      `${t("documentTextSize")}: ${zoom}%. ${t("resetDocumentZoom")}`,
+    );
     reset.title = `${t("resetDocumentZoom")} (Ctrl+0)`;
   }
   const smaller = $("#document-zoom-out");
@@ -506,7 +681,13 @@ function renderDocumentViewControls() {
     const label = t(full ? "useReadableWidth" : "useFullWidth");
     width.title = label;
     width.setAttribute("aria-label", label);
-    $("#document-width-label").textContent = t(full ? "fullColumn" : state.preferences.writingWidth === "wide" ? "wideColumn" : "comfortableColumn");
+    $("#document-width-label").textContent = t(
+      full
+        ? "fullColumn"
+        : state.preferences.writingWidth === "wide"
+          ? "wideColumn"
+          : "comfortableColumn",
+    );
   }
 }
 
@@ -521,7 +702,10 @@ function updateDocumentView(next) {
 }
 
 function changeDocumentZoom(direction) {
-  updateDocumentView({ documentZoom: direction === 0 ? 100 : nextDocumentZoom(state.preferences.documentZoom, direction) });
+  updateDocumentView({
+    documentZoom:
+      direction === 0 ? 100 : nextDocumentZoom(state.preferences.documentZoom, direction),
+  });
 }
 
 function renderTemplateGallery() {
@@ -589,7 +773,6 @@ async function saveSupportBundle() {
   }
 }
 
-
 function renderOnboardingIntent() {
   const presentation = onboardingIntentPresentation(state.onboardingIntent);
   const container = $("#onboarding-intent-summary");
@@ -604,13 +787,18 @@ function renderOnboardingIntent() {
 function setOnboardingStep(step) {
   state.onboardingStep = Math.max(0, Math.min(2, Number(step) || 0));
   $$("[data-onboarding-step]").forEach((section) => {
-    section.classList.toggle("hidden", Number(section.dataset.onboardingStep) !== state.onboardingStep);
+    section.classList.toggle(
+      "hidden",
+      Number(section.dataset.onboardingStep) !== state.onboardingStep,
+    );
   });
   $$("[data-onboarding-dot]").forEach((dot) => {
     dot.classList.toggle("active", Number(dot.dataset.onboardingDot) <= state.onboardingStep);
   });
   $("#onboarding-back").classList.toggle("hidden", state.onboardingStep === 0);
-  $("#onboarding-next").textContent = t(onboardingPrimaryActionKey(state.onboardingStep, state.onboardingIntent));
+  $("#onboarding-next").textContent = t(
+    onboardingPrimaryActionKey(state.onboardingStep, state.onboardingIntent),
+  );
   renderOnboardingIntent();
 }
 
@@ -618,7 +806,9 @@ function openOnboarding({ force = false } = {}) {
   if (!force && state.preferences.onboardingComplete) return false;
   state.onboardingIntent = null;
   setOnboardingStep(0);
-  modalManager.open($("#onboarding-modal"), { initialFocus: "[data-onboarding-action='document']" });
+  modalManager.open($("#onboarding-modal"), {
+    initialFocus: "[data-onboarding-action='document']",
+  });
   return true;
 }
 
@@ -650,53 +840,377 @@ function commandDefinitions() {
   const canEdit = documentEditable() && isMarkdownModel(activeDocument());
   return [
     ...[
-      ["bold", "bold", "pencil"], ["italic", "italic", "pencil"], ["strike", "strikethrough", "pencil"],
-      ["link", "link", "link"], ["code", "code", "source"], ["bullet-list", "bulletList", "outline"],
-      ["ordered-list", "orderedList", "outline"], ["task-list", "taskList", "quality"], ["quote", "blockQuote", "quote"],
-      ["table", "insertTable", "table"], ["code-block", "codeBlock", "source"], ["callout", "insertCallout", "callout"],
+      ["bold", "bold", "pencil"],
+      ["italic", "italic", "pencil"],
+      ["strike", "strikethrough", "pencil"],
+      ["link", "link", "link"],
+      ["code", "code", "source"],
+      ["bullet-list", "bulletList", "outline"],
+      ["ordered-list", "orderedList", "outline"],
+      ["task-list", "taskList", "quality"],
+      ["quote", "blockQuote", "quote"],
+      ["table", "insertTable", "table"],
+      ["code-block", "codeBlock", "source"],
+      ["callout", "insertCallout", "callout"],
       ["rule", "horizontalRule", "rule"],
-    ].map(([command, label, symbol]) => ({ id: `format-${command}`, symbol, label: t(label), keywords: `${command} markdown format قالب بندی`, priority: 45, enabled: canEdit, run: () => editorCommand(command) })),
-    ...[1, 2, 3, 4, 5, 6].map((level) => ({ id: `format-heading-${level}`, symbol: "outline", label: `${t("heading")} ${level}`, keywords: `heading h${level} عنوان`, priority: 43, enabled: canEdit, run: () => editorCommand(`heading-${level}`) })),
-    { id: "insert-image", symbol: "image", label: t("insertImage"), keywords: "image photo تصویر عکس", priority: 45, enabled: canEdit, run: () => importAsset() },
-    { id: "quick-open", symbol: "folder", label: t("quickOpen"), keywords: "switch file document فایل سند", shortcut: "Ctrl P", priority: 94, run: () => navigationPicker.open("files") },
-    { id: "go-heading", symbol: "outline", label: t("goToHeading"), keywords: "heading outline section عنوان بخش", shortcut: "Ctrl Shift O", priority: 59, enabled: canRender, run: () => navigationPicker.open("headings") },
-    { id: "files-pane", symbol: "panel-left", label: t("toggleFiles"), keywords: "files explorer navigator فایل", priority: 38, run: () => toggleWorkspacePane("files") },
-    { id: "inspector-pane", symbol: "outline", label: t("toggleSidebar"), keywords: "outline inspector properties ساختار مشخصات", priority: 38, run: () => toggleWorkspacePane("sidebar") },
-    { id: "formatting-pane", symbol: "pencil", label: t("toggleFormatting"), keywords: "format toolbar tools قالب بندی", priority: 38, enabled: canEdit, run: () => toggleWorkspacePane("formatting") },
-    { id: "new", symbol: "plus", label: t("commandNewDocument"), keywords: "new document markdown", shortcut: "Ctrl N", priority: 100, run: () => createUntitledDocument() },
-    { id: "open", symbol: "file", label: t("commandOpenDocument"), keywords: "open file markdown", shortcut: "Ctrl O", priority: 95, run: () => chooseAuthoringFiles() },
-    { id: "project", symbol: "folder", label: t("commandOpenProject"), keywords: "open folder workspace project", priority: 80, run: () => chooseProjectDirectory() },
-    { id: "close-project", symbol: "close", label: t("closeProject"), keywords: "close project workspace folder", priority: 55, enabled: Boolean(state.project?.path), run: closeActiveProject },
-    { id: "book", symbol: "book", label: t("commandNewBook"), keywords: "book thesis chapters project", priority: 75, run: () => openNewBookModal() },
-    { id: "save", symbol: "save", label: t("commandSave"), keywords: "save write", shortcut: "Ctrl S", priority: 90, enabled: hasDocument, run: () => saveActiveDocument() },
-    { id: "save-as", symbol: "save-as", label: t("commandSaveAs"), keywords: "save as copy", shortcut: "Ctrl Shift S", priority: 70, enabled: hasDocument, run: () => saveActiveDocument({ saveAs: true }) },
-    { id: "validate", symbol: "quality", label: t("commandValidate"), keywords: "check problems diagnostics", priority: 65, enabled: canRender, run: () => validateActiveDocument() },
-    { id: "export", symbol: "export", label: t("commandExport"), keywords: "pdf html word docx publish render خروجی", priority: 85, enabled: document.body.dataset.view !== "export", run: openWorkspaceExport },
-    { id: "export-file", symbol: "file", label: t("exportFile"), keywords: "export file external markdown", priority: 45, enabled: document.body.dataset.view !== "export", run: openFileExport },
-    { id: "find", symbol: "search", label: t("commandFind"), keywords: "find replace search", shortcut: "Ctrl F", priority: 60, enabled: hasDocument, run: () => openFind({ replace: false }) },
-    { id: "settings", symbol: "settings", label: t("commandSettings"), keywords: "preferences appearance accessibility", priority: 40, run: () => openSettings() },
-    { id: "support-bundle", symbol: "archive", label: t("commandSupportBundle"), keywords: "support diagnostics troubleshooting zip privacy", priority: 38, run: () => saveSupportBundle() },
-    { id: "updates", symbol: "update", label: t("commandCheckUpdates"), keywords: "update upgrade release version", priority: 37, run: () => { openSettings("settings-updates"); setTimeout(() => checkUpdates(), 0); } },
+    ].map(([command, label, symbol]) => ({
+      id: `format-${command}`,
+      symbol,
+      label: t(label),
+      keywords: `${command} markdown format قالب بندی`,
+      priority: 45,
+      enabled: canEdit,
+      run: () => editorCommand(command),
+    })),
+    ...[1, 2, 3, 4, 5, 6].map((level) => ({
+      id: `format-heading-${level}`,
+      symbol: "outline",
+      label: `${t("heading")} ${level}`,
+      keywords: `heading h${level} عنوان`,
+      priority: 43,
+      enabled: canEdit,
+      run: () => editorCommand(`heading-${level}`),
+    })),
+    {
+      id: "insert-image",
+      symbol: "image",
+      label: t("insertImage"),
+      keywords: "image photo تصویر عکس",
+      priority: 45,
+      enabled: canEdit,
+      run: () => importAsset(),
+    },
+    {
+      id: "quick-open",
+      symbol: "folder",
+      label: t("quickOpen"),
+      keywords: "switch file document فایل سند",
+      shortcut: "Ctrl P",
+      priority: 94,
+      run: () => navigationPicker.open("files"),
+    },
+    {
+      id: "go-heading",
+      symbol: "outline",
+      label: t("goToHeading"),
+      keywords: "heading outline section عنوان بخش",
+      shortcut: "Ctrl Shift O",
+      priority: 59,
+      enabled: canRender,
+      run: () => navigationPicker.open("headings"),
+    },
+    {
+      id: "files-pane",
+      symbol: "panel-left",
+      label: t("toggleFiles"),
+      keywords: "files explorer navigator فایل",
+      priority: 38,
+      run: () => toggleWorkspacePane("files"),
+    },
+    {
+      id: "inspector-pane",
+      symbol: "outline",
+      label: t("toggleSidebar"),
+      keywords: "outline inspector properties ساختار مشخصات",
+      priority: 38,
+      run: () => toggleWorkspacePane("sidebar"),
+    },
+    {
+      id: "formatting-pane",
+      symbol: "pencil",
+      label: t("toggleFormatting"),
+      keywords: "format toolbar tools قالب بندی",
+      priority: 38,
+      enabled: canEdit,
+      run: () => toggleWorkspacePane("formatting"),
+    },
+    {
+      id: "new",
+      symbol: "plus",
+      label: t("commandNewDocument"),
+      keywords: "new document markdown",
+      shortcut: "Ctrl N",
+      priority: 100,
+      run: () => createUntitledDocument(),
+    },
+    {
+      id: "open",
+      symbol: "file",
+      label: t("commandOpenDocument"),
+      keywords: "open file markdown",
+      shortcut: "Ctrl O",
+      priority: 95,
+      run: () => chooseAuthoringFiles(),
+    },
+    {
+      id: "project",
+      symbol: "folder",
+      label: t("commandOpenProject"),
+      keywords: "open folder workspace project",
+      priority: 80,
+      run: () => chooseProjectDirectory(),
+    },
+    {
+      id: "close-project",
+      symbol: "close",
+      label: t("closeProject"),
+      keywords: "close project workspace folder",
+      priority: 55,
+      enabled: Boolean(state.project?.path),
+      run: closeActiveProject,
+    },
+    {
+      id: "book",
+      symbol: "book",
+      label: t("commandNewBook"),
+      keywords: "book thesis chapters project",
+      priority: 75,
+      run: () => openNewBookModal(),
+    },
+    {
+      id: "save",
+      symbol: "save",
+      label: t("commandSave"),
+      keywords: "save write",
+      shortcut: "Ctrl S",
+      priority: 90,
+      enabled: hasDocument,
+      run: () => saveActiveDocument(),
+    },
+    {
+      id: "save-as",
+      symbol: "save-as",
+      label: t("commandSaveAs"),
+      keywords: "save as copy",
+      shortcut: "Ctrl Shift S",
+      priority: 70,
+      enabled: hasDocument,
+      run: () => saveActiveDocument({ saveAs: true }),
+    },
+    {
+      id: "validate",
+      symbol: "quality",
+      label: t("commandValidate"),
+      keywords: "check problems diagnostics",
+      priority: 65,
+      enabled: canRender,
+      run: () => validateActiveDocument(),
+    },
+    {
+      id: "export",
+      symbol: "export",
+      label: t("commandExport"),
+      keywords: "pdf html word docx publish render خروجی",
+      priority: 85,
+      enabled: document.body.dataset.view !== "export",
+      run: openWorkspaceExport,
+    },
+    {
+      id: "export-file",
+      symbol: "file",
+      label: t("exportFile"),
+      keywords: "export file external markdown",
+      priority: 45,
+      enabled: document.body.dataset.view !== "export",
+      run: openFileExport,
+    },
+    {
+      id: "find",
+      symbol: "search",
+      label: t("commandFind"),
+      keywords: "find replace search",
+      shortcut: "Ctrl F",
+      priority: 60,
+      enabled: hasDocument,
+      run: () => openFind({ replace: false }),
+    },
+    {
+      id: "settings",
+      symbol: "settings",
+      label: t("commandSettings"),
+      keywords: "preferences appearance accessibility",
+      priority: 40,
+      run: () => openSettings(),
+    },
+    {
+      id: "support-bundle",
+      symbol: "archive",
+      label: t("commandSupportBundle"),
+      keywords: "support diagnostics troubleshooting zip privacy",
+      priority: 38,
+      run: () => saveSupportBundle(),
+    },
+    {
+      id: "updates",
+      symbol: "update",
+      label: t("commandCheckUpdates"),
+      keywords: "update upgrade release version",
+      priority: 37,
+      run: () => {
+        openSettings("settings-updates");
+        setTimeout(() => checkUpdates(), 0);
+      },
+    },
     // The constructs with no button of their own, so the palette can reach
     // them by name as well as the Insert menu by picture.
-    { id: "insert-footnote", symbol: "footnote", label: t("insertFootnote"), keywords: "footnote note reference پانویس", priority: 46, enabled: canEdit, run: () => editorCommand("footnote") },
-    { id: "insert-math-inline", symbol: "maths", label: t("insertMathInline"), keywords: "math formula equation latex فرمول ریاضی", priority: 45, enabled: canEdit, run: () => editorCommand("math-inline") },
-    { id: "insert-math-block", symbol: "maths-block", label: t("insertMathBlock"), keywords: "math display block equation فرمول", priority: 44, enabled: canEdit, run: () => editorCommand("math-block") },
-    { id: "insert-diagram", symbol: "diagram", label: t("insertDiagram"), keywords: "mermaid diagram graph chart نمودار", priority: 43, enabled: canEdit, run: () => editorCommand("mermaid") },
-    { id: "insert-highlight", symbol: "highlight", label: t("insertHighlight"), keywords: "highlight mark هایلایت", priority: 43, enabled: canEdit, run: () => editorCommand("highlight") },
-    { id: "view-write", symbol: "pencil", label: t("viewWrite"), keywords: "write live formatted wysiwyg نوشتن", priority: 42, enabled: canRender, run: () => setViewMode("write") },
-    { id: "view-source", symbol: "source", label: t("viewSource"), keywords: "source raw markdown سورس", priority: 41, enabled: hasDocument, run: () => setViewMode("source") },
-    { id: "view-read", symbol: "book", label: t("viewRead"), keywords: "reading readonly خواندن مطالعه", priority: 41, enabled: canRender, run: () => setViewMode("read") },
-    { id: "view-split", symbol: "panel-right", label: t("sidePreview"), keywords: "split preview compare دوستونه پیش نمایش", priority: 40, enabled: canRender && effectiveViewMode() !== "read", run: toggleSidePreview },
-    { id: "view-guide", symbol: "help", label: t("viewGuide"), keywords: "view mode source read preview راهنمای نما", priority: 40, run: () => modalManager.open($("#view-guide-modal")) },
-    { id: "typewriter", symbol: "typewriter", label: t("typewriterMode"), keywords: "typewriter scroll centre writing ماشین تحریر", priority: 39, run: () => updatePreference({ typewriter: !state.preferences.typewriter }) },
-    { id: "focus-mode", symbol: "focus", label: t("focusMode"), keywords: "focus distraction free zen تمرکز", priority: 39, enabled: hasDocument, run: () => updatePreference({ focusMode: !state.preferences.focusMode }) },
-    { id: "document-zoom-in", symbol: "zoom-in", label: t("increaseDocumentText"), keywords: "zoom text font larger اندازه متن بزرگ", shortcut: "Ctrl +", priority: 38, run: () => changeDocumentZoom(1) },
-    { id: "document-zoom-out", symbol: "zoom-out", label: t("decreaseDocumentText"), keywords: "zoom text font smaller اندازه متن کوچک", shortcut: "Ctrl -", priority: 38, run: () => changeDocumentZoom(-1) },
-    { id: "document-zoom-reset", symbol: "zoom-in", label: t("resetDocumentZoom"), keywords: "zoom text font reset اندازه متن", shortcut: "Ctrl 0", priority: 37, run: () => changeDocumentZoom(0) },
-    { id: "document-full-width", symbol: "focus", label: t("useFullWidth"), keywords: "document width full canvas عرض تمام", priority: 37, run: () => updateDocumentView({ writingWidth: "full" }) },
-    { id: "document-readable-width", symbol: "book", label: t("useReadableWidth"), keywords: "document width readable column عرض ستون خوانا", priority: 37, run: () => updateDocumentView({ writingWidth: "readable" }) },
-    { id: "help", symbol: "help", label: t("commandHelp"), keywords: "help shortcuts guide onboarding", shortcut: "F1", priority: 35, run: () => openHelp() },
+    {
+      id: "insert-footnote",
+      symbol: "footnote",
+      label: t("insertFootnote"),
+      keywords: "footnote note reference پانویس",
+      priority: 46,
+      enabled: canEdit,
+      run: () => editorCommand("footnote"),
+    },
+    {
+      id: "insert-math-inline",
+      symbol: "maths",
+      label: t("insertMathInline"),
+      keywords: "math formula equation latex فرمول ریاضی",
+      priority: 45,
+      enabled: canEdit,
+      run: () => editorCommand("math-inline"),
+    },
+    {
+      id: "insert-math-block",
+      symbol: "maths-block",
+      label: t("insertMathBlock"),
+      keywords: "math display block equation فرمول",
+      priority: 44,
+      enabled: canEdit,
+      run: () => editorCommand("math-block"),
+    },
+    {
+      id: "insert-diagram",
+      symbol: "diagram",
+      label: t("insertDiagram"),
+      keywords: "mermaid diagram graph chart نمودار",
+      priority: 43,
+      enabled: canEdit,
+      run: () => editorCommand("mermaid"),
+    },
+    {
+      id: "insert-highlight",
+      symbol: "highlight",
+      label: t("insertHighlight"),
+      keywords: "highlight mark هایلایت",
+      priority: 43,
+      enabled: canEdit,
+      run: () => editorCommand("highlight"),
+    },
+    {
+      id: "view-write",
+      symbol: "pencil",
+      label: t("viewWrite"),
+      keywords: "write live formatted wysiwyg نوشتن",
+      priority: 42,
+      enabled: canRender,
+      run: () => setViewMode("write"),
+    },
+    {
+      id: "view-source",
+      symbol: "source",
+      label: t("viewSource"),
+      keywords: "source raw markdown سورس",
+      priority: 41,
+      enabled: hasDocument,
+      run: () => setViewMode("source"),
+    },
+    {
+      id: "view-read",
+      symbol: "book",
+      label: t("viewRead"),
+      keywords: "reading readonly خواندن مطالعه",
+      priority: 41,
+      enabled: canRender,
+      run: () => setViewMode("read"),
+    },
+    {
+      id: "view-split",
+      symbol: "panel-right",
+      label: t("sidePreview"),
+      keywords: "split preview compare دوستونه پیش نمایش",
+      priority: 40,
+      enabled: canRender && effectiveViewMode() !== "read",
+      run: toggleSidePreview,
+    },
+    {
+      id: "view-guide",
+      symbol: "help",
+      label: t("viewGuide"),
+      keywords: "view mode source read preview راهنمای نما",
+      priority: 40,
+      run: () => modalManager.open($("#view-guide-modal")),
+    },
+    {
+      id: "typewriter",
+      symbol: "typewriter",
+      label: t("typewriterMode"),
+      keywords: "typewriter scroll centre writing ماشین تحریر",
+      priority: 39,
+      run: () => updatePreference({ typewriter: !state.preferences.typewriter }),
+    },
+    {
+      id: "focus-mode",
+      symbol: "focus",
+      label: t("focusMode"),
+      keywords: "focus distraction free zen تمرکز",
+      priority: 39,
+      enabled: hasDocument,
+      run: () => updatePreference({ focusMode: !state.preferences.focusMode }),
+    },
+    {
+      id: "document-zoom-in",
+      symbol: "zoom-in",
+      label: t("increaseDocumentText"),
+      keywords: "zoom text font larger اندازه متن بزرگ",
+      shortcut: "Ctrl +",
+      priority: 38,
+      run: () => changeDocumentZoom(1),
+    },
+    {
+      id: "document-zoom-out",
+      symbol: "zoom-out",
+      label: t("decreaseDocumentText"),
+      keywords: "zoom text font smaller اندازه متن کوچک",
+      shortcut: "Ctrl -",
+      priority: 38,
+      run: () => changeDocumentZoom(-1),
+    },
+    {
+      id: "document-zoom-reset",
+      symbol: "zoom-in",
+      label: t("resetDocumentZoom"),
+      keywords: "zoom text font reset اندازه متن",
+      shortcut: "Ctrl 0",
+      priority: 37,
+      run: () => changeDocumentZoom(0),
+    },
+    {
+      id: "document-full-width",
+      symbol: "focus",
+      label: t("useFullWidth"),
+      keywords: "document width full canvas عرض تمام",
+      priority: 37,
+      run: () => updateDocumentView({ writingWidth: "full" }),
+    },
+    {
+      id: "document-readable-width",
+      symbol: "book",
+      label: t("useReadableWidth"),
+      keywords: "document width readable column عرض ستون خوانا",
+      priority: 37,
+      run: () => updateDocumentView({ writingWidth: "readable" }),
+    },
+    {
+      id: "help",
+      symbol: "help",
+      label: t("commandHelp"),
+      keywords: "help shortcuts guide onboarding",
+      shortcut: "F1",
+      priority: 35,
+      run: () => openHelp(),
+    },
   ];
 }
 
@@ -738,9 +1252,8 @@ const exportOptions = createExportOptionsPanel({
     renderSummary();
     schedulePdfPreview();
   },
-  pickPath: (field) => invoke(
-    field.widget === "directory" ? "pick_project_directory" : "pick_document_asset",
-  ),
+  pickPath: (field) =>
+    invoke(field.widget === "directory" ? "pick_project_directory" : "pick_document_asset"),
   onError: (error) => toast(errorText(error), "error"),
 });
 
@@ -834,7 +1347,8 @@ function setExportPreviewState(key) {
   const label = $("#export-preview-state");
   label.textContent = key ? t(key) : "";
   const retry = $("#export-preview-retry");
-  if (key !== "previewFailedShort" && document.activeElement === retry) $("#export-preview-title").focus({ preventScroll: true });
+  if (key !== "previewFailedShort" && document.activeElement === retry)
+    $("#export-preview-title").focus({ preventScroll: true });
   retry.hidden = key !== "previewFailedShort";
 }
 
@@ -900,7 +1414,13 @@ function renderPreviewToolbar(deckState) {
   $("#preview-fit-width")?.setAttribute("aria-pressed", String(deckState.zoomMode === "fit-width"));
   $("#preview-fit-page")?.setAttribute("aria-pressed", String(deckState.zoomMode === "fit-page"));
   $("#preview-guides")?.setAttribute("aria-pressed", String(Boolean(deckState.guides)));
-  for (const id of ["#preview-zoom-out", "#preview-zoom-in", "#preview-fit-width", "#preview-fit-page", "#preview-guides"]) {
+  for (const id of [
+    "#preview-zoom-out",
+    "#preview-zoom-in",
+    "#preview-fit-width",
+    "#preview-fit-page",
+    "#preview-guides",
+  ]) {
     const button = $(id);
     if (button) button.disabled = !hasPages;
   }
@@ -915,11 +1435,20 @@ function renderPreviewToolbar(deckState) {
 }
 
 function movePreviewPage(delta) {
-  if ($(delta < 0 ? "#preview-prev-page" : "#preview-next-page").getAttribute("aria-disabled") === "true") return;
+  if (
+    $(delta < 0 ? "#preview-prev-page" : "#preview-next-page").getAttribute("aria-disabled") ===
+    "true"
+  )
+    return;
   const deck = exportPreviewDeck();
   if (!deck?.pageCount) return;
   const counter = $("#preview-page-count");
-  const current = Number(String(counter?.textContent || "1").split("/")[0].trim()) || 1;
+  const current =
+    Number(
+      String(counter?.textContent || "1")
+        .split("/")[0]
+        .trim(),
+    ) || 1;
   deck.goToPage(current + delta);
 }
 
@@ -1063,7 +1592,9 @@ function exportOverrides() {
 
 function renderPresets() {
   const select = $("#export-preset");
-  select.replaceChildren(...Object.values(PRESETS).map((preset) => new Option(t(preset.titleKey), preset.id)));
+  select.replaceChildren(
+    ...Object.values(PRESETS).map((preset) => new Option(t(preset.titleKey), preset.id)),
+  );
   select.value = state.presetId;
 }
 
@@ -1094,19 +1625,25 @@ function renderSummary() {
   const rows = [
     [t("pageSize"), options.page_size ?? t("inherit")],
     [t("toc"), options.toc === undefined ? t("inherit") : t(options.toc ? "enabled" : "disabled")],
-    [t("quality"), options.quality_profile === undefined ? t("inherit")
-      : t(options.quality_profile === "strict-publication" ? "strict" : "standard")],
+    [
+      t("quality"),
+      options.quality_profile === undefined
+        ? t("inherit")
+        : t(options.quality_profile === "strict-publication" ? "strict" : "standard"),
+    ],
   ];
-  container.replaceChildren(...rows.map(([label, value]) => {
-    const row = document.createElement("div");
-    row.className = "summary-row";
-    const caption = document.createElement("dt");
-    caption.textContent = label;
-    const detail = document.createElement("dd");
-    setTruncatableText(detail, value);
-    row.append(caption, detail);
-    return row;
-  }));
+  container.replaceChildren(
+    ...rows.map(([label, value]) => {
+      const row = document.createElement("div");
+      row.className = "summary-row";
+      const caption = document.createElement("dt");
+      caption.textContent = label;
+      const detail = document.createElement("dd");
+      setTruncatableText(detail, value);
+      row.append(caption, detail);
+      return row;
+    }),
+  );
 }
 
 function renderRecents() {
@@ -1168,7 +1705,9 @@ function openExportFormat(onPdf, { book = false, returnFocus } = {}) {
   modalManager.open(dialog, {
     initialFocus: pdfButton,
     returnFocus,
-    onClose: () => { pdfButton.onclick = null; },
+    onClose: () => {
+      pdfButton.onclick = null;
+    },
   });
 }
 
@@ -1179,18 +1718,24 @@ function openFileExport() {
 function openWorkspaceExport() {
   const model = activeDocument();
   const intent = state.documentActivationSequence;
-  openExportFormat(() => {
-    if (!model || !isMarkdownModel(model)) return openExportSource("");
-    if (intent !== state.documentActivationSequence || activeDocument()?.id !== model.id) {
-      toast(t("exportDocumentChanged"), "warning");
-      return;
-    }
-    return exportActiveDocument();
-  }, { returnFocus: $("#workspace-export") });
+  openExportFormat(
+    () => {
+      if (!model || !isMarkdownModel(model)) return openExportSource("");
+      if (intent !== state.documentActivationSequence || activeDocument()?.id !== model.id) {
+        toast(t("exportDocumentChanged"), "warning");
+        return;
+      }
+      return exportActiveDocument();
+    },
+    { returnFocus: $("#workspace-export") },
+  );
 }
 
 function renderExportFiles() {
-  for (const [kind, path] of [["source", state.sourcePath], ["output", state.outputPath]]) {
+  for (const [kind, path] of [
+    ["source", state.sourcePath],
+    ["output", state.outputPath],
+  ]) {
     const input = $(`#${kind}-path`);
     input.value = path;
     input.title = path;
@@ -1250,7 +1795,9 @@ async function chooseExportOutput() {
     return;
   }
   try {
-    const path = await invoke("pick_pdf_output", { suggested_path: state.outputPath || defaultOutputPath(state.sourcePath) });
+    const path = await invoke("pick_pdf_output", {
+      suggested_path: state.outputPath || defaultOutputPath(state.sourcePath),
+    });
     if (path) {
       state.outputPath = path;
       renderExportFiles();
@@ -1262,14 +1809,21 @@ async function chooseExportOutput() {
 }
 
 function exportSelectionValid() {
-  const errors = validateExportSelection({ sourcePath: state.sourcePath, outputPath: state.outputPath });
+  const errors = validateExportSelection({
+    sourcePath: state.sourcePath,
+    outputPath: state.outputPath,
+  });
   if (!errors.length) return true;
   setExportStatus("error", "errorTitle", { message: errors.map((code) => t(code)).join(" ") });
   if (errors.some((code) => code === "source_required" || code === "source_markdown")) {
     setExportPane("setup");
     setExportSettingsOpen(false, { focus: false });
     $("#choose-source").focus();
-  } else if (errors.some((code) => code === "output_required" || code === "output_pdf" || code === "paths_differ")) {
+  } else if (
+    errors.some(
+      (code) => code === "output_required" || code === "output_pdf" || code === "paths_differ",
+    )
+  ) {
     $("#choose-output").focus();
   }
   return false;
@@ -1304,19 +1858,24 @@ function updateLineGutter() {
 
 function updateEditorMetrics() {
   const model = activeDocument();
-  const position = editorAdapter?.lineAtOffset?.() || textMetrics(model?.content || "", currentEditor().selectionStart);
+  const position =
+    editorAdapter?.lineAtOffset?.() ||
+    textMetrics(model?.content || "", currentEditor().selectionStart);
   const metrics = documentMetrics(model, position);
-  $("#cursor-status").textContent = `${t("lineShort")} ${metrics.line}, ${t("columnShort")} ${metrics.column}`;
-  $("#word-status").textContent = `${metrics.words} ${t("wordsLabel")} · ${metrics.characters} ${t("charactersLabel")}`;
+  $("#cursor-status").textContent =
+    `${t("lineShort")} ${metrics.line}, ${t("columnShort")} ${metrics.column}`;
+  $("#word-status").textContent =
+    `${metrics.words} ${t("wordsLabel")} · ${metrics.characters} ${t("charactersLabel")}`;
   outlineNavigator?.setActiveLine(metrics.line, { scroll: true });
   updateFormattingState();
 }
 
 function updateFormattingState() {
   const flags = editorAdapter?.getFormattingState?.() || {};
-  for (const button of $$('[data-editor-command]')) {
+  for (const button of $$("[data-editor-command]")) {
     const command = button.dataset.editorCommand;
-    if (Object.hasOwn(flags, command) && typeof flags[command] === "boolean") button.setAttribute("aria-pressed", String(flags[command]));
+    if (Object.hasOwn(flags, command) && typeof flags[command] === "boolean")
+      button.setAttribute("aria-pressed", String(flags[command]));
     else button.removeAttribute("aria-pressed");
   }
 }
@@ -1324,10 +1883,20 @@ function updateFormattingState() {
 function renderOutline(model) {
   const outline = extractOutline(model?.content || "");
   $("#outline-count").textContent = String(outline.length);
-  if (!outlineNavigator) outlineNavigator = createOutlineNavigator({ container: $("#outline-list"), onNavigate: (line) => goToLine(line) });
+  if (!outlineNavigator)
+    outlineNavigator = createOutlineNavigator({
+      container: $("#outline-list"),
+      onNavigate: (line) => goToLine(line),
+    });
   if (outlineLocale !== state.locale) {
     outlineLocale = state.locale;
-    outlineNavigator.setLabels({ empty: t("noOutline"), noMatches: t("noOutlineMatches"), label: t("documentOutline"), expand: t("expandOutline"), collapse: t("collapseOutline") });
+    outlineNavigator.setLabels({
+      empty: t("noOutline"),
+      noMatches: t("noOutlineMatches"),
+      label: t("documentOutline"),
+      expand: t("expandOutline"),
+      collapse: t("collapseOutline"),
+    });
   }
   outlineNavigator.setItems(outline, { documentId: model?.id || "empty" });
   applyNavigatorContext();
@@ -1344,11 +1913,18 @@ function loadFrontMatterForm(model) {
     const input = form.elements.namedItem(name);
     if (!input) continue;
     const value = fields[name];
-    const present = rawLines.some((line) => new RegExp(`^(?:${name}|"${name}"|'${name}'):`).test(line));
-    const structured = present && (value === undefined || (value !== null && typeof value === "object")
-      || /[\r\n]/.test(String(value ?? ""))
-      || (input instanceof HTMLSelectElement && value !== undefined && ![...input.options].some((option) => option.value === String(value))));
-    input.value = structured ? "" : value ?? (name === "lang" || name === "dir" ? "auto" : "");
+    const present = rawLines.some((line) =>
+      new RegExp(`^(?:${name}|"${name}"|'${name}'):`).test(line),
+    );
+    const structured =
+      present &&
+      (value === undefined ||
+        (value !== null && typeof value === "object") ||
+        /[\r\n]/.test(String(value ?? "")) ||
+        (input instanceof HTMLSelectElement &&
+          value !== undefined &&
+          ![...input.options].some((option) => option.value === String(value))));
+    input.value = structured ? "" : (value ?? (name === "lang" || name === "dir" ? "auto" : ""));
     input.disabled = !documentEditable() || structured;
     input.title = structured ? t("structuredMetadataHelp") : "";
     frontMatterFormBaseline.set(name, input.value);
@@ -1361,7 +1937,10 @@ function loadFrontMatterForm(model) {
   toc.disabled = !documentEditable() || tocStructured;
   toc.title = tocStructured ? t("structuredMetadataHelp") : "";
   frontMatterFormBaseline.set("toc", toc.checked);
-  $("#structured-metadata-note")?.classList.toggle("hidden", !(hasStructuredFields || tocStructured));
+  $("#structured-metadata-note")?.classList.toggle(
+    "hidden",
+    !(hasStructuredFields || tocStructured),
+  );
 }
 
 function renderCitations(model) {
@@ -1370,9 +1949,15 @@ function renderCitations(model) {
     renderBibliographyEntries(state.bibliographyEntries, used);
     return;
   }
-  const entries = Array.isArray(model?.preview?.document?.citation_entries) ? model.preview.document.citation_entries : [];
-  const entryKeys = entries.map((entry) => entry.key || entry.id || entry.citation_key).filter(Boolean);
-  const keys = [...new Set([...used, ...entryKeys])].sort((a, b) => String(a).localeCompare(String(b)));
+  const entries = Array.isArray(model?.preview?.document?.citation_entries)
+    ? model.preview.document.citation_entries
+    : [];
+  const entryKeys = entries
+    .map((entry) => entry.key || entry.id || entry.citation_key)
+    .filter(Boolean);
+  const keys = [...new Set([...used, ...entryKeys])].sort((a, b) =>
+    String(a).localeCompare(String(b)),
+  );
   $("#citation-count").textContent = String(keys.length);
   const list = $("#citation-list");
   list.replaceChildren();
@@ -1386,7 +1971,9 @@ function renderCitations(model) {
     button.type = "button";
     button.innerHTML = `<span class="citation-key"></span><small></small>`;
     button.querySelector(".citation-key").textContent = `@${key}`;
-    button.querySelector("small").textContent = t(used.includes(key) ? "cited" : "bibliographyLibrary");
+    button.querySelector("small").textContent = t(
+      used.includes(key) ? "cited" : "bibliographyLibrary",
+    );
     button.addEventListener("click", () => insertAtCursor(`[@${key}]`));
     list.append(button);
   }
@@ -1394,8 +1981,12 @@ function renderCitations(model) {
 
 function renderProblems(model) {
   const entries = [
-    ...(Array.isArray(model?.diagnostics) ? model.diagnostics.map((item) => ({ item, scope: "document" })) : []),
-    ...(Array.isArray(model?.bibliographyDiagnostics) ? model.bibliographyDiagnostics.map((item) => ({ item, scope: "document" })) : []),
+    ...(Array.isArray(model?.diagnostics)
+      ? model.diagnostics.map((item) => ({ item, scope: "document" }))
+      : []),
+    ...(Array.isArray(model?.bibliographyDiagnostics)
+      ? model.bibliographyDiagnostics.map((item) => ({ item, scope: "document" }))
+      : []),
     ...(state.project?.path && Array.isArray(state.projectDiagnostics)
       ? state.projectDiagnostics.map((item) => ({ item, scope: "project" }))
       : []),
@@ -1418,8 +2009,10 @@ function renderProblems(model) {
   const list = $("#problem-list");
   list.replaceChildren();
   if (!diagnostics.length) {
-    const pending = isMarkdownModel(model) && model?.validationContentVersion !== model?.contentVersion
-      && model?.previewContentVersion !== model?.contentVersion;
+    const pending =
+      isMarkdownModel(model) &&
+      model?.validationContentVersion !== model?.contentVersion &&
+      model?.previewContentVersion !== model?.contentVersion;
     const note = document.createElement("div");
     note.className = "tool-empty";
     note.textContent = t(pending ? "contentChecksPending" : "noProblems");
@@ -1433,13 +2026,19 @@ function renderProblems(model) {
     button.innerHTML = `<span class="level"></span><span></span>`;
     button.querySelector(".level").textContent = diagnostic.code || "!";
     const label = scope === "project" ? t("projectDiagnosticScope") : t("documentDiagnosticScope");
-    button.querySelector("span:last-child").textContent = [label, diagnostic.path, diagnostic.message || String(diagnostic)].filter(Boolean).join(" · ");
+    button.querySelector("span:last-child").textContent = [
+      label,
+      diagnostic.path,
+      diagnostic.message || String(diagnostic),
+    ]
+      .filter(Boolean)
+      .join(" · ");
     if (scope === "project" && diagnostic.path && state.project?.path) {
       button.addEventListener("click", () =>
         openProjectRelativeFile(diagnostic.path, {
           line: diagnostic.line || 1,
           column: diagnostic.column || 1,
-        })
+        }),
       );
     } else if (diagnostic.line) {
       button.addEventListener("click", () => goToLine(diagnostic.line, diagnostic.column || 1));
@@ -1460,7 +2059,10 @@ function renderAssets(items = []) {
     button.type = "button";
     button.className = "tool-item";
     button.innerHTML = `<span class="asset-kind"></span><span></span>`;
-    button.querySelector(".asset-kind").textContent = String(asset.extension || "file").replace(".", "");
+    button.querySelector(".asset-kind").textContent = String(asset.extension || "file").replace(
+      ".",
+      "",
+    );
     button.querySelector("span:last-child").textContent = asset.relative_path || asset.name;
     button.addEventListener("click", () => insertAssetReference(asset));
     list.append(button);
@@ -1474,13 +2076,26 @@ function updateAuthoringMode(model) {
   $(".document-toolbar").inert = !hasDocument;
   const markdown = isMarkdownModel(model);
   editorAdapter?.setAriaLabel?.(t(markdown ? "markdownEditor" : "textResourceEditor"));
-  const editable = hasDocument && !model.readOnly && !state.updateInstalling && !state.bookPreparing && effectiveViewMode() !== "read";
+  const editable =
+    hasDocument &&
+    !model.readOnly &&
+    !state.updateInstalling &&
+    !state.bookPreparing &&
+    effectiveViewMode() !== "read";
   $("#workspace-save").disabled = !hasDocument || model.readOnly;
   $("#workspace-save-as").disabled = !hasDocument;
-  for (const element of $$('[data-editor-command], #workspace-import-asset, #import-asset, #refresh-assets')) {
+  for (const element of $$(
+    "[data-editor-command], #workspace-import-asset, #import-asset, #refresh-assets",
+  )) {
     element.disabled = !editable || !markdown;
   }
-  for (const selector of ["#workspace-validate", "#refresh-preview", "#auto-preview", "#refresh-reading", "#reading-auto-preview"]) {
+  for (const selector of [
+    "#workspace-validate",
+    "#refresh-preview",
+    "#auto-preview",
+    "#refresh-reading",
+    "#reading-auto-preview",
+  ]) {
     $(selector).disabled = !hasDocument || !markdown;
   }
   for (const name of ["outline", "frontmatter", "assets", "citations"]) {
@@ -1488,13 +2103,21 @@ function updateAuthoringMode(model) {
     if (button) button.disabled = !hasDocument || !markdown;
   }
   applySidebarContext();
-  $("#frontmatter-form")?.querySelectorAll("input,select,button").forEach((element) => {
-    element.disabled = !editable || !markdown;
-  });
+  $("#frontmatter-form")
+    ?.querySelectorAll("input,select,button")
+    .forEach((element) => {
+      element.disabled = !editable || !markdown;
+    });
   $("#workspace-view")?.classList.toggle("plain-text-mode", hasDocument && !markdown);
   $("#insert-menu-button").disabled = !editable || !markdown;
   $("#workspace-toggle-formatting")?.toggleAttribute("disabled", !editable || !markdown);
-  editorAdapter?.setReadOnly?.(!model || model.readOnly || effectiveViewMode() === "read" || state.updateInstalling || Boolean(state.bookPreparing));
+  editorAdapter?.setReadOnly?.(
+    !model ||
+      model.readOnly ||
+      effectiveViewMode() === "read" ||
+      state.updateInstalling ||
+      Boolean(state.bookPreparing),
+  );
 }
 
 /**
@@ -1524,25 +2147,42 @@ function formatMoment(value) {
  * owns the words; the editor owns the drawing.
  */
 function editorStrings() {
-  return Object.fromEntries(["imageNotFound", "remoteImageNotLoaded", "loadRemoteImages", "remoteImageLoading", "remoteImageFailed", "retryRemoteImage", "remoteImageBlocked"].map(key => [key, t(key)]));
+  return Object.fromEntries(
+    [
+      "imageNotFound",
+      "remoteImageNotLoaded",
+      "loadRemoteImages",
+      "remoteImageLoading",
+      "remoteImageFailed",
+      "retryRemoteImage",
+      "remoteImageBlocked",
+    ].map((key) => [key, t(key)]),
+  );
 }
 
 function bindEditorHistoryShortcuts(adapter) {
   if (adapter?.kind !== "codemirror" || !adapter.element) return;
-  adapter.element.addEventListener("keydown", (event) => {
-    if (event.defaultPrevented || event.altKey || !(event.ctrlKey || event.metaKey)) return;
-    const key = event.key.toLowerCase();
-    const command = key === "z"
-      ? (event.shiftKey ? "redo" : "undo")
-      : key === "y" && !event.shiftKey
-        ? "redo"
-        : null;
-    const succeeded = command ? adapter.runCommand(command) : false;
-    if (succeeded) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  }, { capture: true });
+  adapter.element.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.defaultPrevented || event.altKey || !(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      const command =
+        key === "z"
+          ? event.shiftKey
+            ? "redo"
+            : "undo"
+          : key === "y" && !event.shiftKey
+            ? "redo"
+            : null;
+      const succeeded = command ? adapter.runCommand(command) : false;
+      if (succeeded) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    },
+    { capture: true },
+  );
 }
 
 /**
@@ -1638,7 +2278,11 @@ function renderWorkspace() {
   updateAuthoringMode(model);
   // The adapter owns each document's undo history, selection and scroll.
   // Initial selection is applied only when the adapter sees this ID first.
-  if (editor.setDocument) editor.setDocument(model.id, model.content, { initialSelection: bodyStartOffset(model.content), kind: isMarkdownModel(model) ? "markdown" : "text" });
+  if (editor.setDocument)
+    editor.setDocument(model.id, model.content, {
+      initialSelection: bodyStartOffset(model.content),
+      kind: isMarkdownModel(model) ? "markdown" : "text",
+    });
   else if (editor.value !== model.content) editor.value = model.content;
   if (!$("#find-bar").classList.contains("hidden")) updateFindMatches();
   else editorAdapter?.setSearchMatches?.();
@@ -1682,8 +2326,12 @@ function scheduleDocumentImages(model) {
     if (!state.documents.includes(model)) return;
     const granted = documentImageScopes.get(model);
     const sources = documentImageSources(model.content);
-    if (granted?.path === model.path && sources.length === granted.sources.size
-      && sources.every((source) => granted.sources.has(source))) return;
+    if (
+      granted?.path === model.path &&
+      sources.length === granted.sources.size &&
+      sources.every((source) => granted.sources.has(source))
+    )
+      return;
     void allowDocumentImages(model);
   }, 220);
 }
@@ -1714,8 +2362,9 @@ function consumeStartTab(replacementId, { moveExisting = false } = {}) {
   if (!state.activeStartTabId) return;
   const startId = state.activeStartTabId;
   if (replacementId && (moveExisting || !state.tabOrder.includes(replacementId))) {
-    state.tabOrder = state.tabOrder.filter((id) => id !== replacementId)
-      .map((id) => id === startId ? replacementId : id);
+    state.tabOrder = state.tabOrder
+      .filter((id) => id !== replacementId)
+      .map((id) => (id === startId ? replacementId : id));
   } else {
     state.tabOrder = state.tabOrder.filter((id) => id !== startId);
   }
@@ -1732,13 +2381,21 @@ function activateStartTab(id, focus = "editor") {
   persistSession();
   renderWorkspace();
   if (focus === "tab") {
-    $$(".document-tab").find((tab) => tab.dataset.documentId === id)?.querySelector(".tab-activate")?.focus();
+    $$(".document-tab")
+      .find((tab) => tab.dataset.documentId === id)
+      ?.querySelector(".tab-activate")
+      ?.focus();
   } else focusDocument();
 }
 
 function createStartTab() {
   if (activeDocument() && editorAdapter?.commitPendingDrafts?.() === false) return;
-  const tab = { id: globalThis.crypto?.randomUUID?.() ?? `start-${Date.now()}-${Math.random().toString(16).slice(2)}`, isStart: true };
+  const tab = {
+    id:
+      globalThis.crypto?.randomUUID?.() ??
+      `start-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    isStart: true,
+  };
   state.startTabs.push(tab);
   state.tabOrder.push(tab.id);
   activateStartTab(tab.id);
@@ -1803,13 +2460,15 @@ async function openAuthoringPaths(paths) {
       }
       const result = await request;
       const duplicate = findDocumentByPath(state.documents, result.path);
-      const model = duplicate || createDocument({
-        path: result.path,
-        content: result.content,
-        revision: result.revision,
-        readOnly: result.read_only,
-        kind: result.kind || (isMarkdownPath(result.path) ? "markdown" : "text"),
-      });
+      const model =
+        duplicate ||
+        createDocument({
+          path: result.path,
+          content: result.content,
+          revision: result.revision,
+          readOnly: result.read_only,
+          kind: result.kind || (isMarkdownPath(result.path) ? "markdown" : "text"),
+        });
       attachProjectMembership(model);
       if (!duplicate) state.documents.push(model);
       await allowDocumentImages(model);
@@ -1819,8 +2478,13 @@ async function openAuthoringPaths(paths) {
       }
       saveRecent(model.path);
       const recovery = recoveryForPath(model.path);
-      if (sequence === state.documentActivationSequence && state.documents.includes(model)
-          && recovery && recovery.content !== model.content) showRecovery(model, recovery);
+      if (
+        sequence === state.documentActivationSequence &&
+        state.documents.includes(model) &&
+        recovery &&
+        recovery.content !== model.content
+      )
+        showRecovery(model, recovery);
     } catch (error) {
       toast(errorText(error), "error");
     }
@@ -1862,9 +2526,10 @@ async function chooseProjectDirectory() {
 async function loadProject(path, { announce = true, openFirstChapter = true } = {}) {
   const previousProjectPath = state.project?.path || null;
   const activationSequence = ++state.documentActivationSequence;
-  const handoff = pathKey(path) !== pathKey(state.project?.path)
-    ? invalidateBookTaskForProjectChange()
-    : Promise.resolve(true);
+  const handoff =
+    pathKey(path) !== pathKey(state.project?.path)
+      ? invalidateBookTaskForProjectChange()
+      : Promise.resolve(true);
   const sequence = ++state.projectRequestSequence;
   await cancelActiveProjectSearch({ announce: false });
   await handoff;
@@ -1878,7 +2543,8 @@ async function loadProject(path, { announce = true, openFirstChapter = true } = 
   activateSidebar("project");
   if (announce) toast(t("projectOpened"), "success");
   const firstChapter = payload.book?.chapters?.[0]?.path;
-  const switchedProject = pathKey(previousProjectPath) !== pathKey(payload.project?.path || payload.path);
+  const switchedProject =
+    pathKey(previousProjectPath) !== pathKey(payload.project?.path || payload.path);
   if (openFirstChapter && firstChapter && (!activeDocument() || switchedProject)) {
     await openProjectRelativeFile(firstChapter);
   }
@@ -1944,7 +2610,8 @@ function renderProjectWorkspace() {
     button.title = file.path;
     button.dir = "auto";
     const current = activeDocument();
-    const selected = current?.projectPath === project.path && current?.projectRelativePath === file.path;
+    const selected =
+      current?.projectPath === project.path && current?.projectRelativePath === file.path;
     button.classList.toggle("active", selected);
     button.setAttribute("aria-current", selected ? "page" : "false");
     if (["markdown", "text", "config", "toml", "bibliography", "json"].includes(file.kind)) {
@@ -1969,16 +2636,20 @@ async function openProjectRelativeFile(relativePath, { line = null, column = 1 }
     const requestKey = `${projectGeneration}:${relativePath}`;
     let request = state.projectFileRequests.get(requestKey);
     if (!request) {
-      request = readProjectFile(projectPath, relativePath)
-        .finally(() => state.projectFileRequests.delete(requestKey));
+      request = readProjectFile(projectPath, relativePath).finally(() =>
+        state.projectFileRequests.delete(requestKey),
+      );
       state.projectFileRequests.set(requestKey, request);
     }
     const result = await request;
-    if (state.project?.path !== projectPath || state.projectGeneration !== projectGeneration) return;
+    if (state.project?.path !== projectPath || state.projectGeneration !== projectGeneration)
+      return;
     if (sequence !== state.documentActivationSequence) return;
     const existing = findDocumentByPath(state.documents, result.absolute_path);
     let model = existing;
-    const file = state.project.files?.find((item) => item.path === result.path || item.path === relativePath);
+    const file = state.project.files?.find(
+      (item) => item.path === result.path || item.path === relativePath,
+    );
     const kind = result.kind || file?.kind || "text";
     if (!model) {
       model = createDocument({
@@ -1991,8 +2662,13 @@ async function openProjectRelativeFile(relativePath, { line = null, column = 1 }
       state.documents.push(model);
     }
     await allowDocumentImages(model);
-    if (sequence !== state.documentActivationSequence || !state.documents.includes(model)
-        || state.project?.path !== projectPath || state.projectGeneration !== projectGeneration) return;
+    if (
+      sequence !== state.documentActivationSequence ||
+      !state.documents.includes(model) ||
+      state.project?.path !== projectPath ||
+      state.projectGeneration !== projectGeneration
+    )
+      return;
     // Recheck unsaved edits after the asynchronous grant. An existing document
     // may still be visible and editable while this request is pending.
     if (existing && result.content !== model.savedContent) {
@@ -2003,11 +2679,15 @@ async function openProjectRelativeFile(relativePath, { line = null, column = 1 }
         return;
       }
       updateDocumentContent(model, result.content);
-      markDocumentSaved(model, {
-        path: result.absolute_path,
-        revision: result.revision,
-        read_only: result.read_only,
-      }, result.content);
+      markDocumentSaved(
+        model,
+        {
+          path: result.absolute_path,
+          revision: result.revision,
+          read_only: result.read_only,
+        },
+        result.content,
+      );
     }
     model.kind = kind;
     model.projectPath = projectPath;
@@ -2036,10 +2716,11 @@ function renderProjectSearchResults(result) {
     button.type = "button";
     button.className = "tool-item";
     button.innerHTML = `<span class="match-location"></span><span class="match-preview"></span>`;
-    button.querySelector(".match-location").textContent = `${match.path}:${match.line}:${match.column}`;
+    button.querySelector(".match-location").textContent =
+      `${match.path}:${match.line}:${match.column}`;
     setTruncatableText(button.querySelector(".match-preview"), match.preview || "");
     button.addEventListener("click", () =>
-      openProjectRelativeFile(match.path, { line: match.line, column: match.column })
+      openProjectRelativeFile(match.path, { line: match.line, column: match.column }),
     );
     list.append(button);
   }
@@ -2125,7 +2806,6 @@ async function runProjectSearch() {
   }
 }
 
-
 function applyProjectPayload(payload) {
   const project = payload?.project || payload;
   if (!project?.path) return null;
@@ -2154,8 +2834,9 @@ function attachProjectMembership(model, project = state.project) {
   delete model.projectSha256;
   if (!model.path || !project?.path) return;
   const root = String(project.path).replace(/[\\/]+$/, "");
-  const file = (project.files || []).find((item) =>
-    pathKey(`${root}/${item.path}`) === pathKey(model.path));
+  const file = (project.files || []).find(
+    (item) => pathKey(`${root}/${item.path}`) === pathKey(model.path),
+  );
   if (!file) return;
   model.projectPath = project.path;
   model.projectRelativePath = file.path;
@@ -2223,9 +2904,12 @@ async function submitNewBookProject(event) {
   const handoff = invalidateBookTaskForProjectChange();
   try {
     await handoff;
-    if (sequence !== state.bookProjectCreateSequence
-        || state.projectGeneration !== expectedProjectGeneration
-        || pathKey(state.project?.path) !== pathKey(expectedProjectPath)) return;
+    if (
+      sequence !== state.bookProjectCreateSequence ||
+      state.projectGeneration !== expectedProjectGeneration ||
+      pathKey(state.project?.path) !== pathKey(expectedProjectPath)
+    )
+      return;
     const project = await createBookProject({
       parentPath,
       folderName,
@@ -2233,9 +2917,12 @@ async function submitNewBookProject(event) {
       language: $("#book-project-language").value,
       direction: $("#book-project-direction").value,
     });
-    if (sequence !== state.bookProjectCreateSequence
-        || state.projectGeneration !== expectedProjectGeneration
-        || pathKey(state.project?.path) !== pathKey(expectedProjectPath)) return;
+    if (
+      sequence !== state.bookProjectCreateSequence ||
+      state.projectGeneration !== expectedProjectGeneration ||
+      pathKey(state.project?.path) !== pathKey(expectedProjectPath)
+    )
+      return;
     applyProjectPayload(project);
     closeNewBookModal();
     showView("workspace");
@@ -2354,12 +3041,10 @@ function closeActiveProject() {
   return cleanup;
 }
 
-async function runBookTask(startTask, {
-  successMessage = "",
-  onSuccess = null,
-  showProblems = false,
-  beforePrepare = null,
-} = {}) {
+async function runBookTask(
+  startTask,
+  { successMessage = "", onSuccess = null, showProblems = false, beforePrepare = null } = {},
+) {
   const projectPath = state.project?.path;
   const projectIdentity = pathKey(projectPath);
   let projectContext = currentProjectContext();
@@ -2367,18 +3052,25 @@ async function runBookTask(startTask, {
   const task = claimBookTask(state, () => ({
     requestId: null,
     promise: Promise.resolve().then(async () => {
-      const isCurrent = () => sequence === state.bookRequestSequence
-        && pathKey(state.project?.path) === projectIdentity;
+      const isCurrent = () =>
+        sequence === state.bookRequestSequence && pathKey(state.project?.path) === projectIdentity;
       if (!projectIdentity || !isCurrent()) return null;
-      if (beforePrepare && !await beforePrepare()) return null;
+      if (beforePrepare && !(await beforePrepare())) return null;
       const prepared = await prepareBookFiles({
-        projectPath, getDocuments: () => state.documents, isDirty: documentDirty, isCurrent,
-        confirm: () => askConfirmation({
-          title: t("bookSaveChangesTitle"), message: t("bookSaveChangesHelp"),
-          confirmLabel: t("bookSaveAndContinue"),
-        }),
-        save: (model) => saveCoordinator.save(model,
-          () => persistDocumentModel(model, { refreshProjectOnSave: false })),
+        projectPath,
+        getDocuments: () => state.documents,
+        isDirty: documentDirty,
+        isCurrent,
+        confirm: () =>
+          askConfirmation({
+            title: t("bookSaveChangesTitle"),
+            message: t("bookSaveChangesHelp"),
+            confirmLabel: t("bookSaveAndContinue"),
+          }),
+        save: (model) =>
+          saveCoordinator.save(model, () =>
+            persistDocumentModel(model, { refreshProjectOnSave: false }),
+          ),
       });
       if (!prepared || !isCurrent()) return null;
       // mardas.toml can change chapter order or bibliography settings. Refresh
@@ -2423,7 +3115,12 @@ async function runBookTask(startTask, {
       renderProblems(activeDocument());
       activateSidebar("problems");
       const hasWarnings = state.projectDiagnostics.some((item) => item.severity === "warning");
-      const message = result.ok === false ? t("bookInvalid") : hasWarnings ? t("bookValidWithWarnings") : t("bookValid");
+      const message =
+        result.ok === false
+          ? t("bookInvalid")
+          : hasWarnings
+            ? t("bookValidWithWarnings")
+            : t("bookValid");
       const kind = result.ok === false ? "error" : hasWarnings ? "warning" : "success";
       setBookOperationStatus(message, { kind });
       toast(message, kind);
@@ -2440,18 +3137,16 @@ async function runBookTask(startTask, {
     }
     const payload = errorPayload(error);
     const applicationCode =
-      payload?.application_code
-      || payload?.data?.application_code
-      || payload?.code;
+      payload?.application_code || payload?.data?.application_code || payload?.code;
     if (applicationCode === "MARDAS-JOB-CANCELLED") {
       setBookOperationStatus(t("searchCancelled"), { kind: "warning" });
       return null;
     }
     const diagnostics =
-      payload?.details?.diagnostics
-      || payload?.data?.details?.diagnostics
-      || payload?.diagnostics
-      || [];
+      payload?.details?.diagnostics ||
+      payload?.data?.details?.diagnostics ||
+      payload?.diagnostics ||
+      [];
     if (diagnostics.length) {
       state.projectDiagnostics = diagnostics;
       renderProblems(activeDocument());
@@ -2513,8 +3208,11 @@ function renderBookWorkspace() {
   const activeRelativePath = activeDocument()?.projectRelativePath || null;
   const activeIndex = chapters.findIndex((chapter) => chapter.path === activeRelativePath);
   $("#book-summary-chapters").textContent = String(chapters.length);
-  $("#book-current-chapter").textContent = activeIndex >= 0 ? `${activeIndex + 1}/${chapters.length}` : "—";
-  list.replaceChildren(...chapters.map((chapter, index) => bookChapterRow(chapter, index, chapters)));
+  $("#book-current-chapter").textContent =
+    activeIndex >= 0 ? `${activeIndex + 1}/${chapters.length}` : "—";
+  list.replaceChildren(
+    ...chapters.map((chapter, index) => bookChapterRow(chapter, index, chapters)),
+  );
   renderBookOutputResult();
   syncBookOperationControls();
 }
@@ -2532,26 +3230,32 @@ function renderFullBookPreview(html) {
   const content = (parsed.querySelector(".md2pdf-article") || parsed.body).cloneNode(true);
   // This is a review of the saved chapters, not the publication layout. Keep
   // the ordered contents/references while leaving cover and watermark in PDF.
-  content.querySelectorAll(":scope > .md2pdf-cover, :scope > .md2pdf-watermark")
+  content
+    .querySelectorAll(":scope > .md2pdf-cover, :scope > .md2pdf-watermark")
     .forEach((element) => element.remove());
   const dialog = $("#book-review-modal");
   const container = $("#book-review-document");
   const token = requestId("book-review");
   container.dataset.reviewToken = token;
-  container.dir = parsed.body.getAttribute("dir") || parsed.documentElement.getAttribute("dir") || "auto";
+  container.dir =
+    parsed.body.getAttribute("dir") || parsed.documentElement.getAttribute("dir") || "auto";
   container.lang = parsed.documentElement.lang || "";
   container.replaceChildren();
   // Full renderer styles target html/body and must never escape into the desktop
   // shell. Whole-book review does not replace the active chapter's comparison
   // pane or change its editing mode.
   container.append(safePreviewHtml(content.innerHTML, "book-review-"));
-  $("#book-review-project").textContent = bookProject()?.title || state.project?.name || t("bookProject");
+  $("#book-review-project").textContent =
+    bookProject()?.title || state.project?.name || t("bookProject");
   $("#close-book-review").onclick = () => modalManager.close(dialog);
   $("#book-review-done").onclick = () => modalManager.close(dialog);
   modalManager.open(dialog, {
     initialFocus: "#close-book-review",
     returnFocus: $("#book-preview"),
-    onClose: () => { container.replaceChildren(); delete container.dataset.reviewToken; },
+    onClose: () => {
+      container.replaceChildren();
+      delete container.dataset.reviewToken;
+    },
   });
   void typesetPreviewMath(container, {
     isCurrent: () => container.dataset.reviewToken === token && modalManager.isOpen(dialog),
@@ -2572,28 +3276,35 @@ async function exportActiveBook() {
   const book = bookProject();
   if (!project?.path || !book) return;
   let outputPath;
-  await runBookTask(() => startBookExport({
-    projectPath: project.path,
-    outputPath,
-  }), {
-    beforePrepare: async () => {
-      outputPath = await invoke("pick_pdf_output", {
-        suggested_path: `${project.path}/${book.output || "dist/book.pdf"}`,
-      });
-      return Boolean(outputPath);
+  await runBookTask(
+    () =>
+      startBookExport({
+        projectPath: project.path,
+        outputPath,
+      }),
+    {
+      beforePrepare: async () => {
+        outputPath = await invoke("pick_pdf_output", {
+          suggested_path: `${project.path}/${book.output || "dist/book.pdf"}`,
+        });
+        return Boolean(outputPath);
+      },
+      successMessage: t("bookExported"),
+      onSuccess: (result) => {
+        state.outputResult = result;
+        state.bookOutputPath = result?.output_path || outputPath;
+        renderBookOutputResult();
+      },
     },
-    successMessage: t("bookExported"),
-    onSuccess: (result) => {
-      state.outputResult = result;
-      state.bookOutputPath = result?.output_path || outputPath;
-      renderBookOutputResult();
-    },
-  });
+  );
 }
 
 function bibliographyEntryAuthors(entry) {
   const authors = Array.isArray(entry?.authors) ? entry.authors : [];
-  return authors.map((author) => author.display || [author.family, author.given].filter(Boolean).join(", ")).filter(Boolean).join("; ");
+  return authors
+    .map((author) => author.display || [author.family, author.given].filter(Boolean).join(", "))
+    .filter(Boolean)
+    .join("; ");
 }
 
 function renderBibliographyEntries(entries, usedKeys = []) {
@@ -2615,7 +3326,9 @@ function renderBibliographyEntries(entries, usedKeys = []) {
     row.innerHTML = `<span class="citation-key"></span><span class="citation-body"><strong></strong><small></small></span><span class="citation-state"></span><button class="citation-insert" type="button"></button>`;
     row.querySelector(".citation-key").textContent = `@${key}`;
     setTruncatableText(row.querySelector("strong"), entry.title || key);
-    row.querySelector("small").textContent = [bibliographyEntryAuthors(entry), entry.year].filter(Boolean).join(" · ");
+    row.querySelector("small").textContent = [bibliographyEntryAuthors(entry), entry.year]
+      .filter(Boolean)
+      .join(" · ");
     row.querySelector(".citation-state").textContent = t(cited ? "cited" : "uncited");
     const insert = row.querySelector(".citation-insert");
     insert.textContent = t("insert");
@@ -2645,9 +3358,7 @@ async function refreshBibliography() {
     if (sequence !== state.bibliographySequence || !contextIsCurrent(context)) return;
     renderBibliographyEntries(result.entries, used);
     if (model) {
-      model.bibliographyDiagnostics = Array.isArray(result.diagnostics)
-        ? result.diagnostics
-        : [];
+      model.bibliographyDiagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
       renderProblems(model);
     }
   } catch (error) {
@@ -2663,7 +3374,8 @@ function showRecovery(model, recovery) {
     return;
   }
   state.pendingRecovery = item;
-  $("#recovery-message").textContent = `${t("recoveryMessage")} ${formatMoment(recovery.updatedAt)}`;
+  $("#recovery-message").textContent =
+    `${t("recoveryMessage")} ${formatMoment(recovery.updatedAt)}`;
   modalManager.open($("#recovery-modal"), {
     initialFocus: "#restore-recovery",
     escape: false,
@@ -2706,9 +3418,12 @@ function onEditorInput() {
 function renderContentStatus() {
   const model = activeDocument();
   const stale = Boolean(model?.preview && model.previewContentVersion !== model.contentVersion);
-  const label = stale ? t("contentPreviewStale") : !state.preferences.autoPreview
-    ? t("contentPreviewPaused") : t("contentPreviewScope");
-  for (const status of $$('[data-content-status]')) {
+  const label = stale
+    ? t("contentPreviewStale")
+    : !state.preferences.autoPreview
+      ? t("contentPreviewPaused")
+      : t("contentPreviewScope");
+  for (const status of $$("[data-content-status]")) {
     status.textContent = label;
     status.dataset.stale = String(stale);
     status.title = t("previewScope");
@@ -2777,8 +3492,9 @@ function applyPendingMarkdownLinkNavigation(container, model, { announceMissing 
     pendingMarkdownLinkNavigation = null;
     return true;
   }
-  const target = [...container.querySelectorAll("[data-preview-source-id]")]
-    .find((element) => element.dataset.previewSourceId === pending.fragment);
+  const target = [...container.querySelectorAll("[data-preview-source-id]")].find(
+    (element) => element.dataset.previewSourceId === pending.fragment,
+  );
   if (!target) {
     if (announceMissing) {
       pendingMarkdownLinkNavigation = null;
@@ -2798,9 +3514,15 @@ function applyPendingMarkdownLinkNavigation(container, model, { announceMissing 
 function contentAnchors(container, model) {
   const frame = container.getBoundingClientRect();
   const anchors = [{ line: 1, top: 0 }];
-  for (const heading of container.querySelectorAll("h1[data-source-line],h2[data-source-line],h3[data-source-line],h4[data-source-line],h5[data-source-line],h6[data-source-line]")) {
+  for (const heading of container.querySelectorAll(
+    "h1[data-source-line],h2[data-source-line],h3[data-source-line],h4[data-source-line],h5[data-source-line],h6[data-source-line]",
+  )) {
     const line = Number(heading.dataset.sourceLine);
-    if (line > anchors.at(-1).line) anchors.push({ line, top: heading.getBoundingClientRect().top - frame.top + container.scrollTop });
+    if (line > anchors.at(-1).line)
+      anchors.push({
+        line,
+        top: heading.getBoundingClientRect().top - frame.top + container.scrollTop,
+      });
   }
   anchors.push({ line: model.content.split("\n").length + 1, top: container.scrollHeight });
   return anchors;
@@ -2809,7 +3531,11 @@ function contentAnchors(container, model) {
 function readingSourceLine() {
   const container = $("#reading-document");
   const model = activeDocument();
-  return model && container ? Math.round(interpolatePosition(contentAnchors(container, model), container.scrollTop, "top", "line")) : 1;
+  return model && container
+    ? Math.round(
+        interpolatePosition(contentAnchors(container, model), container.scrollTop, "top", "line"),
+      )
+    : 1;
 }
 
 function renderReading(model) {
@@ -2834,16 +3560,25 @@ function renderReading(model) {
   const previousScroll = readingScroll.get(model.id) ?? container.scrollTop;
   const payload = model.preview;
   mountDocumentContent(container, payload, {
-    sanitize: safePreviewHtml, prefix: "reading-", sourceEntries: previewSourceEntries(model),
+    sanitize: safePreviewHtml,
+    prefix: "reading-",
+    sourceEntries: previewSourceEntries(model),
     onlineImages: onlineImageOptions(model),
-    blockedImageLabel: (reason) => t(reason === "remote" ? "remoteImageNotLoaded" : "imageBlockedOrMissing"),
+    blockedImageLabel: (reason) =>
+      t(reason === "remote" ? "remoteImageNotLoaded" : "imageBlockedOrMissing"),
   });
   container.scrollTop = previousScroll;
   applyPendingMarkdownLinkNavigation(container, model);
   const current = () => activeDocument()?.id === model.id && model.preview === payload;
-  return typesetPreviewMath(container, { isCurrent: current, errorLabel: t("previewMathFailed") }).then(() => {
+  return typesetPreviewMath(container, {
+    isCurrent: current,
+    errorLabel: t("previewMathFailed"),
+  }).then(() => {
     if (current() && pendingReadingLine?.id === model.id) {
-      container.scrollTop = interpolatePosition(contentAnchors(container, model), pendingReadingLine.line);
+      container.scrollTop = interpolatePosition(
+        contentAnchors(container, model),
+        pendingReadingLine.line,
+      );
       pendingReadingLine = null;
     }
   });
@@ -2875,15 +3610,20 @@ function syncPreviewToEditorLine(line, { center = false } = {}) {
     if (entry.line > line) break;
     active = entry;
   }
-  container.querySelectorAll(".source-active").forEach((element) => element.classList.remove("source-active"));
-  const target = container.querySelector(`#${CSS.escape(`preview-${active.id}`)}`)
-    || container.querySelector(`[data-source-line="${active.line}"]`);
+  container
+    .querySelectorAll(".source-active")
+    .forEach((element) => element.classList.remove("source-active"));
+  const target =
+    container.querySelector(`#${CSS.escape(`preview-${active.id}`)}`) ||
+    container.querySelector(`[data-source-line="${active.line}"]`);
   if (!target) return;
   target.classList.add("source-active");
   if (center && !state.previewSyncing) {
     state.previewSyncing = true;
     target.scrollIntoView({ block: "center", behavior: "smooth" });
-    setTimeout(() => { state.previewSyncing = false; }, 180);
+    setTimeout(() => {
+      state.previewSyncing = false;
+    }, 180);
   }
 }
 
@@ -2893,8 +3633,9 @@ function syncPreviewFromEditorScroll(scrollTop) {
   // Wrapped rows and Markdown widgets do not correspond one-for-one with
   // source lines. The textarea fallback has no measured document map.
   const lineHeight = Number.parseFloat(getComputedStyle(editorElement).lineHeight) || 24;
-  const visibleLine = editorAdapter?.firstVisibleLine?.()
-    ?? Math.max(1, Math.floor((Number(scrollTop) || 0) / lineHeight) + 1);
+  const visibleLine =
+    editorAdapter?.firstVisibleLine?.() ??
+    Math.max(1, Math.floor((Number(scrollTop) || 0) / lineHeight) + 1);
   syncPreviewToEditorLine(visibleLine);
 }
 
@@ -2909,11 +3650,13 @@ function renderPreview(model) {
   }
   const payload = model.preview;
   mountDocumentContent(container, payload, {
-    sanitize: safePreviewHtml, sourceEntries: previewSourceEntries(model),
+    sanitize: safePreviewHtml,
+    sourceEntries: previewSourceEntries(model),
     onlineImages: onlineImageOptions(model),
     onSourceJump: (line) => goToLine(line),
     sourceJumpLabel: (line) => `${t("goToSourceLine")} ${line}`,
-    blockedImageLabel: (reason) => t(reason === "remote" ? "remoteImageNotLoaded" : "imageBlockedOrMissing"),
+    blockedImageLabel: (reason) =>
+      t(reason === "remote" ? "remoteImageNotLoaded" : "imageBlockedOrMissing"),
   });
   syncPreviewFromEditorScroll(currentEditor().scrollTop || 0);
   applyPendingMarkdownLinkNavigation(container, model);
@@ -2936,10 +3679,12 @@ async function activateMarkdownDocumentLink(event) {
   }
   const sequence = ++markdownLinkSequence;
   link.dataset.opening = "true";
-  const projectPath = model.projectPath && state.project?.path
-    && pathKey(model.projectPath) === pathKey(state.project.path)
-    ? state.project.path
-    : undefined;
+  const projectPath =
+    model.projectPath &&
+    state.project?.path &&
+    pathKey(model.projectPath) === pathKey(state.project.path)
+      ? state.project.path
+      : undefined;
   try {
     const resolved = await resolveMarkdownLink(
       model.path,
@@ -2980,10 +3725,11 @@ async function activateMarkdownDocumentLink(event) {
     if (resolved.fragment) {
       await refreshPreview();
       if (sequence !== markdownLinkSequence || activeDocument()?.id !== targetDocument.id) return;
-      const targetContainer = effectiveViewMode() === "read"
-        ? $("#reading-document")
-        : $("#preview-document");
-      applyPendingMarkdownLinkNavigation(targetContainer, targetDocument, { announceMissing: true });
+      const targetContainer =
+        effectiveViewMode() === "read" ? $("#reading-document") : $("#preview-document");
+      applyPendingMarkdownLinkNavigation(targetContainer, targetDocument, {
+        announceMissing: true,
+      });
     } else {
       pendingMarkdownLinkNavigation = null;
     }
@@ -2993,7 +3739,9 @@ async function activateMarkdownDocumentLink(event) {
     const payload = errorPayload(error);
     const code = payload?.application_code || payload?.data?.application_code || payload?.code;
     toast(
-      code === "MARDAS-LINK-NOT-FOUND" ? t("linkedMarkdownMissing") : t("linkedMarkdownUnavailable"),
+      code === "MARDAS-LINK-NOT-FOUND"
+        ? t("linkedMarkdownMissing")
+        : t("linkedMarkdownUnavailable"),
       "warning",
     );
   } finally {
@@ -3027,7 +3775,11 @@ async function drawWritePreview() {
   $("#preview-loading").classList.remove("hidden");
   $("#reading-loading")?.classList.remove("hidden");
   try {
-    const result = await previewDocumentText({ path: model.path, content: model.content, options: previewOptions() });
+    const result = await previewDocumentText({
+      path: model.path,
+      content: model.content,
+      options: previewOptions(),
+    });
     if (sequence !== state.previewSequence || !contextIsCurrent(context)) return;
     model.preview = result;
     model.previewContentVersion = model.contentVersion;
@@ -3058,7 +3810,11 @@ async function validateActiveDocument() {
   const sequence = ++state.validationSequence;
   const context = requestContext(model);
   try {
-    const result = await validateDocumentText({ path: model.path, content: model.content, options: previewOptions() });
+    const result = await validateDocumentText({
+      path: model.path,
+      content: model.content,
+      options: previewOptions(),
+    });
     if (sequence !== state.validationSequence || !contextIsCurrent(context)) return;
     model.diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
     model.validationContentVersion = model.contentVersion;
@@ -3081,12 +3837,15 @@ async function refreshAssets() {
   const context = requestContext(model);
   try {
     const result = await listDocumentAssets(model.path);
-    if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false })) return;
+    if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false }))
+      return;
     await allowDocumentImages(model);
-    if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false })) return;
+    if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false }))
+      return;
     renderAssets(Array.isArray(result.assets) ? result.assets : []);
   } catch (error) {
-    if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false })) return;
+    if (sequence !== state.assetSequence || !contextIsCurrent(context, { requireContent: false }))
+      return;
     renderAssets([]);
     toast(errorText(error), "error");
   }
@@ -3119,7 +3878,9 @@ async function importAsset() {
 
 function insertAssetReference(asset, model = activeDocument()) {
   if (!model || activeDocument()?.id !== model.id || !isMarkdownModel(model)) return;
-  const extension = String(asset.extension || asset.name?.slice(asset.name.lastIndexOf(".")) || "").toLowerCase();
+  const extension = String(
+    asset.extension || asset.name?.slice(asset.name.lastIndexOf(".")) || "",
+  ).toLowerCase();
   const path = asset.relative_path || asset.name;
   if ([".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif", ".bmp"].includes(extension)) {
     insertAtCursor(`![${asset.name || "Image"}](${path})`);
@@ -3135,7 +3896,8 @@ function applySidebarContext() {
   const model = activeDocument();
   let name = state.activeSidebar;
   if (!model && (documentOnly.includes(name) || name === "problems")) name = "project";
-  else if (!isMarkdownModel(model) && documentOnly.includes(name)) name = state.project ? "project" : "problems";
+  else if (!isMarkdownModel(model) && documentOnly.includes(name))
+    name = state.project ? "project" : "problems";
   for (const button of $$("[data-sidebar]")) {
     const active = button.dataset.sidebar === name;
     button.classList.toggle("active", active);
@@ -3152,7 +3914,10 @@ function applySidebarContext() {
 }
 
 function activateSidebar(name) {
-  if (name === "outline") { activateNavigator("outline"); return; }
+  if (name === "outline") {
+    activateNavigator("outline");
+    return;
+  }
   if ($(`[data-sidebar="${name}"]`)?.disabled) return;
   if (!workspacePaneOpen("sidebar")) {
     setWorkspacePaneOpen("sidebar", true);
@@ -3168,7 +3933,9 @@ function activateSidebar(name) {
 
 function goToLine(line, column = 1) {
   if (effectiveViewMode() === "read") {
-    const target = $("#reading-document")?.querySelector(`[data-source-line="${Number(line) || 1}"]`);
+    const target = $("#reading-document")?.querySelector(
+      `[data-source-line="${Number(line) || 1}"]`,
+    );
     if (target) {
       target.scrollIntoView({ block: "start", behavior: "instant" });
       $("#reading-document")?.focus({ preventScroll: true });
@@ -3181,7 +3948,8 @@ function goToLine(line, column = 1) {
   else {
     const lines = editor.value.split("\n");
     let offset = 0;
-    for (let index = 0; index < Math.max(0, line - 1); index += 1) offset += lines[index].length + 1;
+    for (let index = 0; index < Math.max(0, line - 1); index += 1)
+      offset += lines[index].length + 1;
     offset += Math.max(0, column - 1);
     editor.focus();
     editor.setSelectionRange(offset, offset);
@@ -3191,13 +3959,21 @@ function goToLine(line, column = 1) {
 }
 
 function findSnapshot() {
-  return { documentId: activeDocument()?.id, text: currentEditor().value, query: $("#find-query").value };
+  return {
+    documentId: activeDocument()?.id,
+    text: currentEditor().value,
+    query: $("#find-query").value,
+  };
 }
 
 function updateFindMatches(options = {}) {
   const { matches, index } = findSession.refresh(findSnapshot(), options);
   const query = $("#find-query").value;
-  $("#find-count").textContent = matches.length ? `${index + 1}/${matches.length}` : query ? t("noFindResults") : t("findPrompt");
+  $("#find-count").textContent = matches.length
+    ? `${index + 1}/${matches.length}`
+    : query
+      ? t("noFindResults")
+      : t("findPrompt");
   $("#find-bar").dataset.noResults = String(Boolean(query) && !matches.length);
   $("#find-previous").disabled = $("#find-next").disabled = !matches.length;
   $("#replace-one").disabled = $("#replace-all").disabled = !matches.length || !documentEditable();
@@ -3207,7 +3983,10 @@ function updateFindMatches(options = {}) {
 
 function selectFindMatch(index, { direction = null } = {}) {
   const snapshot = findSnapshot();
-  const match = direction === null ? findSession.select(snapshot, index) : findSession.move(snapshot, direction);
+  const match =
+    direction === null
+      ? findSession.select(snapshot, index)
+      : findSession.move(snapshot, direction);
   if (!match) return;
   const editor = currentEditor();
   // Keep typing and Enter/Shift+Enter in the search field. Drawing a result
@@ -3261,7 +4040,9 @@ function moveFind(direction) {
 
 function replaceCurrentMatch() {
   if (!documentEditable()) return;
-  const previousFocus = document.activeElement?.matches?.("#find-query,#replace-query") ? document.activeElement : null;
+  const previousFocus = document.activeElement?.matches?.("#find-query,#replace-query")
+    ? document.activeElement
+    : null;
   const editor = currentEditor();
   const match = findSession.current(findSnapshot());
   if (!match) return;
@@ -3270,7 +4051,8 @@ function replaceCurrentMatch() {
   updateFindMatches({ anchor: match.start + replacement.length });
   const { index } = findSession.refresh(findSnapshot());
   if (index >= 0) selectFindMatch(index);
-  if (previousFocus) (previousFocus.disabled ? $("#replace-query") : previousFocus).focus({ preventScroll: true });
+  if (previousFocus)
+    (previousFocus.disabled ? $("#replace-query") : previousFocus).focus({ preventScroll: true });
 }
 
 function replaceAllMatches() {
@@ -3305,7 +4087,9 @@ function applyEditorContent(content) {
 
 function insertAtCursor(value) {
   const editor = currentEditor();
-  applyEditorResult(replaceSelection(editor.value, editor.selectionStart, editor.selectionEnd, value));
+  applyEditorResult(
+    replaceSelection(editor.value, editor.selectionStart, editor.selectionEnd, value),
+  );
 }
 
 /**
@@ -3325,21 +4109,94 @@ function editorCommand(command) {
   }
   const editor = currentEditor();
   let result;
-  if (command === "bold") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "**", "**", "bold text");
-  if (command === "italic") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "_", "_", "italic text");
-  if (command === "link") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "[", "](https://)", "link text");
-  if (command === "code") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "`", "`", "code");
-  if (command === "heading") result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "## ");
-  if (command === "citation") result = replaceSelection(editor.value, editor.selectionStart, editor.selectionEnd, "[@citation-key]", 2);
-  if (command === "strike") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "~~", "~~", "struck text");
-  if (command === "bullet-list") result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "- ");
-  if (command === "ordered-list") result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "1. ");
-  if (command === "task-list") result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "- [ ] ");
-  if (command === "quote") result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "> ");
-  if (command === "image") result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "![", "](assets/image.png)", "alt text");
-  if (command === "rule") result = replaceSelection(editor.value, editor.selectionStart, editor.selectionEnd, "\n---\n");
+  if (command === "bold")
+    result = wrapSelection(
+      editor.value,
+      editor.selectionStart,
+      editor.selectionEnd,
+      "**",
+      "**",
+      "bold text",
+    );
+  if (command === "italic")
+    result = wrapSelection(
+      editor.value,
+      editor.selectionStart,
+      editor.selectionEnd,
+      "_",
+      "_",
+      "italic text",
+    );
+  if (command === "link")
+    result = wrapSelection(
+      editor.value,
+      editor.selectionStart,
+      editor.selectionEnd,
+      "[",
+      "](https://)",
+      "link text",
+    );
+  if (command === "code")
+    result = wrapSelection(
+      editor.value,
+      editor.selectionStart,
+      editor.selectionEnd,
+      "`",
+      "`",
+      "code",
+    );
+  if (command === "heading")
+    result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "## ");
+  if (command === "citation")
+    result = replaceSelection(
+      editor.value,
+      editor.selectionStart,
+      editor.selectionEnd,
+      "[@citation-key]",
+      2,
+    );
+  if (command === "strike")
+    result = wrapSelection(
+      editor.value,
+      editor.selectionStart,
+      editor.selectionEnd,
+      "~~",
+      "~~",
+      "struck text",
+    );
+  if (command === "bullet-list")
+    result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "- ");
+  if (command === "ordered-list")
+    result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "1. ");
+  if (command === "task-list")
+    result = prefixSelectedLines(
+      editor.value,
+      editor.selectionStart,
+      editor.selectionEnd,
+      "- [ ] ",
+    );
+  if (command === "quote")
+    result = prefixSelectedLines(editor.value, editor.selectionStart, editor.selectionEnd, "> ");
+  if (command === "image")
+    result = wrapSelection(
+      editor.value,
+      editor.selectionStart,
+      editor.selectionEnd,
+      "![",
+      "](assets/image.png)",
+      "alt text",
+    );
+  if (command === "rule")
+    result = replaceSelection(editor.value, editor.selectionStart, editor.selectionEnd, "\n---\n");
   if (command === "code-block") {
-    result = wrapSelection(editor.value, editor.selectionStart, editor.selectionEnd, "```\n", "\n```", "code");
+    result = wrapSelection(
+      editor.value,
+      editor.selectionStart,
+      editor.selectionEnd,
+      "```\n",
+      "\n```",
+      "code",
+    );
   }
   if (command === "table") {
     // A minimal GitHub table the user can extend, rather than a dialog to fill in.
@@ -3382,9 +4239,7 @@ function positionToolbarPopover(menu, anchor) {
   menu.style.top = `${box.bottom + 4}px`;
   // Anchored to the button's leading edge, and kept inside the window: the
   // strip mirrors, so the same menu opens from the other side in Persian.
-  const start = document.documentElement.dir === "rtl"
-    ? window.innerWidth - box.right
-    : box.left;
+  const start = document.documentElement.dir === "rtl" ? window.innerWidth - box.right : box.left;
   const room = window.innerWidth - menu.offsetWidth - 8;
   menu.style.insetInlineStart = `${Math.max(8, Math.min(start, room))}px`;
 }
@@ -3408,7 +4263,9 @@ function toggleWritingAppearance(force) {
 
 function focusToolbarControl(selector) {
   const button = $(selector);
-  (button?.getClientRects().length ? button : $("#workspace-view-menu-button"))?.focus({ preventScroll: true });
+  (button?.getClientRects().length ? button : $("#workspace-view-menu-button"))?.focus({
+    preventScroll: true,
+  });
 }
 
 /* ---- The format bar keeps every control reachable -------------------------
@@ -3449,8 +4306,10 @@ function toggleFormatOverflowMenu(force) {
 function syncFormatBarOverflow() {
   const parts = formatBarParts();
   if (!parts) return;
-  const movable = [...parts.bar.querySelectorAll("[data-format-movable]"),
-                   ...parts.menu.querySelectorAll("[data-format-movable]")];
+  const movable = [
+    ...parts.bar.querySelectorAll("[data-format-movable]"),
+    ...parts.menu.querySelectorAll("[data-format-movable]"),
+  ];
   const groups = movable.filter((node) => node.classList.contains("format-group"));
   if (!groups.length) return;
 
@@ -3494,8 +4353,9 @@ function syncFormatBarOverflow() {
 function moveFocusOutOfEditor(backwards = false) {
   const surface = $(".editor-surface");
   if (!surface) return;
-  const candidates = focusableElements(document.body)
-    .filter((element) => !surface.contains(element) && element.offsetParent !== null);
+  const candidates = focusableElements(document.body).filter(
+    (element) => !surface.contains(element) && element.offsetParent !== null,
+  );
   if (!candidates.length) return;
   const before = [];
   const after = [];
@@ -3505,9 +4365,7 @@ function moveFocusOutOfEditor(backwards = false) {
     else if (where & Node.DOCUMENT_POSITION_FOLLOWING) after.push(element);
   }
   // Wrapping matches what the browser does at either end of the document.
-  const target = backwards
-    ? (before.at(-1) || after.at(-1))
-    : (after[0] || before[0]);
+  const target = backwards ? before.at(-1) || after.at(-1) : after[0] || before[0];
   target?.focus();
 }
 
@@ -3546,18 +4404,32 @@ async function copyAsHtml() {
   }
   const context = requestContext(model);
   try {
-    const result = model.preview && model.previewContentVersion === model.contentVersion
-      ? model.preview
-      : await previewDocumentText({ path: model.path, content: model.content, options: previewOptions() });
+    const result =
+      model.preview && model.previewContentVersion === model.contentVersion
+        ? model.preview
+        : await previewDocumentText({
+            path: model.path,
+            content: model.content,
+            options: previewOptions(),
+          });
     if (!contextIsCurrent(context)) {
       toast(t("copyDocumentChanged"));
       return;
     }
     const article = document.createElement("div");
-    article.append(safePreviewHtml(`${result.body_html || ""}${result.reference_lists_html || ""}${result.bibliography_html || ""}`, "clipboard-"));
-    await typesetPreviewMath(article, { isCurrent: () => contextIsCurrent(context), errorLabel: t("previewMathFailed") });
+    article.append(
+      safePreviewHtml(
+        `${result.body_html || ""}${result.reference_lists_html || ""}${result.bibliography_html || ""}`,
+        "clipboard-",
+      ),
+    );
+    await typesetPreviewMath(article, {
+      isCurrent: () => contextIsCurrent(context),
+      errorLabel: t("previewMathFailed"),
+    });
     if (!contextIsCurrent(context)) return;
-    if (await copyToClipboard(article.textContent || "", { html: article.innerHTML })) toast(t("copied"), "success");
+    if (await copyToClipboard(article.textContent || "", { html: article.innerHTML }))
+      toast(t("copied"), "success");
   } catch (error) {
     toast(errorText(error), "error");
   }
@@ -3573,8 +4445,14 @@ async function pasteAsPlainText() {
   const end = editor.selectionEnd;
   try {
     const text = await navigator.clipboard.readText();
-    if (!contextIsCurrent(context) || intent !== state.documentActivationSequence
-      || !documentEditable() || editor.selectionStart !== start || editor.selectionEnd !== end) return;
+    if (
+      !contextIsCurrent(context) ||
+      intent !== state.documentActivationSequence ||
+      !documentEditable() ||
+      editor.selectionStart !== start ||
+      editor.selectionEnd !== end
+    )
+      return;
     if (text) applyEditorResult(replaceSelection(editor.value, start, end, text));
   } catch {
     toast(t("clipboardUnavailable"), "error");
@@ -3596,18 +4474,48 @@ function openEditorContextMenu(event) {
   const hasSelection = currentEditor().selectionStart !== currentEditor().selectionEnd;
 
   const items = [
-    { key: "copy", label: t("copy"), enabled: hasSelection, run: () => copyToClipboard(selectionOrDocument()) },
-    { key: "copyHtml", label: t("copyAsHtml"), enabled: isMarkdownModel(model) && Boolean(model?.content.trim()), run: copyAsHtml },
-    { key: "copyPlain", label: t("copyAsPlainText"), enabled: true, run: () => copyToClipboard(selectionOrDocument()) },
+    {
+      key: "copy",
+      label: t("copy"),
+      enabled: hasSelection,
+      run: () => copyToClipboard(selectionOrDocument()),
+    },
+    {
+      key: "copyHtml",
+      label: t("copyAsHtml"),
+      enabled: isMarkdownModel(model) && Boolean(model?.content.trim()),
+      run: copyAsHtml,
+    },
+    {
+      key: "copyPlain",
+      label: t("copyAsPlainText"),
+      enabled: true,
+      run: () => copyToClipboard(selectionOrDocument()),
+    },
     { key: "paste", label: t("pasteAsPlainText"), enabled: editable, run: pasteAsPlainText },
     { separator: true },
     { key: "image", label: t("insertImage"), enabled: editable, run: importAsset },
-    { key: "citation", label: t("insertCitation"), enabled: editable, run: () => editorCommand("citation") },
+    {
+      key: "citation",
+      label: t("insertCitation"),
+      enabled: editable,
+      run: () => editorCommand("citation"),
+    },
     { key: "table", label: t("insertTable"), enabled: editable, run: () => editorCommand("table") },
     { separator: true },
-    { key: "validate", label: t("checkDocument"), enabled: isMarkdownModel(model), run: validateActiveDocument },
+    {
+      key: "validate",
+      label: t("checkDocument"),
+      enabled: isMarkdownModel(model),
+      run: validateActiveDocument,
+    },
     { key: "export", label: t("commandExport"), enabled: Boolean(model), run: openWorkspaceExport },
-    { key: "reveal", label: t("showInFolder"), enabled: Boolean(model?.path), run: () => invoke("reveal_path", { path: model.path }).catch(() => {}) },
+    {
+      key: "reveal",
+      label: t("showInFolder"),
+      enabled: Boolean(model?.path),
+      run: () => invoke("reveal_path", { path: model.path }).catch(() => {}),
+    },
   ];
 
   const menu = $("#editor-context-menu");
@@ -3729,11 +4637,16 @@ function engineSupports(method) {
 async function engineHealth() {
   const element = $("#engine-state");
   try {
-    const health = await invoke("sidecar_request", { request_id: requestId("health"), method: "system.health", params: {} });
+    const health = await invoke("sidecar_request", {
+      request_id: requestId("health"),
+      method: "system.health",
+      params: {},
+    });
     element.dataset.state = "ready";
     element.querySelector("span").dataset.i18n = "engineReady";
     element.querySelector("span").textContent = t("engineReady");
-    $("#runtime-detail").textContent = `${health.engine_version || ""} · ${health.runtime?.platform || t("localRuntime")}`;
+    $("#runtime-detail").textContent =
+      `${health.engine_version || ""} · ${health.runtime?.platform || t("localRuntime")}`;
     await engineCapabilities();
   } catch (error) {
     element.dataset.state = "error";
@@ -3746,7 +4659,9 @@ async function engineHealth() {
 
 function bindEvents() {
   const utilityWidth = matchMedia("(min-width: 1001px)");
-  const updateUtilities = () => { $("#app-utilities").open = utilityWidth.matches; };
+  const updateUtilities = () => {
+    $("#app-utilities").open = utilityWidth.matches;
+  };
   updateUtilities();
   utilityWidth.addEventListener("change", updateUtilities);
   // Fixed popovers belong to the viewport. Keeping them inside a size-query
@@ -3758,7 +4673,8 @@ function bindEvents() {
   layoutMenu.addEventListener("keydown", (event) => {
     const items = [...layoutMenu.querySelectorAll("button:not(:disabled)")];
     const index = items.indexOf(document.activeElement);
-    const leavesGroup = event.key === "Tab" && (event.shiftKey ? index === 0 : index === items.length - 1);
+    const leavesGroup =
+      event.key === "Tab" && (event.shiftKey ? index === 0 : index === items.length - 1);
     if (event.key === "Escape" || leavesGroup) {
       event.preventDefault();
       toggleWorkspaceLayoutMenu(false);
@@ -3767,19 +4683,33 @@ function bindEvents() {
     }
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) || !items.length) return;
     event.preventDefault();
-    const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
-      : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
     items[next].focus({ preventScroll: true });
   });
   document.addEventListener("focusin", (event) => {
-    if (!layoutMenu.classList.contains("hidden") && !layoutMenu.contains(event.target) && event.target !== layoutTrigger) {
+    if (
+      !layoutMenu.classList.contains("hidden") &&
+      !layoutMenu.contains(event.target) &&
+      event.target !== layoutTrigger
+    ) {
       toggleWorkspaceLayoutMenu(false);
     }
   });
-  $("#workspace-toggle-preview").addEventListener("click", () => toggleSidePreview({ keepFocus: true }));
+  $("#workspace-toggle-preview").addEventListener("click", () =>
+    toggleSidePreview({ keepFocus: true }),
+  );
   $("#workspace-reset-panel-sizes").addEventListener("click", resetWorkspacePaneSizes);
-  $("#document-mode-help").addEventListener("click", () => modalManager.open($("#view-guide-modal")));
-  $("#close-view-guide").addEventListener("click", () => modalManager.close($("#view-guide-modal")));
+  $("#document-mode-help").addEventListener("click", () =>
+    modalManager.open($("#view-guide-modal")),
+  );
+  $("#close-view-guide").addEventListener("click", () =>
+    modalManager.close($("#view-guide-modal")),
+  );
   $("#workflow-new").addEventListener("click", createUntitledDocument);
   $("#command-button").addEventListener("click", openCommandPalette);
   $("#help-button").addEventListener("click", openHelp);
@@ -3793,8 +4723,13 @@ function bindEvents() {
       if (buttons.length < 2) return;
       const index = buttons.indexOf(button);
       const rtl = document.documentElement.dir === "rtl";
-      const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1
-        : (index + ((event.key === "ArrowRight") !== rtl ? 1 : -1) + buttons.length) % buttons.length;
+      const next =
+        event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? buttons.length - 1
+            : (index + ((event.key === "ArrowRight") !== rtl ? 1 : -1) + buttons.length) %
+              buttons.length;
       setViewMode(buttons[next].dataset.viewMode);
       buttons[next].focus();
     });
@@ -3808,8 +4743,12 @@ function bindEvents() {
   }
   $("#preview-zoom-in").addEventListener("click", () => exportPreviewDeck()?.zoomBy(1));
   $("#preview-zoom-out").addEventListener("click", () => exportPreviewDeck()?.zoomBy(-1));
-  $("#preview-fit-width").addEventListener("click", () => exportPreviewDeck()?.setZoomMode("fit-width"));
-  $("#preview-fit-page").addEventListener("click", () => exportPreviewDeck()?.setZoomMode("fit-page"));
+  $("#preview-fit-width").addEventListener("click", () =>
+    exportPreviewDeck()?.setZoomMode("fit-width"),
+  );
+  $("#preview-fit-page").addEventListener("click", () =>
+    exportPreviewDeck()?.setZoomMode("fit-page"),
+  );
   $("#preview-guides").addEventListener("click", () => exportPreviewDeck()?.toggleGuides());
   $("#preview-prev-page").addEventListener("click", () => movePreviewPage(-1));
   $("#preview-next-page").addEventListener("click", () => movePreviewPage(1));
@@ -3823,17 +4762,23 @@ function bindEvents() {
     if (activeDocument()) focusDocument();
     else $("#workspace-export").focus({ preventScroll: true });
   });
-  $("#close-export-format").addEventListener("click", () => modalManager.close($("#export-format-modal")));
+  $("#close-export-format").addEventListener("click", () =>
+    modalManager.close($("#export-format-modal")),
+  );
   $("#choose-source").addEventListener("click", chooseExportSource);
   $("#preview-choose-source").addEventListener("click", chooseExportSource);
   $("#choose-output").addEventListener("click", chooseExportOutput);
   $("#validate-button").addEventListener("click", validateExportDocument);
   $("#export-form").addEventListener("submit", exportDocument);
   $("#cancel-button").addEventListener("click", cancelExport);
-  $("#export-show-details").addEventListener("click", () => modalManager.open($("#export-details-modal"), {
-    initialFocus: "#export-close-details",
-  }));
-  $("#export-close-details").addEventListener("click", () => modalManager.close($("#export-details-modal")));
+  $("#export-show-details").addEventListener("click", () =>
+    modalManager.open($("#export-details-modal"), {
+      initialFocus: "#export-close-details",
+    }),
+  );
+  $("#export-close-details").addEventListener("click", () =>
+    modalManager.close($("#export-details-modal")),
+  );
   $("#open-pdf").addEventListener("click", () => openResult(false));
   $("#reveal-pdf").addEventListener("click", () => openResult(true));
   $("#clear-recents").addEventListener("click", () => {
@@ -3841,20 +4786,39 @@ function bindEvents() {
     renderRecents();
   });
 
-  $("#workspace-toggle-files")?.addEventListener("click", () => toggleWorkspacePane("files", { keepFocus: true }));
-  $("#workspace-toggle-formatting")?.addEventListener("click", () => toggleWorkspacePane("formatting"));
+  $("#workspace-toggle-files")?.addEventListener("click", () =>
+    toggleWorkspacePane("files", { keepFocus: true }),
+  );
+  $("#workspace-toggle-formatting")?.addEventListener("click", () =>
+    toggleWorkspacePane("formatting"),
+  );
   $("#writing-appearance-button")?.addEventListener("click", () => toggleWritingAppearance());
   $("#writing-appearance-close")?.addEventListener("click", () => {
-    toggleWritingAppearance(false); focusToolbarControl("#writing-appearance-button");
+    toggleWritingAppearance(false);
+    focusToolbarControl("#writing-appearance-button");
   });
-  $("#writing-font")?.addEventListener("change", (event) => updateDocumentView({ writingFont: event.target.value }));
-  $("#writing-density")?.addEventListener("change", (event) => updateDocumentView({ writingDensity: event.target.value }));
-  $("#writing-zoom")?.addEventListener("input", (event) => updateDocumentView({ documentZoom: Number(event.target.value) }));
-  $("#writing-appearance-reset")?.addEventListener("click", () => updateDocumentView({ documentZoom: 100, writingDensity: "comfortable", writingFont: "document" }));
+  $("#writing-font")?.addEventListener("change", (event) =>
+    updateDocumentView({ writingFont: event.target.value }),
+  );
+  $("#writing-density")?.addEventListener("change", (event) =>
+    updateDocumentView({ writingDensity: event.target.value }),
+  );
+  $("#writing-zoom")?.addEventListener("input", (event) =>
+    updateDocumentView({ documentZoom: Number(event.target.value) }),
+  );
+  $("#writing-appearance-reset")?.addEventListener("click", () =>
+    updateDocumentView({
+      documentZoom: 100,
+      writingDensity: "comfortable",
+      writingFont: "document",
+    }),
+  );
   $("#writing-appearance")?.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
-    event.preventDefault(); event.stopPropagation();
-    toggleWritingAppearance(false); focusToolbarControl("#writing-appearance-button");
+    event.preventDefault();
+    event.stopPropagation();
+    toggleWritingAppearance(false);
+    focusToolbarControl("#writing-appearance-button");
   });
   const navigatorTabs = $$("[data-navigator-tab]");
   for (const button of navigatorTabs) {
@@ -3863,10 +4827,19 @@ function bindEvents() {
       if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
       event.preventDefault();
       const tabs = navigatorTabs.filter((tab) => !tab.disabled);
-      const backwards = event.key === (document.documentElement.dir === "rtl" ? "ArrowRight" : "ArrowLeft");
+      const backwards =
+        event.key === (document.documentElement.dir === "rtl" ? "ArrowRight" : "ArrowLeft");
       const index = tabs.indexOf(button);
-      const next = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs.at(-1) : tabs[(index + (backwards ? -1 : 1) + tabs.length) % tabs.length];
-      if (next) { activateNavigator(next.dataset.navigatorTab); next.focus(); }
+      const next =
+        event.key === "Home"
+          ? tabs[0]
+          : event.key === "End"
+            ? tabs.at(-1)
+            : tabs[(index + (backwards ? -1 : 1) + tabs.length) % tabs.length];
+      if (next) {
+        activateNavigator(next.dataset.navigatorTab);
+        next.focus();
+      }
     });
   }
   $("#outline-filter")?.addEventListener("input", (event) => {
@@ -3875,20 +4848,37 @@ function bindEvents() {
   });
   $("#outline-expand-all")?.addEventListener("click", () => outlineNavigator?.expandAll());
   $("#outline-collapse-all")?.addEventListener("click", () => outlineNavigator?.collapseAll());
-  $("#outline-follow")?.addEventListener("change", (event) => outlineNavigator?.setFollow(event.target.checked));
+  $("#outline-follow")?.addEventListener("change", (event) =>
+    outlineNavigator?.setFollow(event.target.checked),
+  );
   let lastTextWheel = 0;
-  document.addEventListener("wheel", (event) => {
-    if (!(event.ctrlKey || event.metaKey) || !event.deltaY || !event.target.closest(".editor-surface,.reading-document,.preview-document,#book-review-document")) return;
-    event.preventDefault();
-    const now = Date.now();
-    if (now - lastTextWheel < 80) return;
-    lastTextWheel = now;
-    changeDocumentZoom(event.deltaY < 0 ? 1 : -1);
-  }, { passive: false });
+  document.addEventListener(
+    "wheel",
+    (event) => {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        !event.deltaY ||
+        !event.target.closest(
+          ".editor-surface,.reading-document,.preview-document,#book-review-document",
+        )
+      )
+        return;
+      event.preventDefault();
+      const now = Date.now();
+      if (now - lastTextWheel < 80) return;
+      lastTextWheel = now;
+      changeDocumentZoom(event.deltaY < 0 ? 1 : -1);
+    },
+    { passive: false },
+  );
   $("#document-zoom-out")?.addEventListener("click", () => changeDocumentZoom(-1));
   $("#document-zoom-in")?.addEventListener("click", () => changeDocumentZoom(1));
   $("#document-zoom-reset")?.addEventListener("click", () => changeDocumentZoom(0));
-  $("#document-toggle-width")?.addEventListener("click", () => updateDocumentView({ writingWidth: state.preferences.writingWidth === "full" ? "readable" : "full" }));
+  $("#document-toggle-width")?.addEventListener("click", () =>
+    updateDocumentView({
+      writingWidth: state.preferences.writingWidth === "full" ? "readable" : "full",
+    }),
+  );
   $("#workspace-quick-open")?.addEventListener("click", () => navigationPicker.open("files"));
   $("#navigator-new")?.addEventListener("click", createUntitledDocument);
   $("#tab-new-document")?.addEventListener("click", createStartTab);
@@ -3901,11 +4891,20 @@ function bindEvents() {
     updatePreference({ focusMode: !state.preferences.focusMode });
     focusDocument();
   });
-  $("#exit-focus-mode")?.addEventListener("click", () => { updatePreference({ focusMode: false }); focusDocument(); });
+  $("#exit-focus-mode")?.addEventListener("click", () => {
+    updatePreference({ focusMode: false });
+    focusDocument();
+  });
   $("#file-resizer")?.addEventListener("pointerdown", (event) => beginPaneResize(event, "files"));
-  $("#file-resizer")?.addEventListener("keydown", (event) => resizePaneWithKeyboard(event, "files"));
+  $("#file-resizer")?.addEventListener("keydown", (event) =>
+    resizePaneWithKeyboard(event, "files"),
+  );
   $("#reading-document")?.addEventListener("scroll", (event) => {
-    if (readingDocumentId && state.preferences.viewMode === "read" && event.currentTarget.getClientRects().length) {
+    if (
+      readingDocumentId &&
+      state.preferences.viewMode === "read" &&
+      event.currentTarget.getClientRects().length
+    ) {
       readingScroll.set(readingDocumentId, event.currentTarget.scrollTop);
       outlineNavigator?.setActiveLine(readingSourceLine(), { scroll: true });
     }
@@ -3914,7 +4913,8 @@ function bindEvents() {
     if (event.target.closest("button")) event.currentTarget.open = false;
   });
   document.addEventListener("pointerdown", (event) => {
-    if (!event.target.closest("#document-actions-menu")) $("#document-actions-menu")?.removeAttribute("open");
+    if (!event.target.closest("#document-actions-menu"))
+      $("#document-actions-menu")?.removeAttribute("open");
   });
   let compactWorkspace = compactSidePanes.matches;
   window.addEventListener("resize", () => {
@@ -3932,11 +4932,21 @@ function bindEvents() {
   $("#workspace-validate").addEventListener("click", validateActiveDocument);
   $("#workspace-export").addEventListener("click", openWorkspaceExport);
   $("#workspace-import-asset").addEventListener("click", importAsset);
-  $("#workspace-toggle-sidebar").addEventListener("click", () => toggleWorkspacePane("sidebar", { keepFocus: true }));
-  $("#sidebar-resizer").addEventListener("pointerdown", (event) => beginPaneResize(event, "sidebar"));
-  $("#preview-resizer").addEventListener("pointerdown", (event) => beginPaneResize(event, "preview"));
-  $("#sidebar-resizer").addEventListener("keydown", (event) => resizePaneWithKeyboard(event, "sidebar"));
-  $("#preview-resizer").addEventListener("keydown", (event) => resizePaneWithKeyboard(event, "preview"));
+  $("#workspace-toggle-sidebar").addEventListener("click", () =>
+    toggleWorkspacePane("sidebar", { keepFocus: true }),
+  );
+  $("#sidebar-resizer").addEventListener("pointerdown", (event) =>
+    beginPaneResize(event, "sidebar"),
+  );
+  $("#preview-resizer").addEventListener("pointerdown", (event) =>
+    beginPaneResize(event, "preview"),
+  );
+  $("#sidebar-resizer").addEventListener("keydown", (event) =>
+    resizePaneWithKeyboard(event, "sidebar"),
+  );
+  $("#preview-resizer").addEventListener("keydown", (event) =>
+    resizePaneWithKeyboard(event, "preview"),
+  );
   $("#import-asset").addEventListener("click", importAsset);
   $("#refresh-assets").addEventListener("click", refreshAssets);
   $("#sidebar-open-project").addEventListener("click", chooseProjectDirectory);
@@ -3950,13 +4960,16 @@ function bindEvents() {
   $("#book-preview").addEventListener("click", previewActiveBook);
   $("#book-export").addEventListener("click", () => {
     const context = currentProjectContext();
-    openExportFormat(() => {
-      if (!projectContextIsCurrent(context)) {
-        toast(t("bookProjectChanged"), "warning");
-        return;
-      }
-      return exportActiveBook();
-    }, { book: true });
+    openExportFormat(
+      () => {
+        if (!projectContextIsCurrent(context)) {
+          toast(t("bookProjectChanged"), "warning");
+          return;
+        }
+        return exportActiveBook();
+      },
+      { book: true },
+    );
   });
   $("#book-cancel-operation").addEventListener("click", cancelActiveBookOperation);
   $("#book-open-output").addEventListener("click", () => openBookOutput(false));
@@ -3990,47 +5003,71 @@ function bindEvents() {
   // unequal — the button returned without ever rendering anything.
   $("#refresh-preview").addEventListener("click", () => void refreshPreview());
   $("#refresh-reading").addEventListener("click", () => void refreshPreview());
-  for (const container of [$("#reading-document"), $("#preview-document"), $("#book-review-document")]) {
+  for (const container of [
+    $("#reading-document"),
+    $("#preview-document"),
+    $("#book-review-document"),
+  ]) {
     container?.addEventListener("click", (event) => void activateMarkdownDocumentLink(event));
     container?.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" || !event.target?.closest?.("a[data-mardas-markdown-href]")) return;
       void activateMarkdownDocumentLink(event);
     });
   }
-  for (const checkbox of $$('[data-content-auto]')) checkbox.addEventListener("change", () => {
-    updatePreference({ autoPreview: checkbox.checked });
-    if (checkbox.checked && contentViewVisible()) void refreshPreview();
-    else schedulePreview();
-  });
+  for (const checkbox of $$("[data-content-auto]"))
+    checkbox.addEventListener("change", () => {
+      updatePreference({ autoPreview: checkbox.checked });
+      if (checkbox.checked && contentViewVisible()) void refreshPreview();
+      else schedulePreview();
+    });
   $("#frontmatter-form").addEventListener("submit", applyFrontMatter);
-  $("#find-query").addEventListener("input", () => { if (updateFindMatches({ reset: true }).length) selectFindMatch(0); });
-  $("#find-query").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); moveFind(event.shiftKey ? -1 : 1); } });
+  $("#find-query").addEventListener("input", () => {
+    if (updateFindMatches({ reset: true }).length) selectFindMatch(0);
+  });
+  $("#find-query").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      moveFind(event.shiftKey ? -1 : 1);
+    }
+  });
   $("#toggle-replace").addEventListener("click", () => {
     showFindReplacement($("#toggle-replace").getAttribute("aria-expanded") !== "true");
     $("#find-query").focus();
   });
   $("#find-bar").addEventListener("keydown", (event) => {
-    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeFind(); }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeFind();
+    }
     const shortcut = authoringShortcutKey(event);
     if (["f", "h"].includes(shortcut)) {
-      event.preventDefault(); event.stopPropagation();
+      event.preventDefault();
+      event.stopPropagation();
       if (shortcut === "h") showFindReplacement(true);
-      $("#find-query").focus(); $("#find-query").select();
+      $("#find-query").focus();
+      $("#find-query").select();
     }
   });
   $("#replace-query").addEventListener("keydown", (event) => {
-    if (event.key === "Enter") { event.preventDefault(); replaceCurrentMatch(); $("#replace-query").focus(); }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      replaceCurrentMatch();
+      $("#replace-query").focus();
+    }
   });
   $("#find-previous").addEventListener("click", () => moveFind(-1));
   $("#find-next").addEventListener("click", () => moveFind(1));
   $("#replace-one").addEventListener("click", replaceCurrentMatch);
   $("#replace-all").addEventListener("click", replaceAllMatches);
   $("#close-find").addEventListener("click", closeFind);
-  $$('[data-editor-command]').forEach((button) => button.addEventListener("click", () => {
-    if (button.closest("#heading-menu")) toggleHeadingMenu(false);
-    if (button.closest("#insert-menu")) toggleInsertMenu(false);
-    editorCommand(button.dataset.editorCommand);
-  }));
+  $$("[data-editor-command]").forEach((button) =>
+    button.addEventListener("click", () => {
+      if (button.closest("#heading-menu")) toggleHeadingMenu(false);
+      if (button.closest("#insert-menu")) toggleInsertMenu(false);
+      editorCommand(button.dataset.editorCommand);
+    }),
+  );
   $("#heading-menu-button").addEventListener("click", (event) => {
     event.stopPropagation();
     toggleHeadingMenu();
@@ -4054,9 +5091,10 @@ function bindEvents() {
     }
     if (!["ArrowUp", "ArrowDown"].includes(event.key) || index < 0) return;
     event.preventDefault();
-    const next = event.key === "ArrowDown"
-      ? (index + 1) % items.length
-      : (index - 1 + items.length) % items.length;
+    const next =
+      event.key === "ArrowDown"
+        ? (index + 1) % items.length
+        : (index - 1 + items.length) % items.length;
     items[next].focus();
   });
   $("#format-overflow-button").addEventListener("click", (event) => {
@@ -4080,8 +5118,12 @@ function bindEvents() {
     event.preventDefault();
     const items = [...event.currentTarget.querySelectorAll("button:not([disabled])")];
     const index = items.indexOf(document.activeElement);
-    const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
-      : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
     items[next]?.focus();
   });
   // A command run from the menu has done what the user opened it for.
@@ -4102,33 +5144,39 @@ function bindEvents() {
     }
     if (!["ArrowUp", "ArrowDown"].includes(event.key) || index < 0) return;
     event.preventDefault();
-    const next = event.key === "ArrowDown"
-      ? (index + 1) % items.length
-      : (index - 1 + items.length) % items.length;
+    const next =
+      event.key === "ArrowDown"
+        ? (index + 1) % items.length
+        : (index - 1 + items.length) % items.length;
     items[next].focus();
   });
   document.addEventListener("pointerdown", (event) => {
     const target = event.target instanceof Element ? event.target : null;
-    if (!target?.closest("#workspace-layout-menu, #workspace-layout-button")) toggleWorkspaceLayoutMenu(false);
+    if (!target?.closest("#workspace-layout-menu, #workspace-layout-button"))
+      toggleWorkspaceLayoutMenu(false);
     if (!target?.closest("#heading-menu, #heading-menu-button")) toggleHeadingMenu(false);
     if (!target?.closest("#insert-menu, #insert-menu-button")) toggleInsertMenu(false);
-    if (!target?.closest("#writing-appearance, #writing-appearance-button")) toggleWritingAppearance(false);
+    if (!target?.closest("#writing-appearance, #writing-appearance-button"))
+      toggleWritingAppearance(false);
     if (!target?.closest("#format-overflow-menu, #format-overflow-button")) {
       toggleFormatOverflowMenu(false);
     }
     if (!target?.closest("#editor-context-menu")) closeEditorContextMenu();
   });
-  const sidebarButtons = $$('[data-sidebar]');
+  const sidebarButtons = $$("[data-sidebar]");
   sidebarButtons.forEach((button) => {
     button.addEventListener("click", () => activateSidebar(button.dataset.sidebar));
     button.addEventListener("keydown", (event) => {
-      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
+        return;
       event.preventDefault();
       const index = sidebarButtons.indexOf(button);
       let targetIndex = index;
       const rtl = document.documentElement.dir === "rtl";
-      if (event.key === "ArrowUp" || event.key === (rtl ? "ArrowRight" : "ArrowLeft")) targetIndex = (index - 1 + sidebarButtons.length) % sidebarButtons.length;
-      if (event.key === "ArrowDown" || event.key === (rtl ? "ArrowLeft" : "ArrowRight")) targetIndex = (index + 1) % sidebarButtons.length;
+      if (event.key === "ArrowUp" || event.key === (rtl ? "ArrowRight" : "ArrowLeft"))
+        targetIndex = (index - 1 + sidebarButtons.length) % sidebarButtons.length;
+      if (event.key === "ArrowDown" || event.key === (rtl ? "ArrowLeft" : "ArrowRight"))
+        targetIndex = (index + 1) % sidebarButtons.length;
       if (event.key === "Home") targetIndex = 0;
       if (event.key === "End") targetIndex = sidebarButtons.length - 1;
       const target = sidebarButtons[targetIndex];
@@ -4155,10 +5203,12 @@ function bindEvents() {
   $("#skip-onboarding").addEventListener("click", () => completeOnboarding({ runIntent: false }));
   $("#onboarding-next").addEventListener("click", onboardingNext);
   $("#onboarding-back").addEventListener("click", onboardingBack);
-  $$("[data-onboarding-action]").forEach((button) => button.addEventListener("click", () => {
-    state.onboardingIntent = normalizeOnboardingIntent(button.dataset.onboardingAction);
-    setOnboardingStep(1);
-  }));
+  $$("[data-onboarding-action]").forEach((button) =>
+    button.addEventListener("click", () => {
+      state.onboardingIntent = normalizeOnboardingIntent(button.dataset.onboardingAction);
+      setOnboardingStep(1);
+    }),
+  );
   $("#command-query").addEventListener("input", () => {
     resetCommandSelection();
     renderCommandPalette();
@@ -4196,13 +5246,19 @@ function bindEvents() {
     const key = authoringShortcutKey(event);
     if (!key) return;
     if (modalManager.hasOpenModal()) return;
-    const formControl = event.target instanceof Element
-      && event.target.matches("input,textarea,select,[contenteditable='true']")
-      && !event.target.closest(".editor-surface");
-    const tableEditorShortcut = event.target.closest?.(".cm-table-cell-editor")
-      && ["s", "f", "h", "p", "o", "n", "\\", "+", "=", "-", "0"].includes(key);
+    const formControl =
+      event.target instanceof Element &&
+      event.target.matches("input,textarea,select,[contenteditable='true']") &&
+      !event.target.closest(".editor-surface");
+    const tableEditorShortcut =
+      event.target.closest?.(".cm-table-cell-editor") &&
+      ["s", "f", "h", "p", "o", "n", "\\", "+", "=", "-", "0"].includes(key);
     if (formControl && !tableEditorShortcut) return;
-    if ($("#workspace-view").classList.contains("active") && !event.altKey && ["+", "=", "-", "0"].includes(key)) {
+    if (
+      $("#workspace-view").classList.contains("active") &&
+      !event.altKey &&
+      ["+", "=", "-", "0"].includes(key)
+    ) {
       event.preventDefault();
       changeDocumentZoom(key === "0" ? 0 : key === "-" ? -1 : 1);
     } else if (key === "p" && event.shiftKey) {
@@ -4238,34 +5294,49 @@ function bindEvents() {
       event.preventDefault();
       createUntitledDocument();
     } else if (
-      ["b", "i", "k"].includes(key)
-      && $("#workspace-view").classList.contains("active")
+      ["b", "i", "k"].includes(key) &&
+      $("#workspace-view").classList.contains("active") &&
       // Inside the editor these are the editor's own bindings. Handling them
       // here as well ran the command twice against a selection CodeMirror had
       // already changed.
-      && !(event.target instanceof Element && event.target.closest(".editor-surface"))
+      !(event.target instanceof Element && event.target.closest(".editor-surface"))
     ) {
       event.preventDefault();
       editorCommand(key === "b" ? "bold" : key === "i" ? "italic" : "link");
     }
   });
 
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || event.defaultPrevented || modalManager.hasOpenModal()) return;
-    const compactDrawer = event.target.closest?.(".editor-surface")
-      && compactSidePanes.matches && state.compactDrawer;
-    if (!state.preferences.focusMode && !compactDrawer) return;
-    const completion = $(".cm-tooltip-autocomplete");
-    const editorPopupFocused = event.target.closest?.(".cm-selection-toolbar");
-    if (completion?.getClientRects().length || editorPopupFocused) return;
-    if (["#editor-context-menu", "#insert-menu", "#heading-menu", "#format-overflow-menu", "#workspace-view-menu", "#workspace-layout-menu"]
-      .some((selector) => !$(selector)?.classList.contains("hidden"))) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (state.preferences.focusMode) updatePreference({ focusMode: false });
-    else closeCompactDrawer();
-    focusDocument();
-  }, true);
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key !== "Escape" || event.defaultPrevented || modalManager.hasOpenModal()) return;
+      const compactDrawer =
+        event.target.closest?.(".editor-surface") &&
+        compactSidePanes.matches &&
+        state.compactDrawer;
+      if (!state.preferences.focusMode && !compactDrawer) return;
+      const completion = $(".cm-tooltip-autocomplete");
+      const editorPopupFocused = event.target.closest?.(".cm-selection-toolbar");
+      if (completion?.getClientRects().length || editorPopupFocused) return;
+      if (
+        [
+          "#editor-context-menu",
+          "#insert-menu",
+          "#heading-menu",
+          "#format-overflow-menu",
+          "#workspace-view-menu",
+          "#workspace-layout-menu",
+        ].some((selector) => !$(selector)?.classList.contains("hidden"))
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (state.preferences.focusMode) updatePreference({ focusMode: false });
+      else closeCompactDrawer();
+      focusDocument();
+    },
+    true,
+  );
 
   window.addEventListener("beforeunload", (event) => {
     // A visible table-cell draft belongs to this document too. Flush it before
@@ -4280,8 +5351,12 @@ function bindEvents() {
   // Every way the format bar can change width — the window, a pane toggle, a
   // resize drag, the view mode, focus mode — arrives here as one signal.
   const formatBar = document.querySelector(".format-bar");
-  createWorkspaceToolbar({ toolbar: $(".document-toolbar"), menu: $("#workspace-view-menu"),
-    trigger: $("#workspace-view-menu-button"), onLayout: syncFormatBarOverflow });
+  createWorkspaceToolbar({
+    toolbar: $(".document-toolbar"),
+    menu: $("#workspace-view-menu"),
+    trigger: $("#workspace-view-menu-button"),
+    onLayout: syncFormatBarOverflow,
+  });
   if (formatBar && typeof ResizeObserver === "function") {
     let pending = 0;
     new ResizeObserver(() => {
@@ -4309,16 +5384,30 @@ function bindEvents() {
 
 async function boot() {
   modalManager = createModalManager(document);
-  navigationPicker = createNavigationPicker({ manager: modalManager, t,
-    getEntries: (scope) => scope === "headings"
-      ? extractOutline(activeDocument()?.content || "").map((item) => ({ id: `heading:${item.line}`, label: item.title, detail: `${t("lineShort")} ${item.line}`, line: item.line, level: item.level, documentId: activeDocument()?.id, contentVersion: activeDocument()?.contentVersion }))
-      : documentNavigationEntries(state.documents, state.project, state.recents),
+  navigationPicker = createNavigationPicker({
+    manager: modalManager,
+    t,
+    getEntries: (scope) =>
+      scope === "headings"
+        ? extractOutline(activeDocument()?.content || "").map((item) => ({
+            id: `heading:${item.line}`,
+            label: item.title,
+            detail: `${t("lineShort")} ${item.line}`,
+            line: item.line,
+            level: item.level,
+            documentId: activeDocument()?.id,
+            contentVersion: activeDocument()?.contentVersion,
+          }))
+        : documentNavigationEntries(state.documents, state.project, state.recents),
     onChoose: async (entry, scope) => {
       if (scope === "headings") {
-        if (entry.documentId === activeDocument()?.id && entry.contentVersion === activeDocument()?.contentVersion) goToLine(entry.line);
+        if (
+          entry.documentId === activeDocument()?.id &&
+          entry.contentVersion === activeDocument()?.contentVersion
+        )
+          goToLine(entry.line);
         else focusDocument();
-      }
-      else {
+      } else {
         showView("workspace");
         if (entry.documentId) await activateDocument(entry.documentId);
         else if (entry.recentPath) await openAuthoringPaths([entry.recentPath]);
@@ -4350,10 +5439,10 @@ async function boot() {
     onLeaveEditor: moveFocusOutOfEditor,
     resolveAsset: resolveEditorAsset,
     requestOnlineImage: (origin, source) => onlineImageOptions().onRequest(origin, source),
-    renderMath: (container, { isCurrent } = {}) => typesetPreviewMath(container, { isCurrent, errorLabel: t("previewMathFailed") }),
-    getCompletions: () => activeDocument()?.projectPath === state.project?.path
-      ? state.bibliographyEntries
-      : [],
+    renderMath: (container, { isCurrent } = {}) =>
+      typesetPreviewMath(container, { isCurrent, errorLabel: t("previewMathFailed") }),
+    getCompletions: () =>
+      activeDocument()?.projectPath === state.project?.path ? state.bibliographyEntries : [],
     onChange: onEditorInput,
     onSelectionChange: () => {
       updateEditorMetrics();
@@ -4433,7 +5522,8 @@ async function boot() {
         const activationSequence = state.documentActivationSequence;
         await restoration;
         const active = findDocumentByPath(state.documents, session.activePath);
-        if (active && activationSequence === state.documentActivationSequence) await activateDocument(active.id);
+        if (active && activationSequence === state.documentActivationSequence)
+          await activateDocument(active.id);
       }
     }
   } catch (error) {

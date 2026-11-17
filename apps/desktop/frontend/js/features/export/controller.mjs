@@ -2,7 +2,22 @@ import { invoke } from "../../adapters/tauri.mjs";
 import { buildDocumentParams } from "./export-request.mjs";
 import { spriteIcon } from "../../ui/icons.mjs";
 
-export function createExportController({ state, query: $, t, toast, errorText, errorPayload, requestId, exportSelectionValid, exportOverrides, hideExportResult, showExportResult, saveRecent, releaseEngineForJob, refreshPreviewIfDirty }) {
+export function createExportController({
+  state,
+  query: $,
+  t,
+  toast,
+  errorText,
+  errorPayload,
+  requestId,
+  exportSelectionValid,
+  exportOverrides,
+  hideExportResult,
+  showExportResult,
+  saveRecent,
+  releaseEngineForJob,
+  refreshPreviewIfDirty,
+}) {
   const STATUS_SYMBOLS = {
     idle: "file",
     notice: "info",
@@ -25,7 +40,9 @@ export function createExportController({ state, query: $, t, toast, errorText, e
     const title = titleKey ? t(titleKey) : "";
     const copy = message ?? (messageKey ? t(messageKey) : "");
     $("#export-feedback").dataset.state = kind;
-    $("#status-symbol").replaceChildren(...(kind === "idle" ? [] : [spriteIcon(STATUS_SYMBOLS[kind])]));
+    $("#status-symbol").replaceChildren(
+      ...(kind === "idle" ? [] : [spriteIcon(STATUS_SYMBOLS[kind])]),
+    );
     $("#status-title").textContent = title;
     $("#status-message").textContent = copy;
     $("#status-message").title = copy;
@@ -69,7 +86,9 @@ export function createExportController({ state, query: $, t, toast, errorText, e
   function working(enabled, mode = "render") {
     const cancel = $("#cancel-button");
     const focused = document.activeElement;
-    if (enabled) exportActionFocus = focused === $("#validate-button") || focused === $("#export-button") ? focused : null;
+    if (enabled)
+      exportActionFocus =
+        focused === $("#validate-button") || focused === $("#export-button") ? focused : null;
     syncExportControls();
     cancel.disabled = false;
     cancel.hidden = !enabled;
@@ -81,7 +100,8 @@ export function createExportController({ state, query: $, t, toast, errorText, e
       });
       if (exportActionFocus) cancel.focus({ preventScroll: true });
     } else {
-      if (focused === cancel || focused === document.body) exportActionFocus?.focus({ preventScroll: true });
+      if (focused === cancel || focused === document.body)
+        exportActionFocus?.focus({ preventScroll: true });
       exportActionFocus = null;
       refreshPreviewIfDirty();
     }
@@ -98,7 +118,11 @@ export function createExportController({ state, query: $, t, toast, errorText, e
   async function validateExportDocument() {
     if (state.activeRequestId || !exportSelectionValid()) return;
     const id = requestId("validate");
-    const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, options: exportOverrides() });
+    const params = buildDocumentParams({
+      sourcePath: state.sourcePath,
+      outputPath: state.outputPath,
+      options: exportOverrides(),
+    });
     state.activeRequestId = id;
     state.cancelledExportRequestId = null;
     hideExportResult();
@@ -109,11 +133,19 @@ export function createExportController({ state, query: $, t, toast, errorText, e
         markExportCancelled();
         return;
       }
-      const result = await invoke("sidecar_request", { request_id: id, method: "validate.document", params });
+      const result = await invoke("sidecar_request", {
+        request_id: id,
+        method: "validate.document",
+        params,
+      });
       const diagnostics = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
-      if (!result?.ok) setExportStatus("error", "invalidTitle", { messageKey: "invalidMessage", diagnostics });
+      if (!result?.ok)
+        setExportStatus("error", "invalidTitle", { messageKey: "invalidMessage", diagnostics });
       else if (diagnostics.some((item) => item.severity === "warning")) {
-        setExportStatus("warning", "exportCheckedWithWarnings", { messageKey: "exportCheckedWithWarningsHelp", diagnostics });
+        setExportStatus("warning", "exportCheckedWithWarnings", {
+          messageKey: "exportCheckedWithWarningsHelp",
+          diagnostics,
+        });
       } else setExportStatus("success", "validTitle", { diagnostics });
     } catch (error) {
       const payload = errorPayload(error);
@@ -132,7 +164,11 @@ export function createExportController({ state, query: $, t, toast, errorText, e
     event?.preventDefault();
     if (state.activeRequestId || !exportSelectionValid()) return;
     const id = requestId("render");
-    const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, options: exportOverrides() });
+    const params = buildDocumentParams({
+      sourcePath: state.sourcePath,
+      outputPath: state.outputPath,
+      options: exportOverrides(),
+    });
     params.create_only = true;
     state.activeRequestId = id;
     state.cancelledExportRequestId = null;
@@ -159,7 +195,11 @@ export function createExportController({ state, query: $, t, toast, errorText, e
         focusOutput = true;
         return;
       }
-      const result = await invoke("sidecar_request", { request_id: id, method: "render.document", params });
+      const result = await invoke("sidecar_request", {
+        request_id: id,
+        method: "render.document",
+        params,
+      });
       state.outputResult = result;
       const resultPath = result.output_path || state.outputPath;
       setExportStatus("success", "successTitle");
@@ -174,7 +214,9 @@ export function createExportController({ state, query: $, t, toast, errorText, e
         setExportStatus("error", "errorTitle", { messageKey: "outputExistsChooseNew" });
         focusOutput = true;
       } else {
-        const diagnostics = Array.isArray(payload?.details?.diagnostics) ? payload.details.diagnostics : [];
+        const diagnostics = Array.isArray(payload?.details?.diagnostics)
+          ? payload.details.diagnostics
+          : [];
         setExportStatus("error", "errorTitle", { message: errorText(error), diagnostics });
       }
     } finally {
@@ -219,5 +261,16 @@ export function createExportController({ state, query: $, t, toast, errorText, e
     $("#status-message").textContent = message;
     $("#status-message").title = message;
   }
-  return { setExportStatus, renderExportStatus, invalidateExportStatus, setExportProgress, syncExportControls, validateExportDocument, exportDocument, cancelExport, openResult, updateExportMessage };
+  return {
+    setExportStatus,
+    renderExportStatus,
+    invalidateExportStatus,
+    setExportProgress,
+    syncExportControls,
+    validateExportDocument,
+    exportDocument,
+    cancelExport,
+    openResult,
+    updateExportMessage,
+  };
 }

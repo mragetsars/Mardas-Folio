@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from mardas_folio.projects import discovery, loading
-
 from pathlib import Path
 
 import pytest
 
 from mardas_folio import application, document_assets, workspace
+from mardas_folio.projects import discovery, loading
 from mardas_folio.renderer import RenderCancelledError
 
 
-def test_asset_discovery_prunes_generated_hidden_deep_and_symlink_directories(tmp_path: Path) -> None:
+def test_asset_discovery_prunes_generated_hidden_deep_and_symlink_directories(
+    tmp_path: Path,
+) -> None:
     document = tmp_path / "report.md"
     document.write_text("# Report", encoding="utf-8")
     for directory in ["assets", ".hidden", "node_modules", ".venv", "a/b/c/d"]:
@@ -211,7 +212,9 @@ def test_workspace_depth_limit_keeps_shallow_siblings_and_reports_omissions(
     assert [item.code for item in diagnostics] == ["MARDAS-W803"]
 
 
-def test_workspace_discovery_prunes_generated_hidden_and_symlink_directories(tmp_path: Path) -> None:
+def test_workspace_discovery_prunes_generated_hidden_and_symlink_directories(
+    tmp_path: Path,
+) -> None:
     for relative in ["chapters/visible.md", ".hidden/secret.md", "node_modules/generated.md"]:
         path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)

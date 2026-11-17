@@ -1,7 +1,13 @@
 import { filterNavigationEntries } from "../core/document-navigation.mjs";
 
 /** One keyboard picker, with distinct file and in-document heading scopes. */
-export function createNavigationPicker({ manager, getEntries, onChoose, t, documentRef = document }) {
+export function createNavigationPicker({
+  manager,
+  getEntries,
+  onChoose,
+  t,
+  documentRef = document,
+}) {
   const modal = documentRef.createElement("div");
   modal.id = "navigation-modal";
   modal.className = "modal hidden";
@@ -77,11 +83,15 @@ export function createNavigationPicker({ manager, getEntries, onChoose, t, docum
     });
     highlight(index);
   }
-  query.addEventListener("input", () => { index = 0; render(); });
+  query.addEventListener("input", () => {
+    index = 0;
+    render();
+  });
   query.addEventListener("keydown", (event) => {
     if (["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) event.preventDefault();
     if (event.key === "ArrowDown") highlight((index + 1) % Math.max(1, entries.length));
-    if (event.key === "ArrowUp") highlight((index - 1 + entries.length) % Math.max(1, entries.length));
+    if (event.key === "ArrowUp")
+      highlight((index - 1 + entries.length) % Math.max(1, entries.length));
     if (event.key === "Enter") choose(entries[index]);
   });
   modal.querySelector("#navigation-close").addEventListener("click", () => manager.close(modal));
@@ -97,11 +107,18 @@ export function createNavigationPicker({ manager, getEntries, onChoose, t, docum
       query.placeholder = t(kind === "headings" ? "searchHeadings" : "searchOpenFiles");
       list.setAttribute("aria-label", title);
       modal.querySelector("#navigation-close").setAttribute("aria-label", t("close"));
-      modal.querySelector("#navigation-help").textContent = t(kind === "headings" ? "headingPickerHelp" : "filePickerHelp");
+      modal.querySelector("#navigation-help").textContent = t(
+        kind === "headings" ? "headingPickerHelp" : "filePickerHelp",
+      );
       render();
       query.setAttribute("aria-expanded", "true");
-      manager.open(modal, { initialFocus: query,
-        onClose: () => { query.setAttribute("aria-expanded", "false"); query.removeAttribute("aria-activedescendant"); } });
+      manager.open(modal, {
+        initialFocus: query,
+        onClose: () => {
+          query.setAttribute("aria-expanded", "false");
+          query.removeAttribute("aria-activedescendant");
+        },
+      });
     },
   };
 }

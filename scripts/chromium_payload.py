@@ -11,6 +11,7 @@ bundler asks this module what to copy. Everything not named here is kept —
 the rule is an explicit exclusion list, not an inclusion list, so a future
 Chromium release that adds a file still ships it.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -73,8 +74,8 @@ def iter_payload(root: Path) -> Iterator[tuple[Path, str]]:
         if not is_required(relative):
             continue
         parent = relative.parent
-        destination = "runtime/chromium" if parent == PurePosixPath(".") else (
-            f"runtime/chromium/{parent}"
+        destination = (
+            "runtime/chromium" if parent == PurePosixPath(".") else (f"runtime/chromium/{parent}")
         )
         yield path, destination
 

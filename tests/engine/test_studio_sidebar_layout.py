@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from tests._paths import ROOT
 
-
-
 GUI_HTML = ROOT / "src" / "mardas_folio" / "assets" / "gui.html"
 
 
@@ -67,7 +65,10 @@ def test_studio_sidebar_uses_block_scroller_without_flex_leakage() -> None:
     assert "gap:" not in body_rule
 
     assert ".sidebar-body>.card,.sidebar-body>.settings-section{margin-bottom:16px}" in html
-    assert ".sidebar-body>.card:last-child,.sidebar-body>.settings-section:last-child{margin-bottom:0}" in html
+    assert (
+        ".sidebar-body>.card:last-child,.sidebar-body>.settings-section:last-child{margin-bottom:0}"
+        in html
+    )
 
 
 def test_studio_light_mode_uses_layered_surface_colors() -> None:
@@ -98,7 +99,9 @@ def test_collapsed_settings_restore_button_has_reserved_space() -> None:
     assert "top:76px" in restore_rule
     assert "left:16px" in restore_rule
 
-    assert ".workspace,body.settings-collapsed .workspace{grid-template-columns:1fr;padding:0}" in html
+    assert (
+        ".workspace,body.settings-collapsed .workspace{grid-template-columns:1fr;padding:0}" in html
+    )
 
 
 def test_studio_open_accordion_state_is_minimal_without_side_rails() -> None:
@@ -389,7 +392,7 @@ def test_studio_advanced_section_uses_same_summary_layout() -> None:
     assert "advanced-body" not in html
     assert ".advanced-card summary{" not in html
     assert ".advanced-card summary small" not in html
-    assert '<span>Advanced<small>Watermark, page footer, local assets</small></span>' in html
+    assert "<span>Advanced<small>Watermark, page footer, local assets</small></span>" in html
 
     summary_heading_rule = _css_rule(html, ".settings-section>summary h3")
     assert "flex:1 1 auto" in summary_heading_rule
@@ -405,7 +408,9 @@ def test_studio_settings_restore_uses_comfortable_width() -> None:
     assert "const SETTINGS_MIN_WIDTH = 280;" in html
     assert "const SETTINGS_RESTORE_WIDTH = 318;" in html
     assert "const SETTINGS_COMFORT_WIDTH = 290;" in html
-    assert "requestedWidth < SETTINGS_COMFORT_WIDTH ? SETTINGS_RESTORE_WIDTH : requestedWidth" in html
+    assert (
+        "requestedWidth < SETTINGS_COMFORT_WIDTH ? SETTINGS_RESTORE_WIDTH : requestedWidth" in html
+    )
 
 
 def test_studio_gutters_track_dragging_state() -> None:
@@ -414,7 +419,6 @@ def test_studio_gutters_track_dragging_state() -> None:
     assert "event.currentTarget.classList.add('is-dragging')" in html
     assert "document.querySelectorAll('.gutter.is-dragging')" in html
     assert "gutter.classList.remove('is-dragging')" in html
-
 
 
 def test_studio_preview_renders_export_like_markdown_features() -> None:
@@ -464,7 +468,7 @@ def test_studio_editor_toolbar_exposes_project_features() -> None:
     ):
         assert expected in html
 
-    assert "```python title=\"renderer.py\" {2,5-6} linenos" in html
+    assert '```python title="renderer.py" {2,5-6} linenos' in html
     assert "metadata = inspect_pdf(pdf)" in html
     assert "log_export(metadata)" in html
     assert "```mermaid" in html

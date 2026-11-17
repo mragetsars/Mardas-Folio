@@ -612,7 +612,9 @@ def _parse_source(path: Path) -> list[BibliographyEntry]:
         mappings = [dict(item) for item in _BibTexParser(text).parse()]
     elif suffix == ".json":
         try:
-            payload = json.loads(text, parse_float=_csl_json_float, parse_constant=_csl_json_constant)
+            payload = json.loads(
+                text, parse_float=_csl_json_float, parse_constant=_csl_json_constant
+            )
         except json.JSONDecodeError as exc:
             raise BibliographyParseError(
                 f"Invalid CSL JSON: {exc.msg}", line=exc.lineno, column=exc.colno

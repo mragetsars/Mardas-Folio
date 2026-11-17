@@ -30,7 +30,7 @@
  * letters in Persian, and Persian and Latin digits mean different things.
  */
 const PERSIAN_LETTER_FOLD = /[يىك]/g;
-const PERSIAN_FOLDED = { "ي": "ی", "ى": "ی", "ك": "ک" };
+const PERSIAN_FOLDED = { ي: "ی", ى: "ی", ك: "ک" };
 
 export function foldPersianLetters(value) {
   return String(value ?? "").replace(PERSIAN_LETTER_FOLD, (ch) => PERSIAN_FOLDED[ch]);
@@ -49,8 +49,5 @@ const ZERO_WIDTH = /[\u200b-\u200f\u2060\ufeff]/g;
 
 /** Normalize a value for matching against a list of interface labels. */
 export function foldForFilter(value) {
-  return foldPersianLetters(value)
-    .replace(ZERO_WIDTH, "")
-    .trim()
-    .toLocaleLowerCase();
+  return foldPersianLetters(value).replace(ZERO_WIDTH, "").trim().toLocaleLowerCase();
 }

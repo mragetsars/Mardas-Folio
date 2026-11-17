@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import importlib.util
 import subprocess
 import sys
 
+from tests._paths import ROOT
 
 SCRIPT = ROOT / "scripts" / "benchmark_large_documents.py"
 

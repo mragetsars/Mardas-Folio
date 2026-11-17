@@ -1,29 +1,41 @@
 import { onlineImageControl } from "./online-images.mjs";
 
 /** One content renderer for reading, side preview and whole-book review. */
-export function mountDocumentContent(container, payload, {
-  sanitize, prefix = "preview-", sourceEntries = [], onSourceJump,
-  sourceJumpLabel = (line) => `Line ${line}`,
-  blockedImageLabel = (reason) => reason === "remote" ? "Remote image not loaded" : "Image blocked or missing",
-  onlineImages = null,
-} = {}) {
+export function mountDocumentContent(
+  container,
+  payload,
+  {
+    sanitize,
+    prefix = "preview-",
+    sourceEntries = [],
+    onSourceJump,
+    sourceJumpLabel = (line) => `Line ${line}`,
+    blockedImageLabel = (reason) =>
+      reason === "remote" ? "Remote image not loaded" : "Image blocked or missing",
+    onlineImages = null,
+  } = {},
+) {
   const document = container.ownerDocument;
   const fragment = sanitize(
     `${payload?.body_html || ""}${payload?.reference_lists_html || ""}${payload?.bibliography_html || ""}`,
     prefix,
   );
   const lines = new Map(sourceEntries.map((entry) => [entry.id, entry.line]));
-  for (const placeholder of fragment.querySelectorAll('.md2pdf-image-placeholder')) {
+  for (const placeholder of fragment.querySelectorAll(".md2pdf-image-placeholder")) {
     const source = placeholder.dataset.md2pdfBlockedSrc;
     if (source) placeholder.title = source;
-    const label = placeholder.querySelector('strong');
+    const label = placeholder.querySelector("strong");
     if (label) label.textContent = blockedImageLabel(placeholder.dataset.md2pdfBlockedReason);
     if (onlineImages && placeholder.dataset.md2pdfBlockedReason === "remote" && source) {
-      placeholder.replaceWith(onlineImageControl(document, {
-        source, alt: onlineImages.altFor?.(source) || "",
-        allowed: onlineImages.isAllowed(source), onRequest: onlineImages.onRequest,
-        strings: onlineImages.strings,
-      }));
+      placeholder.replaceWith(
+        onlineImageControl(document, {
+          source,
+          alt: onlineImages.altFor?.(source) || "",
+          allowed: onlineImages.isAllowed(source),
+          onRequest: onlineImages.onRequest,
+          strings: onlineImages.strings,
+        }),
+      );
     }
   }
   const codeLabels = document.documentElement.lang.startsWith("fa")
@@ -45,7 +57,9 @@ export function mountDocumentContent(container, payload, {
       } catch {
         copy.textContent = codeLabels.failed;
       }
-      setTimeout(() => { if (copy.isConnected) copy.textContent = codeLabels.copy; }, 1800);
+      setTimeout(() => {
+        if (copy.isConnected) copy.textContent = codeLabels.copy;
+      }, 1800);
     });
     caption.append(copy);
   }
@@ -75,7 +89,8 @@ export function mountDocumentContent(container, payload, {
   }
   container.replaceChildren(fragment);
   container.classList.add("document-content");
-  container.dir = payload?.direction === "rtl" || payload?.direction === "ltr" ? payload.direction : "auto";
+  container.dir =
+    payload?.direction === "rtl" || payload?.direction === "ltr" ? payload.direction : "auto";
   if (payload?.pygments_css) {
     const style = document.createElement("style");
     style.textContent = payload.pygments_css;

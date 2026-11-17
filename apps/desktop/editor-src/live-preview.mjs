@@ -16,7 +16,11 @@
 import { syntaxTree } from "@codemirror/language";
 import { Facet, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, Direction, EditorView, ViewPlugin } from "@codemirror/view";
-import { CodeBlockHeaderWidget, codeBodyPrefixRanges, fencedCodeSpec } from "./code-block-tools.mjs";
+import {
+  CodeBlockHeaderWidget,
+  codeBodyPrefixRanges,
+  fencedCodeSpec,
+} from "./code-block-tools.mjs";
 import { tableEditingExtension } from "./table-editing.mjs";
 import { sourceGutterDirection } from "./source-direction.mjs";
 
@@ -45,7 +49,7 @@ export const assetResolver = Facet.define({
   combine: (values) => (values.length ? values[0] : () => null),
 });
 export const onlineImageRequest = Facet.define({
-  combine: values => values[0] || null,
+  combine: (values) => values[0] || null,
 });
 
 /**
@@ -57,7 +61,11 @@ export const onlineImageRequest = Facet.define({
  * passes in the asset resolver.
  */
 export const editorStrings = Facet.define({
-  combine: (values) => Object.assign({ imageNotFound: "Image not found", remoteImageNotLoaded: "Remote image not loaded" }, ...values),
+  combine: (values) =>
+    Object.assign(
+      { imageNotFound: "Image not found", remoteImageNotLoaded: "Remote image not loaded" },
+      ...values,
+    ),
 });
 
 /**
@@ -107,24 +115,76 @@ const proseSpacerLine = Decoration.line({ class: "cm-md-prose-spacer" });
  * the engine resolves every entity when it publishes, and the editor only has
  * to stop the common ones reading as literal source while they are written.
  */
-const NAMED_ENTITIES = new Map(Object.entries({
-  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0",
-  copy: "\u00a9", reg: "\u00ae", trade: "\u2122", deg: "\u00b0",
-  hellip: "\u2026", mdash: "\u2014", ndash: "\u2013", minus: "\u2212",
-  times: "\u00d7", divide: "\u00f7", plusmn: "\u00b1", ne: "\u2260",
-  le: "\u2264", ge: "\u2265", laquo: "\u00ab", raquo: "\u00bb",
-  ldquo: "\u201c", rdquo: "\u201d", lsquo: "\u2018", rsquo: "\u2019",
-  larr: "\u2190", uarr: "\u2191", rarr: "\u2192", darr: "\u2193",
-  harr: "\u2194", check: "\u2713", cross: "\u2717", bull: "\u2022",
-  sect: "\u00a7", para: "\u00b6", dagger: "\u2020", euro: "\u20ac",
-  pound: "\u00a3", yen: "\u00a5", cent: "\u00a2", alpha: "\u03b1",
-  beta: "\u03b2", gamma: "\u03b3", delta: "\u03b4", pi: "\u03c0",
-  sigma: "\u03c3", omega: "\u03c9", infin: "\u221e", sum: "\u2211",
-  prod: "\u220f", radic: "\u221a", int: "\u222b", asymp: "\u2248",
-  equiv: "\u2261", isin: "\u2208", notin: "\u2209", cap: "\u2229",
-  cup: "\u222a", sub: "\u2282", sup: "\u2283", forall: "\u2200",
-  exist: "\u2203", empty: "\u2205", nabla: "\u2207", part: "\u2202",
-}));
+const NAMED_ENTITIES = new Map(
+  Object.entries({
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: "\u00a0",
+    copy: "\u00a9",
+    reg: "\u00ae",
+    trade: "\u2122",
+    deg: "\u00b0",
+    hellip: "\u2026",
+    mdash: "\u2014",
+    ndash: "\u2013",
+    minus: "\u2212",
+    times: "\u00d7",
+    divide: "\u00f7",
+    plusmn: "\u00b1",
+    ne: "\u2260",
+    le: "\u2264",
+    ge: "\u2265",
+    laquo: "\u00ab",
+    raquo: "\u00bb",
+    ldquo: "\u201c",
+    rdquo: "\u201d",
+    lsquo: "\u2018",
+    rsquo: "\u2019",
+    larr: "\u2190",
+    uarr: "\u2191",
+    rarr: "\u2192",
+    darr: "\u2193",
+    harr: "\u2194",
+    check: "\u2713",
+    cross: "\u2717",
+    bull: "\u2022",
+    sect: "\u00a7",
+    para: "\u00b6",
+    dagger: "\u2020",
+    euro: "\u20ac",
+    pound: "\u00a3",
+    yen: "\u00a5",
+    cent: "\u00a2",
+    alpha: "\u03b1",
+    beta: "\u03b2",
+    gamma: "\u03b3",
+    delta: "\u03b4",
+    pi: "\u03c0",
+    sigma: "\u03c3",
+    omega: "\u03c9",
+    infin: "\u221e",
+    sum: "\u2211",
+    prod: "\u220f",
+    radic: "\u221a",
+    int: "\u222b",
+    asymp: "\u2248",
+    equiv: "\u2261",
+    isin: "\u2208",
+    notin: "\u2209",
+    cap: "\u2229",
+    cup: "\u222a",
+    sub: "\u2282",
+    sup: "\u2283",
+    forall: "\u2200",
+    exist: "\u2203",
+    empty: "\u2205",
+    nabla: "\u2207",
+    part: "\u2202",
+  }),
+);
 
 function decodeEntity(source) {
   const body = source.replace(/^&/, "").replace(/;$/, "");
@@ -241,10 +301,14 @@ function bulletDepth(node) {
 const codeOpenLine = Decoration.line({ class: "cm-code-line cm-code-open" });
 const codeCloseLine = Decoration.line({ class: "cm-code-line cm-code-close" });
 const codeUnclosedEndLine = Decoration.line({ class: "cm-code-line cm-code-unclosed-end" });
-const codeOpenOnlyLine = Decoration.line({ class: "cm-code-line cm-code-open cm-code-unclosed-end" });
+const codeOpenOnlyLine = Decoration.line({
+  class: "cm-code-line cm-code-open cm-code-unclosed-end",
+});
 const codeIndentedOpenLine = Decoration.line({ class: "cm-code-line cm-code-indented-open" });
 const codeIndentedCloseLine = Decoration.line({ class: "cm-code-line cm-code-indented-close" });
-const codeIndentedSingleLine = Decoration.line({ class: "cm-code-line cm-code-indented-open cm-code-indented-close" });
+const codeIndentedSingleLine = Decoration.line({
+  class: "cm-code-line cm-code-indented-open cm-code-indented-close",
+});
 
 /**
  * Block-level line classes.
@@ -267,7 +331,6 @@ const headingLines = new Map([
   ["SetextHeading2", Decoration.line({ class: "cm-md-heading cm-md-h2" })],
 ]);
 
-
 /**
  * Callout kinds the publishing engine renders as cards.
  *
@@ -276,8 +339,20 @@ const headingLines = new Map([
  * an ordinary quotation while it is being written.
  */
 const CALLOUT_KINDS = new Set([
-  "note", "tip", "important", "warning", "caution", "info", "success",
-  "question", "failure", "danger", "bug", "example", "quote", "abstract",
+  "note",
+  "tip",
+  "important",
+  "warning",
+  "caution",
+  "info",
+  "success",
+  "question",
+  "failure",
+  "danger",
+  "bug",
+  "example",
+  "quote",
+  "abstract",
 ]);
 
 /** `[^id]:` at the start of a line — mirrors FOOTNOTE_DEF_RE in the engine. */
@@ -360,9 +435,22 @@ function buildDecorations(view) {
           const fence = fencedCodeSpec(state, node);
           eachLine(state, node, (at) => {
             const deco = fence
-              ? at === opener ? fence.closeFrom == null && opener === closer ? codeOpenOnlyLine : codeOpenLine
-                : at === closer ? fence.closeFrom != null ? codeCloseLine : codeUnclosedEndLine : codeLine
-              : opener === closer ? codeIndentedSingleLine : at === opener ? codeIndentedOpenLine : at === closer ? codeIndentedCloseLine : codeLine;
+              ? at === opener
+                ? fence.closeFrom == null && opener === closer
+                  ? codeOpenOnlyLine
+                  : codeOpenLine
+                : at === closer
+                  ? fence.closeFrom != null
+                    ? codeCloseLine
+                    : codeUnclosedEndLine
+                  : codeLine
+              : opener === closer
+                ? codeIndentedSingleLine
+                : at === opener
+                  ? codeIndentedOpenLine
+                  : at === closer
+                    ? codeIndentedCloseLine
+                    : codeLine;
             lines.push({ at, deco });
           });
           if (fence) {
@@ -376,8 +464,18 @@ function buildDecorations(view) {
             // complete container prefixes here, including closing-fence rows.
             // Reuse Copy's prefix rules to retain indentation that is code.
             marks.push(...codeBodyPrefixRanges(state, fence));
-            const locale = typeof document !== "undefined" && document.documentElement.lang.startsWith("fa") ? "fa" : "en";
-            widgets.push({ from: fence.openerTo, to: fence.openerTo, deco: Decoration.widget({ widget: new CodeBlockHeaderWidget(fence, locale, state.readOnly), side: 1 }) });
+            const locale =
+              typeof document !== "undefined" && document.documentElement.lang.startsWith("fa")
+                ? "fa"
+                : "en";
+            widgets.push({
+              from: fence.openerTo,
+              to: fence.openerTo,
+              deco: Decoration.widget({
+                widget: new CodeBlockHeaderWidget(fence, locale, state.readOnly),
+                side: 1,
+              }),
+            });
           }
           return false;
         }
@@ -401,9 +499,8 @@ function buildDecorations(view) {
           // the editor should say so while it is being written.
           const first = state.doc.lineAt(node.from);
           const marker = CALLOUT_MARKER.exec(first.text);
-          const kind = marker && CALLOUT_KINDS.has(marker[3].toLowerCase())
-            ? marker[3].toLowerCase()
-            : null;
+          const kind =
+            marker && CALLOUT_KINDS.has(marker[3].toLowerCase()) ? marker[3].toLowerCase() : null;
           // One direction for the whole block, so its bar stays on one side.
           // A callout's kind is always spelled in Latin — `[!NOTE]` — so the
           // marker is skipped; otherwise every Persian callout would be read
@@ -451,14 +548,30 @@ function buildDecorations(view) {
           // fall through: the HeaderMark inside still needs hiding
         }
 
-        if (node.name === "InlineMath" && state.facet(mathRenderer) && node.to - node.from <= 16 * 1024) {
-          const editing = state.selection.ranges.some((range) => range.empty
-            ? range.from >= node.from && range.from <= node.to
-            : range.from < node.to && range.to > node.from);
+        if (
+          node.name === "InlineMath" &&
+          state.facet(mathRenderer) &&
+          node.to - node.from <= 16 * 1024
+        ) {
+          const editing = state.selection.ranges.some((range) =>
+            range.empty
+              ? range.from >= node.from && range.from <= node.to
+              : range.from < node.to && range.to > node.from,
+          );
           if (editing) return false;
-          marks.push([node.from, node.to, Decoration.replace({
-            widget: new MathWidget(state.doc.sliceString(node.from, node.to), node.from, node.to, false, state.facet(mathRenderer)),
-          })]);
+          marks.push([
+            node.from,
+            node.to,
+            Decoration.replace({
+              widget: new MathWidget(
+                state.doc.sliceString(node.from, node.to),
+                node.from,
+                node.to,
+                false,
+                state.facet(mathRenderer),
+              ),
+            }),
+          ]);
           return false;
         }
 
@@ -470,9 +583,13 @@ function buildDecorations(view) {
           // gains the caret or enters a selection.
           const line = state.doc.lineAt(node.from);
           let context = syntaxTree(state).resolveInner(line.to, -1);
-          while (context && context.name !== "FencedCode" && context.name !== "CodeBlock") context = context.parent;
+          while (context && context.name !== "FencedCode" && context.name !== "CodeBlock")
+            context = context.parent;
           stableCodeMarker = Boolean(context);
-          if (stableCodeMarker && node.name === "QuoteMark") { marks.push([node.from, swallowSpace(state, node.to)]); return; }
+          if (stableCodeMarker && node.name === "QuoteMark") {
+            marks.push([node.from, swallowSpace(state, node.to)]);
+            return;
+          }
         }
         if (active.has(state.doc.lineAt(node.from).number) && !stableCodeMarker) return;
 
@@ -487,15 +604,28 @@ function buildDecorations(view) {
               node.from,
               node.to,
               Decoration.replace({
-                widget: /^(?:https?:)?\/\//i.test(parsed.src) ? new OnlineImageWidget(
-                  parsed.src, parsed.alt, Boolean(url), state.facet(onlineImageRequest), state.facet(editorStrings),
-                ) : url ? new ImageWidget(
-                  url,
-                  parsed.alt,
-                  parsed.src,
-                  state.facet(editorStrings).imageNotFound,
-                ) : new ImagePlaceholderWidget(parsed.src, parsed.alt,
-                  /^(?:https?:)?\/\//i.test(parsed.src) ? state.facet(editorStrings).remoteImageNotLoaded : state.facet(editorStrings).imageNotFound),
+                widget: /^(?:https?:)?\/\//i.test(parsed.src)
+                  ? new OnlineImageWidget(
+                      parsed.src,
+                      parsed.alt,
+                      Boolean(url),
+                      state.facet(onlineImageRequest),
+                      state.facet(editorStrings),
+                    )
+                  : url
+                    ? new ImageWidget(
+                        url,
+                        parsed.alt,
+                        parsed.src,
+                        state.facet(editorStrings).imageNotFound,
+                      )
+                    : new ImagePlaceholderWidget(
+                        parsed.src,
+                        parsed.alt,
+                        /^(?:https?:)?\/\//i.test(parsed.src)
+                          ? state.facet(editorStrings).remoteImageNotLoaded
+                          : state.facet(editorStrings).imageNotFound,
+                      ),
               }),
             ]);
           }
@@ -535,11 +665,10 @@ function buildDecorations(view) {
           // other end: hiding the URL and the title separately leaves the
           // space that used to sit between them, and the sentence read
           // "and a link ." with a gap before the full stop.
-          const to = node.name === "HeaderMark"
-            || node.name === "QuoteMark"
-            || node.name === "URL"
-            ? swallowSpace(state, node.to)
-            : node.to;
+          const to =
+            node.name === "HeaderMark" || node.name === "QuoteMark" || node.name === "URL"
+              ? swallowSpace(state, node.to)
+              : node.to;
           marks.push([node.from, to]);
           return;
         }
@@ -610,9 +739,13 @@ function buildDecorations(view) {
         if (node.name === "Entity") {
           const decoded = decodeEntity(state.doc.sliceString(node.from, node.to));
           if (decoded) {
-            marks.push([node.from, node.to, Decoration.replace({
-              widget: new EntityWidget(decoded),
-            })]);
+            marks.push([
+              node.from,
+              node.to,
+              Decoration.replace({
+                widget: new EntityWidget(decoded),
+              }),
+            ]);
           }
           return;
         }
@@ -625,7 +758,7 @@ function buildDecorations(view) {
   // continuation lines. Matching the marker per line leaves that question to
   // the engine and still lets the label be styled.
   for (const { from, to } of view.visibleRanges) {
-    for (let pos = from; pos <= to; ) {
+    for (let pos = from; pos <= to;) {
       const line = state.doc.lineAt(pos);
       const match = FOOTNOTE_DEF.exec(line.text);
       if (match && !active.has(line.number)) {
@@ -646,13 +779,16 @@ function buildDecorations(view) {
   const builder = new RangeSetBuilder();
   // Every visible line gets automatic direction unless a block widget replaced it.
   for (const { from, to } of view.visibleRanges) {
-    for (let pos = from; pos <= to; ) {
+    for (let pos = from; pos <= to;) {
       const line = state.doc.lineAt(pos);
       lines.push({ at: line.from, deco: lineDirection(line.text) });
       // Leave the final insertion row full size, including a new empty
       // document. All other blank prose rows stay individually editable.
-      if (line.number < state.doc.lines && !line.text.trim()
-          && !verbatimRanges.some(([from, to]) => line.from >= from && line.from <= to)) {
+      if (
+        line.number < state.doc.lines &&
+        !line.text.trim() &&
+        !verbatimRanges.some(([from, to]) => line.from >= from && line.from <= to)
+      ) {
         lines.push({ at: line.from, deco: proseSpacerLine });
       }
       pos = line.to + 1;
@@ -709,19 +845,32 @@ const livePreviewPlugin = ViewPlugin.fromClass(
   class {
     constructor(view) {
       this.decorations = buildDecorations(view);
-      this.bidiIsolates = this.decorations.update({ filter: (_from, _to, value) => value.spec.bidiIsolate !== undefined });
-      this.atomicRanges = this.decorations.update({ filter: (_from, _to, value) => Boolean(value.spec.widget || value.spec.mardasAtomic) });
+      this.bidiIsolates = this.decorations.update({
+        filter: (_from, _to, value) => value.spec.bidiIsolate !== undefined,
+      });
+      this.atomicRanges = this.decorations.update({
+        filter: (_from, _to, value) => Boolean(value.spec.widget || value.spec.mardasAtomic),
+      });
     }
 
     update(update) {
-      if (update.docChanged || update.viewportChanged || update.selectionSet || update.startState.readOnly !== update.state.readOnly
-        || syntaxTree(update.startState) !== syntaxTree(update.state)
-        || update.startState.facet(assetResolver) !== update.state.facet(assetResolver)
-        || update.startState.facet(mathRenderer) !== update.state.facet(mathRenderer)
-        || update.startState.facet(editorStrings) !== update.state.facet(editorStrings)) {
+      if (
+        update.docChanged ||
+        update.viewportChanged ||
+        update.selectionSet ||
+        update.startState.readOnly !== update.state.readOnly ||
+        syntaxTree(update.startState) !== syntaxTree(update.state) ||
+        update.startState.facet(assetResolver) !== update.state.facet(assetResolver) ||
+        update.startState.facet(mathRenderer) !== update.state.facet(mathRenderer) ||
+        update.startState.facet(editorStrings) !== update.state.facet(editorStrings)
+      ) {
         this.decorations = buildDecorations(update.view);
-        this.bidiIsolates = this.decorations.update({ filter: (_from, _to, value) => value.spec.bidiIsolate !== undefined });
-        this.atomicRanges = this.decorations.update({ filter: (_from, _to, value) => Boolean(value.spec.widget || value.spec.mardasAtomic) });
+        this.bidiIsolates = this.decorations.update({
+          filter: (_from, _to, value) => value.spec.bidiIsolate !== undefined,
+        });
+        this.atomicRanges = this.decorations.update({
+          filter: (_from, _to, value) => Boolean(value.spec.widget || value.spec.mardasAtomic),
+        });
         // Heading lines carry vertical padding, which changes their box height.
         // CodeMirror maps a click to a position through its height map, so the
         // map has to be refreshed when those decorations change — otherwise
@@ -737,7 +886,9 @@ const livePreviewPlugin = ViewPlugin.fromClass(
     // stall on characters that are not on screen.
     provide: (plugin) => [
       EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomicRanges ?? Decoration.none),
-      EditorView.bidiIsolatedRanges.of((view) => view.plugin(plugin)?.bidiIsolates ?? Decoration.none),
+      EditorView.bidiIsolatedRanges.of(
+        (view) => view.plugin(plugin)?.bidiIsolates ?? Decoration.none,
+      ),
     ],
   },
 );
@@ -770,9 +921,8 @@ export function sourceBlockDirections(state, visibleRanges) {
       enter(node) {
         const code = node.name === "FencedCode" || node.name === "CodeBlock";
         if (!code && node.name !== "Table") return;
-        const direction = !code && blockIsRtl(state.doc.sliceString(node.from, node.to))
-          ? "rtl"
-          : "ltr";
+        const direction =
+          !code && blockIsRtl(state.doc.sliceString(node.from, node.to)) ? "rtl" : "ltr";
         const first = state.doc.lineAt(Math.max(from, node.from)).number;
         const last = state.doc.lineAt(Math.min(to, node.to)).number;
         for (let number = first; number <= last; number += 1) {
@@ -793,8 +943,11 @@ const autoDirectionPlugin = ViewPlugin.fromClass(
     }
 
     update(update) {
-      if (update.docChanged || update.viewportChanged
-          || syntaxTree(update.startState) !== syntaxTree(update.state)) {
+      if (
+        update.docChanged ||
+        update.viewportChanged ||
+        syntaxTree(update.startState) !== syntaxTree(update.state)
+      ) {
         this.decorations = this.build(update.view);
       }
     }
@@ -803,12 +956,18 @@ const autoDirectionPlugin = ViewPlugin.fromClass(
       const builder = new RangeSetBuilder();
       const blocks = sourceBlockDirections(view.state, view.visibleRanges);
       for (const { from, to } of view.visibleRanges) {
-        for (let pos = from; pos <= to; ) {
+        for (let pos = from; pos <= to;) {
           const line = view.state.doc.lineAt(pos);
           const direction = blocks.get(line.from);
-          builder.add(line.from, line.from, direction === "ltr"
-            ? sourceBlockLtr
-            : direction === "rtl" ? sourceBlockRtl : lineDirection(line.text));
+          builder.add(
+            line.from,
+            line.from,
+            direction === "ltr"
+              ? sourceBlockLtr
+              : direction === "rtl"
+                ? sourceBlockRtl
+                : lineDirection(line.text),
+          );
           pos = line.to + 1;
         }
       }
@@ -841,7 +1000,10 @@ export function normalizeEditorMode(value) {
  * answers a direction like any other, so the exclusion cost correctness for a
  * risk that was not there.
  */
-export function editorModeExtension(mode, { resolveAsset, requestOnlineImage, strings, renderMath } = {}) {
+export function editorModeExtension(
+  mode,
+  { resolveAsset, requestOnlineImage, strings, renderMath } = {},
+) {
   const perLineDirection = EditorView.perLineTextDirection.of(true);
   return normalizeEditorMode(mode) === "live"
     ? [

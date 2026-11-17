@@ -1,14 +1,18 @@
 """Isolated HTTP fixture, native bridge stub, and shared desktop interactions."""
+
 from __future__ import annotations
+
 import contextlib
 import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+
 from lib.paths import ROOT
 
 DEFAULT_DIST = ROOT / "apps" / "desktop" / "dist"
+
 
 class QuietHandler(SimpleHTTPRequestHandler):
     def log_message(self, *_args: object) -> None:
@@ -128,5 +132,3 @@ def click_workspace_layout_control(page: Any, selector: str) -> None:
     target.click()
     if page.locator("#workspace-layout-menu").is_visible():
         page.keyboard.press("Escape")
-
-

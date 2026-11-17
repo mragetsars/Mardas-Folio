@@ -3,6 +3,7 @@
 Only the desktop copy is changed. The publishing engine keeps its original
 vendored asset. Upgrading that asset requires reviewing and repinning this patch.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -24,7 +25,7 @@ def prepare_preview_mathjax(source: bytes) -> bytes:
         # first; Object.prototype itself remains frozen and untouched.
         return (
             f'Object.defineProperty({match.group(1)},"toString",'
-            '{value:void 0,writable:!0,configurable:!0,enumerable:!0}).toString='
+            "{value:void 0,writable:!0,configurable:!0,enumerable:!0}).toString="
         )
 
     patched, count = _METHOD.subn(own_method, source.decode("utf-8"))

@@ -1,5 +1,10 @@
 /* Shared controls and surfaces. Feature styles supply placement and width. */
-button, input, select, textarea { font: inherit; }
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
 
 :where(button, input, select, textarea, a[href], summary, [tabindex]):focus-visible {
   outline: var(--ui-focus-ring);
@@ -21,14 +26,19 @@ button, input, select, textarea { font: inherit; }
   font-size: var(--ui-text-md);
   font-weight: 550;
   cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
 }
 
 .button.primary {
   background: var(--ui-primary-bg);
   color: var(--ui-primary-text);
 }
-.button.primary:hover:not(:disabled) { background: var(--ui-primary-hover); }
+.button.primary:hover:not(:disabled) {
+  background: var(--ui-primary-hover);
+}
 
 .button.secondary,
 .button.glass {
@@ -48,7 +58,9 @@ button, input, select, textarea { font: inherit; }
   background: var(--ui-panel);
   color: var(--ui-danger);
 }
-.button.danger:hover:not(:disabled) { background: var(--ui-danger-surface); }
+.button.danger:hover:not(:disabled) {
+  background: var(--ui-danger-surface);
+}
 
 .button.compact,
 .text-button {
@@ -56,17 +68,28 @@ button, input, select, textarea { font: inherit; }
   padding-inline: 10px;
   font-size: var(--ui-text-xs);
 }
-.text-button { padding-inline: 8px; color: var(--ui-accent); }
-.text-button:hover:not(:disabled) { color: var(--ui-accent-hover); text-decoration: underline; }
+.text-button {
+  padding-inline: 8px;
+  color: var(--ui-accent);
+}
+.text-button:hover:not(:disabled) {
+  color: var(--ui-accent-hover);
+  text-decoration: underline;
+}
 .button:disabled,
-.text-button:disabled { opacity: .55; cursor: default; }
+.text-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
 .button.primary:disabled {
   border-color: var(--ui-border);
   background: var(--ui-panel-muted);
   color: var(--ui-muted);
   opacity: 1;
 }
-.button .ui-icon { flex: none; }
+.button .ui-icon {
+  flex: none;
+}
 
 .icon-button,
 .toolbar-icon-button {
@@ -86,35 +109,70 @@ button, input, select, textarea { font: inherit; }
 
 /* Commands also appear inside menus outside the workbench DOM. */
 :root body :is(.icon-button, .toolbar-icon-button),
-:root body :is(.document-toolbar, .workspace-view-menu) :is(.view-mode, .document-view-controls button),
+:root
+  body
+  :is(.document-toolbar, .workspace-view-menu)
+  :is(.view-mode, .document-view-controls button),
 :root body :is(#format-bar, #format-overflow-menu) button {
   border-radius: var(--ui-radius-sm);
   border-color: transparent;
   background: transparent;
   color: var(--ui-text-soft);
 }
-:root body :is(.icon-button, .toolbar-icon-button, .document-toolbar .view-mode, .workspace-view-menu .view-mode,
-  .document-view-controls button, #format-bar button, #format-overflow-menu button):hover:not(
-    :disabled, [aria-pressed="true"], [aria-checked="true"], [aria-expanded="true"]
-  ) {
+:root
+  body
+  :is(
+    .icon-button,
+    .toolbar-icon-button,
+    .document-toolbar .view-mode,
+    .workspace-view-menu .view-mode,
+    .document-view-controls button,
+    #format-bar button,
+    #format-overflow-menu button
+  ):hover:not(:disabled, [aria-pressed="true"], [aria-checked="true"], [aria-expanded="true"]) {
   background: var(--ui-control-hover);
   color: var(--ui-text);
 }
-:root body :is(.icon-button, .toolbar-icon-button, .document-toolbar .view-mode, .workspace-view-menu .view-mode,
-  .document-view-controls button, #format-bar button, #format-overflow-menu button):is(
-    [aria-pressed="true"], [aria-checked="true"], [aria-expanded="true"]
-  ) {
+:root
+  body
+  :is(
+    .icon-button,
+    .toolbar-icon-button,
+    .document-toolbar .view-mode,
+    .workspace-view-menu .view-mode,
+    .document-view-controls button,
+    #format-bar button,
+    #format-overflow-menu button
+  ):is([aria-pressed="true"], [aria-checked="true"], [aria-expanded="true"]) {
   background: var(--ui-selected-bg);
   color: var(--ui-selected-text);
 }
-:root body :is(.icon-button, .toolbar-icon-button, .document-toolbar .view-mode, .workspace-view-menu .view-mode,
-  .document-view-controls button, #format-bar button, #format-overflow-menu button):focus-visible {
+:root
+  body
+  :is(
+    .icon-button,
+    .toolbar-icon-button,
+    .document-toolbar .view-mode,
+    .workspace-view-menu .view-mode,
+    .document-view-controls button,
+    #format-bar button,
+    #format-overflow-menu button
+  ):focus-visible {
   outline: var(--ui-focus-ring);
   outline-offset: -2px;
 }
-:root body :is(.icon-button, .toolbar-icon-button, .document-toolbar .view-mode, .workspace-view-menu .view-mode,
-  .document-view-controls button, #format-bar button, #format-overflow-menu button):disabled {
-  opacity: .4;
+:root
+  body
+  :is(
+    .icon-button,
+    .toolbar-icon-button,
+    .document-toolbar .view-mode,
+    .workspace-view-menu .view-mode,
+    .document-view-controls button,
+    #format-bar button,
+    #format-overflow-menu button
+  ):disabled {
+  opacity: 0.4;
   cursor: default;
 }
 
@@ -129,8 +187,16 @@ select {
   color: var(--ui-text);
   font-size: var(--ui-text-sm);
 }
-input::placeholder, textarea::placeholder { color: var(--ui-muted); opacity: 1; }
-input[readonly] { direction: ltr; text-align: start; color: var(--ui-text-soft); }
+input::placeholder,
+textarea::placeholder {
+  color: var(--ui-muted);
+  opacity: 1;
+}
+input[readonly] {
+  direction: ltr;
+  text-align: start;
+  color: var(--ui-text-soft);
+}
 
 .toggle {
   position: relative;
@@ -142,7 +208,9 @@ input[readonly] { direction: ltr; text-align: start; color: var(--ui-text-soft);
   min-height: 24px;
   cursor: pointer;
 }
-.compact-toggle { gap: 7px !important; }
+.compact-toggle {
+  gap: 7px !important;
+}
 .toggle input {
   position: absolute;
   width: 1px;
@@ -174,11 +242,25 @@ input[readonly] { direction: ltr; text-align: start; color: var(--ui-text-soft);
   background: var(--ui-muted);
   transition: transform 120ms ease;
 }
-.toggle input:checked + i { background: var(--ui-primary-bg); border-color: var(--ui-primary-bg); }
-.toggle input:checked + i::after { background: var(--ui-primary-text); transform: translateX(16px); }
-html[dir="rtl"] .toggle input:checked + i::after { transform: translateX(-16px); }
-.toggle input:focus-visible + i { outline: var(--ui-focus-ring); outline-offset: 3px; }
-.toggle:has(input:disabled) { opacity: .55; cursor: default; }
+.toggle input:checked + i {
+  background: var(--ui-primary-bg);
+  border-color: var(--ui-primary-bg);
+}
+.toggle input:checked + i::after {
+  background: var(--ui-primary-text);
+  transform: translateX(16px);
+}
+html[dir="rtl"] .toggle input:checked + i::after {
+  transform: translateX(-16px);
+}
+.toggle input:focus-visible + i {
+  outline: var(--ui-focus-ring);
+  outline-offset: 3px;
+}
+.toggle:has(input:disabled) {
+  opacity: 0.55;
+  cursor: default;
+}
 
 .panel,
 .template-section {
@@ -208,10 +290,19 @@ html[dir="rtl"] .toggle input:checked + i::after { transform: translateX(-16px);
   color: var(--ui-text);
   box-shadow: var(--ui-shadow-float);
 }
-.modal-card h2 { margin: 0 0 10px; }
-.modal-card p { color: var(--ui-muted); line-height: 1.7; }
-.modal-card small { color: var(--ui-muted); }
-.modal-card label { color: var(--ui-text-soft); }
+.modal-card h2 {
+  margin: 0 0 10px;
+}
+.modal-card p {
+  color: var(--ui-muted);
+  line-height: 1.7;
+}
+.modal-card small {
+  color: var(--ui-muted);
+}
+.modal-card label {
+  color: var(--ui-text-soft);
+}
 .modal-heading {
   display: flex;
   align-items: center;
@@ -219,9 +310,21 @@ html[dir="rtl"] .toggle input:checked + i::after { transform: translateX(-16px);
   gap: 14px;
   margin-bottom: 20px;
 }
-.modal-heading h2 { font-size: var(--ui-text-2xl); font-weight: 650; }
-.modal-heading h2, .modal-heading p { margin: 0; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 18px; }
+.modal-heading h2 {
+  font-size: var(--ui-text-2xl);
+  font-weight: 650;
+}
+.modal-heading h2,
+.modal-heading p {
+  margin: 0;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 18px;
+}
 
 :root body :is(.popover-menu, .context-menu, .modal-card, .command-card) {
   background: var(--ui-surface-floating);
@@ -232,6 +335,10 @@ html[dir="rtl"] .toggle input:checked + i::after { transform: translateX(-16px);
 }
 
 @media (max-width: 720px) {
-  .button.compact { padding-inline: 9px; }
-  .modal-card { padding: 20px; }
+  .button.compact {
+    padding-inline: 9px;
+  }
+  .modal-card {
+    padding: 20px;
+  }
 }

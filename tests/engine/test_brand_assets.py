@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import re
 from pathlib import Path
 
 from mardas_folio import brand_assets
 from mardas_folio.renderer import _default_logo_path
+from tests._paths import ROOT
 
 
 def test_product_logo_candidates_prefer_canonical_png_assets():
@@ -22,7 +21,9 @@ def test_studio_brand_asset_routes_expose_only_current_application_logos():
     assert routes["/assets/mardas-folio-logo.png"] == brand_assets.PRODUCT_LOGO
     assert routes["/assets/mardas-folio-logo-white.png"] == brand_assets.PRODUCT_LOGO_WHITE
     assert routes["/assets/mardas-folio-mark.svg"] == brand_assets.PRODUCT_MARK_SVG
-    assert routes["/assets/mardas-folio-mark-gui-mask.svg"] == brand_assets.PRODUCT_GUI_MARK_MASK_SVG
+    assert (
+        routes["/assets/mardas-folio-mark-gui-mask.svg"] == brand_assets.PRODUCT_GUI_MARK_MASK_SVG
+    )
     assert brand_assets.gui_brand_asset_filename("/assets/" + "Mardas" + ".png") is None
     assert brand_assets.asset_content_type(brand_assets.PRODUCT_LOGO) == "image/png"
 
@@ -45,8 +46,17 @@ def test_the_product_is_named_mardas_folio_everywhere_it_is_named() -> None:
     # GUI's own former name.
     forbidden = re.compile(r"Mardas[ _-]?MD2PDF|mrs-md2pdf|Mardas Studio", re.IGNORECASE)
     skip_dirs = {
-        ".git", ".venv", "node_modules", "target", "build", "dist", "patches",
-        "__pycache__", ".pytest_cache", ".ruff_cache", "artifacts",
+        ".git",
+        ".venv",
+        "node_modules",
+        "target",
+        "build",
+        "dist",
+        "patches",
+        "__pycache__",
+        ".pytest_cache",
+        ".ruff_cache",
+        "artifacts",
         # Staged build output: a copy of the engine, renamed at its source.
         "resources",
     }
@@ -64,7 +74,16 @@ def test_the_product_is_named_mardas_folio_everywhere_it_is_named() -> None:
         if any(part in skip_dirs for part in path.parts):
             continue
         if path.suffix.lower() not in {
-            ".py", ".mjs", ".js", ".html", ".css", ".md", ".toml", ".rs", ".json", ".yml",
+            ".py",
+            ".mjs",
+            ".js",
+            ".html",
+            ".css",
+            ".md",
+            ".toml",
+            ".rs",
+            ".json",
+            ".yml",
         }:
             continue
         try:

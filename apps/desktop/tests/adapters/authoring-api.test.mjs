@@ -23,16 +23,19 @@ test("authoring API uses versioned sidecar methods", async (t) => {
   await previewDocumentText({ path: "/doc.md", content: "# x" });
   await importDocumentAsset("/doc.md", "/image.png");
   await resolveMarkdownLink("/doc.md", "next.md#section", "/project");
-  assert.deepEqual(calls.map((call) => call.args.method), [
-    "document.read",
-    "document.read_text",
-    "document.save",
-    "document.save_text",
-    "validate.document_text",
-    "preview.document_text",
-    "document.import_asset",
-    "document.resolve_markdown_link",
-  ]);
+  assert.deepEqual(
+    calls.map((call) => call.args.method),
+    [
+      "document.read",
+      "document.read_text",
+      "document.save",
+      "document.save_text",
+      "validate.document_text",
+      "preview.document_text",
+      "document.import_asset",
+      "document.resolve_markdown_link",
+    ],
+  );
   assert.equal(calls[2].args.params.expected_revision, "r1");
   assert.equal(calls[3].args.params.path, "/config.toml");
   assert.deepEqual(calls[7].args.params, {

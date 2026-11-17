@@ -343,45 +343,45 @@ DARK_STYLE_SURFACES: dict[str, dict[str, str]] = {
 def _dark_mode_css(appearance: Appearance) -> str:
     surface = DARK_STYLE_SURFACES.get(appearance.style, DARK_STYLE_SURFACES[DEFAULT_STYLE])
     return f"""
-@page {{ background: {surface['page']}; }}
+@page {{ background: {surface["page"]}; }}
 html {{
-  background: {surface['page']} !important;
-  color: {surface['ink']} !important;
+  background: {surface["page"]} !important;
+  color: {surface["ink"]} !important;
 }}
 body.md2pdf-mode-dark {{
-  --ink: {surface['ink']};
-  --muted: {surface['muted']};
-  --soft: {surface['panel']};
-  --softer: {surface['panel_alt']};
-  --line: {surface['line']};
-  --line-strong: {surface['line_strong']};
-  --accent-soft: color-mix(in srgb, var(--accent) 18%, {surface['code']});
-  --quote: {surface['panel']};
-  --code-bg: {surface['code']};
-  --code-ink: {surface['ink']};
-  --md2pdf-code-highlight-bg: color-mix(in srgb, var(--accent) 30%, {surface['code']});
-  --md2pdf-code-highlight-border: color-mix(in srgb, var(--accent) 68%, {surface['line']});
-  --md2pdf-details-bg: {surface['panel']};
-  --md2pdf-details-ink: {surface['ink']};
-  --md2pdf-mermaid-figure-bg: color-mix(in srgb, {surface['panel_alt']} 90%, var(--accent) 4%);
-  --md2pdf-mermaid-figure-border: color-mix(in srgb, var(--accent) 28%, {surface['line']});
-  --md2pdf-mermaid-figure-ink: {surface['ink']};
-  --md2pdf-mermaid-bg: color-mix(in srgb, {surface['panel_alt']} 94%, {surface['page']} 6%);
-  --md2pdf-mermaid-border: color-mix(in srgb, var(--accent) 24%, {surface['line']});
-  --md2pdf-mermaid-node-bg: color-mix(in srgb, {surface['panel_soft']} 88%, var(--accent) 8%);
-  --md2pdf-mermaid-node-ink: {surface['heading']};
-  --md2pdf-mermaid-stroke: color-mix(in srgb, var(--accent) 76%, {surface['heading']} 24%);
-  --md2pdf-mermaid-edge-ink: {surface['heading']};
-  --md2pdf-mermaid-label-bg: color-mix(in srgb, {surface['panel_alt']} 84%, {surface['page']} 16%);
-  --md2pdf-mermaid-label-border: color-mix(in srgb, var(--accent) 38%, {surface['line']});
-  --md2pdf-mermaid-label-halo: {surface['panel_alt']};
-  --md2pdf-mermaid-caption-ink: color-mix(in srgb, var(--accent) 68%, {surface['heading']} 32%);
-  background: {surface['page']} !important;
+  --ink: {surface["ink"]};
+  --muted: {surface["muted"]};
+  --soft: {surface["panel"]};
+  --softer: {surface["panel_alt"]};
+  --line: {surface["line"]};
+  --line-strong: {surface["line_strong"]};
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, {surface["code"]});
+  --quote: {surface["panel"]};
+  --code-bg: {surface["code"]};
+  --code-ink: {surface["ink"]};
+  --md2pdf-code-highlight-bg: color-mix(in srgb, var(--accent) 30%, {surface["code"]});
+  --md2pdf-code-highlight-border: color-mix(in srgb, var(--accent) 68%, {surface["line"]});
+  --md2pdf-details-bg: {surface["panel"]};
+  --md2pdf-details-ink: {surface["ink"]};
+  --md2pdf-mermaid-figure-bg: color-mix(in srgb, {surface["panel_alt"]} 90%, var(--accent) 4%);
+  --md2pdf-mermaid-figure-border: color-mix(in srgb, var(--accent) 28%, {surface["line"]});
+  --md2pdf-mermaid-figure-ink: {surface["ink"]};
+  --md2pdf-mermaid-bg: color-mix(in srgb, {surface["panel_alt"]} 94%, {surface["page"]} 6%);
+  --md2pdf-mermaid-border: color-mix(in srgb, var(--accent) 24%, {surface["line"]});
+  --md2pdf-mermaid-node-bg: color-mix(in srgb, {surface["panel_soft"]} 88%, var(--accent) 8%);
+  --md2pdf-mermaid-node-ink: {surface["heading"]};
+  --md2pdf-mermaid-stroke: color-mix(in srgb, var(--accent) 76%, {surface["heading"]} 24%);
+  --md2pdf-mermaid-edge-ink: {surface["heading"]};
+  --md2pdf-mermaid-label-bg: color-mix(in srgb, {surface["panel_alt"]} 84%, {surface["page"]} 16%);
+  --md2pdf-mermaid-label-border: color-mix(in srgb, var(--accent) 38%, {surface["line"]});
+  --md2pdf-mermaid-label-halo: {surface["panel_alt"]};
+  --md2pdf-mermaid-caption-ink: color-mix(in srgb, var(--accent) 68%, {surface["heading"]} 32%);
+  background: {surface["page"]} !important;
   color: var(--ink) !important;
 }}
 body.md2pdf-mode-dark .md2pdf-document,
 body.md2pdf-mode-dark .md2pdf-article {{
-  background: {surface['surface']} !important;
+  background: {surface["surface"]} !important;
   color: var(--ink) !important;
 }}
 body.md2pdf-mode-dark h1,
@@ -391,19 +391,19 @@ body.md2pdf-mode-dark h4,
 body.md2pdf-mode-dark h5,
 body.md2pdf-mode-dark h6,
 body.md2pdf-mode-dark .md2pdf-cover h1,
-body.md2pdf-mode-dark strong {{ color: {surface['heading']} !important; }}
+body.md2pdf-mode-dark strong {{ color: {surface["heading"]} !important; }}
 body.md2pdf-mode-dark p,
 body.md2pdf-mode-dark li,
 body.md2pdf-mode-dark td {{ color: var(--ink) !important; }}
-body.md2pdf-mode-dark table {{ background: {surface['panel_alt']} !important; color: var(--ink) !important; }}
-body.md2pdf-mode-dark th {{ background: {surface['panel']} !important; color: {surface['heading']} !important; }}
+body.md2pdf-mode-dark table {{ background: {surface["panel_alt"]} !important; color: var(--ink) !important; }}
+body.md2pdf-mode-dark th {{ background: {surface["panel"]} !important; color: {surface["heading"]} !important; }}
 body.md2pdf-mode-dark td,
 body.md2pdf-mode-dark th {{ border-bottom-color: var(--line) !important; }}
-body.md2pdf-mode-dark tbody tr:nth-child(even) td {{ background: {surface['panel']} !important; }}
+body.md2pdf-mode-dark tbody tr:nth-child(even) td {{ background: {surface["panel"]} !important; }}
 body.md2pdf-mode-dark blockquote,
 body.md2pdf-mode-dark .callout,
 body.md2pdf-mode-dark .md2pdf-details {{
-  background: {surface['panel']} !important;
+  background: {surface["panel"]} !important;
   border-color: var(--line) !important;
   color: var(--ink) !important;
 }}
@@ -420,59 +420,59 @@ body.md2pdf-mode-dark small,
 body.md2pdf-mode-dark .footnotes,
 body.md2pdf-mode-dark .footnote-backref {{ color: var(--muted) !important; }}
 body.md2pdf-mode-dark :not(pre) > code {{
-  background: {surface['panel']} !important;
+  background: {surface["panel"]} !important;
   border-color: var(--line) !important;
-  color: {surface['heading']} !important;
+  color: {surface["heading"]} !important;
 }}
 body.md2pdf-mode-dark .code-block,
 body.md2pdf-mode-dark .codehilite,
 body.md2pdf-mode-dark .highlight,
 body.md2pdf-mode-dark pre {{
-  background: {surface['code']} !important;
-  color: {surface['heading']} !important;
+  background: {surface["code"]} !important;
+  color: {surface["heading"]} !important;
   border-color: var(--line) !important;
 }}
 body.md2pdf-mode-dark .code-block figcaption {{
-  background: {surface['panel']} !important;
-  color: {surface['heading']} !important;
+  background: {surface["panel"]} !important;
+  color: {surface["heading"]} !important;
   border-bottom-color: var(--line) !important;
 }}
 body.md2pdf-mode-dark .md2pdf-toc,
-body.md2pdf-mode-dark .md2pdf-toc h2 {{ color: {surface['heading']} !important; }}
+body.md2pdf-mode-dark .md2pdf-toc h2 {{ color: {surface["heading"]} !important; }}
 body.md2pdf-mode-dark .md2pdf-toc a {{
   background: transparent !important;
   color: var(--accent) !important;
 }}
 body.md2pdf-mode-dark .md2pdf-toc li > ol {{ border-inline-start-color: var(--line) !important; }}
-body.md2pdf-mode-dark .md2pdf-toc .toc-number {{ color: {surface['ink']} !important; }}
+body.md2pdf-mode-dark .md2pdf-toc .toc-number {{ color: {surface["ink"]} !important; }}
 body.md2pdf-mode-dark .table-wrap,
 body.md2pdf-mode-dark .code-block {{ box-shadow: none !important; }}
 body.md2pdf-mode-dark .md2pdf-cover-full-bleed .md2pdf-document,
-body.md2pdf-mode-dark .md2pdf-cover-full-bleed .md2pdf-article {{ background: {surface['page']} !important; }}
+body.md2pdf-mode-dark .md2pdf-cover-full-bleed .md2pdf-article {{ background: {surface["page"]} !important; }}
 body.md2pdf-mode-dark .md2pdf-cover,
 body.md2pdf-mode-dark.md2pdf-cover-full-bleed .md2pdf-cover {{
   background:
     radial-gradient(circle at 5% 5%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 28%),
     radial-gradient(circle at 92% 88%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent 31%),
     radial-gradient(circle at 72% 20%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 30%),
-    linear-gradient(180deg, {surface['page']} 0%, {surface['cover_end']} 100%) !important;
+    linear-gradient(180deg, {surface["page"]} 0%, {surface["cover_end"]} 100%) !important;
   color: var(--ink) !important;
   border-bottom-color: var(--line) !important;
 }}
 body.md2pdf-mode-dark .md2pdf-cover__decor--one {{ border-color: color-mix(in srgb, var(--accent) 35%, transparent) !important; }}
 body.md2pdf-mode-dark .md2pdf-cover__decor--two {{ background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--accent-2) 15%, transparent)) !important; }}
 body.md2pdf-mode-dark .md2pdf-cover__brand {{
-  background: color-mix(in srgb, {surface['panel']} 82%, transparent) !important;
+  background: color-mix(in srgb, {surface["panel"]} 82%, transparent) !important;
   border-color: var(--line) !important;
   color: var(--ink) !important;
 }}
 body.md2pdf-mode-dark .md2pdf-cover__mark {{ background: linear-gradient(135deg, var(--accent), var(--accent-2)) !important; }}
-body.md2pdf-mode-dark .md2pdf-cover__brand-copy strong {{ color: {surface['heading']} !important; }}
+body.md2pdf-mode-dark .md2pdf-cover__brand-copy strong {{ color: {surface["heading"]} !important; }}
 body.md2pdf-mode-dark .md2pdf-cover__brand-copy em {{ color: var(--muted) !important; }}
 body.md2pdf-mode-dark .md2pdf-cover__release {{
-  background: color-mix(in srgb, var(--accent) 18%, {surface['panel']}) !important;
-  border-color: color-mix(in srgb, var(--accent) 35%, {surface['line']}) !important;
-  color: {surface['heading']} !important;
+  background: color-mix(in srgb, var(--accent) 18%, {surface["panel"]}) !important;
+  border-color: color-mix(in srgb, var(--accent) 35%, {surface["line"]}) !important;
+  color: {surface["heading"]} !important;
 }}
 body.md2pdf-mode-dark .md2pdf-cover__eyebrow {{
   color: var(--accent) !important;
@@ -489,18 +489,22 @@ body.md2pdf-mode-dark .md2pdf-cover__eyebrow::before {{
 }}
 body.md2pdf-mode-dark .md2pdf-cover__summary {{ border-top-color: var(--line) !important; }}
 body.md2pdf-mode-dark .md2pdf-cover__detail {{
-  background: color-mix(in srgb, {surface['panel']} 82%, transparent) !important;
+  background: color-mix(in srgb, {surface["panel"]} 82%, transparent) !important;
   border-color: var(--line) !important;
 }}
-body.md2pdf-mode-dark .md2pdf-cover__detail strong {{ color: {surface['heading']} !important; }}
+body.md2pdf-mode-dark .md2pdf-cover__detail strong {{ color: {surface["heading"]} !important; }}
 body.md2pdf-mode-dark .md2pdf-watermark {{ mix-blend-mode: screen; }}
-body.md2pdf-mode-dark .md2pdf-watermark--text {{ color: {surface['heading']}; }}
+body.md2pdf-mode-dark .md2pdf-watermark--text {{ color: {surface["heading"]}; }}
 body.md2pdf-mode-dark .md2pdf-watermark--image img {{ filter: invert(1) grayscale(1); }}
 """
 
 
 def _modern_emerald_guide_css(appearance: Appearance) -> str:
-    if appearance.style != "modern" or appearance.palette != "emerald" or appearance.mode != "light":
+    if (
+        appearance.style != "modern"
+        or appearance.palette != "emerald"
+        or appearance.mode != "light"
+    ):
         return ""
     return """
 body.md2pdf-style-modern.md2pdf-palette-emerald:not(.md2pdf-mode-dark) .md2pdf-cover {
@@ -570,20 +574,24 @@ body.md2pdf-style-modern.md2pdf-palette-emerald:not(.md2pdf-mode-dark) .code-blo
 
 def palette_css(palette_name: str, mode_name: str, style_name: str | None = None) -> str:
     appearance = resolve_appearance(palette=palette_name, mode=mode_name, style=style_name)
-    colors = DARK_PALETTES[appearance.palette] if appearance.mode == "dark" else PALETTES[appearance.palette]
+    colors = (
+        DARK_PALETTES[appearance.palette]
+        if appearance.mode == "dark"
+        else PALETTES[appearance.palette]
+    )
     dark_css = _dark_mode_css(appearance) if appearance.mode == "dark" else ""
     return f"""
 :root {{
-  --accent: {colors['accent']};
-  --accent-2: {colors['accent_2']};
-  --accent-soft: {colors['accent_soft']};
-  --accent-line: {colors['accent_line']};
-  --quote: {colors['quote']};
-  --blue: {colors['accent']};
-  --blue-soft: {colors['accent_soft']};
-  --blue-line: {colors['accent_line']};
-  --md2pdf-mermaid-stroke: {colors['accent']};
-  --md2pdf-mermaid-edge-ink: {colors['accent']};
+  --accent: {colors["accent"]};
+  --accent-2: {colors["accent_2"]};
+  --accent-soft: {colors["accent_soft"]};
+  --accent-line: {colors["accent_line"]};
+  --quote: {colors["quote"]};
+  --blue: {colors["accent"]};
+  --blue-soft: {colors["accent_soft"]};
+  --blue-line: {colors["accent_line"]};
+  --md2pdf-mermaid-stroke: {colors["accent"]};
+  --md2pdf-mermaid-edge-ink: {colors["accent"]};
 }}
 body.md2pdf-palette-{appearance.palette} a {{ color: var(--accent); }}
 body.md2pdf-palette-{appearance.palette} li::marker {{ color: var(--accent); }}

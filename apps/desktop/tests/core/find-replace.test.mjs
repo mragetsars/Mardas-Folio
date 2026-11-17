@@ -1,9 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createFindSession, findLiteralMatches, replaceAllLiteral } from "../../frontend/js/core/find-replace.mjs";
+import {
+  createFindSession,
+  findLiteralMatches,
+  replaceAllLiteral,
+} from "../../frontend/js/core/find-replace.mjs";
 
 test("find and replace treats regular-expression characters literally", () => {
-  assert.deepEqual(findLiteralMatches("a+b A+B", "a+b"), [{ start: 0, end: 3 }, { start: 4, end: 7 }]);
+  assert.deepEqual(findLiteralMatches("a+b A+B", "a+b"), [
+    { start: 0, end: 3 },
+    { start: 4, end: 7 },
+  ]);
   assert.deepEqual(replaceAllLiteral("a+b A+B", "a+b", "x"), { text: "x x", count: 2 });
 });
 
@@ -70,7 +77,8 @@ test("Replace All reaches matches beyond the bounded navigation list", () => {
   const source = "فارسي ".repeat(10_025);
   assert.equal(findLiteralMatches(source, "فارسی").length, 10_000);
   assert.deepEqual(replaceAllLiteral(source, "فارسی", "$&"), {
-    text: "$& ".repeat(10_025), count: 10_025,
+    text: "$& ".repeat(10_025),
+    count: 10_025,
   });
 });
 
@@ -78,8 +86,14 @@ test("a find session retires offsets from edited buffers and other documents", (
   const session = createFindSession();
   const snapshot = { documentId: "a", text: "first cat and cat", query: "cat" };
   assert.deepEqual(session.select(snapshot, 1), { start: 14, end: 17 });
-  assert.deepEqual(session.current({ ...snapshot, text: "prefix first cat and cat" }), { start: 21, end: 24 });
-  assert.deepEqual(session.current({ ...snapshot, documentId: "b", text: "cat at start" }), { start: 0, end: 3 });
+  assert.deepEqual(session.current({ ...snapshot, text: "prefix first cat and cat" }), {
+    start: 21,
+    end: 24,
+  });
+  assert.deepEqual(session.current({ ...snapshot, documentId: "b", text: "cat at start" }), {
+    start: 0,
+    end: 3,
+  });
   assert.equal(session.current({ ...snapshot, documentId: "b", text: "unrelated document" }), null);
 });
 

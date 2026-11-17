@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import sys
 from pathlib import Path
 
 import pytest
+
+from tests._paths import ROOT
 
 sys.path.insert(0, str(ROOT / "scripts"))
 from lib.build.paths import MARKER, prepare_output, validate_output  # noqa: E402

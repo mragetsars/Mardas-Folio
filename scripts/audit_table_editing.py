@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Exercise visual table cell editing with the actual CodeMirror adapter."""
+
 from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import traceback
+from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
+
 from lib.audit.desktop import serve
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,20 +40,34 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
     report = {"status": "running", "scenarios": []}
     with serve(dist) as url, sync_playwright() as runtime:
         browser = runtime.chromium.launch()
-        for locale, theme, width in [("en", "light", 1440), ("fa", "dark", 1440), ("en", "dark", 680), ("fa", "light", 360)]:
+        for locale, theme, width in [
+            ("en", "light", 1440),
+            ("fa", "dark", 1440),
+            ("en", "dark", 680),
+            ("fa", "light", 360),
+        ]:
             case = {"locale": locale, "theme": theme, "width": width, "checks": []}
             report["scenarios"].append(case)
             page = browser.new_page(viewport={"width": width, "height": 1000})
             page.set_default_timeout(10000)
             errors = []
             page.on("pageerror", lambda error: errors.append(str(error)))
-            page.route("**/table-fixture.html", lambda route: route.fulfill(body=HTML, content_type="text/html"))
+            page.route(
+                "**/table-fixture.html",
+                lambda route: route.fulfill(body=HTML, content_type="text/html"),
+            )
             if bundle:
-                page.route("**/js/vendor/codemirror-editor.bundle.mjs", lambda route: route.fulfill(path=str(bundle), content_type="text/javascript"))
+                page.route(
+                    "**/js/vendor/codemirror-editor.bundle.mjs",
+                    lambda route: route.fulfill(path=str(bundle), content_type="text/javascript"),
+                )
             try:
                 page.goto(url + "/table-fixture.html")
                 page.wait_for_function("Boolean(window.adapter)")
-                page.evaluate("v=>{document.documentElement.lang=v.locale;document.documentElement.dir=v.locale==='fa'?'rtl':'ltr';document.documentElement.dataset.theme=v.theme;adapter.value=v.text;adapter.setSelectionRange(v.text.length)}", {"locale": locale, "theme": theme, "text": SAMPLE})
+                page.evaluate(
+                    "v=>{document.documentElement.lang=v.locale;document.documentElement.dir=v.locale==='fa'?'rtl':'ltr';document.documentElement.dataset.theme=v.theme;adapter.value=v.text;adapter.setSelectionRange(v.text.length)}",
+                    {"locale": locale, "theme": theme, "text": SAMPLE},
+                )
                 grid = page.locator(".cm-md-table").first
                 cell = grid.locator('[data-table-row="1"][data-table-column="1"]')
                 cell.click()
@@ -70,7 +86,9 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 expect(cell.locator("strong")).to_have_text("changed")
                 page.evaluate("adapter.runCommand('undo')")
                 expect(page.locator("#source")).to_have_value(SAMPLE)
-                case["checks"].append("cell editing keeps grid rendered, previews inline formatting, escapes new pipes, one Undo restores exact Markdown")
+                case["checks"].append(
+                    "cell editing keeps grid rendered, previews inline formatting, escapes new pipes, one Undo restores exact Markdown"
+                )
 
                 cell.click()
                 value.fill("DISCARDED")
@@ -83,16 +101,22 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 value.press("Shift+Tab")
                 expect(value).to_have_value("Committed by Tab")
                 value.press("Escape")
-                expect(page.locator("#source")).to_have_value(SAMPLE.replace("**bold** and *italic*", "Committed by Tab"))
+                expect(page.locator("#source")).to_have_value(
+                    SAMPLE.replace("**bold** and *italic*", "Committed by Tab")
+                )
                 page.evaluate("adapter.runCommand('undo')")
                 expect(page.locator("#source")).to_have_value(SAMPLE)
-                case["checks"].append("Escape cancels draft; Tab/Shift+Tab apply and navigate cells without exposing table pipes")
+                case["checks"].append(
+                    "Escape cancels draft; Tab/Shift+Tab apply and navigate cells without exposing table pipes"
+                )
 
                 cell.click()
                 value.fill("Outside commit")
                 page.locator("#outside").click()
                 expect(panel).to_have_count(0)
-                expect(page.locator("#source")).to_have_value(SAMPLE.replace("**bold** and *italic*", "Outside commit"))
+                expect(page.locator("#source")).to_have_value(
+                    SAMPLE.replace("**bold** and *italic*", "Outside commit")
+                )
                 page.evaluate("adapter.runCommand('undo')")
                 expect(page.locator("#source")).to_have_value(SAMPLE)
 
@@ -103,11 +127,15 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 expect(value).to_have_value("")
                 value.fill("New column")
                 value.press("Enter")
-                expect(grid.locator("tbody tr").first.locator("td").nth(2)).to_have_text("New column")
+                expect(grid.locator("tbody tr").first.locator("td").nth(2)).to_have_text(
+                    "New column"
+                )
                 # Cell commit and structural edit are independently undoable.
                 page.evaluate("adapter.runCommand('undo');adapter.runCommand('undo')")
                 expect(page.locator("#source")).to_have_value(SAMPLE)
-                case["checks"].append("outside click applies draft; added empty column preserves its index and alignment, source returns exactly through Undo")
+                case["checks"].append(
+                    "outside click applies draft; added empty column preserves its index and alignment, source returns exactly through Undo"
+                )
 
                 nested = page.locator(".cm-md-table").nth(1)
                 nested.locator('[data-table-row="1"][data-table-column="0"]').click()
@@ -125,12 +153,18 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 assert page.locator(".cm-table-cell-preview img").count() == 0
                 assert page.evaluate("Boolean(globalThis.__tableInjected)") is False
                 geometry = panel.bounding_box()
-                assert geometry and geometry["x"] >= 0 and geometry["x"] + geometry["width"] <= width + 1, geometry
+                assert (
+                    geometry
+                    and geometry["x"] >= 0
+                    and geometry["x"] + geometry["width"] <= width + 1
+                ), geometry
                 page.screenshot(path=str(output / f"{locale}-{theme}-{width}.png"))
                 value.press("Escape")
                 expect(page.locator("#source")).to_have_value(SAMPLE)
                 assert not errors, errors
-                case["checks"].append("nested table rows preserve blockquote prefixes; draft preview treats HTML as text; popup remains inside narrow viewport")
+                case["checks"].append(
+                    "nested table rows preserve blockquote prefixes; draft preview treats HTML as text; popup remains inside narrow viewport"
+                )
                 case["status"] = "passed"
             except Exception:
                 case["status"] = "failed"
@@ -139,8 +173,12 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
             finally:
                 page.close()
         browser.close()
-    report["status"] = "passed" if all(case["status"] == "passed" for case in report["scenarios"]) else "failed"
-    (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    report["status"] = (
+        "passed" if all(case["status"] == "passed" for case in report["scenarios"]) else "failed"
+    )
+    (output / "report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return report
 
 
@@ -150,6 +188,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, default=ROOT / "build/table-editing/acceptance")
     parser.add_argument("--bundle", type=Path)
     args = parser.parse_args()
-    result = run(args.dist.resolve(), args.output.resolve(), args.bundle.resolve() if args.bundle else None)
+    result = run(
+        args.dist.resolve(), args.output.resolve(), args.bundle.resolve() if args.bundle else None
+    )
     print(json.dumps(result, ensure_ascii=False))
     raise SystemExit(result["status"] != "passed")

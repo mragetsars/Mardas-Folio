@@ -279,9 +279,9 @@ img, svg { max-width: 100%; }
 `;
 
 const BLANK_DOCUMENT =
-  '<!doctype html><html class="pv-frame"><head><meta charset="utf-8">'
-  + '<style id="pv-engine"></style><style id="pv-deck"></style></head>'
-  + '<body class="pv-frame-body"></body></html>';
+  '<!doctype html><html class="pv-frame"><head><meta charset="utf-8">' +
+  '<style id="pv-engine"></style><style id="pv-deck"></style></head>' +
+  '<body class="pv-frame-body"></body></html>';
 
 /**
  * Mount a page deck inside `host`.
@@ -350,14 +350,22 @@ export function createPageDeck(host, { onState } = {}) {
     }
   }
   const themeObserver = new MutationObserver(syncDeskTheme);
-  themeObserver.observe(host.ownerDocument.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-accent", "style", "class"] });
+  themeObserver.observe(host.ownerDocument.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme", "data-accent", "style", "class"],
+  });
 
   function publish() {
     const box = scroller();
     onState?.({
       pageCount: state.sheets.length,
       currentPage: box
-        ? currentPageNumber(box.scrollTop, box.clientHeight, state.pitch * state.zoom, state.sheets.length)
+        ? currentPageNumber(
+            box.scrollTop,
+            box.clientHeight,
+            state.pitch * state.zoom,
+            state.sheets.length,
+          )
         : 1,
       zoom: state.zoom,
       zoomMode: state.zoomMode,
@@ -436,23 +444,19 @@ export function createPageDeck(host, { onState } = {}) {
       state.zoom = fitWidthZoom(box.clientWidth, state.geometry.widthPx, SHEET_GAP * 2);
       if (state.zoomMode === "auto") state.zoom = Math.min(1, state.zoom);
     } else if (fitCover || state.zoomMode === "fit-page") {
-      state.zoom = fitPageZoom(
-        box.clientWidth,
-        box.clientHeight,
-        state.geometry,
-        SHEET_GAP * 2,
-      );
+      state.zoom = fitPageZoom(box.clientWidth, box.clientHeight, state.geometry, SHEET_GAP * 2);
     }
     applyZoom();
     restorePagePosition(position);
   }
 
-  const resize = typeof ResizeObserver === "function"
-    ? new ResizeObserver(() => {
-        recomputeFit();
-        materialise();
-      })
-    : null;
+  const resize =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => {
+          recomputeFit();
+          materialise();
+        })
+      : null;
   resize?.observe(host);
 
   function buildSheets(stage) {
@@ -589,8 +593,11 @@ export function createPageDeck(host, { onState } = {}) {
       }
       if (!current()) return;
       await document_.fonts?.ready;
-      await Promise.all([...article.querySelectorAll("img")].map((image) =>
-        typeof image.decode === "function" ? image.decode().catch(() => {}) : Promise.resolve()));
+      await Promise.all(
+        [...article.querySelectorAll("img")].map((image) =>
+          typeof image.decode === "function" ? image.decode().catch(() => {}) : Promise.resolve(),
+        ),
+      );
       if (!current()) return;
 
       const flowTop = article.getBoundingClientRect().top;
@@ -623,9 +630,8 @@ export function createPageDeck(host, { onState } = {}) {
         return holder;
       };
       state.watermarkSource = payload?.watermark_html ? wrap(payload.watermark_html) : null;
-      state.footerSource = payload?.footer?.enabled && payload.footer.html
-        ? wrap(payload.footer.html)
-        : null;
+      state.footerSource =
+        payload?.footer?.enabled && payload.footer.html ? wrap(payload.footer.html) : null;
 
       const position = pagePosition();
       state.geometry = geometry;
@@ -691,8 +697,7 @@ export function createPageDeck(host, { onState } = {}) {
     state.pending = null;
     if (pending?.kind === "payload") {
       Promise.resolve(draw(pending.value, pending.isCurrent)).then(pending.resolve, pending.reject);
-    }
-    else if (pending?.kind === "message") showMessageNow(pending.value, pending.details);
+    } else if (pending?.kind === "message") showMessageNow(pending.value, pending.details);
   }
 
   /**
@@ -776,10 +781,7 @@ export function createPageDeck(host, { onState } = {}) {
     goToPage(number) {
       const box = scroller();
       if (!box || !state.sheets.length) return;
-      const index = Math.min(
-        Math.max(1, Math.trunc(Number(number) || 1)),
-        state.sheets.length,
-      ) - 1;
+      const index = Math.min(Math.max(1, Math.trunc(Number(number) || 1)), state.sheets.length) - 1;
       box.scrollTop = index * state.pitch * state.zoom;
       materialise();
     },

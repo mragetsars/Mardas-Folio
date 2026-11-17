@@ -5,22 +5,29 @@ Only the native transport and file pickers are fixtures. The HTTP bridge calls
 the actual Python EngineService against exclusive temporary QA documents.
 No installed application, personal document or profile is opened.
 """
+
 from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from typing import Any
 
+from audit_document_preview import RICH, wait_math
 from playwright.sync_api import expect, sync_playwright
 
+from lib.audit.desktop import (
+    DEFAULT_DIST,
+    ROOT,
+    click_workspace_layout_control,
+    run_workspace_command,
+)
 from lib.audit.engine import engine_server
-from lib.audit.desktop import DEFAULT_DIST, ROOT, click_workspace_layout_control, run_workspace_command
-from audit_document_preview import RICH, wait_math
 
-
-SAMPLE = RICH.split("## Inert document HTML", 1)[0] + """
+SAMPLE = (
+    RICH.split("## Inert document HTML", 1)[0]
+    + """
 ### Third-level heading
 #### Fourth-level heading
 ##### Fifth-level heading
@@ -44,11 +51,13 @@ SAMPLE = RICH.split("## Inert document HTML", 1)[0] + """
 
 [Open next chapter](chapter-02.md#chapter-two)
 
-""" + "\n".join(
-    f"## Position section {number}\n\n"
-    + f"UNIQUE_POSITION_{number} فارسی and English reading position. " * 14
-    + "\n\nSecond paragraph for this section.\n"
-    for number in range(1, 13)
+"""
+    + "\n".join(
+        f"## Position section {number}\n\n"
+        + f"UNIQUE_POSITION_{number} فارسی and English reading position. " * 14
+        + "\n\nSecond paragraph for this section.\n"
+        for number in range(1, 13)
+    )
 )
 
 BRIDGE = r"""
@@ -169,7 +178,9 @@ def _check_document_elements(page: Any, selector: str) -> None:
         && parseFloat(s.width) <= parseFloat(li.fontSize) * 1.2
         && s.display === 'inline-block';
     })"""), "Task checkbox layout is invalid"
-    assert article.locator(".callout-note .callout-title").inner_text().strip(), "Callout has no title"
+    assert article.locator(".callout-note .callout-title").inner_text().strip(), (
+        "Callout has no title"
+    )
     notes = article.locator(".footnote-item")
     assert notes.count() >= 1
     assert notes.first.evaluate("""note => {
@@ -224,53 +235,89 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         project_text += "\n" + "\n".join(f"# Project comment {number}" for number in range(1, 20))
         project_text += "\n# PROJECT_POSITION_TOKEN\n"
         project_config.write_text(project_text, encoding="utf-8")
-        project_match_line = next(index + 1 for index, line in enumerate(project_text.splitlines())
-                                  if "PROJECT_POSITION_TOKEN" in line)
+        project_match_line = next(
+            index + 1
+            for index, line in enumerate(project_text.splitlines())
+            if "PROJECT_POSITION_TOKEN" in line
+        )
         (fixture_root / "preview-image.svg").write_text(
             '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60">'
-            '<rect width="200" height="60" fill="#2563eb"/></svg>', encoding="utf-8")
+            '<rect width="200" height="60" fill="#2563eb"/></svg>',
+            encoding="utf-8",
+        )
         with engine_server(dist) as (url, calls), sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
             for locale, theme in (("en", "light"), ("fa", "dark")):
-                scenario: dict[str, Any] = {"locale": locale, "theme": theme, "checks": [], "parity": []}
+                scenario: dict[str, Any] = {
+                    "locale": locale,
+                    "theme": theme,
+                    "checks": [],
+                    "parity": [],
+                }
                 errors: list[str] = []
                 external: list[str] = []
                 context = browser.new_context(viewport={"width": 1440, "height": 960})
                 context.add_init_script(
-                    "globalThis.__modeFixture = " + json.dumps({"pick": str(markdown), "project": str(fixture_root)}) + ";"
+                    "globalThis.__modeFixture = "
+                    + json.dumps({"pick": str(markdown), "project": str(fixture_root)})
+                    + ";"
                     f"localStorage.setItem('mardas.desktop.locale', {json.dumps(locale)});"
                     "localStorage.setItem('mardas.desktop.preferences.v1', JSON.stringify("
-                    + json.dumps({"theme": theme, "onboardingComplete": True,
-                                  "viewMode": "source", "autoPreview": True}) + "));"
+                    + json.dumps(
+                        {
+                            "theme": theme,
+                            "onboardingComplete": True,
+                            "viewMode": "source",
+                            "autoPreview": True,
+                        }
+                    )
+                    + "));"
                     + BRIDGE
                 )
                 page = context.new_page()
                 page.set_default_timeout(30_000)
                 page.on("pageerror", lambda error: errors.append(str(error)))
-                page.on("request", lambda request: external.append(request.url)
-                        if request.url.startswith(("http:", "https:")) and not request.url.startswith(url) else None)
+                page.on(
+                    "request",
+                    lambda request: (
+                        external.append(request.url)
+                        if request.url.startswith(("http:", "https:"))
+                        and not request.url.startswith(url)
+                        else None
+                    ),
+                )
                 baseline = _preview_count(calls)
                 try:
                     page.goto(url, wait_until="networkidle")
                     page.locator("#workflow-open").click()
                     expect(page.locator("#markdown-editor")).to_have_value(SAMPLE)
-                    expect(page.locator('button[data-view-mode]')).to_have_count(3)
+                    expect(page.locator("button[data-view-mode]")).to_have_count(3)
                     expect(page.locator("#insert-menu-button")).to_be_visible()
                     expect(page.locator("#workspace-toggle-formatting")).to_be_visible()
-                    if page.locator("#workspace-toggle-formatting").get_attribute("aria-pressed") != "true":
+                    if (
+                        page.locator("#workspace-toggle-formatting").get_attribute("aria-pressed")
+                        != "true"
+                    ):
                         _click_control(page, "#workspace-toggle-formatting")
                     expect(page.locator("#format-bar")).to_be_visible()
                     _append(page, "\nHIDDEN_WORK_MARKER\n")
                     page.wait_for_timeout(900)
-                    assert _preview_count(calls) == baseline, "Hidden source view generated backend previews"
+                    assert _preview_count(calls) == baseline, (
+                        "Hidden source view generated backend previews"
+                    )
                     page.keyboard.press("Control+z")
                     expect(page.locator("#markdown-editor")).to_have_value(SAMPLE)
-                    scenario["checks"].append("editing with no rendered view performs no speculative engine preview")
+                    scenario["checks"].append(
+                        "editing with no rendered view performs no speculative engine preview"
+                    )
 
                     click_workspace_layout_control(page, "#workspace-toggle-sidebar")
                     page.locator('[data-sidebar="problems"]').click()
-                    pending = ("This version has not been checked yet. Run Check document." if locale == "en"
-                               else "این نسخهٔ متن هنوز بررسی نشده است. «بررسی سند» را اجرا کن.")
+                    pending = (
+                        "This version has not been checked yet. Run Check document."
+                        if locale == "en"
+                        else "این نسخهٔ متن هنوز بررسی نشده است. «بررسی سند» را اجرا کن."
+                    )
                     expect(page.locator("#problem-list")).to_have_text(pending)
                     page.locator("#document-actions-menu > summary").click()
                     page.locator("#workspace-validate").click()
@@ -282,7 +329,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     page.keyboard.press("Control+z")
                     expect(page.locator("#markdown-editor")).to_have_value(SAMPLE)
                     page.locator("#inspector-close").click()
-                    scenario["checks"].append("Problems distinguishes unchecked text, completed check and new edits")
+                    scenario["checks"].append(
+                        "Problems distinguishes unchecked text, completed check and new edits"
+                    )
 
                     _side_preview(page)
                     _wait_content(page, "#preview-document")
@@ -301,17 +350,33 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     numbered.locator(".document-code-copy").click()
                     copied = page.evaluate("window.__copiedCode")
                     assert copied.startswith('KEEP_NUMBERED_CODE = "$numbered_literal$"\n'), copied
-                    assert "print(KEEP_NUMBERED_CODE)" in copied and not copied.startswith("1"), copied
-                    expect(numbered.locator(".document-code-copy")).to_have_text("Copied" if locale == "en" else "کپی شد")
+                    assert "print(KEEP_NUMBERED_CODE)" in copied and not copied.startswith("1"), (
+                        copied
+                    )
+                    expect(numbered.locator(".document-code-copy")).to_have_text(
+                        "Copied" if locale == "en" else "کپی شد"
+                    )
                     page.evaluate("window.__failCodeCopy = true")
-                    page.locator("#preview-document .code-block:not(.code-block--numbered) .document-code-copy").first.click()
-                    expect(page.locator("#preview-document .code-block:not(.code-block--numbered) .document-code-copy").first).to_have_text(
-                        "Copy failed" if locale == "en" else "کپی نشد")
-                    expect(numbered.locator(".document-code-copy")).to_have_text("Copy code" if locale == "en" else "کپی کد")
-                    expect(page.locator("#preview-document .code-block:not(.code-block--numbered) .document-code-copy").first).to_have_text(
-                        "Copy code" if locale == "en" else "کپی کد")
+                    page.locator(
+                        "#preview-document .code-block:not(.code-block--numbered) .document-code-copy"
+                    ).first.click()
+                    expect(
+                        page.locator(
+                            "#preview-document .code-block:not(.code-block--numbered) .document-code-copy"
+                        ).first
+                    ).to_have_text("Copy failed" if locale == "en" else "کپی نشد")
+                    expect(numbered.locator(".document-code-copy")).to_have_text(
+                        "Copy code" if locale == "en" else "کپی کد"
+                    )
+                    expect(
+                        page.locator(
+                            "#preview-document .code-block:not(.code-block--numbered) .document-code-copy"
+                        ).first
+                    ).to_have_text("Copy code" if locale == "en" else "کپی کد")
                     expect(page.locator("#markdown-editor")).to_have_value(SAMPLE)
-                    scenario["checks"].append("copy preserves numbered code without line numbers; errors are visible and source remains unchanged")
+                    scenario["checks"].append(
+                        "copy preserves numbered code without line numbers; errors are visible and source remains unchanged"
+                    )
                     for zoom in (60, 100, 200):
                         _set_zoom(page, zoom)
                         side = page.locator("#preview-document").evaluate(ARTICLE)
@@ -323,8 +388,12 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                         expect(page.locator("#format-bar")).to_be_hidden()
                         read = page.locator("#reading-document").evaluate(ARTICLE)
                         differences = [
-                            {"sample": sample, "property": property_name, "side": value,
-                             "read": read["styles"].get(sample, {}).get(property_name)}
+                            {
+                                "sample": sample,
+                                "property": property_name,
+                                "side": value,
+                                "read": read["styles"].get(sample, {}).get(property_name),
+                            }
                             for sample, values in side["styles"].items()
                             for property_name, value in values.items()
                             if read["styles"].get(sample, {}).get(property_name) != value
@@ -332,19 +401,31 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                         assert not differences, differences
                         assert side["text"] == read["text"], "Read and side preview changed content"
                         assert side["internalLinks"] == read["internalLinks"]
-                        assert all(link["valid"] for link in read["internalLinks"]), read["internalLinks"]
+                        assert all(link["valid"] for link in read["internalLinks"]), read[
+                            "internalLinks"
+                        ]
                         assert side["math"] == read["math"]
                         assert all(item["rendered"] and item["paths"] for item in read["math"])
                         assert all(role != "button" for role in side["headingRoles"])
                         assert side["sourceButtons"] > 0 and read["sourceButtons"] == 0
-                        scenario["parity"].append({"zoom": zoom, "computed_differences": differences,
-                                                   "math_instances": len(read["math"]), "styles": read["styles"]})
+                        scenario["parity"].append(
+                            {
+                                "zoom": zoom,
+                                "computed_differences": differences,
+                                "math_instances": len(read["math"]),
+                                "styles": read["styles"],
+                            }
+                        )
                         page.screenshot(path=str(output / f"{locale}-{theme}-read-{zoom}.png"))
                         _activity(page, "source")
                         expect(page.locator("#preview-pane")).to_be_visible()
                         _wait_content(page, "#preview-document")
-                    scenario["checks"].append("same content typography math tables and internal links at 60/100/200 percent")
-                    scenario["checks"].append("source navigation is a separate button without replacing heading semantics")
+                    scenario["checks"].append(
+                        "same content typography math tables and internal links at 60/100/200 percent"
+                    )
+                    scenario["checks"].append(
+                        "source navigation is a separate button without replacing heading semantics"
+                    )
 
                     _set_zoom(page, 100)
                     _side_preview(page, enabled=False)
@@ -356,7 +437,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     _wait_content(page, "#reading-document")
                     expect(page.locator("#reading-document")).to_contain_text("VIEW_HISTORY_TOKEN")
                     page.wait_for_timeout(100)
-                    position = page.locator("#reading-document").evaluate("node => ({top:node.scrollTop,height:node.scrollHeight,viewport:node.clientHeight})")
+                    position = page.locator("#reading-document").evaluate(
+                        "node => ({top:node.scrollTop,height:node.scrollHeight,viewport:node.clientHeight})"
+                    )
                     assert position["top"] > 0, position
                     read_anchor = page.locator("#reading-document").evaluate("""root => {
                       const top = root.getBoundingClientRect().top;
@@ -365,7 +448,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                       const next = headings.find(node => node.getBoundingClientRect().top > top + 1);
                       return {previous:Number(previous?.dataset.sourceLine || 1),next:Number(next?.dataset.sourceLine || 100000)};
                     }""")
-                    assert read_anchor["previous"] <= source_anchor["line"] <= read_anchor["next"], (source_anchor, read_anchor)
+                    assert (
+                        read_anchor["previous"] <= source_anchor["line"] <= read_anchor["next"]
+                    ), (source_anchor, read_anchor)
                     _activity(page, "source")
                     expect(page.locator("#markdown-editor")).to_have_value(expected_content)
                     expect(page.locator("#cursor-status")).to_have_text(cursor)
@@ -377,7 +462,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     scenario["position"] = position
                     scenario["source_anchor"] = source_anchor
                     scenario["read_anchor"] = read_anchor
-                    scenario["checks"].append("Source/Read changes preserve place cursor content and actual undo history")
+                    scenario["checks"].append(
+                        "Source/Read changes preserve place cursor content and actual undo history"
+                    )
 
                     _side_preview(page)
                     _wait_content(page, "#preview-document")
@@ -387,18 +474,30 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     _append(page, "\nPAUSED_FRESHNESS_TOKEN\n")
                     page.wait_for_timeout(900)
                     assert _preview_count(calls) == before_pause
-                    expect(page.locator("#preview-document")).not_to_contain_text("PAUSED_FRESHNESS_TOKEN")
-                    expect(page.locator("#preview-pane [data-content-status]")).to_have_attribute("data-stale", "true")
+                    expect(page.locator("#preview-document")).not_to_contain_text(
+                        "PAUSED_FRESHNESS_TOKEN"
+                    )
+                    expect(page.locator("#preview-pane [data-content-status]")).to_have_attribute(
+                        "data-stale", "true"
+                    )
                     _activity(page, "read")
-                    expect(page.locator("#reading-document")).to_contain_text("PAUSED_FRESHNESS_TOKEN")
+                    expect(page.locator("#reading-document")).to_contain_text(
+                        "PAUSED_FRESHNESS_TOKEN"
+                    )
                     expect(page.locator("#reading-auto-preview")).not_to_be_checked()
-                    expect(page.locator(".reading-toolbar-controls [data-content-status]")).to_have_attribute("data-stale", "false")
+                    expect(
+                        page.locator(".reading-toolbar-controls [data-content-status]")
+                    ).to_have_attribute("data-stale", "false")
                     _activity(page, "source")
                     _append(page, "\nMANUAL_REFRESH_TOKEN\n")
                     page.wait_for_timeout(900)
                     page.locator("#refresh-preview").click()
-                    expect(page.locator("#preview-document")).to_contain_text("MANUAL_REFRESH_TOKEN")
-                    scenario["checks"].append("paused edits are visibly stale while explicit view entry and refresh use current content")
+                    expect(page.locator("#preview-document")).to_contain_text(
+                        "MANUAL_REFRESH_TOKEN"
+                    )
+                    scenario["checks"].append(
+                        "paused edits are visibly stale while explicit view entry and refresh use current content"
+                    )
 
                     _activity(page, "source")
                     _append(page, "\nSTALE_TAB_ENTRY_TOKEN\n")
@@ -408,35 +507,60 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     _activity(page, "read")
                     expect(page.locator("#reading-document")).to_contain_text("Other content.")
                     page.locator(".tab-activate").filter(has_text="parity-document.md").click()
-                    expect(page.locator("#reading-document")).to_contain_text("STALE_TAB_ENTRY_TOKEN")
+                    expect(page.locator("#reading-document")).to_contain_text(
+                        "STALE_TAB_ENTRY_TOKEN"
+                    )
                     assert not page.locator("#reading-auto-preview").is_checked()
-                    scenario["checks"].append("tab entry refreshes stale content even while typing updates remain paused")
+                    scenario["checks"].append(
+                        "tab entry refreshes stale content even while typing updates remain paused"
+                    )
 
                     _activity(page, "read")
-                    if page.locator("#workspace-toggle-sidebar").get_attribute("aria-pressed") == "false":
+                    if (
+                        page.locator("#workspace-toggle-sidebar").get_attribute("aria-pressed")
+                        == "false"
+                    ):
                         click_workspace_layout_control(page, "#workspace-toggle-sidebar")
                     page.locator('[data-sidebar="frontmatter"]').click()
                     expect(page.locator("#sidebar-panel-frontmatter")).to_be_visible()
                     page.evaluate("path => {__modeFixture.pick = path}", str(config))
                     page.locator("#navigator-open").click()
                     expect(page.locator("#markdown-editor")).to_have_value(config.read_text())
-                    expect(page.locator("#workspace-view")).to_have_attribute("data-view-mode", "source")
+                    expect(page.locator("#workspace-view")).to_have_attribute(
+                        "data-view-mode", "source"
+                    )
                     expect(page.locator("#insert-menu-button")).to_be_hidden()
                     expect(page.locator("#workspace-toggle-formatting")).to_be_hidden()
                     expect(page.locator("#format-bar")).to_be_hidden()
-                    assert page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).viewMode") == "read"
+                    assert (
+                        page.evaluate(
+                            "JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).viewMode"
+                        )
+                        == "read"
+                    )
                     expect(page.locator('button[data-view-mode="read"]')).to_be_disabled()
                     expect(page.locator("#sidebar-panel-frontmatter")).to_be_hidden()
-                    expect(page.locator('[data-sidebar="problems"]')).to_have_attribute("aria-selected", "true")
+                    expect(page.locator('[data-sidebar="problems"]')).to_have_attribute(
+                        "aria-selected", "true"
+                    )
                     page.locator('button[data-view-mode="source"]').focus()
                     for key in ("ArrowRight", "Home", "End", "ArrowLeft"):
                         page.keyboard.press(key)
-                        assert page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).viewMode") == "read", key
+                        assert (
+                            page.evaluate(
+                                "JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).viewMode"
+                            )
+                            == "read"
+                        ), key
                     page.locator(".tab-activate").filter(has_text="parity-document.md").click()
-                    expect(page.locator("#workspace-view")).to_have_attribute("data-view-mode", "read")
+                    expect(page.locator("#workspace-view")).to_have_attribute(
+                        "data-view-mode", "read"
+                    )
                     expect(page.locator("#reading-document")).to_be_visible()
                     expect(page.locator("#sidebar-panel-frontmatter")).to_be_visible()
-                    scenario["checks"].append("plain configuration files derive Source without changing the Markdown reading preference")
+                    scenario["checks"].append(
+                        "plain configuration files derive Source without changing the Markdown reading preference"
+                    )
 
                     run_workspace_command(page, "project")
                     expect(page.locator("#file-navigator #project-file-tree")).to_be_visible()
@@ -445,25 +569,42 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     expect(page.locator("#project-search-results button")).to_have_count(1)
                     page.locator("#project-search-results button").click()
                     expect(page.locator("#markdown-editor")).to_have_value(project_text)
-                    expect(page.locator("#workspace-view")).to_have_attribute("data-view-mode", "source")
+                    expect(page.locator("#workspace-view")).to_have_attribute(
+                        "data-view-mode", "source"
+                    )
                     expect(page.locator("#cursor-status")).to_contain_text(str(project_match_line))
-                    expect(page.locator(".codemirror-mount")).to_have_attribute("data-document-kind", "text")
+                    expect(page.locator(".codemirror-mount")).to_have_attribute(
+                        "data-document-kind", "text"
+                    )
                     assert not page.locator(".cm-content :is(.tok-heading,.cm-md-heading)").count()
-                    assert page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).viewMode") == "read"
+                    assert (
+                        page.evaluate(
+                            "JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).viewMode"
+                        )
+                        == "read"
+                    )
                     expect(page.locator(".cm-content")).to_have_attribute("contenteditable", "true")
                     page.locator(".tab-activate").filter(has_text="parity-document.md").click()
-                    expect(page.locator("#workspace-view")).to_have_attribute("data-view-mode", "read")
-                    scenario["checks"].append("project search opens config at its match while preserving the Markdown reading activity")
+                    expect(page.locator("#workspace-view")).to_have_attribute(
+                        "data-view-mode", "read"
+                    )
+                    scenario["checks"].append(
+                        "project search opens config at its match while preserving the Markdown reading activity"
+                    )
                     page.evaluate("path => {__modeFixture.pick = path}", str(locked))
                     page.locator("#navigator-open").click()
                     expect(page.locator("#markdown-editor")).to_have_value(locked.read_text())
                     _activity(page, "source")
-                    expect(page.locator(".cm-content")).to_have_attribute("contenteditable", "false")
+                    expect(page.locator(".cm-content")).to_have_attribute(
+                        "contenteditable", "false"
+                    )
                     page.keyboard.press("Control+End")
                     page.keyboard.insert_text("SHOULD_NOT_APPEAR")
                     expect(page.locator("#markdown-editor")).to_have_value(locked.read_text())
                     expect(page.locator("#workspace-save-as")).to_be_enabled()
-                    scenario["checks"].append("read-only resources stay noneditable across activity changes while Save As remains available")
+                    scenario["checks"].append(
+                        "read-only resources stay noneditable across activity changes while Save As remains available"
+                    )
                     assert not errors, errors
                     assert not external, external
                     scenario["status"] = "passed"
@@ -475,22 +616,31 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                     scenario["page_errors"] = errors
                     scenario["external_requests"] = external
                     report["scenarios"].append(scenario)
-                    (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                    (output / "report.json").write_text(
+                        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+                    )
                     context.close()
 
             # Old preferences must preserve the combined source+comparison task.
             context = browser.new_context(viewport={"width": 1440, "height": 960})
             context.add_init_script(
-                "globalThis.__modeFixture = " + json.dumps({"pick": str(markdown), "project": str(fixture_root)}) + ";"
+                "globalThis.__modeFixture = "
+                + json.dumps({"pick": str(markdown), "project": str(fixture_root)})
+                + ";"
                 "localStorage.setItem('mardas.desktop.locale','en');"
                 "localStorage.setItem('mardas.desktop.preferences.v1',JSON.stringify("
-                "{onboardingComplete:true,viewMode:'split'}));" + BRIDGE)
+                "{onboardingComplete:true,viewMode:'split'}));" + BRIDGE
+            )
             page = context.new_page()
             try:
                 page.goto(url, wait_until="networkidle")
                 page.locator("#workflow-open").click()
-                expect(page.locator("#workspace-view")).to_have_attribute("data-view-mode", "source")
-                expect(page.locator("#workspace-toggle-preview")).to_have_attribute("aria-pressed", "true")
+                expect(page.locator("#workspace-view")).to_have_attribute(
+                    "data-view-mode", "source"
+                )
+                expect(page.locator("#workspace-toggle-preview")).to_have_attribute(
+                    "aria-pressed", "true"
+                )
                 _wait_content(page, "#preview-document")
                 report["legacy_split"] = {"status": "passed"}
             except Exception as error:
@@ -498,8 +648,15 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
             finally:
                 context.close()
                 browser.close()
-    report["status"] = "passed" if all(item["status"] == "passed" for item in report["scenarios"]) and report["legacy_split"]["status"] == "passed" else "failed"
-    (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    report["status"] = (
+        "passed"
+        if all(item["status"] == "passed" for item in report["scenarios"])
+        and report["legacy_split"]["status"] == "passed"
+        else "failed"
+    )
+    (output / "report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return report
 
 
@@ -509,7 +666,18 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=Path, default=ROOT / "build/product-audit/document-modes")
     args = parser.parse_args()
     result = run_audit(args.dist.resolve(), args.out.resolve())
-    print(json.dumps({"status": result["status"], "scenarios": [
-        {key: value for key, value in scenario.items() if key not in {"parity"}}
-        for scenario in result["scenarios"]], "legacy_split": result["legacy_split"]}, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "status": result["status"],
+                "scenarios": [
+                    {key: value for key, value in scenario.items() if key not in {"parity"}}
+                    for scenario in result["scenarios"]
+                ],
+                "legacy_split": result["legacy_split"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     raise SystemExit(0 if result["status"] == "passed" else 1)

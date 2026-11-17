@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import importlib.util
 import json
 import subprocess
@@ -9,6 +7,8 @@ import sys
 from pathlib import Path
 
 import pytest
+
+from tests._paths import ROOT
 
 SCRIPTS = ROOT / "scripts"
 IDENTITY = "Developer ID Application: Example (ABCDEFGHIJ)"
@@ -84,9 +84,7 @@ def _api_environment(key_path: Path) -> dict[str, str]:
 
 def _write_api_key(path: Path) -> None:
     path.write_text(
-        "-----BEGIN PRIVATE KEY-----\n"
-        + "A" * 96
-        + "\n-----END PRIVATE KEY-----\n",
+        "-----BEGIN PRIVATE KEY-----\n" + "A" * 96 + "\n-----END PRIVATE KEY-----\n",
         encoding="utf-8",
     )
 

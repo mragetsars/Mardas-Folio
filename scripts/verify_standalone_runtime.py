@@ -100,10 +100,7 @@ def load_and_verify_manifest(
         manifest_mode = manifest_path.lstat().st_mode
     except FileNotFoundError as exc:
         raise ValueError("Runtime manifest is missing or unreasonably large.") from exc
-    if (
-        not stat.S_ISREG(manifest_mode)
-        or manifest_path.lstat().st_size > MAX_MANIFEST_BYTES
-    ):
+    if not stat.S_ISREG(manifest_mode) or manifest_path.lstat().st_size > MAX_MANIFEST_BYTES:
         raise ValueError("Runtime manifest is missing or unreasonably large.")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     schema_version = manifest.get("schema_version")
@@ -161,9 +158,7 @@ def load_and_verify_manifest(
         else:
             raise ValueError(f"Runtime manifest entry type is invalid: {relative}")
 
-    if manifest.get("browser_bundled") is True and not has_bundled_browser_file(
-        regular_files
-    ):
+    if manifest.get("browser_bundled") is True and not has_bundled_browser_file(regular_files):
         raise ValueError(
             "Runtime manifest claims bundled Chromium without an inventoried browser file."
         )
@@ -183,7 +178,7 @@ def load_and_verify_manifest(
             raise ValueError(f"Runtime contains an unsupported filesystem entry: {relative}")
     if seen != actual:
         raise ValueError(
-            f"Runtime inventory mismatch; missing={sorted(seen-actual)}, extra={sorted(actual-seen)}"
+            f"Runtime inventory mismatch; missing={sorted(seen - actual)}, extra={sorted(actual - seen)}"
         )
     validate_symlink_graph(seen, symlinks, directories=directories)
     _sidecar_executable(root)

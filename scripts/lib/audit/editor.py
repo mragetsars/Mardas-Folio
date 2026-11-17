@@ -1,13 +1,19 @@
 """Deterministic editor fixtures and common user interactions."""
+
 from __future__ import annotations
+
 import json
 from typing import Any
+
 from playwright.sync_api import expect
+
 from lib.audit.desktop import INIT_SCRIPT, click_workspace_layout_control
 
 FIXTURE_A = "/fixtures/alpha/report.md"
 FIXTURE_B = "/fixtures/بتا/report.md"
-CONTENT_A = "# Alpha document\n\nAlpha body UNIQUE_ALPHA.\n\n## Second section\n\nA final paragraph.\n"
+CONTENT_A = (
+    "# Alpha document\n\nAlpha body UNIQUE_ALPHA.\n\n## Second section\n\nA final paragraph.\n"
+)
 CONTENT_B = "# سند بتا\n\nمتن فارسی UNIQUE_BETA و Markdown.\n\n## بخش دوم\n\nپاراگراف آخر.\n"
 
 BRIDGE_SCRIPT = r"""
@@ -169,5 +175,3 @@ def check_hidden_region(page: Any, selector: str) -> None:
       }).map(node => node.id || node.tagName)""")
     if focusable:
         raise AssertionError(f"Closed {selector} leaves focusable controls: {focusable}")
-
-

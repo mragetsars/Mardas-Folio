@@ -1,5 +1,7 @@
 """PDF metadata, navigation, path validation, and atomic output publication."""
+
 from __future__ import annotations
+
 import html
 import os
 import re
@@ -7,13 +9,40 @@ import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
+
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import BooleanObject, DictionaryObject, NameObject, TextStringObject
+
 from ..file_io import open_atomic_output as _open_atomic_output
 from ..markdown import MarkdownRenderResult
-from ..pdf_navigation import NamedDestinationMap, NavigationTracker, OutlineSourceEntry, add_pdf_outline as _add_pdf_outline, add_pdf_page_labels as _navigation_add_pdf_page_labels, copy_pdf_named_destinations as _copy_pdf_named_destinations, enforce_navigation_quality, locate_outline_pages as _locate_outline_pages, pdf_page_texts as _pdf_page_texts, rewrite_pdf_link_annotation_destinations as _rewrite_pdf_link_annotation_destinations
-from ..render_contracts import CancellationCallback, OutputExistsError, OutputPathError, PdfOptions, RenderCancelledError
-from .html_document import RTL_LANG_PREFIXES, _first_metadata_value, _metadata_items, _stringify_metadata_value, normalize_language
+from ..pdf_navigation import (
+    NamedDestinationMap,
+    NavigationTracker,
+    OutlineSourceEntry,
+    enforce_navigation_quality,
+)
+from ..pdf_navigation import add_pdf_outline as _add_pdf_outline
+from ..pdf_navigation import add_pdf_page_labels as _navigation_add_pdf_page_labels
+from ..pdf_navigation import copy_pdf_named_destinations as _copy_pdf_named_destinations
+from ..pdf_navigation import locate_outline_pages as _locate_outline_pages
+from ..pdf_navigation import pdf_page_texts as _pdf_page_texts
+from ..pdf_navigation import (
+    rewrite_pdf_link_annotation_destinations as _rewrite_pdf_link_annotation_destinations,
+)
+from ..render_contracts import (
+    CancellationCallback,
+    OutputExistsError,
+    OutputPathError,
+    PdfOptions,
+    RenderCancelledError,
+)
+from .html_document import (
+    RTL_LANG_PREFIXES,
+    _first_metadata_value,
+    _metadata_items,
+    _stringify_metadata_value,
+    normalize_language,
+)
 from .quality import _write_quality_report
 
 
@@ -81,9 +110,7 @@ def _xmp_packet(metadata: dict[str, str], *, lang: str | None) -> bytes:
     created = html.escape(_pdf_date_to_iso(str(metadata.get("/CreationDate") or "")))
     modified = html.escape(_pdf_date_to_iso(str(metadata.get("/ModDate") or "")))
     author_xml = (
-        f"<dc:creator><rdf:Seq><rdf:li>{author}</rdf:li></rdf:Seq></dc:creator>"
-        if author
-        else ""
+        f"<dc:creator><rdf:Seq><rdf:li>{author}</rdf:li></rdf:Seq></dc:creator>" if author else ""
     )
     description_xml = (
         f'<dc:description><rdf:Alt><rdf:li xml:lang="x-default">{subject}</rdf:li></rdf:Alt></dc:description>'
@@ -101,19 +128,19 @@ def _xmp_packet(metadata: dict[str, str], *, lang: str | None) -> bytes:
         '      xmlns:dc="http://purl.org/dc/elements/1.1/"\n'
         '      xmlns:pdf="http://ns.adobe.com/pdf/1.3/"\n'
         '      xmlns:xmp="http://ns.adobe.com/xap/1.0/">\n'
-        '      <dc:format>application/pdf</dc:format>\n'
+        "      <dc:format>application/pdf</dc:format>\n"
         f'      <dc:title><rdf:Alt><rdf:li xml:lang="x-default">{title}</rdf:li></rdf:Alt></dc:title>\n'
-        f'      {author_xml}\n'
-        f'      {description_xml}\n'
-        f'      <dc:language><rdf:Bag><rdf:li>{language}</rdf:li></rdf:Bag></dc:language>\n'
-        f'      <pdf:Producer>{producer}</pdf:Producer>\n'
-        f'      {keywords_xml}\n'
-        f'      <xmp:CreatorTool>{creator}</xmp:CreatorTool>\n'
-        f'      {create_xml}\n'
-        f'      {modify_xml}\n'
-        '    </rdf:Description>\n'
-        '  </rdf:RDF>\n'
-        '</x:xmpmeta>\n'
+        f"      {author_xml}\n"
+        f"      {description_xml}\n"
+        f"      <dc:language><rdf:Bag><rdf:li>{language}</rdf:li></rdf:Bag></dc:language>\n"
+        f"      <pdf:Producer>{producer}</pdf:Producer>\n"
+        f"      {keywords_xml}\n"
+        f"      <xmp:CreatorTool>{creator}</xmp:CreatorTool>\n"
+        f"      {create_xml}\n"
+        f"      {modify_xml}\n"
+        "    </rdf:Description>\n"
+        "  </rdf:RDF>\n"
+        "</x:xmpmeta>\n"
         '<?xpacket end="w"?>'
     )
     return packet.encode("utf-8")
@@ -132,14 +159,20 @@ def _apply_pdf_catalog_metadata(
         writer.root_object[NameObject("/ViewerPreferences")] = preferences
     preferences[NameObject("/DisplayDocTitle")] = BooleanObject(True)
     writer.xmp_metadata = _xmp_packet(metadata, lang=language)
-    metadata_stream = cast(DictionaryObject, writer.root_object[NameObject("/Metadata")].get_object())
+    metadata_stream = cast(
+        DictionaryObject, writer.root_object[NameObject("/Metadata")].get_object()
+    )
     metadata_stream[NameObject("/Type")] = NameObject("/Metadata")
     metadata_stream[NameObject("/Subtype")] = NameObject("/XML")
 
 
 def _pdf_metadata(result: MarkdownRenderResult, options: PdfOptions, title: str) -> dict[str, str]:
     source = result.metadata
-    author = options.author if options.author is not None else _first_metadata_value(source, "authors", "author")
+    author = (
+        options.author
+        if options.author is not None
+        else _first_metadata_value(source, "authors", "author")
+    )
     description = (
         options.description
         if options.description is not None
@@ -252,7 +285,9 @@ def _validate_conversion_paths(options: PdfOptions) -> None:
         if debug_html:
             pairs.append(("bibliography source", bibliography_path, "debug HTML", debug_html))
         if quality_report:
-            pairs.append(("bibliography source", bibliography_path, "quality report", quality_report))
+            pairs.append(
+                ("bibliography source", bibliography_path, "quality report", quality_report)
+            )
     protected = list(options.protected_inputs)
     protected.extend(
         (label, Path(path))
@@ -265,7 +300,9 @@ def _validate_conversion_paths(options: PdfOptions) -> None:
     )
     for label, path in protected:
         for output_label, candidate in (
-            ("output PDF", output_path), ("debug HTML", debug_html), ("quality report", quality_report),
+            ("output PDF", output_path),
+            ("debug HTML", debug_html),
+            ("quality report", quality_report),
         ):
             if candidate is not None:
                 pairs.append((label, path, output_label, candidate))
@@ -277,7 +314,10 @@ def _validate_conversion_paths(options: PdfOptions) -> None:
 
 
 def _atomic_write_pdf(
-    writer: PdfWriter, output_path: Path, *, create_only: bool = False,
+    writer: PdfWriter,
+    output_path: Path,
+    *,
+    create_only: bool = False,
     cancelled: CancellationCallback | None = None,
 ) -> None:
     """Commit a complete PDF with an atomic same-directory replacement."""
@@ -376,9 +416,12 @@ def _copy_pdf_with_metadata(
             )
         if quality_options is not None:
             _enforce_navigation_report(quality_options, tracker)
-        _atomic_write_pdf(writer, output_path,
-                          create_only=bool(quality_options and quality_options.output_create_only),
-                          cancelled=quality_options.cancelled if quality_options else None)
+        _atomic_write_pdf(
+            writer,
+            output_path,
+            create_only=bool(quality_options and quality_options.output_create_only),
+            cancelled=quality_options.cancelled if quality_options else None,
+        )
     finally:
         writer.close()
 
@@ -434,8 +477,11 @@ def _merge_pdfs(
             )
         if quality_options is not None:
             _enforce_navigation_report(quality_options, tracker)
-        _atomic_write_pdf(writer, output_path,
-                          create_only=bool(quality_options and quality_options.output_create_only),
-                          cancelled=quality_options.cancelled if quality_options else None)
+        _atomic_write_pdf(
+            writer,
+            output_path,
+            create_only=bool(quality_options and quality_options.output_create_only),
+            cancelled=quality_options.cancelled if quality_options else None,
+        )
     finally:
         writer.close()

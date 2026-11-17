@@ -113,7 +113,9 @@ def _run_pdffonts(pdf: Path, *, timeout: int) -> tuple[list[FontRecord], list[Pr
     missing = _tool_missing("pdffonts")
     if missing:
         return [], [missing]
-    completed = run_command(["pdffonts", str(pdf)], timeout=timeout, description=f"pdffonts for {pdf}")
+    completed = run_command(
+        ["pdffonts", str(pdf)], timeout=timeout, description=f"pdffonts for {pdf}"
+    )
     fonts = parse_pdffonts_output(completed.stdout)
     findings: list[PreflightFinding] = []
     for font in fonts:
@@ -136,7 +138,9 @@ def _run_pdffonts(pdf: Path, *, timeout: int) -> tuple[list[FontRecord], list[Pr
     return fonts, findings
 
 
-def _run_pdftoppm(pdf: Path, *, pages: Sequence[int], dpi: int, timeout: int) -> list[PreflightFinding]:
+def _run_pdftoppm(
+    pdf: Path, *, pages: Sequence[int], dpi: int, timeout: int
+) -> list[PreflightFinding]:
     missing = _tool_missing("pdftoppm")
     if missing:
         return [missing]
@@ -156,7 +160,9 @@ def _run_pdftoppm(pdf: Path, *, pages: Sequence[int], dpi: int, timeout: int) ->
                 str(pdf),
                 str(prefix),
             ]
-            completed = run_command(command, timeout=timeout, description=f"pdftoppm preflight for {pdf} page {page}")
+            completed = run_command(
+                command, timeout=timeout, description=f"pdftoppm preflight for {pdf} page {page}"
+            )
             findings.extend(classify_preflight_stderr(completed.stderr))
             if not prefix.with_suffix(".png").is_file():
                 findings.append(
@@ -187,21 +193,37 @@ def preflight_pdf(pdf: Path, *, pages: Sequence[int], dpi: int, timeout: int) ->
 def _parse_pages(value: str) -> tuple[int, ...]:
     pages = tuple(int(part.strip()) for part in value.split(",") if part.strip())
     if not pages or any(page < 1 for page in pages):
-        raise argparse.ArgumentTypeError("pages must be a comma-separated list of positive integers")
+        raise argparse.ArgumentTypeError(
+            "pages must be a comma-separated list of positive integers"
+        )
     return pages
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pdfs", nargs="+", type=Path, help="PDF files to preflight")
-    parser.add_argument("--output", "--output-dir", dest="output", type=Path, help="Write JSON report to this path")
-    parser.add_argument("--pages", type=_parse_pages, default=(1, 2), help="Comma-separated 1-based pages to rasterize")
+    parser.add_argument(
+        "--output", "--output-dir", dest="output", type=Path, help="Write JSON report to this path"
+    )
+    parser.add_argument(
+        "--pages",
+        type=_parse_pages,
+        default=(1, 2),
+        help="Comma-separated 1-based pages to rasterize",
+    )
     parser.add_argument("--dpi", type=int, default=72)
-    parser.add_argument("--timeout", type=int, default=60, help="Seconds per external preflight command")
-    parser.add_argument("--fail-on-warning", action="store_true", help="Treat warning findings as failures")
+    parser.add_argument(
+        "--timeout", type=int, default=60, help="Seconds per external preflight command"
+    )
+    parser.add_argument(
+        "--fail-on-warning", action="store_true", help="Treat warning findings as failures"
+    )
     args = parser.parse_args(argv)
 
-    reports = [preflight_pdf(pdf, pages=args.pages, dpi=args.dpi, timeout=args.timeout) for pdf in args.pdfs]
+    reports = [
+        preflight_pdf(pdf, pages=args.pages, dpi=args.dpi, timeout=args.timeout)
+        for pdf in args.pdfs
+    ]
     payload = {"reports": reports}
     if args.output:
         write_json(args.output, payload)

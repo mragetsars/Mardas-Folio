@@ -24,6 +24,7 @@ they need no sidecar, no Rust build and no network.  Build the frontend first:
     python scripts/audit_desktop_design.py measure
     python scripts/audit_desktop_design.py shoot --out build/desktop-design
 """
+
 from __future__ import annotations
 
 import argparse
@@ -380,7 +381,11 @@ def set_design_view(page: Any, view: str) -> None:
     activity = "source" if view == "split" else view
     page.locator(f'button.view-mode[data-view-mode="{activity}"]').click()
     wanted = view == "split"
-    if activity != "read" and (page.locator("#workspace-toggle-preview").get_attribute("aria-pressed") == "true") != wanted:
+    if (
+        activity != "read"
+        and (page.locator("#workspace-toggle-preview").get_attribute("aria-pressed") == "true")
+        != wanted
+    ):
         click_workspace_layout_control(page, "#workspace-toggle-preview")
 
 
@@ -407,7 +412,6 @@ def measure(dist: Path, *, view_mode: str = "split") -> dict[str, Any]:
         result["launcher"] = launcher
         browser.close()
     return result
-
 
 
 def contrast(dist: Path) -> dict[str, Any]:
@@ -608,12 +612,18 @@ def _export_reachability(page: Any) -> list[str]:
     )
     for group in groups:
         page.locator("#option-category").select_option(group)
-        problems.extend(f"{group}: {problem}" for problem in page.locator(
-            "#option-pane input, #option-pane select, #option-pane button"
-        ).evaluate_all(FOCUS_REACHABILITY_JS))
+        problems.extend(
+            f"{group}: {problem}"
+            for problem in page.locator(
+                "#option-pane input, #option-pane select, #option-pane button"
+            ).evaluate_all(FOCUS_REACHABILITY_JS)
+        )
     page.locator("#export-close-settings").click()
-    problems.extend(page.locator("#choose-source, #export-preset, #export-open-settings")
-                    .evaluate_all(FOCUS_REACHABILITY_JS))
+    problems.extend(
+        page.locator("#choose-source, #export-preset, #export-open-settings").evaluate_all(
+            FOCUS_REACHABILITY_JS
+        )
+    )
     return problems
 
 
@@ -650,10 +660,12 @@ def responsive(dist: Path, *, locale: str = "en", theme: str = "light") -> dict[
                 key = f"{width}x{height}" if view == "write" else f"{width}x{height} split"
                 findings[key] = page.evaluate(RESPONSIVE_JS)
                 page.locator("#document-actions-menu > summary").click()
-                findings[key].extend(page.locator(
-                    "#workspace-new, #workspace-open, #workspace-save-as, "
-                    "#workspace-validate, #workspace-commands, #workspace-settings"
-                ).evaluate_all(FOCUS_REACHABILITY_JS))
+                findings[key].extend(
+                    page.locator(
+                        "#workspace-new, #workspace-open, #workspace-save-as, "
+                        "#workspace-validate, #workspace-commands, #workspace-settings"
+                    ).evaluate_all(FOCUS_REACHABILITY_JS)
+                )
                 page.keyboard.press("Escape")
             open_workspace_export(page, None)
             findings[f"{width}x{height} export"] = _export_reachability(page)
@@ -761,13 +773,16 @@ def shoot(dist: Path, output: Path, *, only: str | None = None) -> list[Path]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("mode", choices=("measure", "shoot", "contrast", "responsive"))
     parser.add_argument("--dist", type=Path, default=DEFAULT_DIST)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--only", default=None, help="one of light-en, dark-en, light-fa, dark-fa")
-    parser.add_argument("--view-mode", default="split", choices=("write", "source", "read", "split"))
+    parser.add_argument(
+        "--view-mode", default="split", choices=("write", "source", "read", "split")
+    )
     parser.add_argument("--label", default="")
     parser.add_argument("--locale", default="en", choices=("en", "fa"))
     parser.add_argument("--theme", default="light", choices=("light", "dark"))

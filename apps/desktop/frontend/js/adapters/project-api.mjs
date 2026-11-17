@@ -65,12 +65,7 @@ export function startProjectSearch({
   });
 }
 
-export function bibliographyIndex({
-  projectPath,
-  query = "",
-  citedKeys = [],
-  maxResults = 500,
-}) {
+export function bibliographyIndex({ projectPath, query = "", citedKeys = [], maxResults = 500 }) {
   return result("bibliography.index", {
     project_path: projectPath,
     query,

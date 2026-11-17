@@ -1,10 +1,7 @@
-
-from tests._paths import ROOT
-
 from mardas_folio.appearance import PALETTES_ORDER
 from mardas_folio.markdown import render_markdown
 from mardas_folio.renderer import PdfOptions, build_html
-
+from tests._paths import ROOT
 
 STYLE_DIR = ROOT / "src" / "mardas_folio" / "assets"
 
@@ -130,18 +127,16 @@ def test_all_appearance_combinations_emit_clean_palette_css(tmp_path):
                 assert "background-color: var(--md2pdf-code-highlight-bg) !important;" in html
 
 
-
-
 def test_dark_code_highlight_overrides_root_light_code_surface(tmp_path):
     from mardas_folio.markdown import render_markdown
     from mardas_folio.renderer import PdfOptions, build_html
 
     md = (
         '```python title="renderer.py" {2} linenos\n'
-        'def convert(markdown: str) -> bytes:\n'
-        '    html = render_markdown(markdown)\n'
-        '    return html\n'
-        '```\n'
+        "def convert(markdown: str) -> bytes:\n"
+        "    html = render_markdown(markdown)\n"
+        "    return html\n"
+        "```\n"
     )
     input_path = tmp_path / "dark-highlight.md"
     input_path.write_text(md, encoding="utf-8")
@@ -161,7 +156,10 @@ def test_dark_code_highlight_overrides_root_light_code_surface(tmp_path):
     assert "md2pdf-mode-dark" in html
     assert "--code-bg: #0a0a0a" in html
     assert "--md2pdf-code-highlight-bg: color-mix(in srgb, var(--accent) 30%, #0a0a0a)" in html
-    assert "--md2pdf-code-highlight-bg: color-mix(in srgb, var(--accent, #2563eb) 24%, var(--code-bg, #0f172a))" in html
+    assert (
+        "--md2pdf-code-highlight-bg: color-mix(in srgb, var(--accent, #2563eb) 24%, var(--code-bg, #0f172a))"
+        in html
+    )
     assert "background-color: var(--md2pdf-code-highlight-bg) !important;" in html
 
 
@@ -193,11 +191,16 @@ def test_dark_mode_palettes_use_screen_safe_accent_tokens():
 
     def relative_luminance(hex_color: str) -> float:
         channels = [int(hex_color[index : index + 2], 16) / 255 for index in (1, 3, 5)]
-        linear = [value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4 for value in channels]
+        linear = [
+            value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
+            for value in channels
+        ]
         return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
 
     def contrast_ratio(first: str, second: str) -> float:
-        lighter, darker = sorted([relative_luminance(first), relative_luminance(second)], reverse=True)
+        lighter, darker = sorted(
+            [relative_luminance(first), relative_luminance(second)], reverse=True
+        )
         return (lighter + 0.05) / (darker + 0.05)
 
     slate_css = palette_css("slate", "dark", "textbook")
@@ -218,15 +221,18 @@ def test_rtl_script_code_blocks_use_persian_font_fallback(tmp_path):
     from mardas_folio.markdown import render_markdown
     from mardas_folio.renderer import PdfOptions, build_html
 
-    md = "---\nlang: fa\ndir: rtl\n---\n\n```yaml\ntitle: \"گزارش فنی من\"\nversion: \"1.0.0\"\n```\n"
+    md = '---\nlang: fa\ndir: rtl\n---\n\n```yaml\ntitle: "گزارش فنی من"\nversion: "1.0.0"\n```\n'
     input_path = tmp_path / "rtl-code.md"
     input_path.write_text(md, encoding="utf-8")
 
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
     assert "code-block--rtl-script" in html
     assert "code-block--mixed-script" in html
     assert "font-family: var(--font-fa), var(--font-code);" in html
+
 
 def test_modern_emerald_palette_has_strong_guide_identity_contract():
     from mardas_folio.appearance import palette_css

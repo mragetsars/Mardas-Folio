@@ -5,6 +5,7 @@ Edit mardas-folio-mark.svg, then run this script. The app tile, monochrome
 variants, transparent PNGs, guide copy and desktop icons share its geometry.
 Repository illustrations have their own SVG sources and Chromium builders.
 """
+
 from __future__ import annotations
 
 import copy
@@ -26,16 +27,32 @@ ET.register_namespace("", SVG)
 
 
 def _svg(mark: ET.Element, *, title: str, tile: bool = False) -> str:
-    drawing = ET.Element(f"{{{SVG}}}svg", {
-        "width": "512", "height": "512", "viewBox": "0 0 512 512",
-        "role": "img", "aria-labelledby": "brand-title",
-    })
+    drawing = ET.Element(
+        f"{{{SVG}}}svg",
+        {
+            "width": "512",
+            "height": "512",
+            "viewBox": "0 0 512 512",
+            "role": "img",
+            "aria-labelledby": "brand-title",
+        },
+    )
     ET.SubElement(drawing, f"{{{SVG}}}title", {"id": "brand-title"}).text = title
     if tile:
-        ET.SubElement(drawing, f"{{{SVG}}}rect", {
-            "x": "10", "y": "10", "width": "492", "height": "492",
-            "rx": "128", "fill": TILE, "stroke": TILE_BORDER, "stroke-width": "20",
-        })
+        ET.SubElement(
+            drawing,
+            f"{{{SVG}}}rect",
+            {
+                "x": "10",
+                "y": "10",
+                "width": "492",
+                "height": "492",
+                "rx": "128",
+                "fill": TILE,
+                "stroke": TILE_BORDER,
+                "stroke-width": "20",
+            },
+        )
     drawing.append(copy.deepcopy(mark))
     ET.indent(drawing, space="  ")
     return ET.tostring(drawing, encoding="unicode") + "\n"
@@ -58,15 +75,21 @@ def build() -> None:
         ("mardas-folio-app-icon.svg", "Mardas Folio", tile_mark, True),
     ):
         (ASSETS / filename).write_text(_svg(variant, title=title, tile=tile), encoding="utf-8")
-    for name, svg in (("mardas-folio-logo.png", source),
-                      ("mardas-folio-logo-white.png", ASSETS / "mardas-folio-mark-white.svg")):
-        cairosvg.svg2png(url=str(svg), write_to=str(ASSETS / name),
-                        output_width=768, output_height=768)
+    for name, svg in (
+        ("mardas-folio-logo.png", source),
+        ("mardas-folio-logo-white.png", ASSETS / "mardas-folio-mark-white.svg"),
+    ):
+        cairosvg.svg2png(
+            url=str(svg), write_to=str(ASSETS / name), output_width=768, output_height=768
+        )
     shutil.copyfile(ASSETS / "mardas-folio-logo.png", ROOT / "docs/guides/images/logo.png")
-    shutil.copyfile(ASSETS / "mardas-folio-app-icon.svg",
-                    ROOT / "apps/desktop/frontend/assets/app-icon.svg")
-    shutil.copyfile(ASSETS / "mardas-folio-app-icon.svg",
-                    ROOT / "apps/desktop/frontend/assets/workspace-mark.svg")
+    shutil.copyfile(
+        ASSETS / "mardas-folio-app-icon.svg", ROOT / "apps/desktop/frontend/assets/app-icon.svg"
+    )
+    shutil.copyfile(
+        ASSETS / "mardas-folio-app-icon.svg",
+        ROOT / "apps/desktop/frontend/assets/workspace-mark.svg",
+    )
     generate()
 
 

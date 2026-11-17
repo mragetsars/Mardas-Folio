@@ -1,4 +1,5 @@
 """Validate staged artifacts before replacing an earlier successful build."""
+
 from __future__ import annotations
 
 import os

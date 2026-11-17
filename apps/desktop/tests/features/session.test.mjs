@@ -4,7 +4,10 @@ import { readSession, writeSession } from "../../frontend/js/features/documents/
 
 function storage() {
   const values = new Map();
-  return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
 }
 
 test("authoring session stores unique saved paths and active path", () => {

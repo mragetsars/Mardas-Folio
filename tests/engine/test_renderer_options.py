@@ -84,7 +84,7 @@ def test_manual_pagebreak_css_breaks_after_marker_not_before(tmp_path):
     from mardas_folio.markdown import render_markdown
     from mardas_folio.renderer import PdfOptions, build_html
 
-    md = "A\n\n<div class=\"md2pdf-page-break\"></div>\n\n# B\n"
+    md = 'A\n\n<div class="md2pdf-page-break"></div>\n\n# B\n'
     result = render_markdown(md)
     input_path = tmp_path / "pagebreak.md"
     input_path.write_text(md, encoding="utf-8")
@@ -119,7 +119,9 @@ def test_print_css_hides_heading_permalink_markers(tmp_path):
     md = "# Heading\n"
     input_path = tmp_path / "heading.md"
     input_path.write_text(md, encoding="utf-8")
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
     assert 'class="heading-anchor"' in html
     assert "@media print" in html
@@ -135,7 +137,9 @@ def test_callout_direction_follows_resolved_document_direction(tmp_path):
     input_path.write_text(md, encoding="utf-8")
     html = build_html(
         render_markdown(md),
-        PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf", style="textbook", mode="light"),
+        PdfOptions(
+            input_path=input_path, output_path=tmp_path / "out.pdf", style="textbook", mode="light"
+        ),
     )
 
     assert "md2pdf-dir-ltr" in html
@@ -151,7 +155,9 @@ def test_mermaid_css_uses_appearance_color_variables(tmp_path):
     md = "```mermaid\nflowchart LR\nA[A] --> B[B]\n```\n"
     input_path = tmp_path / "diagram.md"
     input_path.write_text(md, encoding="utf-8")
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
     assert "--md2pdf-mermaid-stroke" in html
     assert "var(--accent, var(--blue" in html
@@ -169,7 +175,9 @@ def test_mermaid_css_caps_diagram_height_for_print_layout(tmp_path):
     md = "```mermaid\nflowchart TD\nA[A] --> B[B]\nB --> C[C]\nC --> D[D]\n```\n"
     input_path = tmp_path / "diagram.md"
     input_path.write_text(md, encoding="utf-8")
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
     assert "--md2pdf-mermaid-max-height" in html
     assert "--md2pdf-mermaid-tall-max-height" in html
@@ -241,7 +249,9 @@ def test_cli_exposes_chromium_sandbox_modes():
     from mardas_folio.cli import build_parser
 
     parser = build_parser()
-    sandbox_action = next(action for action in parser._actions if "--chromium-sandbox" in action.option_strings)
+    sandbox_action = next(
+        action for action in parser._actions if "--chromium-sandbox" in action.option_strings
+    )
 
     assert sandbox_action.choices == ["auto", "on", "off"]
 
@@ -315,15 +325,15 @@ def test_cli_rejects_invalid_page_size(tmp_path):
         main([str(input_path), "--page-size", "not-a-size"])
 
 
-
 def test_cli_exposes_remote_asset_opt_in():
     from mardas_folio.cli import build_parser
 
     parser = build_parser()
-    action = next(action for action in parser._actions if "--allow-remote-assets" in action.option_strings)
+    action = next(
+        action for action in parser._actions if "--allow-remote-assets" in action.option_strings
+    )
 
     assert action.default is False
-
 
 
 def test_blocked_image_placeholder_css_is_print_friendly(tmp_path):
@@ -340,7 +350,6 @@ def test_blocked_image_placeholder_css_is_print_friendly(tmp_path):
     assert "page-break-inside: avoid" in html
 
 
-
 def test_wide_table_css_fits_columns_for_print(tmp_path):
     from mardas_folio.markdown import render_markdown
     from mardas_folio.renderer import PdfOptions, build_html
@@ -351,13 +360,14 @@ def test_wide_table_css_fits_columns_for_print(tmp_path):
     md = "\n".join([columns, divider, values])
     input_path = tmp_path / "wide.md"
     input_path.write_text(md, encoding="utf-8")
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
     assert ".table-wrap--wide table" in html
     assert "table-layout: fixed" in html
     assert ".table-wrap--very-wide table" in html
     assert "overflow-wrap: anywhere" in html
-
 
 
 def test_pdf_date_honors_source_date_epoch(monkeypatch):
@@ -368,7 +378,6 @@ def test_pdf_date_honors_source_date_epoch(monkeypatch):
     assert _pdf_date() == "D:20250101000000+00'00'"
 
 
-
 def test_watermark_css_overlays_content_with_mode_aware_blending(tmp_path):
     from mardas_folio.markdown import render_markdown
     from mardas_folio.renderer import PdfOptions, build_html
@@ -377,7 +386,13 @@ def test_watermark_css_overlays_content_with_mode_aware_blending(tmp_path):
     input_path.write_text("# Watermark\n", encoding="utf-8")
     html = build_html(
         render_markdown("# Watermark\n"),
-        PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf", watermark_text="DRAFT", style="textbook", mode="dark"),
+        PdfOptions(
+            input_path=input_path,
+            output_path=tmp_path / "out.pdf",
+            watermark_text="DRAFT",
+            style="textbook",
+            mode="dark",
+        ),
     )
 
     assert ".md2pdf-watermark" in html
@@ -418,7 +433,9 @@ def test_front_matter_appearance_is_used_when_cli_keeps_defaults(tmp_path):
     md = "---\nappearance:\n  style: textbook\n  palette: rose\n  mode: dark\n---\n\n# Title\n"
     input_path = tmp_path / "frontmatter.md"
     input_path.write_text(md, encoding="utf-8")
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
     assert "md2pdf-style-textbook" in html
     assert "md2pdf-palette-rose" in html
@@ -522,7 +539,10 @@ cover_label: Complete Guide
     assert "background: transparent !important;" in light_html
     assert "padding: 0 !important;" in light_html
     assert "background: #ddf4ff;" not in light_html
-    assert ".md2pdf-cover__eyebrow { color: var(--accent, #0969da); background: transparent; }" in light_html
+    assert (
+        ".md2pdf-cover__eyebrow { color: var(--accent, #0969da); background: transparent; }"
+        in light_html
+    )
 
     assert "Complete Guide" in dark_html
     assert "body.md2pdf-mode-dark .md2pdf-cover__eyebrow {" in dark_html
@@ -538,7 +558,9 @@ def test_numbered_code_css_aligns_line_numbers_with_code_rows(tmp_path):
     md = '```python title="main.py" linenos\nprint(1)\nprint(2)\n```\n'
     input_path = tmp_path / "code.md"
     input_path.write_text(md, encoding="utf-8")
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
     assert "code-block--numbered" in html
     assert ".code-block--numbered .codehilitetable td" in html
@@ -563,30 +585,32 @@ def test_numbered_code_css_aligns_line_numbers_with_code_rows(tmp_path):
     assert "background-color: var(--md2pdf-code-highlight-bg) !important;" in html
 
 
-
 def test_highlighted_code_css_preserves_indentation_and_line_metrics(tmp_path):
     from mardas_folio.markdown import render_markdown
     from mardas_folio.renderer import PdfOptions, build_html
 
     md = (
         '```python title="renderer.py" {2} linenos\n'
-        'def convert(markdown: str) -> bytes:\n'
-        '    html = render_markdown(markdown)\n'
-        '    pdf = render_pdf(html)\n'
-        '    return pdf\n'
-        '```\n'
+        "def convert(markdown: str) -> bytes:\n"
+        "    html = render_markdown(markdown)\n"
+        "    pdf = render_pdf(html)\n"
+        "    return pdf\n"
+        "```\n"
     )
     input_path = tmp_path / "highlighted-code.md"
     input_path.write_text(md, encoding="utf-8")
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
-    assert '.codehilite .hll,' in html
-    assert 'padding-inline-start: 0;' in html
-    assert 'line-height: inherit;' in html
-    assert 'vertical-align: baseline;' in html
-    assert 'padding-inline-start: 1.2mm' not in html
+    assert ".codehilite .hll," in html
+    assert "padding-inline-start: 0;" in html
+    assert "line-height: inherit;" in html
+    assert "vertical-align: baseline;" in html
+    assert "padding-inline-start: 1.2mm" not in html
     assert '<span class="hll">    <span class="n">html</span>' in html
     assert '</span>\n    <span class="n">pdf</span>' in html
+
 
 def test_cover_branding_is_off_by_default(tmp_path):
     from mardas_folio.markdown import render_markdown
@@ -595,13 +619,15 @@ def test_cover_branding_is_off_by_default(tmp_path):
     md = "---\ntitle: User Report\n---\n\n# Body\n"
     input_path = tmp_path / "report.md"
     input_path.write_text(md, encoding="utf-8")
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
     assert "md2pdf-cover--branding-off" in html
     assert '<div class="md2pdf-cover__brand' not in html
     assert '<span class="md2pdf-cover__brand-copy' not in html
-    assert '<strong>Mardas Folio</strong>' not in html
-    assert '<em>Markdown to PDF Engine</em>' not in html
+    assert "<strong>Mardas Folio</strong>" not in html
+    assert "<em>Markdown to PDF Engine</em>" not in html
 
 
 def test_cover_branding_full_is_explicit(tmp_path):
@@ -611,7 +637,9 @@ def test_cover_branding_full_is_explicit(tmp_path):
     md = "---\ntitle: Guide\nbranding:\n  mode: full\n---\n\n# Body\n"
     input_path = tmp_path / "guide.md"
     input_path.write_text(md, encoding="utf-8")
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
     assert "md2pdf-cover--branding-full" in html
     assert "md2pdf-cover__brand--full" in html
@@ -642,7 +670,9 @@ brand:
 """
     input_path = tmp_path / "branded.md"
     input_path.write_text(md, encoding="utf-8")
-    html = build_html(render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
+    html = build_html(
+        render_markdown(md), PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf")
+    )
 
     assert "md2pdf-cover--branding-full" in html
     assert "md2pdf-cover__brand--full md2pdf-cover__brand--custom" in html

@@ -9,12 +9,17 @@ export function createEngineQueue() {
     const job = waiting.splice(interactive < 0 ? 0 : interactive, 1)[0];
     active = job;
     let result;
-    try { result = job.run(); }
-    catch (error) { result = Promise.reject(error); }
-    Promise.resolve(result).then(job.resolve, job.reject).finally(() => {
-      active = null;
-      advance();
-    });
+    try {
+      result = job.run();
+    } catch (error) {
+      result = Promise.reject(error);
+    }
+    Promise.resolve(result)
+      .then(job.resolve, job.reject)
+      .finally(() => {
+        active = null;
+        advance();
+      });
   }
 
   return {
@@ -28,10 +33,12 @@ export function createEngineQueue() {
       const index = waiting.findIndex((job) => job.id === id);
       if (index < 0) return false;
       const [job] = waiting.splice(index, 1);
-      job.reject(JSON.stringify({
-        message: "The operation was cancelled.",
-        data: { application_code: "MARDAS-JOB-CANCELLED" },
-      }));
+      job.reject(
+        JSON.stringify({
+          message: "The operation was cancelled.",
+          data: { application_code: "MARDAS-JOB-CANCELLED" },
+        }),
+      );
       return true;
     },
   };

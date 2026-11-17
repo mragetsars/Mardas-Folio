@@ -50,7 +50,10 @@ def _font_to_unicode(font: DictionaryObject) -> bool:
     if isinstance(descendants, (list, tuple)):
         for item in descendants:
             descendant = _resolve(item)
-            if isinstance(descendant, DictionaryObject) and descendant.get("/ToUnicode") is not None:
+            if (
+                isinstance(descendant, DictionaryObject)
+                and descendant.get("/ToUnicode") is not None
+            ):
                 return True
     return False
 
@@ -77,7 +80,10 @@ def _collect_fonts(reader: PdfReader) -> list[dict[str, object]]:
             subtype = str(font.get("/Subtype") or "")
             embedded = subtype == "/Type3" or bool(
                 descriptor
-                and any(descriptor.get(name) is not None for name in ("/FontFile", "/FontFile2", "/FontFile3"))
+                and any(
+                    descriptor.get(name) is not None
+                    for name in ("/FontFile", "/FontFile2", "/FontFile3")
+                )
             )
             fonts.append(
                 {
@@ -198,7 +204,9 @@ def audit_pdf(path: Path, *, profile: str = "all") -> PdfAuditResult:
                 )
             )
         if fonts_without_unicode:
-            names = ", ".join(str(item["base_font"] or item["resource"]) for item in fonts_without_unicode[:6])
+            names = ", ".join(
+                str(item["base_font"] or item["resource"]) for item in fonts_without_unicode[:6]
+            )
             diagnostics.append(
                 Diagnostic(
                     "MARDAS-P813",
@@ -229,7 +237,9 @@ def audit_pdf(path: Path, *, profile: str = "all") -> PdfAuditResult:
                 )
             )
         if unembedded_fonts:
-            names = ", ".join(str(item["base_font"] or item["resource"]) for item in unembedded_fonts[:6])
+            names = ", ".join(
+                str(item["base_font"] or item["resource"]) for item in unembedded_fonts[:6]
+            )
             diagnostics.append(
                 Diagnostic(
                     "MARDAS-P822",

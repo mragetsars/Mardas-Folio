@@ -14,9 +14,9 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
 
 from .appearance import MODES, PALETTES_ORDER, STYLES
 from .diagnostics import Diagnostic
+from .page_geometry import validate_page_size
 from .quality import ERROR_POLICIES, QUALITY_PROFILES
 from .render_contracts import BRANDING_MODES
-from .page_geometry import validate_page_size
 
 CONFIG_FILENAME = "mardas.toml"
 CONFIG_SCHEMA_VERSION = 1
@@ -72,9 +72,7 @@ def _validate_text(value: Any, *, allow_empty: bool) -> str:
     if not isinstance(value, str):
         raise ConfigValueError("expected a string")
     if len(value) > MAX_CONFIG_TEXT_CHARS:
-        raise ConfigValueError(
-            f"expected no more than {MAX_CONFIG_TEXT_CHARS} characters"
-        )
+        raise ConfigValueError(f"expected no more than {MAX_CONFIG_TEXT_CHARS} characters")
     try:
         value.encode("utf-8")
     except UnicodeEncodeError as exc:
@@ -111,9 +109,7 @@ def _book_chapters(value: Any) -> tuple[dict[str, str | None], ...]:
             unknown = set(item) - {"path", "title"}
             if unknown:
                 names = ", ".join(sorted(str(key) for key in unknown))
-                raise ConfigValueError(
-                    f"chapter {index} contains unsupported keys: {names}"
-                )
+                raise ConfigValueError(f"chapter {index} contains unsupported keys: {names}")
             if "path" not in item:
                 raise ConfigValueError(f"chapter {index} requires a path")
             path_value = _string(item["path"])
@@ -125,8 +121,6 @@ def _book_chapters(value: Any) -> tuple[dict[str, str | None], ...]:
             )
         chapters.append({"path": path_value, "title": title})
     return tuple(chapters)
-
-
 
 
 def _string_list(value: Any) -> tuple[str, ...]:
@@ -159,11 +153,10 @@ def _bibliography_sources(value: Any) -> tuple[str, ...]:
     for index, item in enumerate(value, start=1):
         path = _string(item)
         if Path(path).suffix.lower() not in {".bib", ".json"}:
-            raise ConfigValueError(
-                f"bibliography source {index} must use .bib or .json"
-            )
+            raise ConfigValueError(f"bibliography source {index} must use .bib or .json")
         sources.append(path)
     return tuple(sources)
+
 
 def _boolean(value: Any) -> bool:
     if not isinstance(value, bool):
@@ -208,8 +201,6 @@ def _choice(choices: tuple[str, ...] | list[str]) -> Callable[[Any], str]:
     return validate
 
 
-
-
 def _language_tag(value: Any) -> str:
     result = _string(value).replace("_", "-")
     if result.lower() in {"auto", "und"}:
@@ -221,6 +212,7 @@ def _language_tag(value: Any) -> str:
     for part in parts[1:]:
         normalized.append(part.upper() if len(part) == 2 and part.isalpha() else part)
     return "-".join(normalized)
+
 
 def _page_size(value: Any) -> str:
     try:
@@ -247,13 +239,16 @@ def _css_length(value: Any) -> str:
         if number > 100:
             raise ConfigValueError("percentage lengths cannot exceed 100%")
     else:
-        millimetres = number * {
-            "mm": 1.0,
-            "cm": 10.0,
-            "in": 25.4,
-            "pt": 25.4 / 72.0,
-            "px": 25.4 / 96.0,
-        }[unit]
+        millimetres = (
+            number
+            * {
+                "mm": 1.0,
+                "cm": 10.0,
+                "in": 25.4,
+                "pt": 25.4 / 72.0,
+                "px": 25.4 / 96.0,
+            }[unit]
+        )
         if millimetres > 2_000:
             raise ConfigValueError("CSS lengths cannot exceed 2000mm")
     return result
@@ -307,13 +302,9 @@ CONFIG_FIELDS: tuple[ConfigField, ...] = (
     ConfigField("quality", "report", "quality_report", _string, path_value=True),
     ConfigField("bibliography", "enabled", "citations_enabled", _boolean),
     ConfigField("bibliography", "sources", "bibliography_sources", _bibliography_sources),
-    ConfigField(
-        "bibliography", "style", "citation_style", _choice(["author-date", "numeric"])
-    ),
+    ConfigField("bibliography", "style", "citation_style", _choice(["author-date", "numeric"])),
     ConfigField("bibliography", "title", "bibliography_title", _optional_string),
-    ConfigField(
-        "bibliography", "include_uncited", "bibliography_include_uncited", _boolean
-    ),
+    ConfigField("bibliography", "include_uncited", "bibliography_include_uncited", _boolean),
     ConfigField("references", "enabled", "references_enabled", _boolean),
     ConfigField("references", "numbering_scope", "numbering_scope", _choice(["global", "chapter"])),
     ConfigField("references", "list_of_figures", "list_of_figures", _boolean),
@@ -718,9 +709,7 @@ def load_project_config(
                         )
                     )
                     continue
-                resolved_chapters.append(
-                    {"path": resolved_path, "title": chapter.get("title")}
-                )
+                resolved_chapters.append({"path": resolved_path, "title": chapter.get("title")})
             value = tuple(resolved_chapters)
         elif field.path_value:
             path = Path(value).expanduser()

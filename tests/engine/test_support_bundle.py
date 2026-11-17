@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mardas_folio import __version__
-from mardas_folio import support
+from mardas_folio import __version__, support
 from mardas_folio.application import ENGINE_API_VERSION, EngineService
 from mardas_folio.support import SupportBundleError, create_support_bundle
 

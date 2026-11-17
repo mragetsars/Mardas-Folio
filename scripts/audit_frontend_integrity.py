@@ -3,6 +3,7 @@
 
 Native file IPC is an isolated in-memory fixture; no user profile or file is read.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -120,11 +121,23 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
             expect(page.locator(".document-tab")).to_have_count(2)
             assert not any(item.get("force") for item in page.evaluate("globalThis.__saves"))
             assert not errors, errors
-            scenarios.append({"locale": locale, "theme": theme, "status": "passed", "checks": [
-                "search offsets after typing", "search ownership after tab switch", "replace undo",
-                "no-match replacement", "replace advances past inserted text", "replace all beyond 10000",
-                "late conflict keeps separate close confirmation", "cancel never forces disk overwrite",
-            ]})
+            scenarios.append(
+                {
+                    "locale": locale,
+                    "theme": theme,
+                    "status": "passed",
+                    "checks": [
+                        "search offsets after typing",
+                        "search ownership after tab switch",
+                        "replace undo",
+                        "no-match replacement",
+                        "replace advances past inserted text",
+                        "replace all beyond 10000",
+                        "late conflict keeps separate close confirmation",
+                        "cancel never forces disk overwrite",
+                    ],
+                }
+            )
             context.close()
         browser.close()
     report = {"status": "passed", "scenarios": scenarios}

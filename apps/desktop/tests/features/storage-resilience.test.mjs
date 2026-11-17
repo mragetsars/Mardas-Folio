@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { readPreferences, writePreferences } from "../../frontend/js/features/settings/preferences.mjs";
-import { readWorkspaceLayout, writeWorkspaceLayout } from "../../frontend/js/features/workspace/workspace-layout.mjs";
+import {
+  readPreferences,
+  writePreferences,
+} from "../../frontend/js/features/settings/preferences.mjs";
+import {
+  readWorkspaceLayout,
+  writeWorkspaceLayout,
+} from "../../frontend/js/features/workspace/workspace-layout.mjs";
 import { readRecents, writeRecents } from "../../frontend/js/features/documents/recents.mjs";
 import { readSession, writeSession } from "../../frontend/js/features/documents/session.mjs";
 import {
@@ -48,6 +54,9 @@ test("optional browser state survives a throwing localStorage getter", () => {
     assert.equal(writeRecoveries([]).ok, false);
     assert.equal(recoveryForPath("/tmp/a.md"), null);
     assert.equal(removeRecovery("path:/tmp/a.md").ok, false);
-    assert.equal(saveRecovery({ id: "draft", path: null, title: "Draft", content: "x", revision: null }).ok, false);
+    assert.equal(
+      saveRecovery({ id: "draft", path: null, title: "Draft", content: "x", revision: null }).ok,
+      false,
+    );
   });
 });

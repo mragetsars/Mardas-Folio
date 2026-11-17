@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise tab history, caret/scroll restoration and metadata through the editor."""
+
 from __future__ import annotations
 
 import argparse
@@ -33,7 +34,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                 editor = page.locator(".cm-content")
                 mirror = page.locator("#markdown-editor")
                 expect(editor).to_be_visible()
-                source = "# History A\n\n" + "\n\n".join(f"Paragraph {index}." for index in range(160))
+                source = "# History A\n\n" + "\n\n".join(
+                    f"Paragraph {index}." for index in range(160)
+                )
                 editor.click()
                 page.keyboard.press("Control+a")
                 page.keyboard.insert_text(source)
@@ -82,7 +85,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                 page.keyboard.press("Home")
                 expect(mirror).to_have_value(source + "\n\nMARKER_A")
 
-                yaml = '---\ntitle: >-\n  A long\n  title\nauthor:\n  name: Jane\ncustom:\n  keep: true\n---\n\n# Body\n'
+                yaml = "---\ntitle: >-\n  A long\n  title\nauthor:\n  name: Jane\ncustom:\n  keep: true\n---\n\n# Body\n"
                 editor.click()
                 page.keyboard.press("Control+a")
                 page.keyboard.insert_text(yaml)
@@ -97,7 +100,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                 expect(mirror).to_have_value(yaml)
                 title.fill("New title")
                 page.locator('#frontmatter-form button[type="submit"]').click()
-                expect(mirror).to_have_value(yaml.replace("title: >-\n  A long\n  title", 'title: "New title"'))
+                expect(mirror).to_have_value(
+                    yaml.replace("title: >-\n  A long\n  title", 'title: "New title"')
+                )
 
                 shell = page.evaluate("""() => ({
                     scroll: document.scrollingElement.scrollTop,
@@ -271,6 +276,7 @@ def run_delayed_image_scope_audit(dist: Path) -> dict[str, object]:
         context.close()
         browser.close()
     return {"scenario": "delayed-native-image-scope", "status": "passed"}
+
 
 def run_tab_overflow_audit(dist: Path) -> dict[str, object]:
     """Keyboard navigation keeps the selected tab visible in either direction."""

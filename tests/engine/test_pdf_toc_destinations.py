@@ -57,7 +57,9 @@ def test_metadata_copy_preserves_named_destinations_for_toc_links(tmp_path: Path
     assert reader.get_destination_page_number(reader.outline[0]) == 0
 
 
-def test_visible_toc_link_annotations_are_rewritten_to_explicit_destinations(tmp_path: Path) -> None:
+def test_visible_toc_link_annotations_are_rewritten_to_explicit_destinations(
+    tmp_path: Path,
+) -> None:
     source_pdf = tmp_path / "source-links.pdf"
     output_pdf = tmp_path / "output-links.pdf"
 
@@ -68,7 +70,9 @@ def test_visible_toc_link_annotations_are_rewritten_to_explicit_destinations(tmp
         {
             NameObject("/Type"): NameObject("/Annot"),
             NameObject("/Subtype"): NameObject("/Link"),
-            NameObject("/Rect"): ArrayObject([FloatObject(20), FloatObject(20), FloatObject(200), FloatObject(42)]),
+            NameObject("/Rect"): ArrayObject(
+                [FloatObject(20), FloatObject(20), FloatObject(200), FloatObject(42)]
+            ),
             NameObject("/Border"): ArrayObject([NumberObject(0), NumberObject(0), NumberObject(0)]),
             NameObject("/Dest"): NameObject("/intro"),
         }

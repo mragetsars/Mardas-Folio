@@ -45,10 +45,7 @@ def has_bundled_browser_file(paths: Iterable[str]) -> bool:
     for value in paths:
         pure = safe_runtime_path(value)
         for root in _BROWSER_INVENTORY_ROOTS:
-            if (
-                len(pure.parts) > len(root.parts)
-                and pure.parts[: len(root.parts)] == root.parts
-            ):
+            if len(pure.parts) > len(root.parts) and pure.parts[: len(root.parts)] == root.parts:
                 return True
     return False
 
@@ -138,9 +135,7 @@ def validate_symlink_graph(
         for parent in PurePosixPath(path).parents:
             parent_name = parent.as_posix()
             if parent_name in links:
-                raise ValueError(
-                    f"Runtime inventory descends through a symlink: {parent_name}"
-                )
+                raise ValueError(f"Runtime inventory descends through a symlink: {parent_name}")
 
     regular_files = paths - set(links)
     conflicting_files = regular_files & directory_paths
@@ -182,13 +177,10 @@ def validate_symlink_graph(
                 pending[0:0] = list(PurePosixPath(links[candidate]).parts)
                 continue
             if candidate not in regular_files and candidate not in directory_paths:
-                raise ValueError(
-                    f"Runtime symlink target is dangling: {link!r} -> {links[link]!r}"
-                )
+                raise ValueError(f"Runtime symlink target is dangling: {link!r} -> {links[link]!r}")
             if candidate in regular_files and pending:
                 raise ValueError(
-                    f"Runtime symlink target traverses a regular file: "
-                    f"{link!r} -> {links[link]!r}"
+                    f"Runtime symlink target traverses a regular file: {link!r} -> {links[link]!r}"
                 )
         return PurePosixPath(*resolved) if resolved else PurePosixPath(".")
 
@@ -196,9 +188,7 @@ def validate_symlink_graph(
     for link in links:
         resolved = resolve_virtual(link).as_posix()
         if resolved not in regular_files and resolved not in directory_paths:
-            raise ValueError(
-                f"Runtime symlink target is dangling: {link!r} -> {links[link]!r}"
-            )
+            raise ValueError(f"Runtime symlink target is dangling: {link!r} -> {links[link]!r}")
         resolved_targets[link] = resolved
 
     # A directory link can be individually resolvable yet still create an
@@ -207,9 +197,7 @@ def validate_symlink_graph(
     # follow those links, but downstream resource bundlers might. Model which
     # directory links become reachable through each alias and reject cycles.
     directory_links = {
-        link: target
-        for link, target in resolved_targets.items()
-        if target in directory_paths
+        link: target for link, target in resolved_targets.items() if target in directory_paths
     }
 
     def lies_within(path: str, directory: str) -> bool:
@@ -220,11 +208,7 @@ def validate_symlink_graph(
         return path_parts[: len(directory_parts)] == directory_parts
 
     dependencies = {
-        link: {
-            other
-            for other in directory_links
-            if lies_within(other, target)
-        }
+        link: {other for other in directory_links if lies_within(other, target)}
         for link, target in directory_links.items()
     }
     visiting: list[str] = []
@@ -261,7 +245,9 @@ def validate_local_symlink(root: Path, path: Path) -> str:
         resolved = (path.parent / raw_target).resolve(strict=True)
         resolved.relative_to(root)
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
-        raise ValueError(f"Runtime symlink is dangling, cyclic, or escapes its root: {path}") from exc
+        raise ValueError(
+            f"Runtime symlink is dangling, cyclic, or escapes its root: {path}"
+        ) from exc
     if not resolved.is_file() and not resolved.is_dir():
         raise ValueError(f"Runtime symlink target is not a file or directory: {path}")
     return target

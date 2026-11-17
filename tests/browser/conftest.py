@@ -4,10 +4,11 @@ import os
 import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from tests._paths import ROOT
 
 import pytest
 from bs4 import BeautifulSoup
+
+from tests._paths import ROOT
 
 FRONTEND = ROOT / "apps" / "desktop" / "frontend"
 

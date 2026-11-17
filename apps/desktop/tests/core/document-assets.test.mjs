@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { documentImageAlts, documentImageSources, localImageDestination } from "../../frontend/js/core/document-assets.mjs";
+import {
+  documentImageAlts,
+  documentImageSources,
+  localImageDestination,
+} from "../../frontend/js/core/document-assets.mjs";
 
 test("local image destinations share percent and Markdown escaping rules", () => {
   assert.equal(localImageDestination("assets/Persian%20chart.png"), "assets/Persian chart.png");
@@ -12,13 +16,25 @@ test("local image destinations share percent and Markdown escaping rules", () =>
 });
 
 test("external schemes, encoded traversal, absolute and invalid paths are excluded", () => {
-  for (const value of ["https://host/image.png", "data:image/png;base64,x", "//host/img.png", "C:/img.png", "/img.png", "assets/%2e%2e/img.png", "%2f%2fhost/img.png", "x%00.png", "bad%ZZ.png"]) {
+  for (const value of [
+    "https://host/image.png",
+    "data:image/png;base64,x",
+    "//host/img.png",
+    "C:/img.png",
+    "/img.png",
+    "assets/%2e%2e/img.png",
+    "%2f%2fhost/img.png",
+    "x%00.png",
+    "bad%ZZ.png",
+  ]) {
     assert.equal(localImageDestination(value), null, value);
   }
 });
 
 test("online preview can recover alt text without treating it as markup", () => {
-  const images = documentImageAlts('![نمودار \\[۱\\]](https://example.com/chart.png "Title") ![<img src=x>](<https://example.com/logo.png>)');
+  const images = documentImageAlts(
+    '![نمودار \\[۱\\]](https://example.com/chart.png "Title") ![<img src=x>](<https://example.com/logo.png>)',
+  );
   assert.equal(images.get("https://example.com/chart.png"), "نمودار [۱]");
   assert.equal(images.get("https://example.com/logo.png"), "<img src=x>");
   assert.equal(documentImageAlts("![a](a.png) ![b](b.png)", { limit: 1 }).size, 1);
@@ -31,6 +47,13 @@ test("image scope only includes bounded unique destinations referenced by the do
 ![external](https://host/image.png) ![traversal](../image.png)
 [referenced]: assets/reference%20image.png
 `;
-  assert.deepEqual(documentImageSources(text), ["assets/one.png", "assets/Persian chart.png", "assets/two.png", "assets/chart(1).png", "assets/chart(2).png", "assets/reference image.png"]);
+  assert.deepEqual(documentImageSources(text), [
+    "assets/one.png",
+    "assets/Persian chart.png",
+    "assets/two.png",
+    "assets/chart(1).png",
+    "assets/chart(2).png",
+    "assets/reference image.png",
+  ]);
   assert.equal(documentImageSources(text, { limit: 2 }).length, 2);
 });

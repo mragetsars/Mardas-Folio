@@ -5,10 +5,13 @@ import { createConfirmationQueue } from "../../frontend/js/core/confirmation-que
 test("a late save conflict cannot replace or answer an open close decision", async () => {
   const shown = [];
   const answers = [];
-  const ask = createConfirmationQueue((details) => new Promise((resolve) => {
-    shown.push(details);
-    answers.push(resolve);
-  }));
+  const ask = createConfirmationQueue(
+    (details) =>
+      new Promise((resolve) => {
+        shown.push(details);
+        answers.push(resolve);
+      }),
+  );
   const closing = ask({ operation: "close", document: "b" });
   const conflict = ask({ operation: "overwrite", document: "a" });
   await Promise.resolve();

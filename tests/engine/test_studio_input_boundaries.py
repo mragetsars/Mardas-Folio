@@ -33,7 +33,9 @@ def test_local_studio_rejects_rebinding_and_malformed_hosts(host: str) -> None:
     assert not gui._host_header_is_trusted(host, "127.0.0.1")
 
 
-@pytest.mark.parametrize("host", ["localhost", "localhost:8765", "127.0.0.1:8765", "127.8.4.2", "[::1]:8765"])
+@pytest.mark.parametrize(
+    "host", ["localhost", "localhost:8765", "127.0.0.1:8765", "127.8.4.2", "[::1]:8765"]
+)
 def test_local_studio_accepts_loopback_authorities(host: str) -> None:
     assert gui._host_header_is_trusted(host, "127.0.0.1")
 

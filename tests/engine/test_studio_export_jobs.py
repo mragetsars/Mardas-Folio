@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import json
+import time
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
-import json
 from pathlib import Path
 from threading import Event, Thread
-import time
 
 from mardas_folio import gui
 from mardas_folio.studio_jobs import StudioExportManager
@@ -232,19 +232,25 @@ def test_export_job_queue_returns_429_when_bounded_queue_is_full(monkeypatch) ->
     monkeypatch.setattr(gui, "_render_studio_document_export", fake_render)
     server, thread = _start_server(workers=1, queue_size=1)
     try:
-        assert _request(
-            server,
-            "POST",
-            "/api/export-jobs",
-            {"kind": "document", "markdown": "# First", "options": {}},
-        )[0] == 202
+        assert (
+            _request(
+                server,
+                "POST",
+                "/api/export-jobs",
+                {"kind": "document", "markdown": "# First", "options": {}},
+            )[0]
+            == 202
+        )
         assert entered.wait(timeout=5)
-        assert _request(
-            server,
-            "POST",
-            "/api/export-jobs",
-            {"kind": "document", "markdown": "# Queued", "options": {}},
-        )[0] == 202
+        assert (
+            _request(
+                server,
+                "POST",
+                "/api/export-jobs",
+                {"kind": "document", "markdown": "# Queued", "options": {}},
+            )[0]
+            == 202
+        )
         status, _, data = _request(
             server,
             "POST",

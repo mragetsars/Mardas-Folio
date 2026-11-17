@@ -1,9 +1,4 @@
-export const SUPPORTED_EXPORT_STYLES = Object.freeze([
-  "modern",
-  "github",
-  "textbook",
-  "academic",
-]);
+export const SUPPORTED_EXPORT_STYLES = Object.freeze(["modern", "github", "textbook", "academic"]);
 
 export const SUPPORTED_EXPORT_PALETTES = Object.freeze([
   "blue",

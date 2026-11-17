@@ -12,8 +12,8 @@ from typing import Any, Callable
 
 from .engine_errors import EngineError
 from .file_io import serialized_file_write
-from .render_contracts import RenderCancelledError
 from .projects.paths import WORKSPACE_IGNORED_PARTS
+from .render_contracts import RenderCancelledError
 
 CancellationCallback = Callable[[], bool]
 

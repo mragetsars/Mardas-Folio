@@ -2,14 +2,21 @@
  * handlers and DOM identity. No duplicate command can drift out of sync. */
 export function createWorkspaceToolbar({ toolbar, menu, trigger, onLayout }) {
   if (!toolbar || !menu || !trigger) return null;
-  const selectors = [".document-view-controls", "#document-mode-help", ".document-edit-controls", "#format-find"];
-  const controls = selectors.map(selector => {
-    const node = toolbar.querySelector(selector);
-    if (!node) return null;
-    const home = document.createComment(`toolbar ${selector}`);
-    node.before(home);
-    return { node, home };
-  }).filter(Boolean);
+  const selectors = [
+    ".document-view-controls",
+    "#document-mode-help",
+    ".document-edit-controls",
+    "#format-find",
+  ];
+  const controls = selectors
+    .map((selector) => {
+      const node = toolbar.querySelector(selector);
+      if (!node) return null;
+      const home = document.createComment(`toolbar ${selector}`);
+      node.before(home);
+      return { node, home };
+    })
+    .filter(Boolean);
   let frame = 0;
   let disposed = false;
   function close({ focus = false } = {}) {
@@ -44,9 +51,13 @@ export function createWorkspaceToolbar({ toolbar, menu, trigger, onLayout }) {
       trigger.hidden = false;
       menu.append(node);
     }
-    if (!menu.children.length) { trigger.hidden = true; close(); }
+    if (!menu.children.length) {
+      trigger.hidden = true;
+      close();
+    }
     if (wasInMenu && focused?.isConnected) {
-      if (menu.contains(focused) && !menu.classList.contains("hidden")) focused.focus({ preventScroll: true });
+      if (menu.contains(focused) && !menu.classList.contains("hidden"))
+        focused.focus({ preventScroll: true });
       else if (focused.getClientRects().length) focused.focus({ preventScroll: true });
       else trigger.focus({ preventScroll: true });
     } else if (controls.some(({ node }) => node.contains(focused)) && menu.contains(focused)) {
@@ -70,15 +81,23 @@ export function createWorkspaceToolbar({ toolbar, menu, trigger, onLayout }) {
       menu.querySelector("button:not(:disabled),select:not(:disabled)")?.focus();
     }
   }
-  const click = event => { if (!menu.contains(event.target) && !trigger.contains(event.target)) close(); };
-  const key = event => {
+  const click = (event) => {
+    if (!menu.contains(event.target) && !trigger.contains(event.target)) close();
+  };
+  const key = (event) => {
     if (event.key === "Escape" && !menu.classList.contains("hidden")) {
-      event.preventDefault(); event.stopPropagation(); close({ focus: true });
+      event.preventDefault();
+      event.stopPropagation();
+      close({ focus: true });
     }
   };
-  const invoke = event => {
+  const invoke = (event) => {
     const button = event.target.closest("button");
-    if (button?.matches("#writing-appearance-button,#insert-menu-button,#document-mode-help,#format-find")) {
+    if (
+      button?.matches(
+        "#writing-appearance-button,#insert-menu-button,#document-mode-help,#format-find",
+      )
+    ) {
       // Child popovers measure their actual trigger before their parent is
       // dismissed. Returning focus later uses the visible overflow trigger.
       queueMicrotask(() => close());
@@ -93,14 +112,27 @@ export function createWorkspaceToolbar({ toolbar, menu, trigger, onLayout }) {
   const mutations = new MutationObserver(schedule);
   // Mode, language and formatting visibility can change required width while
   // leaving the outer toolbar's dimensions unchanged.
-  mutations.observe(document.querySelector("#workspace-view"), { attributes: true,
-    attributeFilter: ["data-formatting-open", "data-view-mode", "class"] });
-  mutations.observe(document.documentElement, { attributes: true, attributeFilter: ["lang", "dir"] });
+  mutations.observe(document.querySelector("#workspace-view"), {
+    attributes: true,
+    attributeFilter: ["data-formatting-open", "data-view-mode", "class"],
+  });
+  mutations.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["lang", "dir"],
+  });
   schedule();
-  return { sync: schedule, close, destroy() {
-    disposed = true; cancelAnimationFrame(frame); resize.disconnect(); mutations.disconnect();
-    trigger.removeEventListener("click", toggle); menu.removeEventListener("keydown", key);
-    menu.removeEventListener("click", invoke, true);
-    document.removeEventListener("click", click);
-  } };
+  return {
+    sync: schedule,
+    close,
+    destroy() {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      mutations.disconnect();
+      trigger.removeEventListener("click", toggle);
+      menu.removeEventListener("keydown", key);
+      menu.removeEventListener("click", invoke, true);
+      document.removeEventListener("click", click);
+    },
+  };
 }

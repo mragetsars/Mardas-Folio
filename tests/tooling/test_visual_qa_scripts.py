@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import json
 import struct
 import subprocess
@@ -10,6 +8,8 @@ import zlib
 from pathlib import Path
 
 import pytest
+
+from tests._paths import ROOT
 
 SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
@@ -79,8 +79,6 @@ def test_appearance_matrix_filter_contract_is_bounded_without_rendering() -> Non
     assert RenderItem("modern", "blue", "light").name == "modern-blue-light"
 
 
-
-
 def test_studio_visual_audit_uses_live_server_preview_context() -> None:
     source = (SCRIPTS / "audit_studio_visual.py").read_text(encoding="utf-8")
 
@@ -121,22 +119,26 @@ def test_visual_snapshot_compare_script_writes_summary(tmp_path: Path) -> None:
     _write_rgb_png(baseline / "page.png", [[(10, 10, 10), (240, 240, 240)]])
     _write_rgb_png(candidate / "page.png", [[(10, 10, 10), (241, 241, 241)]])
 
-    assert compare_main([
-        str(baseline),
-        str(candidate),
-        "--output-dir",
-        str(output),
-        "--max-changed-ratio",
-        "1",
-        "--max-rms-delta",
-        "2",
-    ]) == 0
+    assert (
+        compare_main(
+            [
+                str(baseline),
+                str(candidate),
+                "--output-dir",
+                str(output),
+                "--max-changed-ratio",
+                "1",
+                "--max-rms-delta",
+                "2",
+            ]
+        )
+        == 0
+    )
 
     summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
     assert summary["counts"]["shared"] == 1
     assert summary["counts"]["failed"] == 0
     assert (output / "SUMMARY.md").is_file()
-
 
 
 def test_visual_qa_commands_are_process_tree_timeout_safe() -> None:
@@ -147,7 +149,6 @@ def test_visual_qa_commands_are_process_tree_timeout_safe() -> None:
     assert "os.killpg" in source
     assert "SIGKILL" in source
     assert "timed out after" in source
-
 
 
 def test_build_examples_uses_process_tree_safe_render_commands() -> None:
@@ -181,9 +182,9 @@ def test_visual_qa_scripts_expose_reliable_batch_controls() -> None:
     assert "--all-appearances" in feature_help
 
 
-
 def test_feature_audit_all_appearances_can_be_bounded_without_rendering() -> None:
     from audit_pdf_features import _parse_appearances
+
     from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES
 
     appearances = _parse_appearances(None, all_appearances=True)
@@ -198,7 +199,10 @@ def test_appearance_audit_accepts_explicit_appearance_triples() -> None:
     appearances = _parse_appearances("modern:blue:light,github:slate:dark")
 
     assert appearances is not None
-    assert [appearance.name for appearance in appearances] == ["modern-blue-light", "github-slate-dark"]
+    assert [appearance.name for appearance in appearances] == [
+        "modern-blue-light",
+        "github-slate-dark",
+    ]
 
 
 def test_chunked_visual_qa_runner_builds_bounded_case_chunks() -> None:
@@ -222,7 +226,11 @@ def test_chunked_visual_qa_runner_reports_child_failures_without_crashing() -> N
     from run_visual_qa_matrix import _run
 
     result = _run(
-        [sys.executable, "-c", "import sys; print('before failure'); print('bad', file=sys.stderr); sys.exit(7)"],
+        [
+            sys.executable,
+            "-c",
+            "import sys; print('before failure'); print('bad', file=sys.stderr); sys.exit(7)",
+        ],
         timeout=10,
     )
 
@@ -272,7 +280,6 @@ def test_visual_matrix_runner_exposes_heartbeat_and_resume_controls() -> None:
     assert "duration_seconds" in source
 
 
-
 def test_visual_contract_checker_accepts_complete_manifests(tmp_path: Path) -> None:
     from check_visual_contracts import main as check_contracts
 
@@ -318,18 +325,21 @@ def test_visual_contract_checker_accepts_complete_manifests(tmp_path: Path) -> N
     write_json(studio / "manifest.json", {"screenshot": "studio.png", "checks": checks})
 
     output = tmp_path / "contract"
-    assert check_contracts(
-        [
-            "--appearance-manifest",
-            str(appearance / "manifest.json"),
-            "--features-manifest",
-            str(features / "manifest.json"),
-            "--studio-manifest",
-            str(studio / "manifest.json"),
-            "--output-dir",
-            str(output),
-        ]
-    ) == 0
+    assert (
+        check_contracts(
+            [
+                "--appearance-manifest",
+                str(appearance / "manifest.json"),
+                "--features-manifest",
+                str(features / "manifest.json"),
+                "--studio-manifest",
+                str(studio / "manifest.json"),
+                "--output-dir",
+                str(output),
+            ]
+        )
+        == 0
+    )
     summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
     assert summary["ok"] is True
     assert summary["counts"]["feature_images"] == 1
@@ -351,14 +361,17 @@ def test_visual_contract_checker_rejects_blank_or_incomplete_artifacts(tmp_path:
     )
 
     output = tmp_path / "contract"
-    assert check_contracts(
-        [
-            "--appearance-manifest",
-            str(appearance / "manifest.json"),
-            "--output-dir",
-            str(output),
-        ]
-    ) == 1
+    assert (
+        check_contracts(
+            [
+                "--appearance-manifest",
+                str(appearance / "manifest.json"),
+                "--output-dir",
+                str(output),
+            ]
+        )
+        == 1
+    )
     summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
     assert summary["ok"] is False
     assert len(summary["failures"]) >= 2

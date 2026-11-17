@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-import json
 from pathlib import Path
 from threading import Thread
 
@@ -91,44 +91,97 @@ def run(dist: Path, output: Path) -> dict:
             for locale in ("en", "fa"):
                 for width in (1642, 1200, 680):
                     page = browser.new_page(viewport={"width": width, "height": 1000})
-                    page.route("**/selection-fixture.html", lambda route: route.fulfill(body=HTML, content_type="text/html"))
+                    page.route(
+                        "**/selection-fixture.html",
+                        lambda route: route.fulfill(body=HTML, content_type="text/html"),
+                    )
                     page.goto(f"http://127.0.0.1:{server.server_port}/selection-fixture.html")
                     page.wait_for_function("Boolean(window.adapter)")
-                    page.evaluate("locale=>{document.documentElement.dir=locale==='fa'?'rtl':'ltr';document.documentElement.dataset.theme='dark'}", locale)
+                    page.evaluate(
+                        "locale=>{document.documentElement.dir=locale==='fa'?'rtl':'ltr';document.documentElement.dataset.theme='dark'}",
+                        locale,
+                    )
                     for mode in ("live", "source"):
-                        variants = [(value, "100%", 1, "punctuation") for value in ("—", "–", "…", "“", "’")]
+                        variants = [
+                            (value, "100%", 1, "punctuation") for value in ("—", "–", "…", "“", "’")
+                        ]
                         variants.append(("—", "680px", 1.25, "punctuation"))
                         variants.append(("—", "100%", 1, "leading-stress"))
                         for punctuation, column, scale, fixture in variants:
-                            page.evaluate("v=>{document.documentElement.style.setProperty('--writing-column',v.column);document.documentElement.style.setProperty('--document-text-scale',v.scale)}", {"column": column, "scale": str(scale)})
-                            text = (STRESS_PARAGRAPH if fixture == "leading-stress" else PARAGRAPH).replace("—", punctuation)
+                            page.evaluate(
+                                "v=>{document.documentElement.style.setProperty('--writing-column',v.column);document.documentElement.style.setProperty('--document-text-scale',v.scale)}",
+                                {"column": column, "scale": str(scale)},
+                            )
+                            text = (
+                                STRESS_PARAGRAPH if fixture == "leading-stress" else PARAGRAPH
+                            ).replace("—", punctuation)
                             ipa = text.index("bɪɡ ˈdeɪtə")
-                            ranges = [(60, len(text)-30, "wrapped"), (ipa, ipa+10, "IPA"), (ipa+1, ipa+8, "partial-IPA")]
+                            ranges = [
+                                (60, len(text) - 30, "wrapped"),
+                                (ipa, ipa + 10, "IPA"),
+                                (ipa + 1, ipa + 8, "partial-IPA"),
+                            ]
                             if fixture == "leading-stress":
                                 stress = text.index("ˌbɪɡ")
                                 end_times = text.index("ˈɛnd")
-                                ranges = [(0, len(text), "complete-stress-paragraph"),
-                                          (60, len(text), "wrapped-stress"),
-                                          (stress, stress+11, "secondary-stress-IPA"),
-                                          (stress+1, stress+9, "partial-secondary-IPA"),
-                                          (end_times, end_times+10, "primary-stress-IPA"),
-                                          (end_times+1, end_times+8, "partial-primary-IPA")]
+                                ranges = [
+                                    (0, len(text), "complete-stress-paragraph"),
+                                    (60, len(text), "wrapped-stress"),
+                                    (stress, stress + 11, "secondary-stress-IPA"),
+                                    (stress + 1, stress + 9, "partial-secondary-IPA"),
+                                    (end_times, end_times + 10, "primary-stress-IPA"),
+                                    (end_times + 1, end_times + 8, "partial-primary-IPA"),
+                                ]
                             for start, end, label in ranges:
                                 for direction in ("forward", "backward"):
-                                    page.evaluate("v=>{adapter.setMode(v.mode);adapter.value=v.text;adapter.focus();adapter.setSelectionRange(v.from,v.to,v.direction)}", {
-                                        "mode": mode, "text": text, "from": start, "to": end, "direction": direction,
-                                    })
-                                    page.evaluate("async()=>{await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))}")
+                                    page.evaluate(
+                                        "v=>{adapter.setMode(v.mode);adapter.value=v.text;adapter.focus();adapter.setSelectionRange(v.from,v.to,v.direction)}",
+                                        {
+                                            "mode": mode,
+                                            "text": text,
+                                            "from": start,
+                                            "to": end,
+                                            "direction": direction,
+                                        },
+                                    )
+                                    page.evaluate(
+                                        "async()=>{await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))}"
+                                    )
                                     page.wait_for_timeout(80)
                                     geometry = page.evaluate(GEOMETRY, {"from": start, "to": end})
-                                    details = {"locale":locale,"width":width,"mode":mode,"column":column,"scale":scale,"fixture":fixture,"punctuation":punctuation,"range":label,"direction":direction}
-                                    assert geometry["source"] == text, (details, "source DOM mismatch")
-                                    assert geometry["selection"] == text[start:end], (details, "logical selection mismatch")
-                                    assert geometry["glyphs"] > 0 and not geometry["missing"], (details, geometry)
+                                    details = {
+                                        "locale": locale,
+                                        "width": width,
+                                        "mode": mode,
+                                        "column": column,
+                                        "scale": scale,
+                                        "fixture": fixture,
+                                        "punctuation": punctuation,
+                                        "range": label,
+                                        "direction": direction,
+                                    }
+                                    assert geometry["source"] == text, (
+                                        details,
+                                        "source DOM mismatch",
+                                    )
+                                    assert geometry["selection"] == text[start:end], (
+                                        details,
+                                        "logical selection mismatch",
+                                    )
+                                    assert geometry["glyphs"] > 0 and not geometry["missing"], (
+                                        details,
+                                        geometry,
+                                    )
                                     assert not geometry["extra"], (details, geometry)
                                     assert not geometry["outside"], (details, geometry)
-                                    report["cases"].append({**details,"selected_glyphs":geometry["glyphs"],"rectangles":geometry["rectangles"]})
-                        page.screenshot(path=str(output/f"{locale}-{width}-{mode}.png"))
+                                    report["cases"].append(
+                                        {
+                                            **details,
+                                            "selected_glyphs": geometry["glyphs"],
+                                            "rectangles": geometry["rectangles"],
+                                        }
+                                    )
+                        page.screenshot(path=str(output / f"{locale}-{width}-{mode}.png"))
                     page.close()
             browser.close()
         report["status"] = "pass"
@@ -136,13 +189,15 @@ def run(dist: Path, output: Path) -> dict:
     finally:
         server.shutdown()
         server.server_close()
-        (output/"report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        (output / "report.json").write_text(
+            json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dist", type=Path, default=ROOT/"apps/desktop/frontend")
-    parser.add_argument("--output", type=Path, default=ROOT/"build/bidi-selection")
+    parser.add_argument("--dist", type=Path, default=ROOT / "apps/desktop/frontend")
+    parser.add_argument("--output", type=Path, default=ROOT / "build/bidi-selection")
     options = parser.parse_args()
     result = run(options.dist.resolve(), options.output.resolve())
     print(f"PASS {len(result['cases'])} actual glyph/selection geometry cases")

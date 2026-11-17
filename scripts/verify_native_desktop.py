@@ -18,33 +18,53 @@ MAX_PORTABLE_FILES = 25_000
 MAX_PORTABLE_UNCOMPRESSED_BYTES = 4 * 1024 * 1024 * 1024
 
 _PATTERNS = (
-    ("desktop-installer", "windows", re.compile(
-        r"^Mardas-Folio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe$"
-    )),
-    ("desktop-portable", "windows", re.compile(
-        r"^Mardas-Folio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-portable\.zip$"
-    )),
-    ("desktop-dmg", "macos", re.compile(
-        r"^Mardas-Folio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)\.dmg$"
-    )),
-    ("desktop-appimage", "linux", re.compile(
-        r"^Mardas-Folio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.AppImage$"
-    )),
-    ("desktop-deb", "linux", re.compile(
-        r"^Mardas-Folio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.deb$"
-    )),
-    ("desktop-macos-updater", "macos", re.compile(
-        r"^Mardas-Folio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)-updater\.tar\.gz$"
-    )),
-    ("desktop-update-signature", "windows", re.compile(
-        r"^Mardas-Folio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe\.sig$"
-    )),
-    ("desktop-update-signature", "linux", re.compile(
-        r"^Mardas-Folio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.AppImage\.sig$"
-    )),
-    ("desktop-update-signature", "macos", re.compile(
-        r"^Mardas-Folio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)-updater\.tar\.gz\.sig$"
-    )),
+    (
+        "desktop-installer",
+        "windows",
+        re.compile(r"^Mardas-Folio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe$"),
+    ),
+    (
+        "desktop-portable",
+        "windows",
+        re.compile(r"^Mardas-Folio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-portable\.zip$"),
+    ),
+    (
+        "desktop-dmg",
+        "macos",
+        re.compile(r"^Mardas-Folio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)\.dmg$"),
+    ),
+    (
+        "desktop-appimage",
+        "linux",
+        re.compile(r"^Mardas-Folio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.AppImage$"),
+    ),
+    (
+        "desktop-deb",
+        "linux",
+        re.compile(r"^Mardas-Folio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.deb$"),
+    ),
+    (
+        "desktop-macos-updater",
+        "macos",
+        re.compile(r"^Mardas-Folio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)-updater\.tar\.gz$"),
+    ),
+    (
+        "desktop-update-signature",
+        "windows",
+        re.compile(r"^Mardas-Folio-(?P<version>[^-]+)-windows-(?P<arch>[^-]+)-setup\.exe\.sig$"),
+    ),
+    (
+        "desktop-update-signature",
+        "linux",
+        re.compile(r"^Mardas-Folio-(?P<version>[^-]+)-linux-(?P<arch>[^-]+)\.AppImage\.sig$"),
+    ),
+    (
+        "desktop-update-signature",
+        "macos",
+        re.compile(
+            r"^Mardas-Folio-(?P<version>[^-]+)-macos-(?P<arch>[^-]+)-updater\.tar\.gz\.sig$"
+        ),
+    ),
 )
 
 
@@ -185,9 +205,7 @@ def verify_native_artifact(path: Path, *, expected_version: str) -> dict[str, An
             if handle.read(2) != b"MZ":
                 raise ValueError("Windows installer does not contain a PE header")
     elif kind == "desktop-portable":
-        extra = _verify_portable(
-            path, expected_version=expected_version, architecture=architecture
-        )
+        extra = _verify_portable(path, expected_version=expected_version, architecture=architecture)
     elif kind == "desktop-dmg":
         if size < 512:
             raise ValueError("macOS DMG is too small")
@@ -248,7 +266,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         payload = verify_native_artifact(args.artifact, expected_version=args.version)
-    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError, zipfile.BadZipFile, tarfile.TarError) as exc:
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        json.JSONDecodeError,
+        zipfile.BadZipFile,
+        tarfile.TarError,
+    ) as exc:
         print(f"Native desktop artifact verification failed: {exc}", file=sys.stderr)
         return 2
     if args.json:

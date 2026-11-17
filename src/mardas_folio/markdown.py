@@ -6,109 +6,270 @@ import mimetypes
 import re
 import unicodedata
 import warnings
-from urllib.parse import quote, unquote, urlparse
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
-
-
-from .markup.frontmatter import (
-    FRONTMATTER_RE as FRONTMATTER_RE,
-    MAX_FRONTMATTER_DEPTH as MAX_FRONTMATTER_DEPTH,
-    MAX_FRONTMATTER_NODES as MAX_FRONTMATTER_NODES,
-    MAX_FRONTMATTER_SCALAR_CHARS as MAX_FRONTMATTER_SCALAR_CHARS,
-    MarkdownInputError as MarkdownInputError,
-    _validate_frontmatter_graph as _validate_frontmatter_graph,
-    extract_frontmatter as extract_frontmatter,
-)
+from urllib.parse import quote, unquote, urlparse
 
 from .markup.bidi import (
     ARABIC_DIGIT_RE as ARABIC_DIGIT_RE,
+)
+from .markup.bidi import (
     ARABIC_RANGES as ARABIC_RANGES,
+)
+from .markup.bidi import (
     ASCII_DIGIT_RE as ASCII_DIGIT_RE,
+)
+from .markup.bidi import (
     ASCII_RTL_PUNCTUATION_RE as ASCII_RTL_PUNCTUATION_RE,
+)
+from .markup.bidi import (
     LATIN_RANGES as LATIN_RANGES,
+)
+from .markup.bidi import (
     LTR_ISOLATE_CONTEXT_TAGS as LTR_ISOLATE_CONTEXT_TAGS,
+)
+from .markup.bidi import (
     LTR_ISOLATE_RUN_RE as LTR_ISOLATE_RUN_RE,
+)
+from .markup.bidi import (
     LTR_ISOLATE_SKIP_CLASSES as LTR_ISOLATE_SKIP_CLASSES,
+)
+from .markup.bidi import (
     LTR_ISOLATE_SKIP_TAGS as LTR_ISOLATE_SKIP_TAGS,
+)
+from .markup.bidi import (
     PERSIAN_DIGIT_TRANSLATION as PERSIAN_DIGIT_TRANSLATION,
+)
+from .markup.bidi import (
     PERSIAN_PUNCTUATION_RE as PERSIAN_PUNCTUATION_RE,
+)
+from .markup.bidi import (
     RTL_ISOLATE_RUN_RE as RTL_ISOLATE_RUN_RE,
+)
+from .markup.bidi import (
     RTL_LANG_PREFIXES as RTL_LANG_PREFIXES,
+)
+from .markup.bidi import (
     _add_classes as _add_classes,
+)
+from .markup.bidi import (
     _dir_for_profile as _dir_for_profile,
+)
+from .markup.bidi import (
     _group_ltr_isolate_footnote_refs as _group_ltr_isolate_footnote_refs,
+)
+from .markup.bidi import (
     _inside_class as _inside_class,
+)
+from .markup.bidi import (
     _inside_tag as _inside_tag,
+)
+from .markup.bidi import (
     _mixed_script_context as _mixed_script_context,
+)
+from .markup.bidi import (
     _new_ltr_isolate_span as _new_ltr_isolate_span,
+)
+from .markup.bidi import (
     _next_meaningful_sibling as _next_meaningful_sibling,
+)
+from .markup.bidi import (
     _parent_chain as _parent_chain,
+)
+from .markup.bidi import (
     direction_profile as direction_profile,
+)
+from .markup.bidi import (
     dominant_direction as dominant_direction,
+)
+from .markup.bidi import (
     has_ascii_rtl_punctuation as has_ascii_rtl_punctuation,
+)
+from .markup.bidi import (
     has_latin as has_latin,
+)
+from .markup.bidi import (
     has_mixed_numerals as has_mixed_numerals,
+)
+from .markup.bidi import (
     has_persian as has_persian,
+)
+from .markup.bidi import (
     has_persian_punctuation as has_persian_punctuation,
+)
+from .markup.bidi import (
     is_rtl_language as is_rtl_language,
+)
+from .markup.bidi import (
     isolate_ltr_runs_in_mixed_persian_text as isolate_ltr_runs_in_mixed_persian_text,
+)
+from .markup.bidi import (
     isolate_rtl_phrase_lists_in_ltr_prose as isolate_rtl_phrase_lists_in_ltr_prose,
+)
+from .markup.bidi import (
     language_family as language_family,
+)
+from .markup.bidi import (
     localize_digits as localize_digits,
+)
+from .markup.bidi import (
     localized_number_class as localized_number_class,
+)
+from .markup.bidi import (
     mixed_text_direction as mixed_text_direction,
+)
+from .markup.bidi import (
     normalize_language as normalize_language,
+)
+from .markup.bidi import (
     numeral_profile as numeral_profile,
+)
+from .markup.bidi import (
     strong_direction_counts as strong_direction_counts,
+)
+from .markup.bidi import (
     text_quality_classes as text_quality_classes,
+)
+from .markup.bidi import (
     ui_label as ui_label,
 )
-
 from .markup.code_blocks import (
     CODE_FENCE_ATTR_CLASS_RE as CODE_FENCE_ATTR_CLASS_RE,
+)
+from .markup.code_blocks import (
     CODE_FENCE_BRACE_RE as CODE_FENCE_BRACE_RE,
+)
+from .markup.code_blocks import (
     CODE_FENCE_HIGHLIGHT_KEYS as CODE_FENCE_HIGHLIGHT_KEYS,
+)
+from .markup.code_blocks import (
     CODE_FENCE_KV_RE as CODE_FENCE_KV_RE,
+)
+from .markup.code_blocks import (
     CODE_FENCE_LABEL_CANDIDATE_RE as CODE_FENCE_LABEL_CANDIDATE_RE,
+)
+from .markup.code_blocks import (
     CODE_FENCE_LABEL_RE as CODE_FENCE_LABEL_RE,
+)
+from .markup.code_blocks import (
     CODE_FENCE_LABEL_VALUE_RE as CODE_FENCE_LABEL_VALUE_RE,
+)
+from .markup.code_blocks import (
     CODE_FENCE_LANGUAGE_ALIASES as CODE_FENCE_LANGUAGE_ALIASES,
+)
+from .markup.code_blocks import (
     CODE_FENCE_LINE_NUMBER_CLASSES as CODE_FENCE_LINE_NUMBER_CLASSES,
-    CODE_FENCE_LINE_NUMBER_KEYS as CODE_FENCE_LINE_NUMBER_KEYS,
+)
+from .markup.code_blocks import (
     CODE_FENCE_LINE_NUMBER_KEY_SET as CODE_FENCE_LINE_NUMBER_KEY_SET,
-    CODE_FENCE_LINE_START_KEYS as CODE_FENCE_LINE_START_KEYS,
+)
+from .markup.code_blocks import (
+    CODE_FENCE_LINE_NUMBER_KEYS as CODE_FENCE_LINE_NUMBER_KEYS,
+)
+from .markup.code_blocks import (
     CODE_FENCE_LINE_START_KEY_SET as CODE_FENCE_LINE_START_KEY_SET,
+)
+from .markup.code_blocks import (
+    CODE_FENCE_LINE_START_KEYS as CODE_FENCE_LINE_START_KEYS,
+)
+from .markup.code_blocks import (
     CODE_FENCE_TITLE_KEYS as CODE_FENCE_TITLE_KEYS,
-    CodeHtmlFormatter as CodeHtmlFormatter,
+)
+from .markup.code_blocks import (
     HIGHLIGHT_TRAILING_NEWLINE_RE as HIGHLIGHT_TRAILING_NEWLINE_RE,
+)
+from .markup.code_blocks import (
+    CodeHtmlFormatter as CodeHtmlFormatter,
+)
+from .markup.code_blocks import (
     _first_language_class as _first_language_class,
+)
+from .markup.code_blocks import (
     _normalize_code_language as _normalize_code_language,
+)
+from .markup.code_blocks import (
     _normalize_highlight_line_breaks as _normalize_highlight_line_breaks,
+)
+from .markup.code_blocks import (
     _parse_code_fence_key_values as _parse_code_fence_key_values,
+)
+from .markup.code_blocks import (
     _parse_line_highlights as _parse_line_highlights,
+)
+from .markup.code_blocks import (
     _positive_int_attr as _positive_int_attr,
+)
+from .markup.code_blocks import (
     _truthy_attr_value as _truthy_attr_value,
+)
+from .markup.code_blocks import (
     guess_code_language as guess_code_language,
+)
+from .markup.code_blocks import (
     highlight_code as highlight_code,
+)
+from .markup.code_blocks import (
     normalize_raw_code_blocks as normalize_raw_code_blocks,
+)
+from .markup.code_blocks import (
     parse_code_fence_info as parse_code_fence_info,
 )
-
+from .markup.frontmatter import (
+    FRONTMATTER_RE as FRONTMATTER_RE,
+)
+from .markup.frontmatter import (
+    MAX_FRONTMATTER_DEPTH as MAX_FRONTMATTER_DEPTH,
+)
+from .markup.frontmatter import (
+    MAX_FRONTMATTER_NODES as MAX_FRONTMATTER_NODES,
+)
+from .markup.frontmatter import (
+    MAX_FRONTMATTER_SCALAR_CHARS as MAX_FRONTMATTER_SCALAR_CHARS,
+)
+from .markup.frontmatter import (
+    MarkdownInputError as MarkdownInputError,
+)
+from .markup.frontmatter import (
+    _validate_frontmatter_graph as _validate_frontmatter_graph,
+)
+from .markup.frontmatter import (
+    extract_frontmatter as extract_frontmatter,
+)
 from .markup.math import (
     DISPLAY_MATH_FENCE_RE as DISPLAY_MATH_FENCE_RE,
+)
+from .markup.math import (
     FENCE_RE as FENCE_RE,
+)
+from .markup.math import (
     INLINE_MATH_RE as INLINE_MATH_RE,
+)
+from .markup.math import (
     PROTECTED_CODE_TOKEN_PREFIX as PROTECTED_CODE_TOKEN_PREFIX,
+)
+from .markup.math import (
     PROTECTED_CODE_TOKEN_SUFFIX as PROTECTED_CODE_TOKEN_SUFFIX,
+)
+from .markup.math import (
     _fence_transition as _fence_transition,
+)
+from .markup.math import (
     _protect_code_regions as _protect_code_regions,
+)
+from .markup.math import (
     _protected_code_token as _protected_code_token,
+)
+from .markup.math import (
     _replace_outside_inline_code as _replace_outside_inline_code,
+)
+from .markup.math import (
     _restore_code_regions as _restore_code_regions,
+)
+from .markup.math import (
     protect_and_transform_math as protect_and_transform_math,
 )
+
 if TYPE_CHECKING:
     from .citations import BibliographyLibrary
 
@@ -123,7 +284,17 @@ from .mermaid import render_mermaid_to_svg
 FOOTNOTE_DEF_RE = re.compile(r"^\[\^([^\]]+)\]:\s*(.*)$")
 INLINE_FOOTNOTE_RE = re.compile(r"\[\^([^\]]+)\]")
 HEADING_RE = re.compile(r"<h([1-6])([^>]*)>(.*?)</h\1>", re.DOTALL | re.IGNORECASE)
-BLOCKED_RAW_HTML_TAGS = {"script", "style", "iframe", "object", "embed", "form", "meta", "link", "base"}
+BLOCKED_RAW_HTML_TAGS = {
+    "script",
+    "style",
+    "iframe",
+    "object",
+    "embed",
+    "form",
+    "meta",
+    "link",
+    "base",
+}
 SAFE_RAW_HTML_TAGS = {
     "a",
     "abbr",
@@ -218,9 +389,18 @@ TAG_SAFE_ATTRS = {
     "code": {"class"},
 }
 SAFE_URL_SCHEMES = {"", "http", "https", "mailto", "data"}
-SAFE_DATA_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/avif"}
+SAFE_DATA_IMAGE_MIME_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/bmp",
+    "image/avif",
+}
 MAX_EMBED_IMAGE_BYTES = 20 * 1024 * 1024
-TRANSPARENT_IMAGE_DATA_URI = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+TRANSPARENT_IMAGE_DATA_URI = (
+    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+)
 
 
 @dataclass(slots=True)
@@ -354,7 +534,9 @@ def normalize_github_callouts(soup: BeautifulSoup, *, lang: str | None = None) -
             first_p.append("\n" + remainder.strip())
 
 
-CODE_FENCE_TITLE_RE = re.compile(r"(?:^|\s)(?:title|filename|file)=(?P<quote>[\"\'])(?P<value>.*?)(?P=quote)")
+CODE_FENCE_TITLE_RE = re.compile(
+    r"(?:^|\s)(?:title|filename|file)=(?P<quote>[\"\'])(?P<value>.*?)(?P=quote)"
+)
 
 
 def mermaid_placeholder(
@@ -365,18 +547,16 @@ def mermaid_placeholder(
     """Keep Mermaid source safe until post-processing renders it as SVG."""
     escaped = html.escape(code.rstrip("\n"))
     caption_text = html.escape((caption or "MERMAID").strip() or "MERMAID")
-    label_attr = (
-        f' data-md2pdf-label="{html.escape(reference_label)}"' if reference_label else ""
-    )
+    label_attr = f' data-md2pdf-label="{html.escape(reference_label)}"' if reference_label else ""
     return (
         f'<figure class="mermaid-diagram mermaid-diagram--pending" dir="ltr"{label_attr}>'
         '<figcaption class="md2pdf-caption md2pdf-caption--diagram" dir="auto">'
-        f'{caption_text}'
-        '</figcaption>'
+        f"{caption_text}"
+        "</figcaption>"
         '<pre><code class="language-mermaid">'
         f"{escaped}"
-        '</code></pre>'
-        '</figure>'
+        "</code></pre>"
+        "</figure>"
     )
 
 
@@ -500,7 +680,9 @@ def extract_footnotes(markdown: str) -> tuple[str, list[tuple[str, str]]]:
                 raw_lines.append(_dedent_footnote_line(current))
                 index += 1
                 continue
-            if not current.strip() and (next_line.startswith(("    ", "\t")) or not next_line.strip()):
+            if not current.strip() and (
+                next_line.startswith(("    ", "\t")) or not next_line.strip()
+            ):
                 raw_lines.append("")
                 index += 1
                 continue
@@ -535,7 +717,9 @@ def _safe_footnote_anchor(value: str, used: set[str]) -> str:
     return anchor
 
 
-def _normalize_footnotes(footnotes: list[tuple[str, str]] | list[FootnoteEntry]) -> list[FootnoteEntry]:
+def _normalize_footnotes(
+    footnotes: list[tuple[str, str]] | list[FootnoteEntry],
+) -> list[FootnoteEntry]:
     if not footnotes:
         return []
     first = footnotes[0]
@@ -744,7 +928,9 @@ def append_footnotes_soup(
                 continue
             seen_note_ids.add(note_id)
             rendered_items.append(
-                _render_footnote_item(entry, md, note_id=note_id, ref_ids=[ref_id], lang=lang, text_hint=text_hint)
+                _render_footnote_item(
+                    entry, md, note_id=note_id, ref_ids=[ref_id], lang=lang, text_hint=text_hint
+                )
             )
         if not rendered_items:
             continue
@@ -892,12 +1078,14 @@ def _render_toc_items(
             f'<a href="#{quote(item.heading_id, safe="-._~")}">'
             f'<span class="toc-number {number_class}">{html.escape(display_number)}</span>'
             f'<span class="{html.escape(" ".join(dict.fromkeys(title_classes)))}" dir="{html.escape(title_dir)}">'
-            f'{item.title_html or html.escape(item.title)}</span>'
-            f'</a>'
+            f"{item.title_html or html.escape(item.title)}</span>"
+            f"</a>"
         )
-        parts.append(_render_toc_items(item.children, depth=depth + 1, lang=lang, text_hint=text_hint))
-        parts.append('</li>')
-    parts.append('</ol>')
+        parts.append(
+            _render_toc_items(item.children, depth=depth + 1, lang=lang, text_hint=text_hint)
+        )
+        parts.append("</li>")
+    parts.append("</ol>")
     return "".join(parts)
 
 
@@ -922,9 +1110,9 @@ def build_toc(
         f'data-md2pdf-direction-profile="{html.escape(toc_dir)}" '
         f'data-md2pdf-title-profile="{html.escape(title_profile)}" '
         f'data-md2pdf-number-locale="{language_family(lang, text_hint)}">'
-        f'<h2>{html.escape(title)}</h2>'
-        f'{_render_toc_items(tree, lang=lang, text_hint=text_hint)}'
-        '</nav>'
+        f"<h2>{html.escape(title)}</h2>"
+        f"{_render_toc_items(tree, lang=lang, text_hint=text_hint)}"
+        "</nav>"
     )
 
 
@@ -1265,15 +1453,19 @@ def apply_literal_autolinks(soup: BeautifulSoup) -> None:
         text = str(node)
         if not text or not AUTOLINK_RE.search(text):
             continue
-        if any(parent.name in AUTOLINK_SKIP_PARENTS for parent in node.parents if isinstance(parent, Tag)):
+        if any(
+            parent.name in AUTOLINK_SKIP_PARENTS
+            for parent in node.parents
+            if isinstance(parent, Tag)
+        ):
             continue
         fragment = soup.new_tag("span")
         pos = 0
         for match in AUTOLINK_RE.finditer(text):
             if match.start() > pos:
                 fragment.append(NavigableString(text[pos : match.start()]))
-            label = match.group(0).rstrip('.,);:!?')
-            trailing = match.group(0)[len(label):]
+            label = match.group(0).rstrip(".,);:!?")
+            trailing = match.group(0)[len(label) :]
             href = label
             if match.group("email"):
                 href = f"mailto:{label}"
@@ -1307,7 +1499,9 @@ CAPTION_PREFIX_RE = re.compile(
     r")\b",
     re.I,
 )
-TABLE_CAPTION_RE = re.compile(r"^(?:table(?:\s+[0-9۰-۹٠-٩]+)?|جدول(?:\s+[0-9۰-۹٠-٩]+)?)[\s:：.\-–—]+", re.I)
+TABLE_CAPTION_RE = re.compile(
+    r"^(?:table(?:\s+[0-9۰-۹٠-٩]+)?|جدول(?:\s+[0-9۰-۹٠-٩]+)?)[\s:：.\-–—]+", re.I
+)
 
 
 def _caption_paragraph_html(paragraph: Tag, *, expected: str | None = None) -> str:
@@ -1322,7 +1516,9 @@ def _caption_paragraph_html(paragraph: Tag, *, expected: str | None = None) -> s
     return "".join(str(child) for child in paragraph.contents).strip()
 
 
-def _append_caption_from_html(soup: BeautifulSoup, parent: Tag, caption_html: str, *, kind: str) -> Tag:
+def _append_caption_from_html(
+    soup: BeautifulSoup, parent: Tag, caption_html: str, *, kind: str
+) -> Tag:
     caption = soup.new_tag("figcaption" if parent.name == "figure" else "caption")
     caption["class"] = ["md2pdf-caption", f"md2pdf-caption--{kind}"]
     caption["dir"] = "auto"
@@ -1532,6 +1728,7 @@ def _table_row_count(table: Tag) -> int:
     """Return the number of rendered rows for print-flow hints."""
     return len(table.find_all("tr"))
 
+
 def postprocess_html(
     body_html: str,
     *,
@@ -1590,7 +1787,9 @@ def postprocess_soup(
     isolate_ltr_runs_in_mixed_persian_text(soup)
 
     # Direction-aware blocks and inline content.
-    for tag in soup.find_all(["p", "li", "td", "th", "h1", "h2", "h3", "h4", "h5", "h6", "figcaption", "caption"]):
+    for tag in soup.find_all(
+        ["p", "li", "td", "th", "h1", "h2", "h3", "h4", "h5", "h6", "figcaption", "caption"]
+    ):
         if "footnote-item" in tag.get("class", []):
             continue
         text = tag.get_text(" ", strip=True)
@@ -1616,7 +1815,11 @@ def postprocess_soup(
 
     # Wrap tables for visual polish, safe overflow, and stable RTL/LTR behavior.
     for table in soup.find_all("table"):
-        if table.parent and getattr(table.parent, "name", None) == "div" and "table-wrap" in table.parent.get("class", []):
+        if (
+            table.parent
+            and getattr(table.parent, "name", None) == "div"
+            and "table-wrap" in table.parent.get("class", [])
+        ):
             continue
         columns = _table_column_count(table)
         rows = _table_row_count(table)
@@ -1782,7 +1985,9 @@ def postprocess_soup(
                 return None
             marker = children[idx + 1]
             closer = children[idx + 2]
-            marker_text = marker.get_text(strip=True) if isinstance(marker, Tag) else str(marker).strip()
+            marker_text = (
+                marker.get_text(strip=True) if isinstance(marker, Tag) else str(marker).strip()
+            )
             if marker_text not in {"x", "X", ""}:
                 return None
             if not isinstance(closer, NavigableString):
@@ -2052,7 +2257,9 @@ def render_markdown(
     md.renderer.rules["th_open"] = render_table_cell_open
     md.renderer.rules["td_open"] = render_table_cell_open
 
-    def render_fence(tokens: list[Any], idx: int, options: dict[str, Any], env: dict[str, Any]) -> str:
+    def render_fence(
+        tokens: list[Any], idx: int, options: dict[str, Any], env: dict[str, Any]
+    ) -> str:
         """Render fenced code blocks as complete figures, not nested inside <pre><code>.
 
         markdown-it wraps custom highlighter output unless it starts with <pre>. Our
@@ -2091,22 +2298,28 @@ def render_markdown(
             )
         lang = fence_info["language"]
         if is_mermaid_language(lang):
-            return mermaid_placeholder(
+            return (
+                mermaid_placeholder(
+                    token.content,
+                    fence_info["title"] or None,
+                    fence_info["reference_label"] or None,
+                )
+                + "\n"
+            )
+        return (
+            highlight_code(
                 token.content,
-                fence_info["title"] or None,
-                fence_info["reference_label"] or None,
-            ) + "\n"
-        return highlight_code(
-            token.content,
-            lang,
-            fence_info["attrs"],
-            code_style=code_style,
-            caption=fence_info["title"] or None,
-            linenos=bool(fence_info["linenos"]),
-            highlight_lines=fence_info["highlight_lines"],
-            line_start=int(fence_info.get("line_start") or 1),
-            reference_label=fence_info["reference_label"] or None,
-        ) + "\n"
+                lang,
+                fence_info["attrs"],
+                code_style=code_style,
+                caption=fence_info["title"] or None,
+                linenos=bool(fence_info["linenos"]),
+                highlight_lines=fence_info["highlight_lines"],
+                line_start=int(fence_info.get("line_start") or 1),
+                reference_label=fence_info["reference_label"] or None,
+            )
+            + "\n"
+        )
 
     md.renderer.rules["fence"] = render_fence
     heading_line_iter = iter(heading_source_lines)
@@ -2174,7 +2387,10 @@ def render_markdown(
                 )
             elif isinstance(citation_enabled_value, str):
                 resolved_citations_enabled = citation_enabled_value.strip().lower() in {
-                    "1", "true", "yes", "on"
+                    "1",
+                    "true",
+                    "yes",
+                    "on",
                 }
             else:
                 resolved_citations_enabled = bool(citation_enabled_value)
@@ -2262,7 +2478,8 @@ def render_markdown(
                         if bibliography_include_uncited is not None
                         else bool(
                             citation_metadata.get(
-                                "include_uncited", metadata.get("bibliography_include_uncited", False)
+                                "include_uncited",
+                                metadata.get("bibliography_include_uncited", False),
                             )
                         )
                     ),
@@ -2338,7 +2555,9 @@ def render_markdown_text(
     source_diagnostics: tuple[Diagnostic, ...] = ()
     resolved_sources: list[Path] = []
     if bibliography_sources is not None:
-        resolved_sources = [Path(item).expanduser().resolve(strict=False) for item in bibliography_sources]
+        resolved_sources = [
+            Path(item).expanduser().resolve(strict=False) for item in bibliography_sources
+        ]
     else:
         try:
             source_metadata, _body = extract_frontmatter(text)
@@ -2415,7 +2634,8 @@ def render_markdown_text(
     source_assets: set[Path] = set()
     for image in BeautifulSoup(result.body_html, "html.parser").find_all("img"):
         for candidate in _local_image_candidates(
-            str(image.get("src") or ""), input_path.parent,
+            str(image.get("src") or ""),
+            input_path.parent,
             document_root=Path(document_root) if document_root is not None else None,
         ):
             if candidate.is_file():

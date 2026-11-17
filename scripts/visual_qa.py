@@ -89,8 +89,8 @@ def _read_png_chunks(path: Path) -> tuple[dict[str, Any], bytes]:
         chunk_data = data[offset : offset + length]
         offset += length + 4  # skip CRC
         if chunk_type == b"IHDR":
-            width, height, bit_depth, color_type, compression, filter_method, interlace = struct.unpack(
-                ">IIBBBBB", chunk_data
+            width, height, bit_depth, color_type, compression, filter_method, interlace = (
+                struct.unpack(">IIBBBBB", chunk_data)
             )
             header = {
                 "width": width,
@@ -184,8 +184,12 @@ def png_stats(path: Path) -> PngStats:
             red, green, blue = image.pixels[i], image.pixels[i + 1], image.pixels[i + 2]
         luma_values.append((0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255.0)
     mean_luma = sum(luma_values) / len(luma_values) if luma_values else 0.0
-    dark_ratio = sum(1 for value in luma_values if value < 0.08) / len(luma_values) if luma_values else 0.0
-    light_ratio = sum(1 for value in luma_values if value > 0.92) / len(luma_values) if luma_values else 0.0
+    dark_ratio = (
+        sum(1 for value in luma_values if value < 0.08) / len(luma_values) if luma_values else 0.0
+    )
+    light_ratio = (
+        sum(1 for value in luma_values if value > 0.92) / len(luma_values) if luma_values else 0.0
+    )
     return PngStats(
         path=str(path),
         width=image.width,
@@ -229,8 +233,6 @@ def compare_pngs(baseline: Path, candidate: Path) -> PngDiff:
         rms_delta=round(rms_delta, 6),
         max_delta=max_delta,
     )
-
-
 
 
 def _command_env(extra_env: dict[str, str] | None = None) -> dict[str, str]:
@@ -305,9 +307,10 @@ def run_command(
     blocked batch job.  Long runners may pass ``heartbeat`` so wrapper scripts can
     update a summary file while a child audit is still active.
     """
-    with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as stdout_file, tempfile.TemporaryFile(
-        mode="w+t", encoding="utf-8"
-    ) as stderr_file:
+    with (
+        tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as stdout_file,
+        tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as stderr_file,
+    ):
         process = subprocess.Popen(
             list(command),
             stdout=stdout_file,
@@ -379,7 +382,11 @@ def render_pdf_pages(
             str(pdf_path),
             str(output_prefix),
         ]
-        run_command(command, timeout=raster_timeout, description=f"pdftoppm render for {pdf_path} page {page}")
+        run_command(
+            command,
+            timeout=raster_timeout,
+            description=f"pdftoppm render for {pdf_path} page {page}",
+        )
         png_path = output_prefix.with_suffix(".png")
         if not png_path.is_file():
             raise RuntimeError(f"pdftoppm did not create {png_path}")

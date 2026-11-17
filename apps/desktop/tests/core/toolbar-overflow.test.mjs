@@ -12,17 +12,25 @@ import { fitToolbarGroups } from "../../frontend/js/core/toolbar-overflow.mjs";
 function strip({ widths, room, fixed = 0, trigger = 0 }) {
   const state = { parked: [], showing: false, measurements: 0 };
   const used = () =>
-    fixed
-    + (state.showing ? trigger : 0)
-    + widths.reduce(
+    fixed +
+    (state.showing ? trigger : 0) +
+    widths.reduce(
       (total, width, index) => (state.parked.includes(index) ? total : total + width),
       0,
     );
   return {
     state,
-    restore: () => { state.parked = []; state.showing = false; },
-    overflows: () => { state.measurements += 1; return used() > room; },
-    onOverflow: () => { state.showing = true; },
+    restore: () => {
+      state.parked = [];
+      state.showing = false;
+    },
+    overflows: () => {
+      state.measurements += 1;
+      return used() > room;
+    },
+    onOverflow: () => {
+      state.showing = true;
+    },
     park: (index) => state.parked.push(index),
     count: widths.length,
   };

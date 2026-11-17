@@ -7,8 +7,14 @@ import { markdownFormattingState } from "../../editor-src/formatting-state.mjs";
 function inspect(doc, text, offset = 0) {
   const from = doc.indexOf(text) + offset;
   assert.ok(from >= 0);
-  const state = EditorState.create({ doc, selection: { anchor: from },
-    extensions: [markdown({ base: markdownLanguage }), EditorState.allowMultipleSelections.of(true)] });
+  const state = EditorState.create({
+    doc,
+    selection: { anchor: from },
+    extensions: [
+      markdown({ base: markdownLanguage }),
+      EditorState.allowMultipleSelections.of(true),
+    ],
+  });
   const before = state.doc.toString();
   const result = markdownFormattingState(state);
   assert.equal(state.doc.toString(), before);
@@ -31,17 +37,24 @@ test("formatting follows parsed inline context rather than marker-like text", ()
 
 test("mixed formatting selections do not claim a shared active format", () => {
   const doc = "**bold** plain";
-  const state = EditorState.create({ doc, selection: { anchor: 2, head: doc.length },
-    extensions: [markdown({ base: markdownLanguage }), EditorState.allowMultipleSelections.of(true)] });
+  const state = EditorState.create({
+    doc,
+    selection: { anchor: 2, head: doc.length },
+    extensions: [
+      markdown({ base: markdownLanguage }),
+      EditorState.allowMultipleSelections.of(true),
+    ],
+  });
   assert.equal(markdownFormattingState(state).bold, false);
-  const multiple = state.update({ selection: EditorSelection.create([
-    EditorSelection.cursor(3), EditorSelection.cursor(11),
-  ]) }).state;
+  const multiple = state.update({
+    selection: EditorSelection.create([EditorSelection.cursor(3), EditorSelection.cursor(11)]),
+  }).state;
   assert.equal(markdownFormattingState(multiple).bold, false);
 });
 
 test("heading and list controls describe the current Markdown block", () => {
-  const doc = "## Title\n\n- bullet\n- [x] task\n\n1. numbered\n\n> quoted\n\n```md\n# literal heading\n```";
+  const doc =
+    "## Title\n\n- bullet\n- [x] task\n\n1. numbered\n\n> quoted\n\n```md\n# literal heading\n```";
   const heading = inspect(doc, "Title", 2);
   assert.equal(heading.heading, 2);
   assert.equal(heading["heading-2"], true);

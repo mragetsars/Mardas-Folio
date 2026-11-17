@@ -10,16 +10,15 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import tempfile
 import time
+from pathlib import Path
 from typing import Any
 
 from playwright.sync_api import expect, sync_playwright
 
-from lib.audit.engine import engine_server
 from lib.audit.desktop import DEFAULT_DIST, ROOT, click_workspace_layout_control
-
+from lib.audit.engine import engine_server
 
 SAMPLE = (
     "AUTHORING_SELECTION_WORD\n\n# Long-form writing / نوشتن طولانی\n\nEnergy is $E=mc^2$.\n\n"
@@ -248,7 +247,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                     # controls. In particular, hiding the toolbar must keep
                     # both Insert and the switch needed to restore it usable.
                     expect(page.locator("#workspace-writing-layout")).to_have_count(0)
-                    before_layout = page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2') || '{}')")
+                    before_layout = page.evaluate(
+                        "JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2') || '{}')"
+                    )
                     toggle = page.locator("#workspace-toggle-formatting")
                     toggle.click()
                     expect(page.locator("#format-bar")).to_be_hidden()
@@ -257,7 +258,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                     toggle.click()
                     expect(page.locator("#format-bar")).to_be_visible()
                     expect(toggle).to_have_attribute("aria-expanded", "true")
-                    after_layout = page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2'))")
+                    after_layout = page.evaluate(
+                        "JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2'))"
+                    )
                     for key, value in before_layout.items():
                         assert after_layout[key] == value, (key, before_layout, after_layout)
                     expect(_buffer(page)).to_have_value(SAMPLE)

@@ -1,7 +1,5 @@
 """Public application behavior across the extracted file and request services."""
 
-from tests._paths import ROOT
-
 import ast
 import json
 import os
@@ -11,6 +9,7 @@ import sys
 import pytest
 
 from mardas_folio.application import EngineError
+from tests._paths import ROOT
 
 
 @pytest.mark.parametrize("extension,method", [("md", "document"), ("txt", "text")])

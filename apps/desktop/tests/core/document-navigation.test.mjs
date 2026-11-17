@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createDocument } from "../../frontend/js/core/documents.mjs";
-import { documentNavigationEntries, filterNavigationEntries } from "../../frontend/js/core/document-navigation.mjs";
+import {
+  documentNavigationEntries,
+  filterNavigationEntries,
+} from "../../frontend/js/core/document-navigation.mjs";
 
 test("file picker includes unsaved buffers and disambiguates identical filenames by path", () => {
   const first = createDocument({ path: "/draft/report.md", content: "A" });
@@ -16,10 +19,14 @@ test("file picker includes unsaved buffers and disambiguates identical filenames
 
 test("open Windows buffers replace project disk entries without dropping closed files", () => {
   const open = createDocument({ path: "C:\\Notes\\Chapter.md" });
-  const entries = documentNavigationEntries([open], { path: "c:/notes", files: [
-    { path: "chapter.md", kind: "markdown" }, { path: "next.md", kind: "markdown" },
-    { path: "image.png", kind: "image" },
-  ] });
+  const entries = documentNavigationEntries([open], {
+    path: "c:/notes",
+    files: [
+      { path: "chapter.md", kind: "markdown" },
+      { path: "next.md", kind: "markdown" },
+      { path: "image.png", kind: "image" },
+    ],
+  });
   assert.equal(entries.length, 2);
   assert.equal(entries[1].relativePath, "next.md");
 });

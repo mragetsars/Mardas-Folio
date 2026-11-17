@@ -1,8 +1,6 @@
 export function bookTaskBlocked(state) {
   return Boolean(
-    state?.activeBookRequestId
-    || state?.activeBookCompletion
-    || state?.bookCancellationHandoff,
+    state?.activeBookRequestId || state?.activeBookCompletion || state?.bookCancellationHandoff,
   );
 }
 

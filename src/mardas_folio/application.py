@@ -22,18 +22,32 @@ from .config import (
 from .diagnostics import Diagnostic, has_errors
 from .document_assets import (
     import_document_asset as import_document_asset,
+)
+from .document_assets import (
     list_document_assets as list_document_assets,
 )
 from .document_store import (
     MARKDOWN_DOCUMENT_EXTENSIONS as _MARKDOWN_DOCUMENT_EXTENSIONS,
+)
+from .document_store import (
     MAX_DOCUMENT_BYTES as MAX_DOCUMENT_BYTES,
+)
+from .document_store import (
     read_document as read_document,
+)
+from .document_store import (
     read_text_document as read_text_document,
+)
+from .document_store import (
     save_document as save_document,
+)
+from .document_store import (
     save_text_document as save_text_document,
 )
 from .engine_errors import (
     EngineError as EngineError,
+)
+from .engine_errors import (
     EngineValidationError as EngineValidationError,
 )
 from .file_io import atomic_write_text as _atomic_write_text
@@ -46,7 +60,11 @@ from .markdown import (
 from .protocol import PROTOCOL_NAME, PROTOCOL_VERSION
 from .render_requests import (
     OPTION_FIELDS as _OPTION_FIELDS,
+)
+from .render_requests import (
     path_value as _path_value,
+)
+from .render_requests import (
     pdf_options_from_request as pdf_options_from_request,
 )
 from .renderer import (
@@ -62,12 +80,26 @@ from .renderer import (
 )
 from .request_validation import (
     mapping as _mapping,
+)
+from .request_validation import (
     optional_bool as _optional_bool,
+)
+from .request_validation import (
     optional_int as _optional_int,
+)
+from .request_validation import (
     optional_string as _optional_string,
+)
+from .request_validation import (
     required_content as _required_content,
+)
+from .request_validation import (
     required_string as _required_string,
+)
+from .request_validation import (
     string_list as _string_list,
+)
+from .request_validation import (
     validate_params as _validate_params,
 )
 from .runtime import runtime_info
@@ -679,14 +711,10 @@ class EngineService:
                 cancelled=cancelled,
             )
             relative_path = _required_string(params, "relative_path")
-            payload = _workspace_call(
-                lambda: read_workspace_file(workspace, relative_path)
-            )
+            payload = _workspace_call(lambda: read_workspace_file(workspace, relative_path))
             absolute_path = (workspace.root / str(payload["path"])).resolve(strict=False)
             payload["absolute_path"] = str(absolute_path)
-            payload["revision"] = (
-                f"{payload['mtime_ns']}:{payload['size']}:{payload['sha256']}"
-            )
+            payload["revision"] = f"{payload['mtime_ns']}:{payload['size']}:{payload['sha256']}"
             payload["read_only"] = not os.access(absolute_path, os.W_OK)
             return payload
         if method == "project.save":
@@ -721,9 +749,7 @@ class EngineService:
             )
             absolute_path = (workspace.root / str(payload["path"])).resolve(strict=False)
             payload["absolute_path"] = str(absolute_path)
-            payload["revision"] = (
-                f"{payload['mtime_ns']}:{payload['size']}:{payload['sha256']}"
-            )
+            payload["revision"] = f"{payload['mtime_ns']}:{payload['size']}:{payload['sha256']}"
             payload["read_only"] = not os.access(absolute_path, os.W_OK)
             return payload
         if method == "project.search":
@@ -746,9 +772,7 @@ class EngineService:
                     workspace,
                     _required_string(params, "query"),
                     regex=_optional_bool(params, "regex", default=False),
-                    case_sensitive=_optional_bool(
-                        params, "case_sensitive", default=False
-                    ),
+                    case_sensitive=_optional_bool(params, "case_sensitive", default=False),
                     max_results=_optional_int(
                         params, "max_results", default=200, minimum=1, maximum=500
                     ),
@@ -838,14 +862,10 @@ class EngineService:
                 refreshed, chapter = add_workspace_book_chapter(
                     workspace,
                     title=_required_string(params, "title"),
-                    expected_config_sha256=_required_string(
-                        params, "expected_config_sha256"
-                    ),
+                    expected_config_sha256=_required_string(params, "expected_config_sha256"),
                     position=position,
                     content=(
-                        _required_content(params)
-                        if params.get("content") is not None
-                        else None
+                        _required_content(params) if params.get("content") is not None else None
                     ),
                 )
             except WorkspaceError as exc:
@@ -873,9 +893,7 @@ class EngineService:
                     workspace,
                     relative_path=_required_string(params, "relative_path"),
                     title=_optional_string(params, "title"),
-                    expected_config_sha256=_required_string(
-                        params, "expected_config_sha256"
-                    ),
+                    expected_config_sha256=_required_string(params, "expected_config_sha256"),
                 )
             except WorkspaceError as exc:
                 raise _workspace_error(exc) from exc
@@ -895,12 +913,8 @@ class EngineService:
             try:
                 refreshed = reorder_workspace_book_chapters(
                     workspace,
-                    ordered_paths=_string_list(
-                        params.get("ordered_paths", ()), "ordered_paths"
-                    ),
-                    expected_config_sha256=_required_string(
-                        params, "expected_config_sha256"
-                    ),
+                    ordered_paths=_string_list(params.get("ordered_paths", ()), "ordered_paths"),
+                    expected_config_sha256=_required_string(params, "expected_config_sha256"),
                 )
             except WorkspaceError as exc:
                 raise _workspace_error(exc) from exc
@@ -924,9 +938,7 @@ class EngineService:
                 refreshed = remove_workspace_book_chapter(
                     workspace,
                     relative_path=_required_string(params, "relative_path"),
-                    expected_config_sha256=_required_string(
-                        params, "expected_config_sha256"
-                    ),
+                    expected_config_sha256=_required_string(params, "expected_config_sha256"),
                 )
             except WorkspaceError as exc:
                 raise _workspace_error(exc) from exc
@@ -1013,12 +1025,21 @@ class EngineService:
             _validate_params(params, {"output_path"})
             candidate = Path(_required_string(params, "output_path")).expanduser()
             if candidate.suffix.casefold() != ".pdf":
-                raise EngineError("Output must use the .pdf extension.", code="MARDAS-INVALID-PARAMS")
+                raise EngineError(
+                    "Output must use the .pdf extension.", code="MARDAS-INVALID-PARAMS"
+                )
             return {"exists": os.path.lexists(candidate)}
         if method == "render.document":
             _validate_params(
                 params,
-                {"input_path", "output_path", "config_path", "discover_config", "options", "create_only"},
+                {
+                    "input_path",
+                    "output_path",
+                    "config_path",
+                    "discover_config",
+                    "options",
+                    "create_only",
+                },
             )
             options = pdf_options_from_request(
                 input_path=_required_string(params, "input_path"),
@@ -1085,9 +1106,11 @@ class EngineService:
             target = Path(preview_path).expanduser().resolve(strict=False)
             return preview_document(options, output_path=target)
         if method in {"render.book", "validate.book"}:
-            allowed = {"config_path"} if method == "validate.book" else {
-                "config_path", "output_path", "debug_html"
-            }
+            allowed = (
+                {"config_path"}
+                if method == "validate.book"
+                else {"config_path", "output_path", "debug_html"}
+            )
             _validate_params(params, allowed)
             config_path = Path(_required_string(params, "config_path")).expanduser().resolve()
             if method == "validate.book":
@@ -1100,9 +1123,7 @@ class EngineService:
                 output_path=(
                     _path_value(output_value, base_dir=base_dir) if output_value else None
                 ),
-                debug_html=(
-                    _path_value(debug_value, base_dir=base_dir) if debug_value else None
-                ),
+                debug_html=(_path_value(debug_value, base_dir=base_dir) if debug_value else None),
                 progress=progress,
                 cancelled=cancelled,
                 session=self._render_session(),
@@ -1143,8 +1164,6 @@ def _load_workspace_request(
     validate_content: bool = False,
 ) -> ProjectWorkspace:
     try:
-        return load_workspace(
-            Path(path), cancelled=cancelled, validate_content=validate_content
-        )
+        return load_workspace(Path(path), cancelled=cancelled, validate_content=validate_content)
     except WorkspaceError as exc:
         raise _workspace_error(exc) from exc

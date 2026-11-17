@@ -1,9 +1,9 @@
 const FOCUSABLE_SELECTOR = [
-  'a[href]',
-  'button:not([disabled])',
+  "a[href]",
+  "button:not([disabled])",
   'input:not([disabled]):not([type="hidden"])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
+  "select:not([disabled])",
+  "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
@@ -47,9 +47,8 @@ export function createModalManager(documentRef = globalThis.document) {
    * up exactly where it should.
    */
   function focusInitial(modal, initialFocus) {
-    const candidate = typeof initialFocus === "string"
-      ? modal.querySelector?.(initialFocus)
-      : initialFocus;
+    const candidate =
+      typeof initialFocus === "string" ? modal.querySelector?.(initialFocus) : initialFocus;
     const target = candidate || focusableElements(modal)[0] || modal;
     if (!target || typeof target.focus !== "function") return;
     target.focus({ preventScroll: true });
@@ -66,7 +65,10 @@ export function createModalManager(documentRef = globalThis.document) {
     }
   }
 
-  function open(modal, { initialFocus = null, returnFocus = null, escape = true, onClose = null } = {}) {
+  function open(
+    modal,
+    { initialFocus = null, returnFocus = null, escape = true, onClose = null } = {},
+  ) {
     if (!modal || openStack.includes(modal)) return;
     previousFocus.set(modal, returnFocus || documentRef?.activeElement || null);
     optionsByModal.set(modal, { escape: escape !== false, onClose });
@@ -119,8 +121,12 @@ export function createModalManager(documentRef = globalThis.document) {
     }
     const currentIndex = items.indexOf(documentRef.activeElement);
     const nextIndex = event.shiftKey
-      ? (currentIndex <= 0 ? items.length - 1 : currentIndex - 1)
-      : (currentIndex < 0 || currentIndex === items.length - 1 ? 0 : currentIndex + 1);
+      ? currentIndex <= 0
+        ? items.length - 1
+        : currentIndex - 1
+      : currentIndex < 0 || currentIndex === items.length - 1
+        ? 0
+        : currentIndex + 1;
     event.preventDefault();
     items[nextIndex].focus?.();
     return true;

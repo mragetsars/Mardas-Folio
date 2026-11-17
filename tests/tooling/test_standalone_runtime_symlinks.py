@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import hashlib
 import json
 import os
@@ -13,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from tests._paths import ROOT
+
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
@@ -20,20 +20,21 @@ if str(SCRIPTS) not in sys.path:
 import build_standalone_runtime as runtime_builder  # noqa: E402
 import release_provenance as runtime_provenance  # noqa: E402
 from build_standalone_runtime import _archive_runtime, _write_manifest  # noqa: E402
-from mardas_folio import __version__  # noqa: E402
 from release_provenance import (  # noqa: E402
     ReleaseProvenanceError,
     verify_standalone_runtime,
 )
+from stage_desktop_runtime import stage_runtime  # noqa: E402
+from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
+from verify_standalone_runtime import verify as smoke_verify  # noqa: E402
+
 from lib.build.runtime_manifest import (  # noqa: E402
     RUNTIME_FILE_TYPE,
     RUNTIME_MANIFEST_SCHEMA,
     RUNTIME_SYMLINK_TYPE,
     normalize_symlink_target,
 )
-from stage_desktop_runtime import stage_runtime  # noqa: E402
-from verify_standalone_runtime import load_and_verify_manifest  # noqa: E402
-from verify_standalone_runtime import verify as smoke_verify  # noqa: E402
+from mardas_folio import __version__  # noqa: E402
 
 
 def _symlink(link: Path, target: str | Path, *, directory: bool = False) -> None:
@@ -45,7 +46,9 @@ def _symlink(link: Path, target: str | Path, *, directory: bool = False) -> None
 
 @pytest.mark.skipif(os.name == "nt", reason="The synthetic sidecar uses a POSIX shebang")
 @pytest.mark.parametrize("writes_log", [False, True])
-def test_runtime_smoke_checks_inventory_after_the_engine_exits(tmp_path: Path, writes_log: bool) -> None:
+def test_runtime_smoke_checks_inventory_after_the_engine_exits(
+    tmp_path: Path, writes_log: bool
+) -> None:
     runtime = tmp_path / "runtime"
     runtime.mkdir()
     sidecar = runtime / "mardas-sidecar"
@@ -251,9 +254,7 @@ def test_runtime_file_limit_excludes_the_root_manifest(
     verify_standalone_runtime(archive, expected_version=__version__)
 
 
-@pytest.mark.parametrize(
-    "case", ["absolute", "escape", "dangling", "cycle", "directory-cycle"]
-)
+@pytest.mark.parametrize("case", ["absolute", "escape", "dangling", "cycle", "directory-cycle"])
 def test_manifest_builder_rejects_unsafe_symlinks(tmp_path: Path, case: str) -> None:
     runtime = tmp_path / case
     runtime.mkdir()
@@ -305,9 +306,7 @@ def test_directory_verifier_checks_lstat_before_following_a_link(tmp_path: Path)
             _file_entry("alias.bin", browser.read_bytes()),
         ],
     }
-    (runtime / "runtime-manifest.json").write_text(
-        json.dumps(manifest), encoding="utf-8"
-    )
+    (runtime / "runtime-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
     with pytest.raises(ValueError, match="missing or unsafe"):
         load_and_verify_manifest(runtime, expected_version=__version__)

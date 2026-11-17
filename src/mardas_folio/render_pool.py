@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 import math
-from queue import Empty, Full, Queue
 import threading
 import time
+from dataclasses import dataclass
+from queue import Empty, Full, Queue
 from typing import Any, Callable, Generic, TypeVar
 from uuid import uuid4
 
@@ -207,7 +207,11 @@ class RenderPool:
     ) -> None:
         if isinstance(workers, bool) or not isinstance(workers, int) or not 1 <= workers <= 8:
             raise ValueError("workers must be between 1 and 8")
-        if isinstance(queue_size, bool) or not isinstance(queue_size, int) or not 1 <= queue_size <= 64:
+        if (
+            isinstance(queue_size, bool)
+            or not isinstance(queue_size, int)
+            or not 1 <= queue_size <= 64
+        ):
             raise ValueError("queue_size must be between 1 and 64")
         if (
             isinstance(idle_timeout, bool)
@@ -302,7 +306,9 @@ class RenderPool:
                         try:
                             session.restart()
                         except BaseException:
-                            LOGGER.warning("Could not restart a render worker session", exc_info=True)
+                            LOGGER.warning(
+                                "Could not restart a render worker session", exc_info=True
+                            )
                             self._close_session(session)
                             session = None
                 finally:

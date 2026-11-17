@@ -6,6 +6,7 @@ isolated browser context with deterministic file/engine bridge fixtures; it
 does not launch the installed application, use a native file dialog, or render
 a PDF. Zoom cases reduce the CSS viewport and increase device scale together.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -180,8 +181,9 @@ FOCUS_CHECK = r"""() => {
 
 def _matrix() -> list[tuple[int, int, float]]:
     base = [(1920, 1080, 1.0), (1280, 800, 1.0), (840, 640, 1.0), (720, 620, 1.0)]
-    return base + [(width, height, zoom) for width, height in [(1280, 800), (840, 640)]
-                   for zoom in [1.25, 1.5]]
+    return base + [
+        (width, height, zoom) for width, height in [(1280, 800), (840, 640)] for zoom in [1.25, 1.5]
+    ]
 
 
 def _snapshot(page: Any) -> dict[str, Any]:
@@ -211,18 +213,22 @@ def _keyboard_metadata(page: Any) -> dict[str, Any]:
 
 
 def _action_fill(page: Any, selector: str, role: str) -> None:
-    page.wait_for_function("""([selector, role]) => {
+    page.wait_for_function(
+        """([selector, role]) => {
       const control = document.querySelector(selector);
       const sample = document.createElement('canvas').getContext('2d');
       sample.fillStyle = getComputedStyle(document.documentElement).getPropertyValue(role).trim();
       const expected = sample.fillStyle;
       sample.fillStyle = getComputedStyle(control).backgroundColor;
       return sample.fillStyle === expected;
-    }""", arg=[selector, role])
+    }""",
+        arg=[selector, role],
+    )
 
 
-def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
-              check_scrollbars: bool = False) -> dict[str, Any]:
+def run_audit(
+    dist: Path, output: Path, *, executable_path: str | None = None, check_scrollbars: bool = False
+) -> dict[str, Any]:
     output.mkdir(parents=True, exist_ok=True)
     report: dict[str, Any] = {
         "scope": "Real frontend layout; isolated Tauri/file/render bridge fixtures, no native engine or dialogs",
@@ -239,16 +245,28 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                     report["scenarios"][key] = scenario
                     context = browser.new_context(
                         viewport={"width": round(width / zoom), "height": round(height / zoom)},
-                        device_scale_factor=zoom, locale="fa-IR" if locale == "fa" else "en-US",
+                        device_scale_factor=zoom,
+                        locale="fa-IR" if locale == "fa" else "en-US",
                     )
                     page = context.new_page()
                     page.set_default_timeout(15_000)
-                    page.on("pageerror", lambda error, target=scenario: target["problems"].append(str(error)))
+                    page.on(
+                        "pageerror",
+                        lambda error, target=scenario: target["problems"].append(str(error)),
+                    )
                     page.add_init_script(BRIDGE)
                     page.add_init_script(
                         "localStorage.setItem('mardas.desktop.locale', " + json.dumps(locale) + ");"
                         "localStorage.setItem('mardas.desktop.preferences.v1', JSON.stringify("
-                        + json.dumps({"theme": theme, "accent": "purple", "onboardingComplete": True, "reducedMotion": "reduce"}) + "));"
+                        + json.dumps(
+                            {
+                                "theme": theme,
+                                "accent": "purple",
+                                "onboardingComplete": True,
+                                "reducedMotion": "reduce",
+                            }
+                        )
+                        + "));"
                     )
                     try:
                         page.goto(url, wait_until="networkidle")
@@ -268,7 +286,9 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                             expect(page.locator("#export-button")).to_be_visible()
                         else:
                             page.locator("#choose-source").click()
-                        expect(page.locator("#output-path")).to_have_value(SOURCE_PATH[:-3] + ".pdf")
+                        expect(page.locator("#output-path")).to_have_value(
+                            SOURCE_PATH[:-3] + ".pdf"
+                        )
                         page.locator("#choose-output").click()
                         expect(page.locator("#output-path")).to_have_value(OUTPUT_PATH)
                         expect(page.locator("#preview-zoom-in")).to_be_enabled()
@@ -279,18 +299,31 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                         page.locator("#option-category").select_option("document")
                         for position, fraction in [("top", 0), ("middle", 0.5), ("bottom", 1)]:
                             page.locator("#export-settings").evaluate(
-                                "(node, fraction) => { node.scrollTop = (node.scrollHeight - node.clientHeight) * fraction; }", fraction)
+                                "(node, fraction) => { node.scrollTop = (node.scrollHeight - node.clientHeight) * fraction; }",
+                                fraction,
+                            )
                             scenario["samples"][position] = _snapshot(page)
                             if position == "middle":
                                 page.screenshot(path=str(output / f"{key}.png"))
                         scenario["samples"]["metadata-keyboard"] = _keyboard_metadata(page)
-                        for action, method in [("#validate-button", "validate.document"), ("#export-button", "render.document")]:
+                        for action, method in [
+                            ("#validate-button", "validate.document"),
+                            ("#export-button", "render.document"),
+                        ]:
                             page.locator(action).click()
                             expect(page.locator("#cancel-button")).to_be_visible()
                             scenario["samples"][method] = _snapshot(page)
-                            received = page.evaluate("method => __exportAudit.requests.filter(request => request.method === method)", method)
-                            if len(received) != 1 or received[0]["params"]["output_path"] != OUTPUT_PATH:
-                                scenario["problems"].append(f"{method} did not receive current long destination path once")
+                            received = page.evaluate(
+                                "method => __exportAudit.requests.filter(request => request.method === method)",
+                                method,
+                            )
+                            if (
+                                len(received) != 1
+                                or received[0]["params"]["output_path"] != OUTPUT_PATH
+                            ):
+                                scenario["problems"].append(
+                                    f"{method} did not receive current long destination path once"
+                                )
                             page.locator("#cancel-button").click()
                             expect(page.locator("#cancel-button")).to_be_hidden()
                             scenario["samples"][f"{method}-cancelled"] = _snapshot(page)
@@ -302,7 +335,12 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                             search.fill("margin")
                             search.press("Enter")
                             expect(page.locator("#cancel-button")).to_be_hidden()
-                            assert page.evaluate("() => __exportAudit.requests.filter(r => r.method === 'render.document').length") == 1
+                            assert (
+                                page.evaluate(
+                                    "() => __exportAudit.requests.filter(r => r.method === 'render.document').length"
+                                )
+                                == 1
+                            )
                             page.locator("#export-close-settings").click()
                             page.locator("#preview-next-page").click()
                             expect(page.locator("#preview-page-count")).to_have_text("2 / 3")
@@ -317,7 +355,9 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                               }]});
                               __exportAudit.pending = null;
                             }""")
-                            expect(page.locator("#export-feedback")).to_have_attribute("data-state", "warning")
+                            expect(page.locator("#export-feedback")).to_have_attribute(
+                                "data-state", "warning"
+                            )
                             details = page.locator("#export-show-details")
                             details.click()
                             expect(page.locator("#diagnostics")).to_contain_text("TEST-WARNING")
@@ -327,11 +367,21 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                             # Keep the notifications alive while the dock changes
                             # height. Fresh contexts alone cannot verify that its
                             # ResizeObserver updates the notification boundary.
-                            for resized_width, resized_height in [(840, 640), (720, 620), (1920, 1080)]:
-                                page.set_viewport_size({"width": resized_width, "height": resized_height})
-                                scenario["samples"][f"live-resize-{resized_width}x{resized_height}"] = _snapshot(page)
+                            for resized_width, resized_height in [
+                                (840, 640),
+                                (720, 620),
+                                (1920, 1080),
+                            ]:
+                                page.set_viewport_size(
+                                    {"width": resized_width, "height": resized_height}
+                                )
+                                scenario["samples"][
+                                    f"live-resize-{resized_width}x{resized_height}"
+                                ] = _snapshot(page)
                             open_settings(page, "language")
-                            page.locator("#setting-locale").select_option("fa" if locale == "en" else "en")
+                            page.locator("#setting-locale").select_option(
+                                "fa" if locale == "en" else "en"
+                            )
                             page.locator('#settings-form button[type="submit"]').click()
                             scenario["samples"]["live-locale-change"] = _snapshot(page)
                             page.locator("#export-button").click()
@@ -350,18 +400,26 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                                 width: getComputedStyle(node).scrollbarWidth} : null);
                             }""")
                             scenario["scrollbars"] = scrollbars
-                            if any(not item or item["color"] in ["auto", ""] for item in scrollbars):
-                                scenario["problems"].append("application or preview scrollbar still uses native colors")
+                            if any(
+                                not item or item["color"] in ["auto", ""] for item in scrollbars
+                            ):
+                                scenario["problems"].append(
+                                    "application or preview scrollbar still uses native colors"
+                                )
                     except Exception as error:
                         scenario["problems"].append(f"{type(error).__name__}: {error}")
                         page.screenshot(path=str(output / f"{key}-failure.png"))
                     finally:
                         for name, sample in scenario["samples"].items():
-                            scenario["problems"].extend(f"{name}: {problem}" for problem in sample.get("problems", []))
+                            scenario["problems"].extend(
+                                f"{name}: {problem}" for problem in sample.get("problems", [])
+                            )
                         context.close()
         browser.close()
     report["passed"] = not any(scenario["problems"] for scenario in report["scenarios"].values())
-    (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (output / "report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return report
 
 
@@ -372,11 +430,29 @@ def main() -> int:
     parser.add_argument("--executable-path")
     parser.add_argument("--check-scrollbars", action="store_true")
     args = parser.parse_args()
-    report = run_audit(args.dist.resolve(), args.out.resolve(), executable_path=args.executable_path,
-                       check_scrollbars=args.check_scrollbars)
-    failures = {key: scenario["problems"] for key, scenario in report["scenarios"].items() if scenario["problems"]}
-    print(json.dumps({"passed": report["passed"], "scenarios": len(report["scenarios"]), "failures": failures,
-                      "report": str(args.out.resolve() / "report.json")}, ensure_ascii=False, indent=2))
+    report = run_audit(
+        args.dist.resolve(),
+        args.out.resolve(),
+        executable_path=args.executable_path,
+        check_scrollbars=args.check_scrollbars,
+    )
+    failures = {
+        key: scenario["problems"]
+        for key, scenario in report["scenarios"].items()
+        if scenario["problems"]
+    }
+    print(
+        json.dumps(
+            {
+                "passed": report["passed"],
+                "scenarios": len(report["scenarios"]),
+                "failures": failures,
+                "report": str(args.out.resolve() / "report.json"),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0 if report["passed"] else 1
 
 

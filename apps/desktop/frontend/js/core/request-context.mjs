@@ -19,13 +19,12 @@ export function captureProjectContext(projectPath, projectGeneration = 0) {
   });
 }
 
-export function projectContextCurrent(
-  context,
-  { projectPath = null, projectGeneration = 0 },
-) {
+export function projectContextCurrent(context, { projectPath = null, projectGeneration = 0 }) {
   if (!context) return false;
-  return context.projectIdentity === pathIdentity(projectPath)
-    && context.projectGeneration === (Number(projectGeneration) || 0);
+  return (
+    context.projectIdentity === pathIdentity(projectPath) &&
+    context.projectGeneration === (Number(projectGeneration) || 0)
+  );
 }
 
 export function documentContextCurrent(
@@ -37,7 +36,8 @@ export function documentContextCurrent(
   const document = documents.find((candidate) => candidate.id === context.documentId);
   if (!document) return false;
   if (requireActive && activeDocumentId !== context.documentId) return false;
-  if (requireContent && (Number(document.contentVersion) || 0) !== context.contentVersion) return false;
+  if (requireContent && (Number(document.contentVersion) || 0) !== context.contentVersion)
+    return false;
   if (requirePath && (document.path ?? null) !== context.path) return false;
   return (projectPath ?? null) === context.projectPath;
 }

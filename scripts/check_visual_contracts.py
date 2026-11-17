@@ -149,7 +149,9 @@ def validate_features_manifest(path: Path, failures: list[ContractFailure]) -> i
     for record_index, record in enumerate(records):
         images = record.get("png", []) if isinstance(record, dict) else []
         if not isinstance(images, list) or not images:
-            failures.append(ContractFailure(str(path), f"feature record {record_index} has no PNG pages"))
+            failures.append(
+                ContractFailure(str(path), f"feature record {record_index} has no PNG pages")
+            )
             continue
         for page_index, image in enumerate(images):
             _validate_image(
@@ -240,7 +242,12 @@ def main(argv: list[str] | None = None) -> int:
         "failures": [asdict(item) for item in failures],
     }
     write_json(args.output_dir / "summary.json", payload)
-    lines = ["# Visual contract report", "", f"Status: **{'PASS' if not failures else 'FAIL'}**", ""]
+    lines = [
+        "# Visual contract report",
+        "",
+        f"Status: **{'PASS' if not failures else 'FAIL'}**",
+        "",
+    ]
     lines.extend(f"- {name}: {value}" for name, value in counts.items())
     if failures:
         lines.extend(["", "## Failures", ""])

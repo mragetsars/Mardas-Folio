@@ -4,7 +4,10 @@ import { templateContent, templateList } from "../../frontend/js/core/templates.
 
 test("document templates are local, bounded, and bilingual", () => {
   const templates = templateList();
-  assert.deepEqual(templates.map((item) => item.id), ["blank", "report", "academic", "technical"]);
+  assert.deepEqual(
+    templates.map((item) => item.id),
+    ["blank", "report", "academic", "technical"],
+  );
   for (const template of templates) {
     assert.equal("content" in template, false);
     const fa = templateContent(template.id, "fa");

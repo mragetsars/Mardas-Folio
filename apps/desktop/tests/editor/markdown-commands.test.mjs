@@ -65,8 +65,11 @@ test("a pressed inline format can be removed at its caret without adding a place
     ["italic", "hello _world_", "hello world", 9],
     ["code", "hello ``world``", "hello world", 10],
   ]) {
-    const state = EditorState.create({ doc: text, selection: EditorSelection.cursor(from),
-      extensions: [markdown({ base: markdownLanguage })] });
+    const state = EditorState.create({
+      doc: text,
+      selection: EditorSelection.cursor(from),
+      extensions: [markdown({ base: markdownLanguage })],
+    });
     const next = state.update(MARKDOWN_COMMANDS[command](state)).state;
     assert.equal(next.doc.toString(), expected);
     assert.equal(next.selection.main.empty, true);
@@ -167,7 +170,7 @@ test("formatting keys are bound inside the editor, above everything else", () =>
     new URL("../../editor-src/codemirror-editor.mjs", import.meta.url),
     "utf8",
   );
-  assert.match(editor, /Prec\.highest\(keymap\.of\(\[\s*\.\.\.markdownCommandKeymap\(\)/);
+  assert.match(editor, /Prec\.highest\(\s*keymap\.of\(\[\s*\.\.\.markdownCommandKeymap\(\)/);
   assert.match(editor, /runCommand\(name\)/);
 });
 
@@ -195,7 +198,7 @@ test("the editor does not open a second search panel", () => {
   assert.deepEqual(claimed.sort(), ["Mod-f", "Mod-h"]);
   assert.match(editor, /documentLanguage\.of\(markdownExtensions\)/);
   assert.match(editor, /\.\.\.markdownCommandKeymap\(\)/);
-  assert.match(editor, /Prec\.highest\(keymap\.of\(\[\s*\.\.\.APPLICATION_OWNED_KEYS/);
+  assert.match(editor, /Prec\.highest\(\s*keymap\.of\(\[\s*\.\.\.APPLICATION_OWNED_KEYS/);
 });
 
 test("focus mode restates the workspace rows it empties", () => {
@@ -203,8 +206,14 @@ test("focus mode restates the workspace rows it empties", () => {
   // restating the rows the authoring grid lands in the 40px tab track.
   const css = readFileSync(new URL("../../frontend/styles/workspace.css", import.meta.url), "utf8");
   assert.match(css, /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.tab-bar/);
-  assert.match(css, /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.workspace-view\.active \{\s*grid-template-rows/);
-  assert.match(css, /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.editor-pane \{[^}]*grid-template-rows/);
+  assert.match(
+    css,
+    /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.workspace-view\.active \{\s*grid-template-rows/,
+  );
+  assert.match(
+    css,
+    /html\[data-focus-mode="true"\] body\[data-view="workspace"\] \.editor-pane \{[^}]*grid-template-rows/,
+  );
 });
 
 test("a footnote inserts its reference and its definition together", () => {
@@ -244,5 +253,8 @@ test("block maths and a mermaid diagram open on their own lines", () => {
   const maths = state.update(MARKDOWN_COMMANDS["math-block"](state)).state;
   assert.equal(maths.doc.toString(), "Paragraph.\n\n$$\n\n$$");
   const diagram = state.update(MARKDOWN_COMMANDS.mermaid(state)).state;
-  assert.match(diagram.doc.toString(), /\n\n```mermaid\ngraph TD\n {2}A\[Start\] --> B\[End\]\n```$/);
+  assert.match(
+    diagram.doc.toString(),
+    /\n\n```mermaid\ngraph TD\n {2}A\[Start\] --> B\[End\]\n```$/,
+  );
 });

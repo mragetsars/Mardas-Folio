@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from mardas_folio.projects import books, files
-
 import hashlib
 import os
 import stat
@@ -11,7 +9,16 @@ from threading import Event
 
 import pytest
 
-from mardas_folio import document_assets, file_io, application, config, markdown, renderer, workspace
+from mardas_folio import (
+    application,
+    config,
+    document_assets,
+    file_io,
+    markdown,
+    renderer,
+    workspace,
+)
+from mardas_folio.projects import books, files
 
 
 def _book(tmp_path: Path) -> workspace.ProjectWorkspace:
@@ -306,7 +313,9 @@ def test_book_add_rejects_non_utf8_input_without_creating_a_file(
     request[field] = "\ud800"
     with pytest.raises(workspace.WorkspaceError) as error:
         workspace.add_workspace_book_chapter(project, **request)
-    assert error.value.code == ("invalid_book_chapter_title" if field == "title" else "invalid_book_chapter_content")
+    assert error.value.code == (
+        "invalid_book_chapter_title" if field == "title" else "invalid_book_chapter_content"
+    )
     assert len(list((project.root / "chapters").glob("*.md"))) == 1
 
 

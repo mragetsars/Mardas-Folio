@@ -50,9 +50,9 @@
   --ui-page: var(--geist-background);
   --ui-desk: var(--geist-background-200);
   --ui-scrollbar-thumb: color-mix(in srgb, var(--ui-muted) 35%, transparent);
-  --ui-overlay: rgb(0 0 0 / .42);
-  --ui-shadow: 0 2px 8px rgb(0 0 0 / .025);
-  --ui-shadow-float: 0 16px 48px rgb(0 0 0 / .15), 0 2px 8px rgb(0 0 0 / .06);
+  --ui-overlay: rgb(0 0 0 / 0.42);
+  --ui-shadow: 0 2px 8px rgb(0 0 0 / 0.025);
+  --ui-shadow-float: 0 16px 48px rgb(0 0 0 / 0.15), 0 2px 8px rgb(0 0 0 / 0.06);
 
   --ui-control-hover: var(--ui-panel-muted);
   --ui-surface-navigation: var(--ui-panel-soft);
@@ -85,10 +85,12 @@
   --ui-info: var(--geist-blue-900);
   --ui-special: var(--geist-purple-900);
 
-  --app-font: "Geist", "Segoe UI Variable", "Segoe UI", "Vazirmatn", "Noto Sans Arabic", system-ui, sans-serif;
+  --app-font:
+    "Geist", "Segoe UI Variable", "Segoe UI", "Vazirmatn", "Noto Sans Arabic", system-ui, sans-serif;
   --prose-font: "Geist", "Vazirmatn", "Segoe UI", "Noto Sans Arabic", system-ui, sans-serif;
-  --app-mono: "Geist Mono", ui-monospace, "Cascadia Mono", "SFMono-Regular", "JetBrains Mono",
-    Menlo, Consolas, "Vazirmatn", "Noto Sans Arabic", monospace;
+  --app-mono:
+    "Geist Mono", ui-monospace, "Cascadia Mono", "SFMono-Regular", "JetBrains Mono", Menlo,
+    Consolas, "Vazirmatn", "Noto Sans Arabic", monospace;
   --ui-text-3xs: 10px;
   --ui-text-2xs: 11px;
   --ui-text-xs: 12px;
@@ -183,9 +185,9 @@ html[data-theme="dark"] {
   --ui-surface-floating: var(--geist-gray-100);
   --ui-desk: var(--geist-background-100);
   --ui-scrollbar-thumb: color-mix(in srgb, var(--ui-muted) 25%, transparent);
-  --ui-overlay: rgb(0 0 0 / .62);
-  --ui-shadow: 0 2px 8px rgb(0 0 0 / .08);
-  --ui-shadow-float: 0 12px 36px rgb(0 0 0 / .45);
+  --ui-overlay: rgb(0 0 0 / 0.62);
+  --ui-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+  --ui-shadow-float: 0 12px 36px rgb(0 0 0 / 0.45);
 
   --cm-code: #fdba74;
   --cm-number: #c4b5fd;
@@ -220,13 +222,27 @@ html[data-theme="dark"] {
   --ui-selected-bg: color-mix(in srgb, var(--ui-primary-bg) 20%, black);
 }
 
-:root[data-accent="gray"] { --ui-primary-bg: var(--ui-accent-gray); }
-:root[data-accent="red"] { --ui-primary-bg: var(--ui-accent-red); }
-:root[data-accent="amber"] { --ui-primary-bg: var(--ui-accent-amber); }
-:root[data-accent="green"] { --ui-primary-bg: var(--ui-accent-green); }
-:root[data-accent="teal"] { --ui-primary-bg: var(--ui-accent-teal); }
-:root[data-accent="purple"] { --ui-primary-bg: var(--ui-accent-purple); }
-:root[data-accent="pink"] { --ui-primary-bg: var(--ui-accent-pink); }
+:root[data-accent="gray"] {
+  --ui-primary-bg: var(--ui-accent-gray);
+}
+:root[data-accent="red"] {
+  --ui-primary-bg: var(--ui-accent-red);
+}
+:root[data-accent="amber"] {
+  --ui-primary-bg: var(--ui-accent-amber);
+}
+:root[data-accent="green"] {
+  --ui-primary-bg: var(--ui-accent-green);
+}
+:root[data-accent="teal"] {
+  --ui-primary-bg: var(--ui-accent-teal);
+}
+:root[data-accent="purple"] {
+  --ui-primary-bg: var(--ui-accent-purple);
+}
+:root[data-accent="pink"] {
+  --ui-primary-bg: var(--ui-accent-pink);
+}
 :root[data-accent="blue"] {
   --ui-primary-bg: var(--ui-accent-blue);
   --ui-primary-hover: #0066e7;

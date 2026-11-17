@@ -1,9 +1,19 @@
 import { filterCommands } from "../core/command-palette.mjs";
 import { spriteIcon } from "./icons.mjs";
 /** Owns this feature's DOM interactions; cross-feature actions are injected. */
-export function createCommandPalette({ query: $, queryAll: $$, getModalManager, commandDefinitions, t, toast, errorText }) {
+export function createCommandPalette({
+  query: $,
+  queryAll: $$,
+  getModalManager,
+  commandDefinitions,
+  t,
+  toast,
+  errorText,
+}) {
   const state = { commandIndex: 0, visibleCommands: [] };
-  function resetCommandSelection() { state.commandIndex = 0; }
+  function resetCommandSelection() {
+    state.commandIndex = 0;
+  }
   function highlightCommand(index) {
     const length = state.visibleCommands.length;
     if (!length) {
@@ -25,7 +35,10 @@ export function createCommandPalette({ query: $, queryAll: $$, getModalManager, 
   function renderCommandPalette() {
     const query = $("#command-query")?.value || "";
     state.visibleCommands = filterCommands(commandDefinitions(), query, 12);
-    state.commandIndex = Math.max(0, Math.min(state.commandIndex, Math.max(0, state.visibleCommands.length - 1)));
+    state.commandIndex = Math.max(
+      0,
+      Math.min(state.commandIndex, Math.max(0, state.visibleCommands.length - 1)),
+    );
     const container = $("#command-list");
     container.replaceChildren();
     if (!state.visibleCommands.length) {
@@ -103,5 +116,11 @@ export function createCommandPalette({ query: $, queryAll: $$, getModalManager, 
       runCommand();
     }
   }
-  return { renderCommandPalette, openCommandPalette, closeCommandPalette, commandKeydown, resetCommandSelection };
+  return {
+    renderCommandPalette,
+    openCommandPalette,
+    closeCommandPalette,
+    commandKeydown,
+    resetCommandSelection,
+  };
 }

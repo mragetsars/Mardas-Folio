@@ -27,12 +27,22 @@ export const DEFAULT_PREFERENCES = Object.freeze({
 });
 
 const THEMES = new Set(["system", "light", "dark"]);
-const ACCENTS = new Set(["monochrome", "gray", "blue", "red", "amber", "green", "teal", "purple", "pink"]);
+const ACCENTS = new Set([
+  "monochrome",
+  "gray",
+  "blue",
+  "red",
+  "amber",
+  "green",
+  "teal",
+  "purple",
+  "pink",
+]);
 const SCALES = new Set(["comfortable", "large", "extra-large"]);
 const WRITING_WIDTHS = new Set(["full", "readable", "wide"]);
 const WRITING_DENSITIES = { compact: [1.5, 4], comfortable: [1.65, 8], relaxed: [1.85, 14] };
 const WRITING_FONTS = {
-  document: 'var(--prose-font, var(--app-font))',
+  document: "var(--prose-font, var(--app-font))",
   system: '"Segoe UI Variable", "Segoe UI", Tahoma, sans-serif',
   serif: 'Georgia, "Noto Naskh Arabic", "Vazirmatn", serif',
 };
@@ -49,7 +59,8 @@ export function normalizeDocumentZoom(value, fallback = 100) {
 export function nextDocumentZoom(value, direction) {
   const current = normalizeDocumentZoom(value);
   // Step to the next whole ten even when an older preference was 112/124%.
-  const next = direction > 0 ? Math.floor(current / 10) * 10 + 10 : Math.ceil(current / 10) * 10 - 10;
+  const next =
+    direction > 0 ? Math.floor(current / 10) * 10 + 10 : Math.ceil(current / 10) * 10 - 10;
   return normalizeDocumentZoom(next);
 }
 const MOTION = new Set(["system", "reduce", "full"]);
@@ -68,21 +79,42 @@ export function normalizePreferences(value = {}) {
   return {
     theme: THEMES.has(value?.theme) ? value.theme : DEFAULT_PREFERENCES.theme,
     accent: ACCENTS.has(value?.accent) ? value.accent : DEFAULT_PREFERENCES.accent,
-    contentScale: SCALES.has(value?.contentScale) ? value.contentScale : DEFAULT_PREFERENCES.contentScale,
+    contentScale: SCALES.has(value?.contentScale)
+      ? value.contentScale
+      : DEFAULT_PREFERENCES.contentScale,
     // "comfortable" was the old implicit narrow default. Full width gives
     // existing installations the same new canvas as fresh ones; the optional
     // readable column has its own value so a new explicit choice is retained.
-    writingWidth: WRITING_WIDTHS.has(value?.writingWidth) ? value.writingWidth : DEFAULT_PREFERENCES.writingWidth,
-    documentZoom: normalizeDocumentZoom(value?.documentZoom, LEGACY_ZOOM[value?.contentScale] || DEFAULT_PREFERENCES.documentZoom),
-    writingDensity: Object.hasOwn(WRITING_DENSITIES, value?.writingDensity) ? value.writingDensity : DEFAULT_PREFERENCES.writingDensity,
-    writingFont: Object.hasOwn(WRITING_FONTS, value?.writingFont) ? value.writingFont : DEFAULT_PREFERENCES.writingFont,
-    reducedMotion: MOTION.has(value?.reducedMotion) ? value.reducedMotion : DEFAULT_PREFERENCES.reducedMotion,
+    writingWidth: WRITING_WIDTHS.has(value?.writingWidth)
+      ? value.writingWidth
+      : DEFAULT_PREFERENCES.writingWidth,
+    documentZoom: normalizeDocumentZoom(
+      value?.documentZoom,
+      LEGACY_ZOOM[value?.contentScale] || DEFAULT_PREFERENCES.documentZoom,
+    ),
+    writingDensity: Object.hasOwn(WRITING_DENSITIES, value?.writingDensity)
+      ? value.writingDensity
+      : DEFAULT_PREFERENCES.writingDensity,
+    writingFont: Object.hasOwn(WRITING_FONTS, value?.writingFont)
+      ? value.writingFont
+      : DEFAULT_PREFERENCES.writingFont,
+    reducedMotion: MOTION.has(value?.reducedMotion)
+      ? value.reducedMotion
+      : DEFAULT_PREFERENCES.reducedMotion,
     autoPreview: booleanValue(value?.autoPreview, DEFAULT_PREFERENCES.autoPreview),
-    viewMode: value?.viewMode === "split" ? "source" : VIEW_MODES.has(value?.viewMode) ? value.viewMode : DEFAULT_PREFERENCES.viewMode,
+    viewMode:
+      value?.viewMode === "split"
+        ? "source"
+        : VIEW_MODES.has(value?.viewMode)
+          ? value.viewMode
+          : DEFAULT_PREFERENCES.viewMode,
     sidePreview: booleanValue(value?.sidePreview, value?.viewMode === "split"),
     typewriter: booleanValue(value?.typewriter, DEFAULT_PREFERENCES.typewriter),
     focusMode: booleanValue(value?.focusMode, DEFAULT_PREFERENCES.focusMode),
-    onboardingComplete: booleanValue(value?.onboardingComplete, DEFAULT_PREFERENCES.onboardingComplete),
+    onboardingComplete: booleanValue(
+      value?.onboardingComplete,
+      DEFAULT_PREFERENCES.onboardingComplete,
+    ),
   };
 }
 
@@ -133,13 +165,24 @@ export function applyPreferences(documentElement, value, matchMedia = globalThis
   documentElement.dataset.contentScale = normalized.contentScale;
   documentElement.dataset.writingWidth = normalized.writingWidth;
   documentElement.dataset.documentZoom = String(normalized.documentZoom);
-  documentElement.style?.setProperty("--document-text-scale", String(normalized.documentZoom / 100));
+  documentElement.style?.setProperty(
+    "--document-text-scale",
+    String(normalized.documentZoom / 100),
+  );
   documentElement.dataset.writingDensity = normalized.writingDensity;
   const [lineHeight, paragraphGap] = WRITING_DENSITIES[normalized.writingDensity];
   documentElement.style?.setProperty("--writing-line-height", String(lineHeight));
   documentElement.style?.setProperty("--writing-paragraph-gap", `${paragraphGap}px`);
-  documentElement.style?.setProperty("--writing-font-family", WRITING_FONTS[normalized.writingFont]);
-  documentElement.dataset.reducedMotion = resolvedReducedMotion(normalized.reducedMotion, matchMedia) ? "reduce" : "full";
+  documentElement.style?.setProperty(
+    "--writing-font-family",
+    WRITING_FONTS[normalized.writingFont],
+  );
+  documentElement.dataset.reducedMotion = resolvedReducedMotion(
+    normalized.reducedMotion,
+    matchMedia,
+  )
+    ? "reduce"
+    : "full";
   documentElement.dataset.focusMode = String(normalized.focusMode);
   documentElement.dataset.typewriter = String(normalized.typewriter);
   return normalized;

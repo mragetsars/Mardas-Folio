@@ -4,8 +4,14 @@ import { readdirSync, readFileSync } from "node:fs";
 
 const frontend = new URL("../../frontend/", import.meta.url);
 const styles = readFileSync(new URL("../../frontend/styles/base.css", import.meta.url), "utf8");
-const workspaceStyles = readFileSync(new URL("../../frontend/styles/workspace.css", import.meta.url), "utf8");
-const shellStyles = readFileSync(new URL("../../frontend/styles/shell-system.css", import.meta.url), "utf8");
+const workspaceStyles = readFileSync(
+  new URL("../../frontend/styles/workspace.css", import.meta.url),
+  "utf8",
+);
+const shellStyles = readFileSync(
+  new URL("../../frontend/styles/shell-system.css", import.meta.url),
+  "utf8",
+);
 const settingsStyles = readFileSync(new URL("styles/settings.css", frontend), "utf8");
 const designTokens = readFileSync(new URL("design/tokens.css", frontend), "utf8");
 const components = readFileSync(new URL("design/components.css", frontend), "utf8");
@@ -15,9 +21,7 @@ const sheets = readdirSync(frontend, { recursive: true })
 
 function channel(value) {
   const normalized = value / 255;
-  return normalized <= 0.04045
-    ? normalized / 12.92
-    : ((normalized + 0.055) / 1.055) ** 2.4;
+  return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
 }
 
 function luminance(hex) {
@@ -108,17 +112,29 @@ test("the trial accent fills are available alongside the monochrome default", ()
   const picker = index.match(/<select id="setting-accent">([^]*?)<\/select>/)?.[1] ?? "";
   const accents = [...picker.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]);
   const trialFills = {
-    gray: "#525252", blue: "#006efe", red: "#cf2f36", amber: "#8a5300",
-    green: "#18703a", teal: "#0b7268", purple: "#7e3ab8", pink: "#a20d71",
+    gray: "#525252",
+    blue: "#006efe",
+    red: "#cf2f36",
+    amber: "#8a5300",
+    green: "#18703a",
+    teal: "#0b7268",
+    purple: "#7e3ab8",
+    pink: "#a20d71",
   };
   assert.deepEqual(accents, ["monochrome", ...Object.keys(trialFills)]);
   const swatches = declarations(designTokens, ":root {");
   for (const [accent, fill] of Object.entries(trialFills)) {
     assert.equal(swatches[`--ui-accent-${accent}`], fill);
-    assert.equal(declarations(designTokens, `:root[data-accent="${accent}"] {`)["--ui-primary-bg"], `var(--ui-accent-${accent})`);
+    assert.equal(
+      declarations(designTokens, `:root[data-accent="${accent}"] {`)["--ui-primary-bg"],
+      `var(--ui-accent-${accent})`,
+    );
     assert.ok(contrast("#ffffff", fill) >= 4.5, `${accent} action contrast`);
   }
-  for (const [selector, ink] of [[":root {", "#000000"], ['html[data-theme="dark"] {', "#ffffff"]]) {
+  for (const [selector, ink] of [
+    [":root {", "#000000"],
+    ['html[data-theme="dark"] {', "#ffffff"],
+  ]) {
     const palette = tokens(designTokens, selector);
     assert.equal(palette["--ui-accent"], ink);
     assert.equal(palette["--ui-primary-bg"], ink);
@@ -137,12 +153,17 @@ test("recent documents keep the title and location separate from their icon", ()
 });
 
 test("settings scrolling and preview anchors are deliberately constrained", () => {
-  assert.match(settingsStyles, /\.settings-card \{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\) auto;[\s\S]*?overflow: hidden;/);
+  assert.match(
+    settingsStyles,
+    /\.settings-card \{[\s\S]*?grid-template-rows: auto minmax\(0, 1fr\) auto;[\s\S]*?overflow: hidden;/,
+  );
   assert.match(settingsStyles, /\.settings-sections \{[\s\S]*?overflow: auto;/);
   assert.match(workspaceStyles, /\.document-content \.heading-anchor \{[\s\S]*?opacity: 0;/);
-  assert.match(workspaceStyles, /\.document-content :is\(h1, h2, h3, h4, h5, h6\):hover \.heading-anchor/);
+  assert.match(
+    workspaceStyles,
+    /\.document-content :is\(h1, h2, h3, h4, h5, h6\):hover \.heading-anchor/,
+  );
 });
-
 
 test("workspace chrome distinguishes the active tab and command search", () => {
   assert.match(workspaceStyles, /\.document-tab\.active \{[\s\S]*?box-shadow:/);
@@ -157,7 +178,10 @@ test("book and export workflows expose durable result and active-chapter afforda
   assert.match(index, /id="book-output-result"/);
   assert.match(index, /id="book-current-chapter"/);
   assert.match(main, /state\.bookOutputPath = result\?\.output_path \|\| outputPath/);
-  const chapters = readFileSync(new URL("../../frontend/js/features/books/chapters.mjs", import.meta.url), "utf8");
+  const chapters = readFileSync(
+    new URL("../../frontend/js/features/books/chapters.mjs", import.meta.url),
+    "utf8",
+  );
   assert.match(chapters, /aria-current", "page"/);
   assert.match(workspaceStyles, /\.book-chapter-row\.active \{/);
 });
@@ -181,7 +205,10 @@ test("onboarding and light theme use the same native surface tokens", () => {
 });
 
 test("narrow book chapter rows preserve titles and reveal actions on intent", () => {
-  assert.match(workspaceStyles, /\.book-chapter-row \{[\s\S]*?grid-template-columns: 18px minmax\(0, 1fr\);/);
+  assert.match(
+    workspaceStyles,
+    /\.book-chapter-row \{[\s\S]*?grid-template-columns: 18px minmax\(0, 1fr\);/,
+  );
   assert.match(workspaceStyles, /\.book-chapter-actions \{[\s\S]*?position: absolute;/);
   assert.match(workspaceStyles, /\.book-chapter-row:focus-within \.book-chapter-actions/);
   assert.match(workspaceStyles, /\.book-actions-primary \{[\s\S]*?grid-template-columns: 1fr;/);
@@ -208,16 +235,24 @@ test("type is a scale of tokens, not two hundred literals", () => {
   // size a badge can be read at.
   const sheets = [styles, workspaceStyles].join("\n");
   for (const token of [
-    "--ui-text-3xs", "--ui-text-2xs", "--ui-text-xs", "--ui-text-sm",
-    "--ui-text-md", "--ui-text-base", "--ui-text-lg", "--ui-text-xl",
-    "--ui-text-2xl", "--ui-text-3xl",
+    "--ui-text-3xs",
+    "--ui-text-2xs",
+    "--ui-text-xs",
+    "--ui-text-sm",
+    "--ui-text-md",
+    "--ui-text-base",
+    "--ui-text-lg",
+    "--ui-text-xl",
+    "--ui-text-2xl",
+    "--ui-text-3xl",
   ]) {
     assert.match(designTokens, new RegExp(`${token}:\\s*\\d+px`), `${token} is declared`);
     assert.ok(sheets.includes(`var(${token})`), `${token} is used`);
   }
   // Nothing sets a size outside the scale.
-  const literals = [...sheets.matchAll(/font(?:-size)?:\s*(?:[\w-]+\s+)*?([0-9.]+)px/g)]
-    .map((match) => match[1]);
+  const literals = [...sheets.matchAll(/font(?:-size)?:\s*(?:[\w-]+\s+)*?([0-9.]+)px/g)].map(
+    (match) => match[1],
+  );
   assert.deepEqual(literals, [], `font sizes are still written as literals: ${literals}`);
 });
 
@@ -231,12 +266,16 @@ test("nothing in the editor puts vertical space outside the box that is measured
   const offenders = [];
   for (const [, selector, body] of workspaceStyles.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
     if (!/codemirror-mount|\.cm-/.test(selector)) continue;
-    for (const [, property, value] of body.matchAll(/(margin(?:-block[\w-]*|-top|-bottom)?)\s*:\s*([^;]+)/g)) {
+    for (const [, property, value] of body.matchAll(
+      /(margin(?:-block[\w-]*|-top|-bottom)?)\s*:\s*([^;]+)/g,
+    )) {
       if (property === "margin-inline" || property.startsWith("margin-inline")) continue;
       // A `margin` shorthand of zero moves nothing.
       if (/^\s*0(px|em|rem)?\s*$/.test(value)) continue;
       if (property === "margin" && /^\s*0\s+[^\s]+\s*$/.test(value)) continue;
-      offenders.push(`${selector.trim().split("\n").pop().trim()} { ${property}: ${value.trim()} }`);
+      offenders.push(
+        `${selector.trim().split("\n").pop().trim()} { ${property}: ${value.trim()} }`,
+      );
     }
   }
   assert.deepEqual(offenders, [], `vertical margins inside the editor: ${offenders.join(" | ")}`);

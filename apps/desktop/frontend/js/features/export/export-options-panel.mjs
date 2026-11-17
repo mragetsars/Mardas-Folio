@@ -1,6 +1,12 @@
 import {
-  OPTION_FIELDS, OPTION_GROUPS, collectRenderOptions, fieldIsActive,
-  modifiedCountsByGroup, modifiedKeys, searchOptions, validateOptionValue,
+  OPTION_FIELDS,
+  OPTION_GROUPS,
+  collectRenderOptions,
+  fieldIsActive,
+  modifiedCountsByGroup,
+  modifiedKeys,
+  searchOptions,
+  validateOptionValue,
 } from "./render-options.mjs";
 import { spriteIcon } from "../../ui/icons.mjs";
 import { bindRadioGroup } from "../../ui/radio-group.mjs";
@@ -22,7 +28,12 @@ const PALETTE_ACCENTS = Object.freeze({
  * Rendering the panel alone never changes the export request.
  */
 export function createExportOptionsPanel({
-  root, t, getPresetOptions, onChange, pickPath, onError,
+  root,
+  t,
+  getPresetOptions,
+  onChange,
+  pickPath,
+  onError,
 }) {
   const documentRef = root.ownerDocument;
   const $ = (selector) => root.querySelector(selector);
@@ -62,8 +73,9 @@ export function createExportOptionsPanel({
   function setOptionValue(key, value) {
     if (lifecycle.signal.aborted) return;
     const active = documentRef.activeElement;
-    const row = [...root.querySelectorAll("[data-option-key]")]
-      .find((element) => element.dataset.optionKey === key);
+    const row = [...root.querySelectorAll("[data-option-key]")].find(
+      (element) => element.dataset.optionKey === key,
+    );
     const controls = row ? [...row.querySelectorAll("input, select, textarea, button")] : [];
     const focusIndex = controls.indexOf(active);
     const focusIdentity = focusIndex >= 0 ? optionControlIdentity(active) : "";
@@ -72,12 +84,16 @@ export function createExportOptionsPanel({
     renderOptionCategories();
     renderOptionPane();
     if (focusIndex >= 0) {
-      const nextRow = [...root.querySelectorAll("[data-option-key]")]
-        .find((element) => element.dataset.optionKey === key);
-      const nextControls = nextRow ? [...nextRow.querySelectorAll("input, select, textarea, button")] : [];
-      const nextControl = nextControls.find((control) => optionControlIdentity(control) === focusIdentity)
-        || nextControls[focusIndex]
-        || nextRow?.querySelector("input, select, textarea, button");
+      const nextRow = [...root.querySelectorAll("[data-option-key]")].find(
+        (element) => element.dataset.optionKey === key,
+      );
+      const nextControls = nextRow
+        ? [...nextRow.querySelectorAll("input, select, textarea, button")]
+        : [];
+      const nextControl =
+        nextControls.find((control) => optionControlIdentity(control) === focusIdentity) ||
+        nextControls[focusIndex] ||
+        nextRow?.querySelector("input, select, textarea, button");
       nextControl?.focus({ preventScroll: true });
     }
     onChange();
@@ -116,8 +132,10 @@ export function createExportOptionsPanel({
   }
 
   function focusRadio(key, index) {
-    root.querySelector(`[data-option-key="${key}"] [role="radiogroup"]`)
-      ?.querySelectorAll('[role="radio"]')[index]?.focus({ preventScroll: true });
+    root
+      .querySelector(`[data-option-key="${key}"] [role="radiogroup"]`)
+      ?.querySelectorAll('[role="radio"]')
+      [index]?.focus({ preventScroll: true });
   }
 
   function buildSelectControl(field) {
@@ -283,9 +301,10 @@ export function createExportOptionsPanel({
     // Track provenance so reset restores the preset instead of silently inheriting.
     const presetOptions = getPresetOptions();
     const hasValue = advancedValues.has(field.key);
-    const fromPreset = hasValue
-      && field.key in presetOptions
-      && String(advancedValues.get(field.key)) === String(presetOptions[field.key]);
+    const fromPreset =
+      hasValue &&
+      field.key in presetOptions &&
+      String(advancedValues.get(field.key)) === String(presetOptions[field.key]);
     const isSet = hasValue && !fromPreset;
     row.dataset.modified = String(isSet);
     row.dataset.source = isSet ? "override" : hasValue ? "preset" : "inherited";
@@ -359,14 +378,14 @@ export function createExportOptionsPanel({
 
   function renderOptionCategories() {
     const select = $("#option-category");
-    const counts = modifiedCountsByGroup(
-      Object.fromEntries(advancedValues),
-      getPresetOptions(),
-    );
+    const counts = modifiedCountsByGroup(Object.fromEntries(advancedValues), getPresetOptions());
     const groups = OPTION_GROUPS.filter((group) => showExpertOptions || !group.expert);
     const options = groups.map((group) => {
       const count = counts[group.id];
-      return new documentRef.defaultView.Option(t(group.labelKey) + (count ? ` (${count})` : ""), group.id);
+      return new documentRef.defaultView.Option(
+        t(group.labelKey) + (count ? ` (${count})` : ""),
+        group.id,
+      );
     });
     select.replaceChildren(...options);
     select.value = activeOptionGroup;
@@ -379,8 +398,9 @@ export function createExportOptionsPanel({
 
     if (optionSearchQuery) {
       pane.setAttribute("aria-labelledby", "option-search-label");
-      const matches = (searchOptions(optionSearchQuery, t) || [])
-        .filter(({ field, group }) => showExpertOptions || (!field.expert && !group.expert));
+      const matches = (searchOptions(optionSearchQuery, t) || []).filter(
+        ({ field, group }) => showExpertOptions || (!field.expert && !group.expert),
+      );
       if (!matches.length) {
         const empty = documentRef.createElement("p");
         empty.className = "option-empty";
@@ -455,29 +475,50 @@ export function createExportOptionsPanel({
     renderOptionPane();
   }
 
-
-  $("#option-search").addEventListener("input", (event) => {
-    optionSearchQuery = event.target.value.trim();
-    renderOptionPane();
-  }, { signal: lifecycle.signal });
-  $("#option-category").addEventListener("change", (event) => {
-    activeOptionGroup = event.target.value;
-    $("#option-search").value = "";
-    optionSearchQuery = "";
-    renderOptionPane();
-  }, { signal: lifecycle.signal });
-  $("#show-expert").addEventListener("change", (event) => {
-    showExpertOptions = event.target.checked;
-    // A hidden expert group must not stay selected, or the pane would be empty.
-    const group = OPTION_GROUPS.find((item) => item.id === activeOptionGroup);
-    if (group?.expert && !showExpertOptions) activeOptionGroup = OPTION_GROUPS[0].id;
-    renderAdvancedOptions();
-  }, { signal: lifecycle.signal });
-  $("#export-settings").addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" || event.isComposing || !event.target.matches('input[type="search"], input[type="text"], input[type="number"]')) return;
-    event.preventDefault();
-    if (event.target.type !== "search") event.target.dispatchEvent(new documentRef.defaultView.Event("change"));
-  }, { signal: lifecycle.signal });
+  $("#option-search").addEventListener(
+    "input",
+    (event) => {
+      optionSearchQuery = event.target.value.trim();
+      renderOptionPane();
+    },
+    { signal: lifecycle.signal },
+  );
+  $("#option-category").addEventListener(
+    "change",
+    (event) => {
+      activeOptionGroup = event.target.value;
+      $("#option-search").value = "";
+      optionSearchQuery = "";
+      renderOptionPane();
+    },
+    { signal: lifecycle.signal },
+  );
+  $("#show-expert").addEventListener(
+    "change",
+    (event) => {
+      showExpertOptions = event.target.checked;
+      // A hidden expert group must not stay selected, or the pane would be empty.
+      const group = OPTION_GROUPS.find((item) => item.id === activeOptionGroup);
+      if (group?.expert && !showExpertOptions) activeOptionGroup = OPTION_GROUPS[0].id;
+      renderAdvancedOptions();
+    },
+    { signal: lifecycle.signal },
+  );
+  $("#export-settings").addEventListener(
+    "keydown",
+    (event) => {
+      if (
+        event.key !== "Enter" ||
+        event.isComposing ||
+        !event.target.matches('input[type="search"], input[type="text"], input[type="number"]')
+      )
+        return;
+      event.preventDefault();
+      if (event.target.type !== "search")
+        event.target.dispatchEvent(new documentRef.defaultView.Event("change"));
+    },
+    { signal: lifecycle.signal },
+  );
 
   function reset() {
     if (lifecycle.signal.aborted) return;
@@ -493,7 +534,8 @@ export function createExportOptionsPanel({
     render: renderAdvancedOptions,
     reset,
     overrides: () => collectRenderOptions(Object.fromEntries(advancedValues)),
-    modifiedCount: () => modifiedKeys(Object.fromEntries(advancedValues), getPresetOptions()).length,
+    modifiedCount: () =>
+      modifiedKeys(Object.fromEntries(advancedValues), getPresetOptions()).length,
     destroy() {
       lifecycle.abort();
       $("#option-pane").replaceChildren();

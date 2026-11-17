@@ -1,7 +1,6 @@
 """Structural checks must recognize native HTML label associations."""
 
 import pytest
-
 from scripts.audit_desktop_accessibility import DEFAULT_INPUT, audit_html
 
 
@@ -16,7 +15,7 @@ def test_external_label_names_its_control(tag):
     [
         '<label for="different">Theme</label>',
         '<label for="setting"> </label>',
-        '<label>Theme</label>',
+        "<label>Theme</label>",
     ],
 )
 def test_unrelated_or_empty_label_does_not_name_a_control(label):

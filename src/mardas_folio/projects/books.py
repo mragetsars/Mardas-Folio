@@ -1,13 +1,15 @@
 """Book-project creation and transactional chapter/configuration mutations."""
+
 from __future__ import annotations
+
 import json
 import re
 import shutil
 from pathlib import Path
 from typing import Sequence
+
 from ..config import CONFIG_FILENAME, default_config_text, tomllib
 from ..file_io import serialized_file_write
-from .models import ProjectWorkspace, WorkspaceError
 from .discovery import _relative_path, _safe_workspace_file
 from .files import (
     MAX_WORKSPACE_TEXT_BYTES,
@@ -19,6 +21,7 @@ from .files import (
 from .loading import (
     load_workspace,
 )
+from .models import ProjectWorkspace, WorkspaceError
 
 MAX_BOOK_PROJECT_TITLE_CHARS = 200
 MAX_BOOK_PROJECT_FOLDER_CHARS = 80
@@ -41,7 +44,6 @@ _TOML_TABLE_HEADER = re.compile(
     rf"^\s*\[(?P<array>\[)?\s*{_TOML_KEY_PATTERN}"
     rf"(?:\s*\.\s*{_TOML_KEY_PATTERN})*\s*\](?(array)\])\s*(?:#.*)?$"
 )
-
 
 
 def _toml_string(value: str) -> str:
@@ -89,9 +91,7 @@ def _book_section_text(
         path_value = _toml_string(str(chapter["path"]))
         title = chapter.get("title")
         if title:
-            lines.append(
-                f"  {{ path = {path_value}, title = {_toml_string(str(title))} }},"
-            )
+            lines.append(f"  {{ path = {path_value}, title = {_toml_string(str(title))} }},")
         else:
             lines.append(f"  {path_value},")
     lines.extend(
@@ -195,9 +195,7 @@ def _commit_book_chapters(
     replacement = _book_section_text(
         chapters,
         output=_relative_book_output(workspace),
-        chapter_page_break=bool(
-            workspace.config.values.get("book_chapter_page_break", True)
-        ),
+        chapter_page_break=bool(workspace.config.values.get("book_chapter_page_break", True)),
     )
     updated = _replace_toml_section(original, "book", replacement)
     try:
@@ -232,9 +230,7 @@ def _write_book_chapters(
     *,
     expected_config_sha256: str,
 ) -> ProjectWorkspace:
-    path = _commit_book_chapters(
-        workspace, chapters, expected_config_sha256=expected_config_sha256
-    )
+    path = _commit_book_chapters(workspace, chapters, expected_config_sha256=expected_config_sha256)
     return load_workspace(path)
 
 
@@ -252,11 +248,7 @@ def _validate_book_title(value: str, *, field: str = "title") -> str:
             f"Book {field} is required.",
             code=f"invalid_book_{field}",
         )
-    limit = (
-        MAX_BOOK_PROJECT_TITLE_CHARS
-        if field == "title"
-        else MAX_BOOK_CHAPTER_TITLE_CHARS
-    )
+    limit = MAX_BOOK_PROJECT_TITLE_CHARS if field == "title" else MAX_BOOK_CHAPTER_TITLE_CHARS
     if len(title) > limit or any(character in title for character in "\x00\r\n"):
         raise WorkspaceError(
             f"Book {field} is invalid or exceeds {limit} characters.",
@@ -509,9 +501,7 @@ def duplicate_workspace_book_chapter(
     source = _safe_workspace_file(workspace, relative_path)
     source_content = str(read_workspace_file(workspace, relative_path)["content"])
     source_title = chapters[source_index].get("title") or source.stem
-    duplicate_title = _validate_book_title(
-        title or f"{source_title} Copy", field="chapter_title"
-    )
+    duplicate_title = _validate_book_title(title or f"{source_title} Copy", field="chapter_title")
     return add_workspace_book_chapter(
         workspace,
         title=duplicate_title,
@@ -576,21 +566,3 @@ def remove_workspace_book_chapter(
         remaining,
         expected_config_sha256=expected_config_sha256,
     )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

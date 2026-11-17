@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import json
 import os
 import re
@@ -14,11 +12,12 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tests._paths import ROOT
+
 try:
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10 compatibility
     import tomli as tomllib
-
 
 
 def _read(relative_path: str) -> str:
@@ -154,7 +153,6 @@ def test_python_build_backend_is_security_fixed_and_reproducible() -> None:
     assert "wheel==0.47.0" in metadata["project"]["optional-dependencies"]["dev"]
 
 
-
 def test_normalize_sdist_preserves_archive_permissions(tmp_path: Path) -> None:
     archive = tmp_path / "sample.tar.gz"
     payload = tmp_path / "payload.txt"
@@ -222,12 +220,7 @@ def test_tauri_before_build_command_resolves_from_desktop_root() -> None:
 
     assert command == "python ../../scripts/build_desktop_frontend.py"
 
-    script_path = (
-        ROOT
-        / "apps"
-        / "desktop"
-        / "../../scripts/build_desktop_frontend.py"
-    ).resolve()
+    script_path = (ROOT / "apps" / "desktop" / "../../scripts/build_desktop_frontend.py").resolve()
 
     assert script_path == (ROOT / "scripts/build_desktop_frontend.py").resolve()
     assert script_path.is_file()
@@ -697,7 +690,7 @@ def test_desktop_sidecar_packaging_metadata_is_declared() -> None:
     manifest = _read("MANIFEST.in")
 
     assert 'folio-sidecar = "mardas_folio.sidecar:main"' in pyproject
-    assert 'desktop = [' in pyproject
+    assert "desktop = [" in pyproject
     assert '"pyinstaller>=6.11,<7"' in pyproject
     assert "recursive-include packaging *.py *.spec" in manifest
     assert "recursive-include schemas *.json" in manifest

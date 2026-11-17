@@ -92,21 +92,30 @@ export const mardasHighlightStyle = HighlightStyle.define([
     tag: [tags.controlKeyword, tags.definitionKeyword, tags.moduleKeyword, tags.operatorKeyword],
     color: token("keyword", "#6d28d9"),
   },
-  { tag: [tags.atom, tags.bool, tags.special(tags.variableName)], color: token("number", "#6d28d9") },
+  {
+    tag: [tags.atom, tags.bool, tags.special(tags.variableName)],
+    color: token("number", "#6d28d9"),
+  },
   { tag: [tags.number, tags.integer, tags.float, tags.unit], color: token("number", "#6d28d9") },
   { tag: [tags.string, tags.character, tags.docString], color: token("string", "#15803d") },
   { tag: [tags.regexp, tags.escape], color: token("code", "#9a3412") },
   { tag: [tags.typeName, tags.className, tags.namespace], color: token("type", "#0f766e") },
-  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.macroName],
-    color: token("function", "#1d4ed8") },
+  {
+    tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.macroName],
+    color: token("function", "#1d4ed8"),
+  },
   { tag: [tags.propertyName, tags.attributeName], color: token("key", "#a16207") },
   { tag: tags.attributeValue, color: token("string", "#15803d") },
   { tag: tags.tagName, color: token("keyword", "#6d28d9") },
   { tag: [tags.variableName, tags.labelName], color: token("variable", "#111111") },
-  { tag: [tags.operator, tags.punctuation, tags.bracket, tags.derefOperator],
-    color: token("mark", "#6b6b6b") },
-  { tag: [tags.definition(tags.variableName), tags.definition(tags.propertyName)],
-    color: token("variable", "#111111") },
+  {
+    tag: [tags.operator, tags.punctuation, tags.bracket, tags.derefOperator],
+    color: token("mark", "#6b6b6b"),
+  },
+  {
+    tag: [tags.definition(tags.variableName), tags.definition(tags.propertyName)],
+    color: token("variable", "#111111"),
+  },
   { tag: tags.invalid, color: token("invalid", "#b91c1c") },
 ]);
 

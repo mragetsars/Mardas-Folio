@@ -54,14 +54,32 @@ print("train")
         ("lst", "1"),
     ]
     soup = BeautifulSoup(result.body_html, "html.parser")
-    assert soup.select_one('a[data-md2pdf-reference="fig:architecture"]').get_text(strip=True) == "Figure 1"
-    assert soup.select_one('a[data-md2pdf-reference="tbl:results"]').get_text(strip=True) == "Table 1"
-    assert soup.select_one('a[data-md2pdf-reference="eq:energy"]').get_text(strip=True) == "Equation 1"
-    assert soup.select_one('a[data-md2pdf-reference="lst:training"]').get_text(strip=True) == "Listing 1"
-    assert soup.select_one('#xref-fig-architecture .md2pdf-caption-label').get_text(strip=True) == "Figure 1"
-    assert soup.select_one('#xref-tbl-results .md2pdf-caption-label').get_text(strip=True) == "Table 1"
-    assert soup.select_one('#xref-eq-energy .md2pdf-equation-number').get_text(strip=True) == "(1)"
-    assert soup.select_one('#xref-lst-training .md2pdf-caption-label').get_text(strip=True) == "Listing 1"
+    assert (
+        soup.select_one('a[data-md2pdf-reference="fig:architecture"]').get_text(strip=True)
+        == "Figure 1"
+    )
+    assert (
+        soup.select_one('a[data-md2pdf-reference="tbl:results"]').get_text(strip=True) == "Table 1"
+    )
+    assert (
+        soup.select_one('a[data-md2pdf-reference="eq:energy"]').get_text(strip=True) == "Equation 1"
+    )
+    assert (
+        soup.select_one('a[data-md2pdf-reference="lst:training"]').get_text(strip=True)
+        == "Listing 1"
+    )
+    assert (
+        soup.select_one("#xref-fig-architecture .md2pdf-caption-label").get_text(strip=True)
+        == "Figure 1"
+    )
+    assert (
+        soup.select_one("#xref-tbl-results .md2pdf-caption-label").get_text(strip=True) == "Table 1"
+    )
+    assert soup.select_one("#xref-eq-energy .md2pdf-equation-number").get_text(strip=True) == "(1)"
+    assert (
+        soup.select_one("#xref-lst-training .md2pdf-caption-label").get_text(strip=True)
+        == "Listing 1"
+    )
 
 
 def test_persian_references_use_localized_labels_and_digits() -> None:
@@ -83,7 +101,7 @@ references: true
     assert not result.diagnostics
     soup = BeautifulSoup(result.body_html, "html.parser")
     assert soup.select_one('a[data-md2pdf-reference="fig:model"]').get_text(strip=True) == "شکل ۱"
-    assert soup.select_one('.md2pdf-caption-label').get_text(strip=True) == "شکل ۱"
+    assert soup.select_one(".md2pdf-caption-label").get_text(strip=True) == "شکل ۱"
 
 
 def test_reference_token_does_not_consume_sentence_punctuation() -> None:
@@ -319,9 +337,7 @@ def test_validate_json_reports_reference_diagnostics(tmp_path: Path, capsys) -> 
     assert "MARDAS-E602" in [item["code"] for item in payload["diagnostics"]]
 
 
-def test_cli_no_references_overrides_project_configuration(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_cli_no_references_overrides_project_configuration(tmp_path: Path, monkeypatch) -> None:
     document = tmp_path / "document.md"
     document.write_text("# Test\n\nSee @fig:missing.\n", encoding="utf-8")
     (tmp_path / "mardas.toml").write_text(
@@ -404,7 +420,12 @@ chapters = ["chapters/01-fa.md", "chapters/02-en.md"]
     soup = BeautifulSoup(bundle.result.body_html, "html.parser")
     references = soup.select('a[data-md2pdf-reference="fig:shared"]')
     assert [item.get_text(strip=True) for item in references] == ["شکل ۱", "Figure 1"]
-    assert soup.select_one('[data-md2pdf-label="fig:shared"] .md2pdf-caption-label').get_text(strip=True) == "Figure 1"
+    assert (
+        soup.select_one('[data-md2pdf-label="fig:shared"] .md2pdf-caption-label').get_text(
+            strip=True
+        )
+        == "Figure 1"
+    )
 
 
 def test_standalone_figure_label_uses_image_alt_as_caption() -> None:
@@ -573,7 +594,7 @@ See @fig:model.
     assert not result.diagnostics
     assert result.reference_objects[0]["target_id"] == "xref-fig-model"
     assert soup.select_one('#xref-fig-model[data-md2pdf-label="fig:model"]') is not None
-    assert soup.select_one('span#legacy-model.md2pdf-reference-target') is not None
+    assert soup.select_one("span#legacy-model.md2pdf-reference-target") is not None
     assert soup.select_one('a[data-md2pdf-reference="fig:model"]')["href"] == "#xref-fig-model"
 
 

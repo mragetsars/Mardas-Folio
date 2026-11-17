@@ -77,10 +77,15 @@ test("folding does not widen a search into unrelated commands", () => {
   assert.deepEqual(filterCommands(COMMANDS, "zzzz"), []);
   assert.deepEqual(filterCommands(COMMANDS, "آب"), []);
   // A Latin query still matches only what contains it.
-  assert.deepEqual(filterCommands(COMMANDS, "export").map((c) => c.id), ["export"]);
+  assert.deepEqual(
+    filterCommands(COMMANDS, "export").map((c) => c.id),
+    ["export"],
+  );
 });
 
 test("an empty query still returns commands by priority", () => {
-  assert.deepEqual(filterCommands(COMMANDS, "").map((c) => c.id),
-                   ["settings", "book", "preview", "export"]);
+  assert.deepEqual(
+    filterCommands(COMMANDS, "").map((c) => c.id),
+    ["settings", "book", "preview", "export"],
+  );
 });

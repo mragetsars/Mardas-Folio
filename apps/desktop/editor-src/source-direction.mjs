@@ -7,13 +7,15 @@ import { parseFrontMatter, frontMatterRange } from "../frontend/js/core/markdown
 // book on every keystroke; code and URL spelling must not move prose's gutter.
 const SAMPLE_LIMIT = 32768;
 const RTL_LANGUAGE = /^(?:ar|fa|he|iw|ku|ps|sd|ug|ur|yi)(?:-|$)/i;
-const RTL_LETTER = /[\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Adlam}]/u;
+const RTL_LETTER =
+  /[\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Adlam}]/u;
 const LETTER = /\p{Letter}/u;
 
 export function sourceDocumentDirection(text) {
   const sample = String(text ?? "").slice(0, SAMPLE_LIMIT);
   const { fields } = parseFrontMatter(sample);
-  const requested = fields.dir ?? fields.direction ?? fields.text_direction ?? fields.document_direction;
+  const requested =
+    fields.dir ?? fields.direction ?? fields.text_direction ?? fields.document_direction;
   const requestedDirection = String(requested).toLowerCase().replaceAll("_", "-");
   if (["rtl", "right-to-left"].includes(requestedDirection)) return "rtl";
   if (["ltr", "left-to-right"].includes(requestedDirection)) return "ltr";
@@ -22,8 +24,15 @@ export function sourceDocumentDirection(text) {
     return RTL_LANGUAGE.test(language.trim().replaceAll("_", "-")) ? "rtl" : "ltr";
   }
   const header = frontMatterRange(sample);
-  const body = header ? sample.split("\n").slice(header.end + 1).join("\n") : sample;
-  let fence = null, rtl = 0, ltr = 0;
+  const body = header
+    ? sample
+        .split("\n")
+        .slice(header.end + 1)
+        .join("\n")
+    : sample;
+  let fence = null,
+    rtl = 0,
+    ltr = 0;
   for (const line of body.split("\n")) {
     const mark = /^\s{0,3}(?:>\s*)*(?:[-+*]\s+)?(`{3,}|~{3,})/.exec(line)?.[1];
     if (mark) {
@@ -43,16 +52,22 @@ export function sourceDocumentDirection(text) {
 }
 
 const documentDirection = StateField.define({
-  create: state => sourceDocumentDirection(state.doc.sliceString(0, SAMPLE_LIMIT)),
+  create: (state) => sourceDocumentDirection(state.doc.sliceString(0, SAMPLE_LIMIT)),
   update(value, transaction) {
     if (!transaction.docChanged) return value;
     let relevant = false;
-    transaction.changes.iterChangedRanges(from => { if (from <= SAMPLE_LIMIT) relevant = true; });
-    return relevant ? sourceDocumentDirection(transaction.newDoc.sliceString(0, SAMPLE_LIMIT)) : value;
+    transaction.changes.iterChangedRanges((from) => {
+      if (from <= SAMPLE_LIMIT) relevant = true;
+    });
+    return relevant
+      ? sourceDocumentDirection(transaction.newDoc.sliceString(0, SAMPLE_LIMIT))
+      : value;
   },
 });
 
 export const sourceGutterDirection = [
   documentDirection,
-  EditorView.editorAttributes.from(documentDirection, direction => ({ "data-source-direction": direction })),
+  EditorView.editorAttributes.from(documentDirection, (direction) => ({
+    "data-source-direction": direction,
+  })),
 ];

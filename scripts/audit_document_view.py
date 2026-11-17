@@ -4,6 +4,7 @@
 Uses isolated browser storage and deterministic file/preview bridge fixtures.
 The installed Windows application and personal documents are never opened.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -12,7 +13,6 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-from lib.audit.editor import BRIDGE_SCRIPT, FIXTURE_B, mode, replace_content
 from lib.audit.desktop import (
     DEFAULT_DIST,
     INIT_SCRIPT,
@@ -21,7 +21,7 @@ from lib.audit.desktop import (
     open_settings,
     serve,
 )
-
+from lib.audit.editor import BRIDGE_SCRIPT, FIXTURE_B, mode, replace_content
 
 SAMPLE = "# سند آزمایشی Document\n\n" + "\n\n".join(
     f"{index}. متن فارسی و English برای بررسی آزادی فضای نوشتن و اندازهٔ متن. " * 8
@@ -45,7 +45,9 @@ def measure(page):
 
 def check_scroll_sync(page, output: Path, locale: str, theme: str):
     wrapped = "متن فارسی و English با چندین سطرِ پیچیده برای بررسی پیمایش. " * 300
-    content = f"# Start section\n\n{wrapped}\n\n## Next section\n\n{wrapped}\n\n## Final section\n\nTail."
+    content = (
+        f"# Start section\n\n{wrapped}\n\n## Next section\n\n{wrapped}\n\n## Final section\n\nTail."
+    )
     mode(page, "source")
     replace_content(page, content)
     mode(page, "split")
@@ -114,10 +116,16 @@ def run(dist: Path, output: Path):
                 f"{{theme:{json.dumps(theme)},onboardingComplete:true,viewMode:'write',writingWidth:'comfortable'}}));}}"
             )
             page.goto(url, wait_until="networkidle")
-            page.evaluate("([path, content]) => {globalThis.__auditFiles[path] = content}", [FIXTURE_B, SAMPLE])
+            page.evaluate(
+                "([path, content]) => {globalThis.__auditFiles[path] = content}",
+                [FIXTURE_B, SAMPLE],
+            )
             page.locator("#workflow-open").click()
             expect(page.locator(".cm-content")).to_be_visible()
-            for region, close in (("#file-navigator", "#navigator-close"), ("#author-sidebar", "#inspector-close")):
+            for region, close in (
+                ("#file-navigator", "#navigator-close"),
+                ("#author-sidebar", "#inspector-close"),
+            ):
                 if page.locator(region).is_visible():
                     page.locator(close).click()
             before = measure(page)
@@ -163,9 +171,9 @@ def run(dist: Path, output: Path):
                     current = measure(page)
                     expected_size = (18 if view in ("write", "read") else 14) * zoom / 100
                     actual_size = current["readerSize"] if view == "read" else current["proseSize"]
-                    assert abs(actual_size - expected_size) < .1, (view, zoom, current)
+                    assert abs(actual_size - expected_size) < 0.1, (view, zoom, current)
                     if view == "split":
-                        assert abs(current["previewSize"] - 18 * zoom / 100) < .1, current
+                        assert abs(current["previewSize"] - 18 * zoom / 100) < 0.1, current
                     assert current["uiSize"] == before["uiSize"], current
                     assert not current["horizontalOverflow"], current
                     assert page.locator("#markdown-editor").input_value() == original
@@ -190,7 +198,9 @@ def run(dist: Path, output: Path):
             page.screenshot(path=str(output / f"{locale}-{theme}-full-width.png"))
 
             scroll_positions = check_scroll_sync(page, output, locale, theme)
-            checks.append("200-percent-soft-wrapped-source-scroll-selects-the-visible-section-without-editing")
+            checks.append(
+                "200-percent-soft-wrapped-source-scroll-selects-the-visible-section-without-editing"
+            )
             mode(page, "write")
             page.locator("#document-zoom-reset").click()
 
@@ -207,18 +217,37 @@ def run(dist: Path, output: Path):
 
             for width in (840, 390):
                 page.set_viewport_size({"width": width, "height": 850})
-                for selector in ("#document-toggle-width", "#document-zoom-out", "#document-zoom-reset", "#document-zoom-in"):
+                for selector in (
+                    "#document-toggle-width",
+                    "#document-zoom-out",
+                    "#document-zoom-reset",
+                    "#document-zoom-in",
+                ):
                     box = page.locator(selector).bounding_box()
-                    assert box and box["x"] >= 0 and box["x"] + box["width"] <= width + 1, (width, selector, box)
+                    assert box and box["x"] >= 0 and box["x"] + box["width"] <= width + 1, (
+                        width,
+                        selector,
+                        box,
+                    )
                 assert not measure(page)["horizontalOverflow"]
                 page.screenshot(path=str(output / f"{locale}-{theme}-{width}.png"))
             checks.append("width-and-text-controls-remain-reachable-at-840-and-390")
             assert not errors, errors
-            scenarios.append({"locale": locale, "theme": theme, "checks": checks, "sizes": measurements, "scrollPositions": scroll_positions})
+            scenarios.append(
+                {
+                    "locale": locale,
+                    "theme": theme,
+                    "checks": checks,
+                    "sizes": measurements,
+                    "scrollPositions": scroll_positions,
+                }
+            )
             context.close()
         browser.close()
     report = {"status": "passed", "scenarios": scenarios}
-    (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    (output / "report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return report
 
 

@@ -14,8 +14,8 @@ import dataclasses
 import json
 import sys
 import time
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 from typing import Iterable, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,8 +23,9 @@ SRC = ROOT / "src"
 if SRC.is_dir() and str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES  # noqa: E402
 from visual_qa import ensure_clean_dir, run_command, write_json  # noqa: E402
+
+from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES  # noqa: E402
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -54,7 +55,12 @@ def build_cases(
     palettes: Iterable[str] = PALETTES_ORDER,
     modes: Iterable[str] = MODES,
 ) -> tuple[AppearanceCase, ...]:
-    return tuple(AppearanceCase(style, palette, mode) for style in styles for palette in palettes for mode in modes)
+    return tuple(
+        AppearanceCase(style, palette, mode)
+        for style in styles
+        for palette in palettes
+        for mode in modes
+    )
 
 
 def _utc_timestamp() -> str:
@@ -161,17 +167,31 @@ def _write_summary(path: Path, summary: dict[str, object]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=Path("build/visual-qa/full"))
-    parser.add_argument("--clean", action="store_true", help="Delete output directory before running")
+    parser.add_argument(
+        "--clean", action="store_true", help="Delete output directory before running"
+    )
     parser.add_argument("--resume", action="store_true", help="Skip completed child audit chunks")
-    parser.add_argument("--fail-fast", action="store_true", help="Stop after the first failed chunk")
-    parser.add_argument("--render-png", action="store_true", help="Raster representative pages for galleries")
+    parser.add_argument(
+        "--fail-fast", action="store_true", help="Stop after the first failed chunk"
+    )
+    parser.add_argument(
+        "--render-png", action="store_true", help="Raster representative pages for galleries"
+    )
     parser.add_argument("--png-dpi", type=int, default=72)
     parser.add_argument("--appearance-chunk-size", type=int, default=7)
     parser.add_argument("--feature-chunk-size", type=int, default=4)
-    parser.add_argument("--max-cases", type=int, help="Limit total appearance cases for quick local smoke runs")
-    parser.add_argument("--render-timeout", type=int, default=120, help="Seconds per child PDF render")
-    parser.add_argument("--raster-timeout", type=int, default=60, help="Seconds per child raster command")
-    parser.add_argument("--chunk-timeout", type=int, default=900, help="Seconds allowed for each child audit chunk")
+    parser.add_argument(
+        "--max-cases", type=int, help="Limit total appearance cases for quick local smoke runs"
+    )
+    parser.add_argument(
+        "--render-timeout", type=int, default=120, help="Seconds per child PDF render"
+    )
+    parser.add_argument(
+        "--raster-timeout", type=int, default=60, help="Seconds per child raster command"
+    )
+    parser.add_argument(
+        "--chunk-timeout", type=int, default=900, help="Seconds allowed for each child audit chunk"
+    )
     parser.add_argument(
         "--chunk-heartbeat-seconds",
         type=float,
@@ -244,7 +264,9 @@ def main(argv: list[str] | None = None) -> int:
 
         def heartbeat(elapsed: float) -> None:
             active = dict(summary.get("active_chunk") or {})
-            active.update({"last_heartbeat_at": _utc_timestamp(), "elapsed_seconds": round(elapsed, 3)})
+            active.update(
+                {"last_heartbeat_at": _utc_timestamp(), "elapsed_seconds": round(elapsed, 3)}
+            )
             summary["active_chunk"] = active
             _write_summary(summary_path, summary)
 
@@ -307,7 +329,12 @@ def main(argv: list[str] | None = None) -> int:
                 fail_fast=args.fail_fast,
             )
             if not run_child(
-                "appearance", index, len(appearance_chunks), output_dir, command, expected_count=len(chunk)
+                "appearance",
+                index,
+                len(appearance_chunks),
+                output_dir,
+                command,
+                expected_count=len(chunk),
             ):
                 return 1
 
@@ -333,7 +360,12 @@ def main(argv: list[str] | None = None) -> int:
             if args.render_png:
                 command.extend(["--pages", "1,2,3"])
             if not run_child(
-                "features", index, len(feature_chunks), output_dir, command, expected_count=len(chunk)
+                "features",
+                index,
+                len(feature_chunks),
+                output_dir,
+                command,
+                expected_count=len(chunk),
             ):
                 return 1
 

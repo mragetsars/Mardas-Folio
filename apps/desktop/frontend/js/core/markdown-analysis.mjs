@@ -74,7 +74,11 @@ function parseScalar(raw) {
   if (value.startsWith('"')) {
     const quoted = /^"(?:[^"\\]|\\.)*"(?=\s*(?:#.*)?$)/.exec(value)?.[0];
     if (quoted) {
-      try { return JSON.parse(quoted); } catch { return undefined; }
+      try {
+        return JSON.parse(quoted);
+      } catch {
+        return undefined;
+      }
     }
     return undefined;
   }
@@ -155,9 +159,11 @@ function metadataValue(entry, lines) {
   if (block) {
     // The compact form cannot round-trip keep-chomp or folded paragraphs.
     // Leave those values to source editing instead of inventing their text.
-    if (block[2] === "+" || (block[1] === ">" && continuation.some((line) => !line.trim()))) return undefined;
+    if (block[2] === "+" || (block[1] === ">" && continuation.some((line) => !line.trim())))
+      return undefined;
     const nonempty = continuation.filter((line) => line.trim());
-    const indent = block[3] ? Number(block[3])
+    const indent = block[3]
+      ? Number(block[3])
       : Math.min(...nonempty.map((line) => /^ */.exec(line)[0].length));
     const parts = continuation.map((line) => line.slice(Number.isFinite(indent) ? indent : 0));
     let value = parts.join("\n");
@@ -165,20 +171,28 @@ function metadataValue(entry, lines) {
       value = parts.reduce((result, part, index) => {
         if (!index) return part;
         const previous = parts[index - 1];
-        const separator = !previous || !part || /^\s/.test(previous) || /^\s/.test(part) ? "\n" : " ";
+        const separator =
+          !previous || !part || /^\s/.test(previous) || /^\s/.test(part) ? "\n" : " ";
         return result + separator + part;
       }, "");
     }
     if (block[2] === "-") return value.replace(/\n+$/, "");
     return value.replace(/\n+$/, "") + (parts.length ? "\n" : "");
   }
-  if (!entry.raw.trim() && continuation.length && continuation.every((line) => /^\s*-\s/.test(line))) {
+  if (
+    !entry.raw.trim() &&
+    continuation.length &&
+    continuation.every((line) => /^\s*-\s/.test(line))
+  ) {
     const items = continuation.map((line) => parseScalar(line.replace(/^\s*-\s*/, "")));
     return items.some((item) => item === undefined) ? undefined : items;
   }
   if (continuation.some((line) => line.trim())) return undefined;
-  if ((entry.raw.startsWith('"') && !/^"(?:[^"\\]|\\.)*"(?:\s+#.*)?\s*$/.test(entry.raw))
-    || (entry.raw.startsWith("'") && !/^'(?:[^']|'')*'(?:\s+#.*)?\s*$/.test(entry.raw))) return undefined;
+  if (
+    (entry.raw.startsWith('"') && !/^"(?:[^"\\]|\\.)*"(?:\s+#.*)?\s*$/.test(entry.raw)) ||
+    (entry.raw.startsWith("'") && !/^'(?:[^']|'')*'(?:\s+#.*)?\s*$/.test(entry.raw))
+  )
+    return undefined;
   return parseScalar(entry.raw);
 }
 
@@ -195,7 +209,8 @@ export function parseFrontMatter(text) {
     else Object.defineProperty(fields, entry.key, { value, enumerable: true, configurable: true });
   }
   for (let index = 1; index < range.end; index += 1) {
-    if (!covered.has(index) && range.lines[index].trim() && !/^\s*#/.test(range.lines[index])) valid = false;
+    if (!covered.has(index) && range.lines[index].trim() && !/^\s*#/.test(range.lines[index]))
+      valid = false;
   }
   return { fields, rawLines: range.lines.slice(1, range.end), valid, present: true };
 }
@@ -203,7 +218,8 @@ export function parseFrontMatter(text) {
 function yamlValue(value) {
   if (typeof value === "boolean" || typeof value === "number") return String(value);
   if (value === null || value === undefined || value === "") return '""';
-  if (Array.isArray(value)) return `[${value.map((item) => JSON.stringify(String(item))).join(", ")}]`;
+  if (Array.isArray(value))
+    return `[${value.map((item) => JSON.stringify(String(item))).join(", ")}]`;
   return JSON.stringify(String(value));
 }
 
@@ -251,10 +267,11 @@ export function extractOutline(text) {
       }
     }
     if (fence) {
-      const closesFence = marker
-        && marker.character === fence.character
-        && marker.length >= fence.length
-        && !marker.trailing.trim();
+      const closesFence =
+        marker &&
+        marker.character === fence.character &&
+        marker.length >= fence.length &&
+        !marker.trailing.trim();
       if (closesFence) fence = null;
       return;
     }
@@ -295,16 +312,20 @@ export function extractOutline(text) {
     else if (/^ {0,3}<\?/.test(line)) htmlEnd = /\?>/;
     else if (/^ {0,3}<!\[CDATA\[/.test(line)) htmlEnd = /\]\]>/;
     else if (/^ {0,3}<![A-Z]/.test(line)) htmlEnd = />/;
-    const blockTag = /^ {0,3}<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[\s/>]|$)/i.test(line);
-    const completeTag = !paragraph.length && !containerParagraph && /^ {0,3}<\/?[a-z][^>]*>[ \t]*$/i.test(line);
+    const blockTag =
+      /^ {0,3}<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:[\s/>]|$)/i.test(
+        line,
+      );
+    const completeTag =
+      !paragraph.length && !containerParagraph && /^ {0,3}<\/?[a-z][^>]*>[ \t]*$/i.test(line);
     if (htmlEnd || blockTag || completeTag) {
       paragraph = [];
       containerParagraph = false;
       htmlBlock = htmlEnd ? (htmlEnd.test(line) ? null : htmlEnd) : "blank";
       return;
     }
-    const startsContainer = /^ {0,3}>/.test(line)
-      || (paragraph.length ? interruptingList : listStart).test(line);
+    const startsContainer =
+      /^ {0,3}>/.test(line) || (paragraph.length ? interruptingList : listStart).test(line);
     if (startsContainer) {
       paragraph = [];
       containerParagraph = true;

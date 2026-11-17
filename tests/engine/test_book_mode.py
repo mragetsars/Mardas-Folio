@@ -16,9 +16,7 @@ def _write_book_project(tmp_path: Path, *, chapter_page_break: bool = True) -> P
     second_dir = chapters / "part-b"
     first_dir.mkdir(parents=True)
     second_dir.mkdir(parents=True)
-    image_bytes = (
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-    )
+    image_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
     (first_dir / "pixel.png").write_bytes(image_bytes)
     (second_dir / "pixel.png").write_bytes(image_bytes)
     (first_dir / "01-introduction.md").write_text(
@@ -31,7 +29,7 @@ def _write_book_project(tmp_path: Path, *, chapter_page_break: bool = True) -> P
     )
     config_path = tmp_path / "mardas.toml"
     config_path.write_text(
-        f'''schema_version = 1
+        f"""schema_version = 1
 [project]
 title = "Ordered Research Book"
 author = "Researcher"
@@ -51,7 +49,7 @@ chapters = [
 ]
 output = "dist/research-book.pdf"
 chapter_page_break = {str(chapter_page_break).lower()}
-''',
+""",
         encoding="utf-8",
     )
     return config_path
@@ -419,7 +417,10 @@ def test_explain_config_serializes_book_manifest_values(tmp_path: Path, capsys) 
     config_path = _write_book_project(tmp_path)
     chapter = tmp_path / "chapters/part-a/01-introduction.md"
 
-    assert main(["explain-config", str(chapter), "--config", str(config_path), "--format", "json"]) == 0
+    assert (
+        main(["explain-config", str(chapter), "--config", str(config_path), "--format", "json"])
+        == 0
+    )
 
     payload = json.loads(capsys.readouterr().out)
     chapters = payload["effective"]["book_chapters"]["value"]
@@ -546,7 +547,7 @@ style = "author-date"
 [book]
 chapters = ["chapters/01-introduction.md", "chapters/02-methods.md"]
 output = "dist/book.pdf"
-""".replace('lang = "en"\n', ''),
+""".replace('lang = "en"\n', ""),
         encoding="utf-8",
     )
     config = load_project_config(start=tmp_path, explicit_path=config_path).config

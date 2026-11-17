@@ -23,7 +23,9 @@ export function createDocument({
   const initialContent = String(content ?? "");
   const title = resolvedPath ? basename(resolvedPath) : `Untitled ${untitledSequence++}`;
   return {
-    id: globalThis.crypto?.randomUUID?.() ?? `doc-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id:
+      globalThis.crypto?.randomUUID?.() ??
+      `doc-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     path: resolvedPath,
     title,
     content: initialContent,

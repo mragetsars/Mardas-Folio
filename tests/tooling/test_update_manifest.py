@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import importlib.util
 from pathlib import Path
 
 import pytest
 
+from tests._paths import ROOT
 
 
 def _load():

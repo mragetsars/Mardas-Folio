@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Exercise table drafts through real workspace tabs, shortcuts and Undo."""
+
 from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import traceback
+from pathlib import Path
 
+from audit_table_editing import SAMPLE
 from playwright.sync_api import expect, sync_playwright
 
-from lib.audit.editor import CONTENT_A, FIXTURE_B, initialise, replace_content
 from lib.audit.desktop import DEFAULT_DIST, click_workspace_layout_control, serve
-from audit_table_editing import SAMPLE
+from lib.audit.editor import CONTENT_A, FIXTURE_B, initialise, replace_content
 
 
 def run(dist: Path, output: Path) -> dict:
@@ -33,17 +34,27 @@ def run(dist: Path, output: Path) -> dict:
                 replace_content(page, SAMPLE)
                 page.keyboard.press("Control+End")
                 buffer = page.locator("#markdown-editor")
-                cell = page.locator('.cm-md-table [data-table-row="1"][data-table-column="1"]').first
+                cell = page.locator(
+                    '.cm-md-table [data-table-row="1"][data-table-column="1"]'
+                ).first
                 panel = page.locator(".cm-table-cell-editor")
                 draft = panel.locator("textarea")
 
-                if page.locator("#workspace-toggle-formatting").get_attribute("aria-pressed") != "true":
+                if (
+                    page.locator("#workspace-toggle-formatting").get_attribute("aria-pressed")
+                    != "true"
+                ):
                     click_workspace_layout_control(page, "#workspace-toggle-formatting")
                 cell.click()
                 draft.fill("CELL_FORMAT_ONLY")
                 draft.press("Control+a")
-                for selector in ('[data-editor-command="strike"]', '[data-editor-command="link"]',
-                                 "#heading-menu-button", "#insert-menu-button", "#workspace-import-asset"):
+                for selector in (
+                    '[data-editor-command="strike"]',
+                    '[data-editor-command="link"]',
+                    "#heading-menu-button",
+                    "#insert-menu-button",
+                    "#workspace-import-asset",
+                ):
                     expect(page.locator(selector).first).to_be_disabled()
                     page.locator(selector).first.evaluate("e=>e.click()")
                 expect(panel).to_be_visible()
@@ -61,7 +72,9 @@ def run(dist: Path, output: Path) -> dict:
                 expect(page.locator('[data-editor-command="strike"]').first).to_be_enabled()
                 expect(page.locator("#heading-menu-button")).to_be_enabled()
                 expect(page.locator("#insert-menu-button")).to_be_enabled()
-                case["checks"].append("unsupported document formatting and insertion are disabled during a cell draft; Bold targets only the cell, refresh preserves the guard, and close restores controls")
+                case["checks"].append(
+                    "unsupported document formatting and insertion are disabled during a cell draft; Bold targets only the cell, refresh preserves the guard, and close restores controls"
+                )
 
                 cell.click()
                 draft.press("Alt+F10")
@@ -72,14 +85,21 @@ def run(dist: Path, output: Path) -> dict:
                       color:style.outlineColor, style:style.outlineStyle};
                 }""")
                 case["cell_action_focus"] = focus_paint
-                assert float(focus_paint["width"].removesuffix("px")) >= 2 and focus_paint["style"] == "solid", focus_paint
+                assert (
+                    float(focus_paint["width"].removesuffix("px")) >= 2
+                    and focus_paint["style"] == "solid"
+                ), focus_paint
                 page.keyboard.press("Escape")
                 expect(draft).to_be_focused()
                 draft.press("Alt+F10")
                 page.keyboard.press("Home")
                 for _ in range(5):
                     page.keyboard.press("ArrowDown")
-                add_column = panel.get_by_role("button", name="Add column after" if locale == "en" else "افزودن ستون بعدی", exact=True)
+                add_column = panel.get_by_role(
+                    "button",
+                    name="Add column after" if locale == "en" else "افزودن ستون بعدی",
+                    exact=True,
+                )
                 expect(add_column).to_be_focused()
                 page.keyboard.press("Enter")
                 expect(draft).to_be_focused()
@@ -94,7 +114,9 @@ def run(dist: Path, output: Path) -> dict:
                 page.keyboard.press("Control+z")
                 page.keyboard.press("Control+z")
                 expect(buffer).to_have_value(SAMPLE)
-                case["checks"].append("Alt+F10, Escape, arrows, Home/End and Enter reach Add column and Apply with no pointer; two physical Undo steps restore the exact original table")
+                case["checks"].append(
+                    "Alt+F10, Escape, arrows, Home/End and Enter reach Add column and Apply with no pointer; two physical Undo steps restore the exact original table"
+                )
 
                 cell.click()
                 draft.fill("TAB_SWITCH_DRAFT")
@@ -102,17 +124,23 @@ def run(dist: Path, output: Path) -> dict:
                 expect(buffer).to_have_value(CONTENT_A)
                 expect(panel).to_have_count(0)
                 page.locator("#document-tabs .document-tab").nth(1).locator(".tab-activate").click()
-                expect(buffer).to_have_value(SAMPLE.replace("**bold** and *italic*", "TAB_SWITCH_DRAFT"))
+                expect(buffer).to_have_value(
+                    SAMPLE.replace("**bold** and *italic*", "TAB_SWITCH_DRAFT")
+                )
                 page.keyboard.press("Control+z")
                 expect(buffer).to_have_value(SAMPLE)
-                case["checks"].append("one tab click commits its cell draft and activates the requested document; return retains draft and exact Undo")
+                case["checks"].append(
+                    "one tab click commits its cell draft and activates the requested document; return retains draft and exact Undo"
+                )
 
                 cell.click()
                 draft.fill("START_TAB_DRAFT")
                 page.locator("#tab-new-document").click()
                 expect(page.locator("#workspace-empty")).to_be_visible()
                 page.locator("#document-tabs .document-tab").nth(1).locator(".tab-activate").click()
-                expect(buffer).to_have_value(SAMPLE.replace("**bold** and *italic*", "START_TAB_DRAFT"))
+                expect(buffer).to_have_value(
+                    SAMPLE.replace("**bold** and *italic*", "START_TAB_DRAFT")
+                )
                 page.locator("#document-tabs .document-tab").last.locator(".tab-close").click()
                 page.keyboard.press("Control+z")
                 expect(buffer).to_have_value(SAMPLE)
@@ -126,7 +154,9 @@ def run(dist: Path, output: Path) -> dict:
                 panel.locator(".cm-table-cell-apply").evaluate("button => button.disabled = false")
                 draft.press("Escape")
                 expect(buffer).to_have_value(SAMPLE)
-                case["checks"].append("starter tabs commit table drafts and stay closed when a draft cannot be committed")
+                case["checks"].append(
+                    "starter tabs commit table drafts and stay closed when a draft cannot be committed"
+                )
 
                 cell.click()
                 draft.fill("ENTER_UNDO")
@@ -136,10 +166,14 @@ def run(dist: Path, output: Path) -> dict:
                 expect(buffer).to_have_value(SAMPLE)
                 cell.click()
                 draft.fill("APPLY_UNDO")
-                panel.get_by_role("button", name="Apply" if locale == "en" else "اعمال", exact=True).click()
+                panel.get_by_role(
+                    "button", name="Apply" if locale == "en" else "اعمال", exact=True
+                ).click()
                 page.keyboard.press("Control+z")
                 expect(buffer).to_have_value(SAMPLE)
-                case["checks"].append("physical Ctrl+Z works immediately after Enter and Apply, without adapter command shortcuts")
+                case["checks"].append(
+                    "physical Ctrl+Z works immediately after Enter and Apply, without adapter command shortcuts"
+                )
 
                 cell.click()
                 draft.fill("LOCAL_NAVIGATION_ONLY")
@@ -149,19 +183,27 @@ def run(dist: Path, output: Path) -> dict:
                 draft.press("Escape")
                 page.wait_for_timeout(80)
                 expect(page.locator(".cm-table-cell-active")).to_have_count(0)
-                case["checks"].append("Ctrl+Arrow word navigation does not commit drafts; Escape leaves no stale active-cell decoration")
+                case["checks"].append(
+                    "Ctrl+Arrow word navigation does not commit drafts; Escape leaves no stale active-cell decoration"
+                )
 
                 cell.click()
                 draft.fill("PHYSICAL_LAYOUT")
                 draft.press("Control+a")
-                draft.evaluate("e=>e.dispatchEvent(new KeyboardEvent('keydown',{key:'ذ',code:'KeyB',keyCode:66,ctrlKey:true,bubbles:true,cancelable:true}))")
+                draft.evaluate(
+                    "e=>e.dispatchEvent(new KeyboardEvent('keydown',{key:'ذ',code:'KeyB',keyCode:66,ctrlKey:true,bubbles:true,cancelable:true}))"
+                )
                 expect(draft).to_have_value("**PHYSICAL_LAYOUT**")
                 expect(buffer).to_have_value(SAMPLE)
                 draft.press("Enter")
-                expect(buffer).to_have_value(SAMPLE.replace("**bold** and *italic*", "**PHYSICAL_LAYOUT**"))
+                expect(buffer).to_have_value(
+                    SAMPLE.replace("**bold** and *italic*", "**PHYSICAL_LAYOUT**")
+                )
                 page.keyboard.press("Control+z")
                 expect(buffer).to_have_value(SAMPLE)
-                case["checks"].append("Persian-layout physical Ctrl+B formats only the cell draft; Enter applies once and physical Undo restores Markdown")
+                case["checks"].append(
+                    "Persian-layout physical Ctrl+B formats only the cell draft; Enter applies once and physical Undo restores Markdown"
+                )
 
                 cell.click()
                 draft.fill("SAVED_FROM_CELL")
@@ -169,30 +211,43 @@ def run(dist: Path, output: Path) -> dict:
                 expected = SAMPLE.replace("**bold** and *italic*", "SAVED_FROM_CELL")
                 expect(buffer).to_have_value(expected)
                 expect(panel).to_have_count(0)
-                page.wait_for_function("v=>globalThis.__auditFiles[v.path]===v.text", arg={"path": FIXTURE_B, "text": expected})
-                case["checks"].append("Ctrl+S from cell input commits and actually saves the document through the workspace bridge")
+                page.wait_for_function(
+                    "v=>globalThis.__auditFiles[v.path]===v.text",
+                    arg={"path": FIXTURE_B, "text": expected},
+                )
+                case["checks"].append(
+                    "Ctrl+S from cell input commits and actually saves the document through the workspace bridge"
+                )
 
                 cell.click()
                 draft.fill("FIND_FROM_CELL")
                 draft.press("Control+f")
                 expect(panel).to_have_count(0)
                 expect(page.locator("#find-query")).to_be_focused()
-                expect(buffer).to_have_value(SAMPLE.replace("**bold** and *italic*", "FIND_FROM_CELL"))
+                expect(buffer).to_have_value(
+                    SAMPLE.replace("**bold** and *italic*", "FIND_FROM_CELL")
+                )
                 page.keyboard.press("Escape")
                 page.keyboard.press("Control+z")
                 expect(buffer).to_have_value(expected)
-                case["checks"].append("Ctrl+F commits the draft before opening Find; one Undo restores the prior saved cell")
+                case["checks"].append(
+                    "Ctrl+F commits the draft before opening Find; one Undo restores the prior saved cell"
+                )
 
                 cell.click()
                 draft.fill("SOURCE_FROM_CELL")
                 page.locator('[data-view-mode="source"][role="radio"]').click()
                 expect(panel).to_have_count(0)
                 expect(page.locator(".editor-pane")).to_have_attribute("data-view-mode", "source")
-                expect(buffer).to_have_value(SAMPLE.replace("**bold** and *italic*", "SOURCE_FROM_CELL"))
+                expect(buffer).to_have_value(
+                    SAMPLE.replace("**bold** and *italic*", "SOURCE_FROM_CELL")
+                )
                 page.locator(".cm-content").focus()
                 page.keyboard.press("Control+z")
                 expect(buffer).to_have_value(expected)
-                case["checks"].append("one Source click applies its cell draft before changing mode; physical Undo restores saved cell")
+                case["checks"].append(
+                    "one Source click applies its cell draft before changing mode; physical Undo restores saved cell"
+                )
 
                 page.locator('[data-view-mode="write"][role="radio"]').click()
                 cell.click()
@@ -200,10 +255,17 @@ def run(dist: Path, output: Path) -> dict:
                 page.evaluate("window.dispatchEvent(new Event('beforeunload'))")
                 recovered = SAMPLE.replace("**bold** and *italic*", "WINDOW_CLOSE_RECOVERY")
                 expect(buffer).to_have_value(recovered)
-                entries = page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.authoring-recovery.v1') || '[]')")
-                assert any(entry["path"] == FIXTURE_B and entry["content"] == recovered for entry in entries), entries
+                entries = page.evaluate(
+                    "JSON.parse(localStorage.getItem('mardas.desktop.authoring-recovery.v1') || '[]')"
+                )
+                assert any(
+                    entry["path"] == FIXTURE_B and entry["content"] == recovered
+                    for entry in entries
+                ), entries
                 draft.press("Escape")
-                case["checks"].append("window-close capture commits the cell before the host snapshots exact Markdown recovery")
+                case["checks"].append(
+                    "window-close capture commits the cell before the host snapshots exact Markdown recovery"
+                )
 
                 assert not errors, errors
                 page.screenshot(path=str(output / f"{locale}-{theme}.png"))
@@ -216,8 +278,12 @@ def run(dist: Path, output: Path) -> dict:
                 case["page_errors"] = errors
                 page.close()
         browser.close()
-    report["status"] = "passed" if all(case["status"] == "passed" for case in report["scenarios"]) else "failed"
-    (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    report["status"] = (
+        "passed" if all(case["status"] == "passed" for case in report["scenarios"]) else "failed"
+    )
+    (output / "report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return report
 
 

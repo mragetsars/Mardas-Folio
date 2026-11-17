@@ -244,26 +244,35 @@ def test_source_authoring_defers_cached_browser_resolution_until_pdf(
     monkeypatch.setattr(runtime, "bundled_chromium_path", probe_bundled_browser)
     try:
         service = EngineService()
-        assert service.dispatch(
-            "validate.document",
-            {"input_path": str(source), "discover_config": False},
-        )["ok"] is True
-        assert service.dispatch(
-            "validate.document_text",
-            {
-                "input_path": str(source),
-                "content": "# Dirty validate\n",
-                "discover_config": False,
-            },
-        )["ok"] is True
-        assert service.dispatch(
-            "preview.document_text",
-            {
-                "input_path": str(source),
-                "content": "# Dirty preview\n",
-                "discover_config": False,
-            },
-        )["title"] == "Dirty preview"
+        assert (
+            service.dispatch(
+                "validate.document",
+                {"input_path": str(source), "discover_config": False},
+            )["ok"]
+            is True
+        )
+        assert (
+            service.dispatch(
+                "validate.document_text",
+                {
+                    "input_path": str(source),
+                    "content": "# Dirty validate\n",
+                    "discover_config": False,
+                },
+            )["ok"]
+            is True
+        )
+        assert (
+            service.dispatch(
+                "preview.document_text",
+                {
+                    "input_path": str(source),
+                    "content": "# Dirty preview\n",
+                    "discover_config": False,
+                },
+            )["title"]
+            == "Dirty preview"
+        )
         preview = tmp_path / "preview.html"
         assert service.dispatch(
             "preview.document",
@@ -567,9 +576,7 @@ def test_unsaved_document_text_uses_source_relative_assets(tmp_path: Path) -> No
     preview = application.preview_document_text(options, "# Unsaved\n\n**buffer**")
     assert preview["title"] == "Unsaved"
     assert "buffer" in preview["body_html"]
-    assert preview["source_map"] == [
-        {"id": "unsaved", "line": 1, "level": 1, "title": "Unsaved"}
-    ]
+    assert preview["source_map"] == [{"id": "unsaved", "line": 1, "level": 1, "title": "Unsaved"}]
     assert source.read_text(encoding="utf-8") == "# Saved title\n"
 
 

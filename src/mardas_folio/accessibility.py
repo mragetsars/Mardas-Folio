@@ -157,7 +157,9 @@ def _clean_text(value: str) -> str:
     return re.sub(r"\s+", " ", _TAG_RE.sub("", value)).strip()
 
 
-def _heading_diagnostics(path: Path, source_lines: Iterable[tuple[int, str]]) -> tuple[list[Diagnostic], int]:
+def _heading_diagnostics(
+    path: Path, source_lines: Iterable[tuple[int, str]]
+) -> tuple[list[Diagnostic], int]:
     diagnostics: list[Diagnostic] = []
     headings: list[tuple[int, int, str]] = []
     for line_number, line in source_lines:
@@ -215,7 +217,9 @@ def _heading_diagnostics(path: Path, source_lines: Iterable[tuple[int, str]]) ->
     return diagnostics, len(headings)
 
 
-def _image_diagnostics(path: Path, source_lines: Iterable[tuple[int, str]]) -> tuple[list[Diagnostic], int]:
+def _image_diagnostics(
+    path: Path, source_lines: Iterable[tuple[int, str]]
+) -> tuple[list[Diagnostic], int]:
     diagnostics: list[Diagnostic] = []
     count = 0
     for line_number, line in source_lines:
@@ -278,7 +282,9 @@ def _image_diagnostics(path: Path, source_lines: Iterable[tuple[int, str]]) -> t
     return diagnostics, count
 
 
-def _link_diagnostics(path: Path, source_lines: Iterable[tuple[int, str]]) -> tuple[list[Diagnostic], int]:
+def _link_diagnostics(
+    path: Path, source_lines: Iterable[tuple[int, str]]
+) -> tuple[list[Diagnostic], int]:
     diagnostics: list[Diagnostic] = []
     count = 0
     for line_number, line in source_lines:
@@ -327,7 +333,9 @@ def _link_diagnostics(path: Path, source_lines: Iterable[tuple[int, str]]) -> tu
     return diagnostics, count
 
 
-def _rendered_semantic_diagnostics(path: Path, result: MarkdownRenderResult) -> tuple[list[Diagnostic], dict[str, int]]:
+def _rendered_semantic_diagnostics(
+    path: Path, result: MarkdownRenderResult
+) -> tuple[list[Diagnostic], dict[str, int]]:
     diagnostics: list[Diagnostic] = []
     soup = BeautifulSoup(result.body_html, "html.parser")
     figures = soup.find_all("figure")

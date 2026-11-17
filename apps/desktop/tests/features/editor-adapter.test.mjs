@@ -19,12 +19,17 @@ class FakeTextArea {
     this.listeners.set(name, callbacks);
   }
   removeEventListener(name, callback) {
-    this.listeners.set(name, (this.listeners.get(name) || []).filter((item) => item !== callback));
+    this.listeners.set(
+      name,
+      (this.listeners.get(name) || []).filter((item) => item !== callback),
+    );
   }
   dispatch(name) {
     for (const callback of this.listeners.get(name) || []) callback({ target: this });
   }
-  focus() { this.focused = true; }
+  focus() {
+    this.focused = true;
+  }
   setSelectionRange(start, end) {
     this.selectionStart = start;
     this.selectionEnd = end;
@@ -39,9 +44,15 @@ test("editor adapter preserves a stable document boundary", () => {
   let selections = 0;
   let lastScroll = null;
   const editor = createEditorAdapter(element, {
-    onChange: () => { changes += 1; },
-    onSelectionChange: () => { selections += 1; },
-    onScroll: (value) => { lastScroll = value; },
+    onChange: () => {
+      changes += 1;
+    },
+    onSelectionChange: () => {
+      selections += 1;
+    },
+    onScroll: (value) => {
+      lastScroll = value;
+    },
   });
 
   editor.value = "first\nsecond\nthird";
@@ -124,8 +135,12 @@ test("view navigation scrolls without moving the fallback selection or editing t
   let changes = 0;
   let selections = 0;
   const editor = createEditorAdapter(element, {
-    onChange: () => { changes += 1; },
-    onSelectionChange: () => { selections += 1; },
+    onChange: () => {
+      changes += 1;
+    },
+    onSelectionChange: () => {
+      selections += 1;
+    },
   });
   editor.setDocument("a", "first\nsecond\nthird\nfourth");
   editor.setSelectionRange(2, 4);

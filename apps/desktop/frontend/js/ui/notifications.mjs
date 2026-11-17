@@ -1,4 +1,3 @@
-
 /** Owns this feature's DOM interactions; cross-feature actions are injected. */
 export function createNotifications({ query: $ }) {
   const TOAST_LIMIT = 3;

@@ -1,30 +1,31 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
-from bs4 import BeautifulSoup
 import pytest
+from bs4 import BeautifulSoup
 
 from mardas_folio.markdown import render_markdown
 from mardas_folio.renderer import FooterContext, PdfOptions, _footer_template, _layout_css
 
 
 def test_persian_blocks_get_explicit_rtl_direction_classes():
-    result = render_markdown('---\nlang: fa\n---\n\nاین یک پاراگراف فارسی برای بررسی جهت متن است.\n')
+    result = render_markdown(
+        "---\nlang: fa\n---\n\nاین یک پاراگراف فارسی برای بررسی جهت متن است.\n"
+    )
 
     assert 'dir="rtl"' in result.body_html
-    assert 'md2pdf-rtl-text' in result.body_html
+    assert "md2pdf-rtl-text" in result.body_html
 
 
 def test_mixed_persian_latin_text_gets_bidi_and_numeric_classes():
     result = render_markdown(
-        "---\nlang: fa\n---\n\n"
-        "در خروجی PDF مقدار version 1.8.9 و شماره ۱۲۳ باید خوانا بماند.\n"
+        "---\nlang: fa\n---\n\nدر خروجی PDF مقدار version 1.8.9 و شماره ۱۲۳ باید خوانا بماند.\n"
     )
 
     paragraph = BeautifulSoup(result.body_html, "html.parser").find("p")
     assert paragraph["dir"] == "rtl"
-    assert 'mixed-script' in result.body_html
-    assert 'mixed-numeral' in result.body_html
+    assert "mixed-script" in result.body_html
+    assert "mixed-numeral" in result.body_html
 
 
 def test_english_mixed_prose_keeps_its_base_direction_after_latin_isolation():
@@ -36,24 +37,29 @@ def test_english_mixed_prose_keeps_its_base_direction_after_latin_isolation():
     paragraph = BeautifulSoup(result.body_html, "html.parser").find("p")
     assert paragraph["dir"] == "ltr"
     assert "md2pdf-mixed-prose" in paragraph["class"]
-    assert paragraph.find("span", class_="md2pdf-ltr-isolate").get_text() == "This sample mixes Persian"
+    assert (
+        paragraph.find("span", class_="md2pdf-ltr-isolate").get_text()
+        == "This sample mixes Persian"
+    )
 
 
 def test_mixed_prose_preserves_an_explicit_author_direction():
-    result = render_markdown(
-        '<p dir="rtl">English words followed by متن فارسی.</p>\n'
-    )
+    result = render_markdown('<p dir="rtl">English words followed by متن فارسی.</p>\n')
     paragraph = BeautifulSoup(result.body_html, "html.parser").find("p")
     assert paragraph["dir"] == "rtl"
     assert "md2pdf-mixed-prose" in paragraph["class"]
 
 
 def test_comma_separated_persian_phrases_are_isolated_in_ltr_source_order():
-    text = "English terms include راست به چپ, فونت فارسی, and گزارش فنی with `renderer.pipeline` 1.2."
+    text = (
+        "English terms include راست به چپ, فونت فارسی, and گزارش فنی with `renderer.pipeline` 1.2."
+    )
     result = render_markdown(f"---\nlang: en\ndir: ltr\n---\n\n{text}\n")
     paragraph = BeautifulSoup(result.body_html, "html.parser").find("p")
     assert [span.get_text() for span in paragraph.select(".md2pdf-rtl-isolate")] == [
-        "راست به چپ", "فونت فارسی", "گزارش فنی",
+        "راست به چپ",
+        "فونت فارسی",
+        "گزارش فنی",
     ]
     assert paragraph.get_text() == text.replace("`", "")
     assert paragraph.find("code").get_text() == "renderer.pipeline"
@@ -94,7 +100,11 @@ def test_chromium_comma_separated_persian_phrases_follow_ltr_source_order(tmp_pa
             phrases = page.locator("p .md2pdf-rtl-isolate").evaluate_all(
                 "elements => elements.map(element => ({text:element.textContent,left:element.getBoundingClientRect().left}))"
             )
-            assert [phrase["text"] for phrase in phrases] == ["راست به چپ", "فونت فارسی", "گزارش فنی"]
+            assert [phrase["text"] for phrase in phrases] == [
+                "راست به چپ",
+                "فونت فارسی",
+                "گزارش فنی",
+            ]
             assert phrases[0]["left"] < phrases[1]["left"] < phrases[2]["left"]
         finally:
             browser.close()
@@ -172,13 +182,12 @@ def test_rtl_tables_get_direction_and_cell_profiles():
         "| وضعیت | پایدار | stable |\n"
     )
 
-    assert 'table-wrap--rtl' in result.body_html
-    assert 'table-wrap--mixed-direction' in result.body_html
-    assert 'table-wrap--mixed-numerals' in result.body_html
-    assert 'table-cell--rtl' in result.body_html
-    assert 'table-cell--ltr' in result.body_html
-    assert 'table-cell--mixed' in result.body_html
-
+    assert "table-wrap--rtl" in result.body_html
+    assert "table-wrap--mixed-direction" in result.body_html
+    assert "table-wrap--mixed-numerals" in result.body_html
+    assert "table-cell--rtl" in result.body_html
+    assert "table-cell--ltr" in result.body_html
+    assert "table-cell--mixed" in result.body_html
 
 
 def test_persian_mixed_table_cells_prefer_rtl_direction_for_readability():
@@ -190,12 +199,19 @@ def test_persian_mixed_table_cells_prefer_rtl_direction_for_readability():
         "| `github` | مستندات پروژه‌ای شبیه README و خروجی نزدیک به GitHub-style Markdown. |\n"
     )
 
-    assert 'table-wrap--rtl' in result.body_html
-    assert 'data-md2pdf-rtl-direction-votes=' in result.body_html
-    assert 'data-md2pdf-ltr-direction-votes=' in result.body_html
-    assert 'table-cell--mixed table-cell--mixed-rtl' in result.body_html
-    assert 'dir="rtl">مستندات عمومی، <span class="md2pdf-ltr-isolate" dir="ltr" lang="en">proposal</span>' in result.body_html
-    assert 'dir="rtl">مستندات پروژه‌ای شبیه <span class="md2pdf-ltr-isolate" dir="ltr" lang="en">README</span>' in result.body_html
+    assert "table-wrap--rtl" in result.body_html
+    assert "data-md2pdf-rtl-direction-votes=" in result.body_html
+    assert "data-md2pdf-ltr-direction-votes=" in result.body_html
+    assert "table-cell--mixed table-cell--mixed-rtl" in result.body_html
+    assert (
+        'dir="rtl">مستندات عمومی، <span class="md2pdf-ltr-isolate" dir="ltr" lang="en">proposal</span>'
+        in result.body_html
+    )
+    assert (
+        'dir="rtl">مستندات پروژه‌ای شبیه <span class="md2pdf-ltr-isolate" dir="ltr" lang="en">README</span>'
+        in result.body_html
+    )
+
 
 def test_layout_css_contains_persian_rtl_quality_rules(tmp_path: Path):
     options = PdfOptions(input_path=tmp_path / "input.md", output_path=tmp_path / "out.pdf")
@@ -214,25 +230,18 @@ def test_layout_css_contains_persian_rtl_quality_rules(tmp_path: Path):
 
 def test_persian_digits_and_punctuation_get_stable_quality_classes():
     result = render_markdown(
-        "---\nlang: fa\n---\n\n"
-        "آیا PDF version 1.9.1 با شماره ۱۴۰۵ درست است? پاسخ: بله، پایدار است؛"
+        "---\nlang: fa\n---\n\nآیا PDF version 1.9.1 با شماره ۱۴۰۵ درست است? پاسخ: بله، پایدار است؛"
     )
 
-    assert 'mixed-script' in result.body_html
-    assert 'mixed-numeral' in result.body_html
-    assert 'persian-punctuation' in result.body_html
-    assert 'rtl-ascii-punctuation' in result.body_html
-
-
-
+    assert "mixed-script" in result.body_html
+    assert "mixed-numeral" in result.body_html
+    assert "persian-punctuation" in result.body_html
+    assert "rtl-ascii-punctuation" in result.body_html
 
 
 def test_persian_checked_task_lists_survive_mixed_script_isolation():
     result = render_markdown(
-        "---\nlang: fa\n---\n\n"
-        "## فهرست وظایف\n\n"
-        "- [x] ورودی Markdown\n"
-        "- [ ] بازبینی انسانی نهایی\n"
+        "---\nlang: fa\n---\n\n## فهرست وظایف\n\n- [x] ورودی Markdown\n- [ ] بازبینی انسانی نهایی\n"
     )
 
     assert "[x]" not in result.body_html
@@ -241,6 +250,7 @@ def test_persian_checked_task_lists_survive_mixed_script_isolation():
     assert result.body_html.count('checked="checked"') == 1
     assert "ورودی" in result.body_html
     assert "Markdown" in result.body_html
+
 
 def test_persian_callout_markers_are_normalized_before_ltr_isolation():
     result = render_markdown(
@@ -257,7 +267,8 @@ def test_persian_callout_markers_are_normalized_before_ltr_isolation():
     assert "callout-important" in result.body_html
     assert '<strong class="callout-title">نکته</strong>' in result.body_html
     assert '<strong class="callout-title">مهم</strong>' in result.body_html
-    assert 'md2pdf-ltr-isolate' in result.body_html
+    assert "md2pdf-ltr-isolate" in result.body_html
+
 
 def test_persian_mixed_script_latin_runs_are_isolated_with_trailing_punctuation():
     result = render_markdown(
@@ -265,11 +276,11 @@ def test_persian_mixed_script_latin_runs_are_isolated_with_trailing_punctuation(
         "این متن فارسی با renderer. و GitHub Actions. و PDF navigation? باید در PDF خوانا بماند.\n"
     )
 
-    assert 'md2pdf-ltr-isolate md2pdf-ltr-isolate--punct' in result.body_html
+    assert "md2pdf-ltr-isolate md2pdf-ltr-isolate--punct" in result.body_html
     assert 'dir="ltr" lang="en">renderer.</span>' in result.body_html
     assert 'dir="ltr" lang="en">GitHub Actions.</span>' in result.body_html
     assert 'dir="ltr" lang="en">PDF navigation?</span>' in result.body_html
-    assert 'mixed-script' in result.body_html
+    assert "mixed-script" in result.body_html
 
 
 def test_persian_mixed_script_isolation_skips_inline_code():
@@ -280,7 +291,10 @@ def test_persian_mixed_script_isolation_skips_inline_code():
 
     assert '<code dir="ltr">renderer.py</code>' in result.body_html
     assert 'dir="ltr" lang="en">renderer.</span>' in result.body_html
-    assert '<span class="md2pdf-ltr-isolate' not in result.body_html.split('<code dir="ltr">renderer.py</code>', 1)[0]
+    assert (
+        '<span class="md2pdf-ltr-isolate'
+        not in result.body_html.split('<code dir="ltr">renderer.py</code>', 1)[0]
+    )
 
 
 def test_persian_mixed_script_latin_run_keeps_following_footnote_reference_grouped():
@@ -290,19 +304,20 @@ def test_persian_mixed_script_latin_run_keeps_following_footnote_reference_group
         "[^pipeline]: توضیح فارسی.\n"
     )
 
-    assert 'md2pdf-ltr-isolate-group md2pdf-ltr-isolate-group--footnote' in result.body_html
-    assert 'dir="ltr" lang="en"><span class="md2pdf-ltr-isolate md2pdf-ltr-isolate--punct" dir="ltr" lang="en">renderer.</span><sup class="footnote-ref persian-generated-number footnote-ref--rtl"' in result.body_html
+    assert "md2pdf-ltr-isolate-group md2pdf-ltr-isolate-group--footnote" in result.body_html
+    assert (
+        'dir="ltr" lang="en"><span class="md2pdf-ltr-isolate md2pdf-ltr-isolate--punct" dir="ltr" lang="en">renderer.</span><sup class="footnote-ref persian-generated-number footnote-ref--rtl"'
+        in result.body_html
+    )
 
 
 def test_single_script_numeral_profiles_are_distinguished():
     result = render_markdown(
-        "---\nlang: fa\n---\n\n"
-        "شماره ۱۴۰۵ در متن فارسی.\n\n"
-        "Version 1.9.1 remains Latin.\n"
+        "---\nlang: fa\n---\n\nشماره ۱۴۰۵ در متن فارسی.\n\nVersion 1.9.1 remains Latin.\n"
     )
 
-    assert 'persian-numeral' in result.body_html
-    assert 'latin-numeral' in result.body_html
+    assert "persian-numeral" in result.body_html
+    assert "latin-numeral" in result.body_html
 
 
 def test_persian_captions_get_numbered_rtl_caption_classes():
@@ -312,12 +327,12 @@ def test_persian_captions_get_numbered_rtl_caption_classes():
         "*شکل ۱۲. نمودار PDF version 1.9.1 و ۱.۹.۱؟*\n"
     )
 
-    assert 'md2pdf-caption--figure' in result.body_html
-    assert 'md2pdf-caption--persian' in result.body_html
-    assert 'md2pdf-caption--mixed' in result.body_html
-    assert 'md2pdf-caption--numbered' in result.body_html
-    assert 'mixed-numeral' in result.body_html
-    assert 'persian-punctuation' in result.body_html
+    assert "md2pdf-caption--figure" in result.body_html
+    assert "md2pdf-caption--persian" in result.body_html
+    assert "md2pdf-caption--mixed" in result.body_html
+    assert "md2pdf-caption--numbered" in result.body_html
+    assert "mixed-numeral" in result.body_html
+    assert "persian-punctuation" in result.body_html
 
 
 def test_table_cells_receive_numeral_and_punctuation_profiles():
@@ -329,10 +344,10 @@ def test_table_cells_receive_numeral_and_punctuation_profiles():
         "| نسخه | 1.9.1 | پایدار؛ آماده |\n"
     )
 
-    assert 'persian-numeral' in result.body_html
-    assert 'latin-numeral' in result.body_html
-    assert 'rtl-ascii-punctuation' in result.body_html
-    assert 'persian-punctuation' in result.body_html
+    assert "persian-numeral" in result.body_html
+    assert "latin-numeral" in result.body_html
+    assert "rtl-ascii-punctuation" in result.body_html
+    assert "persian-punctuation" in result.body_html
 
 
 def test_layout_css_contains_persian_numeral_and_caption_rules(tmp_path: Path):
@@ -352,16 +367,15 @@ def test_layout_css_contains_persian_numeral_and_caption_rules(tmp_path: Path):
 
 def test_persian_toc_uses_rtl_nav_and_localized_section_numbers():
     result = render_markdown(
-        "---\nlang: fa\n---\n\n"
-        "# معرفی\n\n## نصب\n\n## خروجی PDF\n",
+        "---\nlang: fa\n---\n\n# معرفی\n\n## نصب\n\n## خروجی PDF\n",
         toc=True,
     )
 
     assert 'class="md2pdf-toc md2pdf-toc--rtl md2pdf-toc--profiled" dir="rtl"' in result.toc_html
     assert 'class="toc-number persian-generated-number"' in result.toc_html
     assert 'data-md2pdf-number="1-1"' in result.toc_html
-    assert '>۱</span>' in result.toc_html
-    assert '>۱-۱</span>' in result.toc_html
+    assert ">۱</span>" in result.toc_html
+    assert ">۱-۱</span>" in result.toc_html
 
 
 def test_persian_footnotes_use_localized_markers_and_rtl_section():
@@ -372,8 +386,11 @@ def test_persian_footnotes_use_localized_markers_and_rtl_section():
     )
 
     assert 'class="footnote-ref persian-generated-number footnote-ref--rtl"' in result.body_html
-    assert '>۱</a></sup>' in result.body_html
-    assert '<section aria-label="پانویس‌ها" class="footnotes footnotes--local footnotes--rtl" dir="rtl">' in result.body_html
+    assert ">۱</a></sup>" in result.body_html
+    assert (
+        '<section aria-label="پانویس‌ها" class="footnotes footnotes--local footnotes--rtl" dir="rtl">'
+        in result.body_html
+    )
     assert 'class="footnote-marker persian-generated-number">۱.</span>' in result.body_html
 
 
@@ -388,9 +405,9 @@ def test_caption_number_profiles_distinguish_persian_latin_and_mixed_numbers():
         "*شکل 3 و ۴. نمودار mixed.*\n"
     )
 
-    assert 'md2pdf-caption--persian-number' in result.body_html
-    assert 'md2pdf-caption--latin-number' in result.body_html
-    assert 'md2pdf-caption--mixed-number' in result.body_html
+    assert "md2pdf-caption--persian-number" in result.body_html
+    assert "md2pdf-caption--latin-number" in result.body_html
+    assert "md2pdf-caption--mixed-number" in result.body_html
 
 
 def test_layout_css_contains_persian_navigation_and_footnote_rules(tmp_path: Path):
@@ -411,14 +428,14 @@ def test_persian_footnote_body_gets_direction_and_number_profiles():
         "[^audit]: متن پانویس با version 1.9.3 و شماره ۱۴۰۵؟\n"
     )
 
-    assert 'footnote-item--persian' in result.body_html
-    assert 'footnote-item--mixed-number' in result.body_html
+    assert "footnote-item--persian" in result.body_html
+    assert "footnote-item--mixed-number" in result.body_html
     assert 'class="footnote-body' in result.body_html
-    assert 'footnote-body--mixed' in result.body_html
+    assert "footnote-body--mixed" in result.body_html
     assert 'data-md2pdf-direction-profile="mixed"' in result.body_html
     assert 'data-md2pdf-number-profile="mixed"' in result.body_html
-    assert 'mixed-numeral' in result.body_html
-    assert 'persian-punctuation' in result.body_html
+    assert "mixed-numeral" in result.body_html
+    assert "persian-punctuation" in result.body_html
 
 
 def test_persian_caption_profiles_expose_visual_audit_metadata():
@@ -428,8 +445,8 @@ def test_persian_caption_profiles_expose_visual_audit_metadata():
         "*شکل ۱۲. نمودار PDF version 1.9.3 و ۱۴۰۵؟*\n"
     )
 
-    assert 'md2pdf-caption--profiled' in result.body_html
-    assert 'md2pdf-caption--persian' in result.body_html
+    assert "md2pdf-caption--profiled" in result.body_html
+    assert "md2pdf-caption--persian" in result.body_html
     assert 'data-md2pdf-direction-profile="mixed"' in result.body_html
     assert 'data-md2pdf-number-profile="mixed"' in result.body_html
     assert 'dir="auto"' in result.body_html
@@ -466,15 +483,14 @@ def test_layout_css_contains_persian_footnote_caption_audit_rules(tmp_path: Path
 
 def test_persian_toc_items_expose_visual_audit_profiles():
     result = render_markdown(
-        "---\nlang: fa\n---\n\n"
-        "# معرفی\n\n## نصب Python 3.10 و خروجی PDF\n\n## جدول‌های RTL ۱۴۰۵\n",
+        "---\nlang: fa\n---\n\n# معرفی\n\n## نصب Python 3.10 و خروجی PDF\n\n## جدول‌های RTL ۱۴۰۵\n",
         toc=True,
     )
 
-    assert 'md2pdf-toc--profiled' in result.toc_html
+    assert "md2pdf-toc--profiled" in result.toc_html
     assert 'data-md2pdf-number-locale="fa"' in result.toc_html
-    assert 'toc-item--mixed-script' in result.toc_html
-    assert 'toc-item--persian-number' in result.toc_html
+    assert "toc-item--mixed-script" in result.toc_html
+    assert "toc-item--persian-number" in result.toc_html
     assert 'data-md2pdf-title-profile="mixed"' in result.toc_html
     assert 'data-md2pdf-title-number-profile="persian"' in result.toc_html
     assert 'data-md2pdf-number-display="۱-۱"' in result.toc_html
@@ -491,16 +507,16 @@ def test_persian_tables_expose_table_level_visual_audit_metadata():
         "| شناسه | 42 | پایدار |\n"
     )
 
-    assert 'table-wrap--profiled' in result.body_html
-    assert 'table-wrap--rtl' in result.body_html
-    assert 'table-wrap--mixed-direction' in result.body_html
-    assert 'table-wrap--mixed-number' in result.body_html
+    assert "table-wrap--profiled" in result.body_html
+    assert "table-wrap--rtl" in result.body_html
+    assert "table-wrap--mixed-direction" in result.body_html
+    assert "table-wrap--mixed-number" in result.body_html
     assert 'data-md2pdf-direction-profile="mixed"' in result.body_html
     assert 'data-md2pdf-number-profile="mixed"' in result.body_html
-    assert 'data-md2pdf-rtl-cells=' in result.body_html
-    assert 'data-md2pdf-ltr-cells=' in result.body_html
-    assert 'data-md2pdf-mixed-cells=' in result.body_html
-    assert 'data-md2pdf-numeric-cells=' in result.body_html
+    assert "data-md2pdf-rtl-cells=" in result.body_html
+    assert "data-md2pdf-ltr-cells=" in result.body_html
+    assert "data-md2pdf-mixed-cells=" in result.body_html
+    assert "data-md2pdf-numeric-cells=" in result.body_html
     assert 'data-md2pdf-number-profile="persian"' in result.body_html
     assert 'data-md2pdf-number-profile="latin"' in result.body_html
 
@@ -514,10 +530,10 @@ def test_persian_table_caption_adds_captioned_table_audit_classes():
         "جدول ۱۲. وضعیت خروجی PDF در ۱۴۰۵؟\n"
     )
 
-    assert 'table-wrap--captioned' in result.body_html
-    assert 'table-wrap--persian-caption' in result.body_html
-    assert 'table-wrap--caption-mixed' in result.body_html
-    assert 'md2pdf-caption--table' in result.body_html
+    assert "table-wrap--captioned" in result.body_html
+    assert "table-wrap--persian-caption" in result.body_html
+    assert "table-wrap--caption-mixed" in result.body_html
+    assert "md2pdf-caption--table" in result.body_html
     assert 'data-md2pdf-direction-profile="rtl"' in result.body_html
     assert 'data-md2pdf-number-profile="persian"' in result.body_html
 
@@ -537,8 +553,7 @@ def test_layout_css_contains_persian_table_and_toc_visual_audit_rules(tmp_path: 
 
 def test_persian_toc_nested_lists_keep_rtl_tree_indentation_hooks():
     result = render_markdown(
-        "---\nlang: fa\n---\n\n"
-        "# فصل اول\n\n## بخش اول\n\n### زیربخش A ۱۴۰۵\n\n# فصل دوم\n",
+        "---\nlang: fa\n---\n\n# فصل اول\n\n## بخش اول\n\n### زیربخش A ۱۴۰۵\n\n# فصل دوم\n",
         toc=True,
     )
 

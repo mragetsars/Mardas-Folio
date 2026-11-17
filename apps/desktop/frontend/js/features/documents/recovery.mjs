@@ -82,7 +82,10 @@ export function saveRecovery(document, storage = undefined, now = Date.now()) {
 
 export function removeRecovery(documentOrKey, storage = undefined) {
   const key = typeof documentOrKey === "string" ? documentOrKey : recoveryKey(documentOrKey);
-  return writeRecoveries(readRecoveries(storage).filter((item) => item.key !== key), storage);
+  return writeRecoveries(
+    readRecoveries(storage).filter((item) => item.key !== key),
+    storage,
+  );
 }
 
 export function recoveryForPath(path, storage = undefined) {

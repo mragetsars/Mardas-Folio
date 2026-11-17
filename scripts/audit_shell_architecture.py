@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
 """Measure shared chrome, nonwrapping four-pane controls and publication edges."""
+
 from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import re
 import traceback
+from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
+from lib.audit.desktop import (
+    DEFAULT_DIST,
+    INIT_SCRIPT,
+    click_workspace_layout_control,
+    open_workspace_export,
+    serve,
+)
 from lib.audit.editor import BRIDGE_SCRIPT
-from lib.audit.desktop import DEFAULT_DIST, INIT_SCRIPT, click_workspace_layout_control, open_workspace_export, serve
 
 
 def click_control(page, selector):
@@ -32,17 +39,20 @@ def text_contrast(color, background):
     assert len(foreground) in {3, 4} and len(surface) in {3, 4}, (color, background)
     assert len(surface) == 3 or surface[3] == 1, background
     alpha = foreground[3] if len(foreground) == 4 else 1
-    foreground = [value * alpha + surface[index] * (1 - alpha)
-                  for index, value in enumerate(foreground[:3])]
+    foreground = [
+        value * alpha + surface[index] * (1 - alpha) for index, value in enumerate(foreground[:3])
+    ]
 
     def luminance(channels):
         values = [value / 255 for value in channels[:3]]
-        values = [value / 12.92 if value <= .04045 else ((value + .055) / 1.055) ** 2.4
-                  for value in values]
-        return sum(value * weight for value, weight in zip(values, [.2126, .7152, .0722]))
+        values = [
+            value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+            for value in values
+        ]
+        return sum(value * weight for value, weight in zip(values, [0.2126, 0.7152, 0.0722]))
 
     values = [luminance(foreground), luminance(surface)]
-    return (max(values) + .05) / (min(values) + .05)
+    return (max(values) + 0.05) / (min(values) + 0.05)
 
 
 def check_empty_workspace(page):
@@ -99,14 +109,17 @@ def floating_style(target):
 
 def hover_command(target):
     target.hover()
-    target.page.wait_for_function("""element => {
+    target.page.wait_for_function(
+        """element => {
       const token = document.createElement('i');
       token.style.background = 'var(--ui-control-hover)';
       element.append(token);
       const expected = getComputedStyle(token).backgroundColor;
       token.remove();
       return getComputedStyle(element).backgroundColor === expected;
-    }""", arg=target.element_handle())
+    }""",
+        arg=target.element_handle(),
+    )
     style = command_style(target)
     assert style["background"] == style["expected"], style
     assert style["radius"] == "6px", style
@@ -140,12 +153,19 @@ def check_workspace_menu_geometry(page):
 
 def check_disabled_commands(page, url):
     """Open a read-only fixture normally; never synthesize disabled attributes."""
-    locale, theme = page.evaluate("[document.documentElement.lang,document.documentElement.dataset.theme]")
+    locale, theme = page.evaluate(
+        "[document.documentElement.lang,document.documentElement.dataset.theme]"
+    )
     readonly = page.context.browser.new_page(viewport={"width": 1920, "height": 1000})
-    readonly.add_init_script(INIT_SCRIPT + BRIDGE_SCRIPT.replace("read_only:false", "read_only:true"))
-    readonly.add_init_script("localStorage.setItem('mardas.desktop.locale'," + json.dumps(locale) + ");"
-        "localStorage.setItem('mardas.desktop.preferences.v1',JSON.stringify(" + json.dumps({
-            "theme": theme, "onboardingComplete": True, "viewMode": "source"}) + "));")
+    readonly.add_init_script(
+        INIT_SCRIPT + BRIDGE_SCRIPT.replace("read_only:false", "read_only:true")
+    )
+    readonly.add_init_script(
+        "localStorage.setItem('mardas.desktop.locale'," + json.dumps(locale) + ");"
+        "localStorage.setItem('mardas.desktop.preferences.v1',JSON.stringify("
+        + json.dumps({"theme": theme, "onboardingComplete": True, "viewMode": "source"})
+        + "));"
+    )
     try:
         readonly.goto(url, wait_until="networkidle")
         readonly.locator("#workflow-open").click()
@@ -172,7 +192,12 @@ def check_design_language(page, url):
     }""")
     assert len(set(surfaces.values())) == 1, surfaces
     states = {}
-    for selector in ("#writing-appearance-button", "#format-find", "#document-mode-help", "#insert-menu-button"):
+    for selector in (
+        "#writing-appearance-button",
+        "#format-find",
+        "#document-mode-help",
+        "#insert-menu-button",
+    ):
         target = page.locator(selector)
         parked = not target.is_visible()
         if parked:
@@ -189,15 +214,21 @@ def check_design_language(page, url):
     page.locator("#workspace-layout-button").click()
     target.hover()
     page.wait_for_timeout(180)
-    active = target.evaluate("e=>({background:getComputedStyle(e).backgroundColor,pressed:e.getAttribute('aria-pressed')})")
-    assert active["pressed"] == "true" and active["background"] != states["#format-find"]["background"], active
+    active = target.evaluate(
+        "e=>({background:getComputedStyle(e).backgroundColor,pressed:e.getAttribute('aria-pressed')})"
+    )
+    assert (
+        active["pressed"] == "true" and active["background"] != states["#format-find"]["background"]
+    ), active
     page.keyboard.press("Escape")
     click_workspace_layout_control(page, "#workspace-toggle-preview")
     # Keyboard navigation must remain visible on the same neutral controls.
     page.locator("#workspace-layout-button").focus()
     page.keyboard.press("Enter")
     expect(page.locator("#workspace-toggle-files")).to_be_focused()
-    focus = page.locator(":focus").evaluate("e=>({visible:e.matches(':focus-visible'),width:getComputedStyle(e).outlineWidth,style:getComputedStyle(e).outlineStyle})")
+    focus = page.locator(":focus").evaluate(
+        "e=>({visible:e.matches(':focus-visible'),width:getComputedStyle(e).outlineWidth,style:getComputedStyle(e).outlineStyle})"
+    )
     assert focus == {"visible": True, "width": "2px", "style": "solid"}, focus
     page.keyboard.press("Escape")
     expect(page.locator("#workspace-layout-button")).to_be_focused()
@@ -209,7 +240,9 @@ def check_design_language(page, url):
     floating = {"appearance": floating_style(appearance)}
     assert not floating["appearance"]["inShell"], floating
     floating["appearance_close_hover"] = hover_command(page.locator("#writing-appearance-close"))
-    assert floating["appearance_close_hover"]["background"] != floating["appearance"]["background"], floating
+    assert (
+        floating["appearance_close_hover"]["background"] != floating["appearance"]["background"]
+    ), floating
     page.locator("#writing-appearance-close").click()
     page.locator(".cm-content").click(button="right", position={"x": 24, "y": 24})
     expect(page.locator("#editor-context-menu")).to_be_visible()
@@ -218,8 +251,12 @@ def check_design_language(page, url):
     context_item.hover()
     page.wait_for_timeout(180)
     floating["context_item_hover"] = command_style(context_item)
-    assert floating["context_item_hover"]["background"] == floating["context_item_hover"]["expected"], floating
-    assert floating["context_item_hover"]["background"] != floating["context"]["background"], floating
+    assert (
+        floating["context_item_hover"]["background"] == floating["context_item_hover"]["expected"]
+    ), floating
+    assert floating["context_item_hover"]["background"] != floating["context"]["background"], (
+        floating
+    )
     page.keyboard.press("Escape")
     page.locator("#command-button").click()
     expect(page.locator("#command-modal")).to_be_visible()
@@ -230,8 +267,10 @@ def check_design_language(page, url):
     floating["settings"] = floating_style(page.locator("#settings-form"))
     floating["settings_close_hover"] = hover_command(page.locator("#close-settings"))
     page.locator("#close-settings").click()
-    floating["all_dialogs"] = [floating_style(page.locator(".modal-card").nth(index))
-                               for index in range(page.locator(".modal-card").count())]
+    floating["all_dialogs"] = [
+        floating_style(page.locator(".modal-card").nth(index))
+        for index in range(page.locator(".modal-card").count())
+    ]
 
     viewport = page.viewport_size
     try:
@@ -243,7 +282,12 @@ def check_design_language(page, url):
         floating["workspace_menu"] = floating_style(menu)
         floating["workspace_menu_geometry"] = check_workspace_menu_geometry(page)
         floating["workspace_menu_hover"] = {}
-        for selector in ("#writing-appearance-button", "#format-find", "#document-mode-help", "#insert-menu-button"):
+        for selector in (
+            "#writing-appearance-button",
+            "#format-find",
+            "#document-mode-help",
+            "#insert-menu-button",
+        ):
             target = menu.locator(selector)
             if target.count() and target.is_visible():
                 floating["workspace_menu_hover"][selector] = hover_command(target)
@@ -252,15 +296,23 @@ def check_design_language(page, url):
         expect(appearance).to_be_visible()
         expect(menu).to_be_hidden()
         floating["appearance_from_overflow"] = floating_style(appearance)
-        floating["overflow_appearance_close_hover"] = hover_command(page.locator("#writing-appearance-close"))
+        floating["overflow_appearance_close_hover"] = hover_command(
+            page.locator("#writing-appearance-close")
+        )
         page.keyboard.press("Escape")
         expect(appearance).to_be_hidden()
         expect(page.locator("#workspace-view-menu-button")).to_be_focused()
     finally:
         page.set_viewport_size(viewport)
         page.wait_for_timeout(180)
-    return {"surfaces": surfaces, "hover": states, "selected_hover": active, "keyboard_focus": focus,
-            "floating": floating, "disabled_undo": check_disabled_commands(page, url)}
+    return {
+        "surfaces": surfaces,
+        "hover": states,
+        "selected_hover": active,
+        "keyboard_focus": focus,
+        "floating": floating,
+        "disabled_undo": check_disabled_commands(page, url),
+    }
 
 
 def run(dist: Path, output: Path) -> dict:
@@ -268,12 +320,24 @@ def run(dist: Path, output: Path) -> dict:
     report = {"status": "running", "cases": []}
     with serve(dist) as url, sync_playwright() as runtime:
         browser = runtime.chromium.launch()
-        for locale, theme, width in [("en", "dark", 1920), ("fa", "dark", 1920),
-                                      ("en", "light", 1440), ("fa", "light", 1280),
-                                      ("en", "dark", 1118), ("fa", "dark", 1118),
-                                      ("en", "dark", 768), ("fa", "dark", 360)]:
+        for locale, theme, width in [
+            ("en", "dark", 1920),
+            ("fa", "dark", 1920),
+            ("en", "light", 1440),
+            ("fa", "light", 1280),
+            ("en", "dark", 1118),
+            ("fa", "dark", 1118),
+            ("en", "dark", 768),
+            ("fa", "dark", 360),
+        ]:
             height = 852 if width == 1118 else 1000
-            case = {"locale": locale, "theme": theme, "width": width, "height": height, "checks": []}
+            case = {
+                "locale": locale,
+                "theme": theme,
+                "width": width,
+                "height": height,
+                "checks": [],
+            }
             report["cases"].append(case)
             page = browser.new_page(viewport={"width": width, "height": height})
             page.set_default_timeout(12000)
@@ -281,18 +345,39 @@ def run(dist: Path, output: Path) -> dict:
             page.on("pageerror", lambda error: errors.append(str(error)))
             desktop = width > 1100
             page.add_init_script(INIT_SCRIPT + BRIDGE_SCRIPT)
-            page.add_init_script("localStorage.setItem('mardas.desktop.locale'," + json.dumps(locale) + ");"
-                "localStorage.setItem('mardas.desktop.preferences.v1',JSON.stringify(" + json.dumps({
-                    "theme": theme, "onboardingComplete": True, "viewMode": "write", "sidePreview": desktop}) + "));"
-                "localStorage.setItem('mardas.desktop.workspace-layout.v2',JSON.stringify(" + json.dumps({
-                    "filesOpen": desktop, "sidebarOpen": desktop, "filesWidth": 248,
-                    "sidebarWidth": 296, "previewWidth": 500, "formattingOpen": True}) + "));")
+            page.add_init_script(
+                "localStorage.setItem('mardas.desktop.locale'," + json.dumps(locale) + ");"
+                "localStorage.setItem('mardas.desktop.preferences.v1',JSON.stringify("
+                + json.dumps(
+                    {
+                        "theme": theme,
+                        "onboardingComplete": True,
+                        "viewMode": "write",
+                        "sidePreview": desktop,
+                    }
+                )
+                + "));"
+                "localStorage.setItem('mardas.desktop.workspace-layout.v2',JSON.stringify("
+                + json.dumps(
+                    {
+                        "filesOpen": desktop,
+                        "sidebarOpen": desktop,
+                        "filesWidth": 248,
+                        "sidebarWidth": 296,
+                        "previewWidth": 500,
+                        "formattingOpen": True,
+                    }
+                )
+                + "));"
+            )
             try:
                 page.goto(url, wait_until="networkidle")
                 assert page.locator(".topbar").bounding_box()["height"] == 48
                 case["empty_workspace"] = check_empty_workspace(page)
                 page.screenshot(path=str(output / f"{locale}-{width}-empty.png"))
-                case["checks"].append("startup uses the same Workspace shell, keeps Layout and Export available and gives starter actions readable contrast")
+                case["checks"].append(
+                    "startup uses the same Workspace shell, keeps Layout and Export available and gives starter actions readable contrast"
+                )
                 page.locator("#tab-new-document").click()
                 page.locator("#tab-new-document").click()
                 expect(page.locator("#document-tabs .document-tab")).to_have_count(2)
@@ -309,7 +394,9 @@ def run(dist: Path, output: Path) -> dict:
                 expect(page.locator("#confirm-modal")).to_be_visible()
                 page.locator("#confirm-accept").click()
                 expect(page.locator("#workspace-empty")).to_be_visible()
-                case["checks"].append("new tabs show starter actions and switching or closing them preserves a draft")
+                case["checks"].append(
+                    "new tabs show starter actions and switching or closing them preserves a draft"
+                )
                 page.locator("#workflow-new").click()
                 page.locator(".document-tab.active .tab-close").click()
                 expect(page.locator("#workspace-empty")).to_be_visible()
@@ -324,7 +411,9 @@ def run(dist: Path, output: Path) -> dict:
                 page.locator(".document-tab.active .tab-close").click()
                 page.locator("#confirm-accept").click()
                 expect(page.locator("#workspace-empty")).to_be_visible()
-                case["checks"].append("blank tabs close directly; cancelling discard preserves a nonempty unsaved draft")
+                case["checks"].append(
+                    "blank tabs close directly; cancelling discard preserves a nonempty unsaved draft"
+                )
                 page.evaluate("""() => {
                   for (const name of ['long-writing-reference.md','TEST_OVERVIEW.fa.md']) {
                     const path='/fixtures/project/docs/'+name;
@@ -349,7 +438,9 @@ def run(dist: Path, output: Path) -> dict:
                 expect(page.locator("#markdown-editor")).to_have_value(expected)
                 page.locator("#document-tabs .document-tab").last.locator(".tab-close").click()
                 expect(page.locator("#document-tabs .document-tab")).to_have_count(4)
-                case["checks"].append("starter tab offers file export and Quick Open restores the saved document")
+                case["checks"].append(
+                    "starter tab offers file export and Quick Open restores the saved document"
+                )
                 geometry = page.evaluate("""() => {
                   const rect=s=>{const e=document.querySelector(s),r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom,scroll:e.scrollWidth,client:e.clientWidth}};
                   return {header:rect('.topbar'),tabs:rect('.tab-bar'),bar:rect('.document-toolbar'),
@@ -361,7 +452,10 @@ def run(dist: Path, output: Path) -> dict:
                 assert geometry["header"]["height"] == 48, geometry
                 assert geometry["bar"]["y"] == 48 and geometry["bar"]["height"] == 40, geometry
                 assert geometry["canvas"]["y"] == 88, geometry
-                assert geometry["wrap"] == "nowrap" and geometry["bar"]["scroll"] <= geometry["bar"]["client"] + 1, geometry
+                assert (
+                    geometry["wrap"] == "nowrap"
+                    and geometry["bar"]["scroll"] <= geometry["bar"]["client"] + 1
+                ), geometry
                 assert geometry["pageWidth"] <= width + 1, geometry
                 placement = page.evaluate("""() => {
                   const bar=document.querySelector('.document-toolbar').getBoundingClientRect();
@@ -375,20 +469,33 @@ def run(dist: Path, output: Path) -> dict:
                 for index, button in enumerate(placement["buttons"]):
                     assert button["top"] >= 48 and button["bottom"] <= 88, placement
                     if index:
-                        assert placement["buttons"][index - 1]["right"] <= button["x"] + 1, placement
+                        assert placement["buttons"][index - 1]["right"] <= button["x"] + 1, (
+                            placement
+                        )
                 if desktop:
                     for part in ("nav", "preview", "inspector"):
-                        assert geometry[part]["y"] == 48 and geometry[part]["height"] == 40, geometry
+                        assert geometry[part]["y"] == 48 and geometry[part]["height"] == 40, (
+                            geometry
+                        )
                     assert geometry["tabs"]["width"] > geometry["bar"]["width"], geometry
-                case["checks"].append("all visible pane controls share the 48→88px keylines; toolbar never wraps; tabs span the global workspace")
-                if width in {1118, 360} and page.locator("#workspace-view-menu-button").is_visible():
+                case["checks"].append(
+                    "all visible pane controls share the 48→88px keylines; toolbar never wraps; tabs span the global workspace"
+                )
+                if (
+                    width in {1118, 360}
+                    and page.locator("#workspace-view-menu-button").is_visible()
+                ):
                     case["workspace_menu_reopen_geometry"] = []
                     for _ in range(3):
                         page.locator("#workspace-view-menu-button").click()
                         expect(page.locator("#workspace-view-menu")).to_be_visible()
-                        case["workspace_menu_reopen_geometry"].append(check_workspace_menu_geometry(page))
+                        case["workspace_menu_reopen_geometry"].append(
+                            check_workspace_menu_geometry(page)
+                        )
                         page.keyboard.press("Escape")
-                    case["checks"].append("workspace overflow follows its physical trigger in both layout directions and has no local horizontal scrollbar or escaped controls")
+                    case["checks"].append(
+                        "workspace overflow follows its physical trigger in both layout directions and has no local horizontal scrollbar or escaped controls"
+                    )
                 for mode in ("source", "read", "write"):
                     page.locator(f'[data-view-mode="{mode}"][role="radio"]').click()
                     expect(page.locator(".editor-pane")).to_have_attribute("data-view-mode", mode)
@@ -396,45 +503,81 @@ def run(dist: Path, output: Path) -> dict:
                     if mode == "read":
                         expect(page.locator("#format-bar")).to_be_hidden()
                         expect(page.locator("#refresh-reading")).to_be_visible()
-                        expect(page.locator("#reading-auto-preview")).to_have_accessible_name("Live updates" if locale == "en" else "به‌روزرسانی خودکار")
-                    case.setdefault("mode_scroll", []).append(page.evaluate("""() => ({
+                        expect(page.locator("#reading-auto-preview")).to_have_accessible_name(
+                            "Live updates" if locale == "en" else "به‌روزرسانی خودکار"
+                        )
+                    case.setdefault("mode_scroll", []).append(
+                        page.evaluate("""() => ({
                       mode:document.querySelector('.editor-pane').dataset.viewMode,
                       window:scrollY, root:document.documentElement.scrollTop,body:document.body.scrollTop,
                       shell:document.querySelector('.shell').scrollTop,main:document.querySelector('main').scrollTop,
                       workspace:document.querySelector('#workspace-view').scrollTop,grid:document.querySelector('.authoring-grid').scrollTop,
-                      bar:document.querySelector('.topbar').getBoundingClientRect().y})"""))
+                      bar:document.querySelector('.topbar').getBoundingClientRect().y})""")
+                    )
                 expect(page.locator("#markdown-editor")).to_have_value(expected)
-                case["checks"].append("Write/Source/Read keep the same chrome height and preserve document bytes")
+                case["checks"].append(
+                    "Write/Source/Read keep the same chrome height and preserve document bytes"
+                )
                 if desktop:
                     tabs_before = page.locator(".tab-bar").bounding_box()
-                    for selector in ("#workspace-toggle-preview", "#workspace-toggle-sidebar", "#workspace-toggle-files"):
+                    for selector in (
+                        "#workspace-toggle-preview",
+                        "#workspace-toggle-sidebar",
+                        "#workspace-toggle-files",
+                    ):
                         click_workspace_layout_control(page, selector)
                     tabs_after = page.locator(".tab-bar").bounding_box()
                     assert tabs_before == tabs_after, (tabs_before, tabs_after)
                     assert page.locator(".editor-surface").bounding_box()["y"] == 88
                     case["design_language"] = check_design_language(page, url)
-                    case["checks"].append("Files/Inspector share one surface; neutral commands share hover, radius and density; selected hover and keyboard focus remain distinct")
-                    case["checks"].append("body-portaled popovers, context menus and dialogs share their floating role; overflow commands retain contrast and read-only Undo stays dim without hover feedback")
-                    for selector in ("#workspace-toggle-files", "#workspace-toggle-sidebar", "#workspace-toggle-preview"):
+                    case["checks"].append(
+                        "Files/Inspector share one surface; neutral commands share hover, radius and density; selected hover and keyboard focus remain distinct"
+                    )
+                    case["checks"].append(
+                        "body-portaled popovers, context menus and dialogs share their floating role; overflow commands retain contrast and read-only Undo stays dim without hover feedback"
+                    )
+                    for selector in (
+                        "#workspace-toggle-files",
+                        "#workspace-toggle-sidebar",
+                        "#workspace-toggle-preview",
+                    ):
                         click_workspace_layout_control(page, selector)
-                    case["checks"].append("one to four pane toggles leave tabs and top keylines fixed")
+                    case["checks"].append(
+                        "one to four pane toggles leave tabs and top keylines fixed"
+                    )
                     for selector in ("#file-resizer", "#preview-resizer", "#sidebar-resizer"):
                         page.locator(selector).focus()
                         page.keyboard.press("End")
                     page.wait_for_timeout(120)
-                    stress = page.locator(".document-toolbar").evaluate("e=>({width:e.clientWidth,scroll:e.scrollWidth,height:e.getBoundingClientRect().height})")
+                    stress = page.locator(".document-toolbar").evaluate(
+                        "e=>({width:e.clientWidth,scroll:e.scrollWidth,height:e.getBoundingClientRect().height})"
+                    )
                     # Just above the drawer breakpoint the panel minima can
                     # consume one pixel of the preferred 320px editor budget.
                     minimum_editor = min(320, width - 208 - 340 - 248 - 3)
-                    assert stress["width"] >= minimum_editor and stress["scroll"] <= stress["width"] + 1 and stress["height"] == 40, stress
+                    assert (
+                        stress["width"] >= minimum_editor
+                        and stress["scroll"] <= stress["width"] + 1
+                        and stress["height"] == 40
+                    ), stress
                     assert page.locator(".tab-bar").bounding_box() == tabs_before
                     case["stress_geometry"] = stress
                     page.screenshot(path=str(output / f"{locale}-{width}-maximum-panes.png"))
-                    case["checks"].append(f"maximum requested sidebar widths retain at least a {minimum_editor}px editor, fixed global tabs and one nonwrapping control row")
+                    case["checks"].append(
+                        f"maximum requested sidebar widths retain at least a {minimum_editor}px editor, fixed global tabs and one nonwrapping control row"
+                    )
                     click_workspace_layout_control(page, "#workspace-reset-panel-sizes")
-                    stored = page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2'))")
-                    assert (stored["filesWidth"], stored["sidebarWidth"], stored["previewWidth"]) == (248, 296, 500), stored
-                    assert all(stored[name] for name in ("filesOpen", "sidebarOpen", "previewOpen")), stored
+                    stored = page.evaluate(
+                        "JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2'))"
+                    )
+                    assert (
+                        stored["filesWidth"],
+                        stored["sidebarWidth"],
+                        stored["previewWidth"],
+                    ) == (248, 296, 500), stored
+                    assert all(
+                        stored[name] for name in ("filesOpen", "sidebarOpen", "previewOpen")
+                    ), stored
                     if width == 1118:
                         page.set_viewport_size({"width": 900, "height": height})
                         click_workspace_layout_control(page, "#workspace-toggle-files")
@@ -442,19 +585,34 @@ def run(dist: Path, output: Path) -> dict:
                         click_workspace_layout_control(page, "#workspace-toggle-sidebar")
                         expect(page.locator("#file-navigator")).to_be_hidden()
                         expect(page.locator("#author-sidebar")).to_be_visible()
-                        assert page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2'))") == stored
+                        assert (
+                            page.evaluate(
+                                "JSON.parse(localStorage.getItem('mardas.desktop.workspace-layout.v2'))"
+                            )
+                            == stored
+                        )
                         page.set_viewport_size({"width": width, "height": height})
                         expect(page.locator("#file-navigator")).to_be_visible()
                         expect(page.locator("#author-sidebar")).to_be_visible()
-                    case["checks"].append("size reset retains panel visibility and compact drawers preserve desktop preferences")
+                    case["checks"].append(
+                        "size reset retains panel visibility and compact drawers preserve desktop preferences"
+                    )
                 else:
                     overflow = click_control(page, "#writing-appearance-button")
                     expect(page.locator("#writing-appearance")).to_be_visible()
                     page.keyboard.press("Escape")
                     expect(page.locator("#writing-appearance")).to_be_hidden()
                     expect(page.locator("#workspace-view-menu")).to_be_hidden()
-                    expect(page.locator("#workspace-view-menu-button" if overflow else "#writing-appearance-button")).to_be_focused()
-                    case["checks"].append("overflow exposes the original appearance control and Escape returns focus")
+                    expect(
+                        page.locator(
+                            "#workspace-view-menu-button"
+                            if overflow
+                            else "#writing-appearance-button"
+                        )
+                    ).to_be_focused()
+                    case["checks"].append(
+                        "overflow exposes the original appearance control and Escape returns focus"
+                    )
                 expect(page.locator("#markdown-editor")).to_have_value(expected)
                 page.screenshot(path=str(output / f"{locale}-{width}-workspace.png"))
                 open_workspace_export(page)
@@ -469,7 +627,9 @@ def run(dist: Path, output: Path) -> dict:
                 assert abs(edges["layout"]["bottom"] - edges["preview"]["bottom"]) <= 1, edges
                 assert not page.evaluate("document.documentElement.scrollWidth>innerWidth+1")
                 page.screenshot(path=str(output / f"{locale}-{width}-export.png"))
-                case["checks"].append("export actions align with setup and the preview fills the workspace height")
+                case["checks"].append(
+                    "export actions align with setup and the preview fills the workspace height"
+                )
                 page.locator("#export-back").click()
                 expect(page.locator("#document-tabs .document-tab")).to_have_count(4)
                 expect(page.locator("#markdown-editor")).to_have_value(expected)
@@ -480,7 +640,9 @@ def run(dist: Path, output: Path) -> dict:
                 expect(page.locator("#recent-list .recent-item")).to_have_count(4)
                 page.locator("#recent-list .recent-item").first.click()
                 expect(page.locator(".document-tab")).to_have_count(1)
-                case["checks"].append("export back retains the buffer; closing the last tab restores the empty editor and recents reopen in the same shell")
+                case["checks"].append(
+                    "export back retains the buffer; closing the last tab restores the empty editor and recents reopen in the same shell"
+                )
                 assert not errors, errors
                 case["status"] = "passed"
             except Exception as error:
@@ -491,8 +653,12 @@ def run(dist: Path, output: Path) -> dict:
                 case["page_errors"] = errors
                 page.close()
         browser.close()
-    report["status"] = "passed" if all(case["status"] == "passed" for case in report["cases"]) else "failed"
-    (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    report["status"] = (
+        "passed" if all(case["status"] == "passed" for case in report["cases"]) else "failed"
+    )
+    (output / "report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return report
 
 

@@ -74,7 +74,9 @@ function splitRow(line) {
 /** The table's column order belongs to its content, not the interface locale. */
 export function tableContentDirection(markup) {
   const firstLetter = String(markup).match(/\p{L}/u)?.[0];
-  return firstLetter && /[\u0590-\u08ff\uFB1D-\uFDFF\uFE70-\uFEFF]/u.test(firstLetter) ? "rtl" : "ltr";
+  return firstLetter && /[\u0590-\u08ff\uFB1D-\uFDFF\uFE70-\uFEFF]/u.test(firstLetter)
+    ? "rtl"
+    : "ltr";
 }
 
 /**
@@ -114,7 +116,7 @@ const FRONT_MATTER_BLOCK_PADDING = 16;
 
 /** The host supplies its existing offline renderer; the bundle owns no URL. */
 export const mathRenderer = Facet.define({
-  combine: (values) => values.length ? values[0] : null,
+  combine: (values) => (values.length ? values[0] : null),
 });
 
 export class MathWidget extends WidgetType {
@@ -128,9 +130,13 @@ export class MathWidget extends WidgetType {
   }
 
   eq(other) {
-    return other.markup === this.markup && other.from === this.from
-      && other.to === this.to && other.display === this.display
-      && other.renderMath === this.renderMath;
+    return (
+      other.markup === this.markup &&
+      other.from === this.from &&
+      other.to === this.to &&
+      other.display === this.display &&
+      other.renderMath === this.renderMath
+    );
   }
 
   get estimatedHeight() {
@@ -145,15 +151,20 @@ export class MathWidget extends WidgetType {
     formula.textContent = this.markup;
     formula.dir = "ltr";
     wrapper.append(formula);
-    const isCurrent = () => wrapper.isConnected && wrapper.dataset.disposed !== "true"
-      && view.dom.contains(wrapper)
-      && view.state.doc.sliceString(this.from, this.to) === this.markup;
+    const isCurrent = () =>
+      wrapper.isConnected &&
+      wrapper.dataset.disposed !== "true" &&
+      view.dom.contains(wrapper) &&
+      view.state.doc.sliceString(this.from, this.to) === this.markup;
     wrapper.addEventListener("mousedown", (event) => {
       if (event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
       const contentStart = this.display ? Math.max(2, this.markup.indexOf("\n") + 1) : 1;
-      view.dispatch({ selection: { anchor: Math.min(this.to, this.from + contentStart) }, scrollIntoView: true });
+      view.dispatch({
+        selection: { anchor: Math.min(this.to, this.from + contentStart) },
+        scrollIntoView: true,
+      });
       view.focus();
     });
     // A widget is only created when CodeMirror actually draws it. Wait until
@@ -161,10 +172,12 @@ export class MathWidget extends WidgetType {
     // and cache. A removed/edited widget cannot accept a late typeset result.
     requestAnimationFrame(() => {
       if (!isCurrent()) return;
-      Promise.resolve().then(() => this.renderMath(wrapper, { isCurrent }))
+      Promise.resolve()
+        .then(() => this.renderMath(wrapper, { isCurrent }))
         .catch(() => {
           if (isCurrent()) formula.dataset.mathError = "true";
-        }).finally(() => {
+        })
+        .finally(() => {
           if (!isCurrent()) return;
           // MathJax's error SVG can be an empty coloured rectangle. The
           // editable source is a useful fallback; a broken drawing is not.
@@ -198,11 +211,18 @@ export class TableWidget extends WidgetType {
   }
 
   eq(other) {
-    return other.markup === this.markup && other.from === this.from && other.renderMath === this.renderMath;
+    return (
+      other.markup === this.markup &&
+      other.from === this.from &&
+      other.renderMath === this.renderMath
+    );
   }
 
   rows() {
-    return this.markup.split("\n").filter((line) => line.trim()).map(splitRow);
+    return this.markup
+      .split("\n")
+      .filter((line) => line.trim())
+      .map(splitRow);
   }
 
   /** Header, body rows, cell padding, the wrapper's border and its padding. */
@@ -224,55 +244,82 @@ export class TableWidget extends WidgetType {
     const parsed = this.syntax || tableParser.parse(this.markup).topNode.firstChild;
     const offset = this.syntax ? this.from : 0;
     const model = parsed ? tableModel(this.markup, this.from, parsed) : null;
-    wrapper.setAttribute('data-table-from', String(this.from));
+    wrapper.setAttribute("data-table-from", String(this.from));
     if (view && model) {
       wrapper.tabIndex = 0;
-      wrapper.setAttribute('aria-label', tableLabels().table);
-      wrapper.addEventListener('keydown', event => {
-        if (event.key !== 'Enter' || event.isComposing) return;
-        event.preventDefault(); event.stopPropagation(); openTableCellEditor(view, model, 0, 0);
+      wrapper.setAttribute("aria-label", tableLabels().table);
+      wrapper.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" || event.isComposing) return;
+        event.preventDefault();
+        event.stopPropagation();
+        openTableCellEditor(view, model, 0, 0);
       });
     }
     const rows = [];
     let delimiter = null;
     for (let child = parsed?.firstChild; child; child = child.nextSibling) {
-      if (child.name === 'TableHeader' || child.name === 'TableRow') rows.push(child);
-      else if (child.name === 'TableDelimiter') delimiter = child;
+      if (child.name === "TableHeader" || child.name === "TableRow") rows.push(child);
+      else if (child.name === "TableDelimiter") delimiter = child;
     }
-    const alignments = (delimiter ? splitRow(this.markup.slice(delimiter.from - offset, delimiter.to - offset)) : []).map(cell => cell.startsWith(':')
-      ? (cell.endsWith(':') ? 'center' : 'left') : (cell.endsWith(':') ? 'right' : ''));
+    const alignments = (
+      delimiter ? splitRow(this.markup.slice(delimiter.from - offset, delimiter.to - offset)) : []
+    ).map((cell) =>
+      cell.startsWith(":")
+        ? cell.endsWith(":")
+          ? "center"
+          : "left"
+        : cell.endsWith(":")
+          ? "right"
+          : "",
+    );
     let columns = 0;
     rows.forEach((sourceRow, index) => {
       const cells = [];
       for (let cell = sourceRow.firstChild; cell; cell = cell.nextSibling) {
-        if (cell.name === 'TableCell') cells.push(cell);
+        if (cell.name === "TableCell") cells.push(cell);
       }
       const head = index === 0;
       if (head) columns = model?.columns || cells.length;
       const row = document.createElement("tr");
       for (let column = 0; column < columns; column += 1) {
         const physical = model?.rows[index]?.cells[column];
-        const cell = physical ? cells.find(candidate => candidate.from + this.from - offset === physical.from) : null;
+        const cell = physical
+          ? cells.find((candidate) => candidate.from + this.from - offset === physical.from)
+          : null;
         const element = document.createElement(head ? "th" : "td");
-        if (cell) appendTableInline(element, cell, this.markup, {
-          offset,
-          renderMathNode: this.renderMath && view ? (node) => new MathWidget(
-            this.markup.slice(node.from - offset, node.to - offset), this.from + node.from - offset,
-            this.from + node.to - offset, false, this.renderMath,
-          ).toDOM(view) : null,
-        });
+        if (cell)
+          appendTableInline(element, cell, this.markup, {
+            offset,
+            renderMathNode:
+              this.renderMath && view
+                ? (node) =>
+                    new MathWidget(
+                      this.markup.slice(node.from - offset, node.to - offset),
+                      this.from + node.from - offset,
+                      this.from + node.to - offset,
+                      false,
+                      this.renderMath,
+                    ).toDOM(view)
+                : null,
+          });
         if (alignments[column]) element.style.textAlign = alignments[column];
         element.dir = "auto";
-        element.setAttribute('data-table-row', String(index));
-        element.setAttribute('data-table-column', String(column));
+        element.setAttribute("data-table-row", String(index));
+        element.setAttribute("data-table-column", String(column));
         if (view) {
-          element.addEventListener('mousedown', (event) => {
+          element.addEventListener(
+            "mousedown",
+            (event) => {
+              if (event.button !== 0) return;
+              event.preventDefault();
+              event.stopPropagation();
+            },
+            { capture: true },
+          );
+          element.addEventListener("click", (event) => {
             if (event.button !== 0) return;
-            event.preventDefault(); event.stopPropagation();
-          }, { capture: true });
-          element.addEventListener('click', (event) => {
-            if (event.button !== 0) return;
-            event.preventDefault(); event.stopPropagation();
+            event.preventDefault();
+            event.stopPropagation();
             // Open after the pointer sequence completes. A popup positioned
             // above a low cell can cover its own mouseup target; opening on
             // mousedown retargeted that click to body and immediately closed
@@ -306,21 +353,21 @@ export class TableWidget extends WidgetType {
 }
 
 function imagePlaceholder(source, alt, labelText) {
-  const missing = document.createElement('span');
-  missing.className = 'cm-md-image-missing';
+  const missing = document.createElement("span");
+  missing.className = "cm-md-image-missing";
   missing.title = source;
-  const label = document.createElement('strong');
+  const label = document.createElement("strong");
   label.textContent = labelText;
   missing.append(label);
   if (source) {
-    const path = document.createElement('code');
-    path.dir = 'ltr';
+    const path = document.createElement("code");
+    path.dir = "ltr";
     path.textContent = source;
     path.title = source;
     missing.append(path);
   }
   if (alt) {
-    const caption = document.createElement('span');
+    const caption = document.createElement("span");
     caption.textContent = alt;
     missing.append(caption);
   }
@@ -328,10 +375,21 @@ function imagePlaceholder(source, alt, labelText) {
 }
 
 export class ImagePlaceholderWidget extends WidgetType {
-  constructor(source, alt, label) { super(); this.source = source; this.alt = alt; this.label = label; }
-  eq(other) { return other.source === this.source && other.alt === this.alt && other.label === this.label; }
-  toDOM() { return imagePlaceholder(this.source, this.alt, this.label); }
-  ignoreEvent() { return false; }
+  constructor(source, alt, label) {
+    super();
+    this.source = source;
+    this.alt = alt;
+    this.label = label;
+  }
+  eq(other) {
+    return other.source === this.source && other.alt === this.alt && other.label === this.label;
+  }
+  toDOM() {
+    return imagePlaceholder(this.source, this.alt, this.label);
+  }
+  ignoreEvent() {
+    return false;
+  }
 }
 
 /** Online images are actionable document resources, with session host grants. */
@@ -341,20 +399,32 @@ export class OnlineImageWidget extends WidgetType {
     Object.assign(this, { source, alt, allowed, request, strings });
   }
   eq(other) {
-    return other.source === this.source && other.alt === this.alt && other.allowed === this.allowed
-      && other.request === this.request && JSON.stringify(other.strings) === JSON.stringify(this.strings);
+    return (
+      other.source === this.source &&
+      other.alt === this.alt &&
+      other.allowed === this.allowed &&
+      other.request === this.request &&
+      JSON.stringify(other.strings) === JSON.stringify(this.strings)
+    );
   }
   toDOM(view) {
     const control = onlineImageControl(view.dom.ownerDocument, {
-      source: this.source, alt: this.alt, allowed: this.allowed,
-      onRequest: this.request, strings: this.strings,
+      source: this.source,
+      alt: this.alt,
+      allowed: this.allowed,
+      onRequest: this.request,
+      strings: this.strings,
     });
-    const measure = () => { if (view.dom.contains(control)) view.requestMeasure(); };
+    const measure = () => {
+      if (view.dom.contains(control)) view.requestMeasure();
+    };
     control.addEventListener("load", measure, true);
     control.addEventListener("error", measure, true);
     return control;
   }
-  ignoreEvent() { return true; }
+  ignoreEvent() {
+    return true;
+  }
 }
 
 /**
@@ -375,10 +445,12 @@ export class ImageWidget extends WidgetType {
   }
 
   eq(other) {
-    return other.url === this.url
-      && other.alt === this.alt
-      && other.source === this.source
-      && other.label === this.label;
+    return (
+      other.url === this.url &&
+      other.alt === this.alt &&
+      other.source === this.source &&
+      other.label === this.label
+    );
   }
 
   toDOM() {
@@ -618,7 +690,10 @@ function spansActiveLine(state, active, node) {
 
 /** Read `![alt](src)` out of the source text of an Image node. */
 export function parseImage(markup) {
-  const match = /^!\[((?:\\.|[^\]\\])*)\]\(\s*(?:<([^>\r\n]+)>|((?:\\.|[^\s()\\]|\((?:\\.|[^()\\])*\))+))(?:\s+["'][^\r\n]*?["'])?\s*\)$/.exec(markup.trim());
+  const match =
+    /^!\[((?:\\.|[^\]\\])*)\]\(\s*(?:<([^>\r\n]+)>|((?:\\.|[^\s()\\]|\((?:\\.|[^()\\])*\))+))(?:\s+["'][^\r\n]*?["'])?\s*\)$/.exec(
+      markup.trim(),
+    );
   return match ? { alt: match[1], src: match[2] || match[3] } : null;
 }
 
@@ -669,12 +744,26 @@ function buildBlockDecorations(state) {
         ]);
         return false;
       }
-      if (node.name === "BlockMath" && state.facet(mathRenderer)
-          && node.to - node.from <= 16 * 1024 && !spansActiveLine(state, active, node)) {
-        items.push([node.from, node.to, Decoration.replace({
-          widget: new MathWidget(state.doc.sliceString(node.from, node.to), node.from, node.to, true, state.facet(mathRenderer)),
-          block: true,
-        })]);
+      if (
+        node.name === "BlockMath" &&
+        state.facet(mathRenderer) &&
+        node.to - node.from <= 16 * 1024 &&
+        !spansActiveLine(state, active, node)
+      ) {
+        items.push([
+          node.from,
+          node.to,
+          Decoration.replace({
+            widget: new MathWidget(
+              state.doc.sliceString(node.from, node.to),
+              node.from,
+              node.to,
+              true,
+              state.facet(mathRenderer),
+            ),
+            block: true,
+          }),
+        ]);
         return false;
       }
       // `Title` over `=====` is one heading occupying two lines. The rule
@@ -692,7 +781,11 @@ function buildBlockDecorations(state) {
         return false;
       }
       if (node.name === "HorizontalRule" && !spansActiveLine(state, active, node)) {
-        items.push([node.from, node.to, Decoration.replace({ widget: new RuleWidget(), block: true })]);
+        items.push([
+          node.from,
+          node.to,
+          Decoration.replace({ widget: new RuleWidget(), block: true }),
+        ]);
         return false;
       }
       // Everything this field draws is a block, and a block can only be nested
@@ -735,8 +828,11 @@ export function createBlockWidgetField() {
       // character document, for a result identical to the one discarded.
       if (!transaction.docChanged) {
         const key = activeLineKey(transaction.state);
-        if (key === renderedFor
-            && transaction.startState.facet(mathRenderer) === transaction.state.facet(mathRenderer)) return value;
+        if (
+          key === renderedFor &&
+          transaction.startState.facet(mathRenderer) === transaction.state.facet(mathRenderer)
+        )
+          return value;
         renderedFor = key;
       } else {
         renderedFor = activeLineKey(transaction.state);

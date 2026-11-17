@@ -36,13 +36,19 @@
   max-inline-size: 100%;
   overscroll-behavior-inline: contain;
 }
-.document-content .table-wrap { overflow-x: auto; }
+.document-content .table-wrap {
+  overflow-x: auto;
+}
 
 /* Native CM gutters stay on the document's leading side. Only source mode
    carries this attribute; every code/table row keeps its own existing bidi
    decoration. Do not row-reverse the gutter or move it as the caret travels. */
-.codemirror-mount .cm-editor[data-source-direction="rtl"] .cm-scroller { direction: rtl; }
-.codemirror-mount .cm-editor[data-source-direction="ltr"] .cm-scroller { direction: ltr; }
+.codemirror-mount .cm-editor[data-source-direction="rtl"] .cm-scroller {
+  direction: rtl;
+}
+.codemirror-mount .cm-editor[data-source-direction="ltr"] .cm-scroller {
+  direction: ltr;
+}
 .codemirror-mount .cm-editor[data-source-direction] .cm-lineNumbers .cm-gutterElement {
   direction: ltr;
   unicode-bidi: isolate;

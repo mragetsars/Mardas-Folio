@@ -1,12 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ImageWidget, ImagePlaceholderWidget, TableWidget, parseImage, tableContentDirection } from "../../editor-src/live-widgets.mjs";
+import {
+  ImageWidget,
+  ImagePlaceholderWidget,
+  TableWidget,
+  parseImage,
+  tableContentDirection,
+} from "../../editor-src/live-widgets.mjs";
 
 test("image widgets accept Markdown paths with spaces and balanced parentheses", () => {
-  assert.deepEqual(parseImage('![chart](<assets/Persian chart.png> "Title")'), { alt: "chart", src: "assets/Persian chart.png" });
-  assert.deepEqual(parseImage("![chart](assets/chart(1).png)"), { alt: "chart", src: "assets/chart(1).png" });
-  assert.deepEqual(parseImage("![chart](assets/chart\\(2\\).png)"), { alt: "chart", src: "assets/chart\\(2\\).png" });
+  assert.deepEqual(parseImage('![chart](<assets/Persian chart.png> "Title")'), {
+    alt: "chart",
+    src: "assets/Persian chart.png",
+  });
+  assert.deepEqual(parseImage("![chart](assets/chart(1).png)"), {
+    alt: "chart",
+    src: "assets/chart(1).png",
+  });
+  assert.deepEqual(parseImage("![chart](assets/chart\\(2\\).png)"), {
+    alt: "chart",
+    src: "assets/chart\\(2\\).png",
+  });
   assert.equal(parseImage("![chart](broken path.png)"), null);
 });
 
@@ -27,9 +42,13 @@ function fakeDocument() {
       style: {},
       textContent: "",
       className: "",
-      setAttribute: (name, value) => { node.attributes[name] = value; },
+      setAttribute: (name, value) => {
+        node.attributes[name] = value;
+      },
       append: (...items) => node.children.push(...items),
-      replaceChildren: (...items) => { node.children = items; },
+      replaceChildren: (...items) => {
+        node.children = items;
+      },
       addEventListener: (type, callback) => handlers.set(`${tag}:${type}`, callback),
       querySelector: (selector) => {
         const wanted = selector.replace(".", "");
@@ -107,16 +126,22 @@ test("a refused image remains identifiable without creating a network-capable el
   const previous = globalThis.document;
   globalThis.document = { createElement: shim.createElement };
   try {
-    const source = 'https://example.com/image.png';
-    const widget = new ImagePlaceholderWidget(source, '<img onerror=alert(1)>', 'Remote image not loaded');
+    const source = "https://example.com/image.png";
+    const widget = new ImagePlaceholderWidget(
+      source,
+      "<img onerror=alert(1)>",
+      "Remote image not loaded",
+    );
     const placeholder = widget.toDOM();
-    assert.equal(placeholder.tag, 'span');
+    assert.equal(placeholder.tag, "span");
     assert.equal(placeholder.title, source);
     assert.equal(placeholder.children[1].textContent, source);
-    assert.equal(placeholder.children[2].textContent, '<img onerror=alert(1)>');
+    assert.equal(placeholder.children[2].textContent, "<img onerror=alert(1)>");
     assert.equal(shim.handlers.size, 0);
-    assert.ok(!widget.eq(new ImagePlaceholderWidget(source, '', 'تصویر بارگیری نمی‌شود')));
-  } finally { globalThis.document = previous; }
+    assert.ok(!widget.eq(new ImagePlaceholderWidget(source, "", "تصویر بارگیری نمی‌شود")));
+  } finally {
+    globalThis.document = previous;
+  }
 });
 
 test("live table column order follows content in either interface direction", () => {
@@ -131,7 +156,10 @@ test("live table column order follows content in either interface direction", ()
   try {
     for (const interfaceDirection of ["ltr", "rtl"]) {
       const shim = fakeDocument();
-      globalThis.document = { createElement: shim.createElement, documentElement: { dir: interfaceDirection } };
+      globalThis.document = {
+        createElement: shim.createElement,
+        documentElement: { dir: interfaceDirection },
+      };
       for (const [markup, expected] of cases) {
         assert.equal(tableContentDirection(markup), expected);
         const wrapper = new TableWidget(markup, 0, markup.length).toDOM();

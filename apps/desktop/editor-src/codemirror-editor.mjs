@@ -11,13 +11,7 @@ import {
 } from "@codemirror/lang-markdown";
 import { LanguageDescription } from "@codemirror/language";
 import { setDiagnostics } from "@codemirror/lint";
-import {
-  Compartment,
-  EditorSelection,
-  EditorState,
-  Prec,
-  Transaction,
-} from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, Prec, Transaction } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 
@@ -29,11 +23,7 @@ import {
 } from "./authoring-tools.mjs";
 import { mardasEditorAppearance } from "./editor-theme.mjs";
 import { editorModeExtension, normalizeEditorMode } from "./live-preview.mjs";
-import {
-  exitEmptyBlock,
-  markdownCommandKeymap,
-  runMarkdownCommand,
-} from "./markdown-commands.mjs";
+import { exitEmptyBlock, markdownCommandKeymap, runMarkdownCommand } from "./markdown-commands.mjs";
 import { mathAndFootnotes } from "./markdown-extras.mjs";
 import { frontmatter } from "./markdown-frontmatter.mjs";
 import { typewriterExtension } from "./typewriter.mjs";
@@ -87,7 +77,7 @@ const MARKDOWN_SNIPPETS = Object.freeze([
     detail: "Mermaid diagram / نمودار",
     type: "keyword",
   }),
-  snippetCompletion("---\ntitle: \"${Title}\"\nlang: ${auto}\n---\n", {
+  snippetCompletion('---\ntitle: "${Title}"\nlang: ${auto}\n---\n', {
     label: "frontmatter",
     detail: "Document metadata / مشخصات سند",
     type: "keyword",
@@ -166,9 +156,7 @@ function diagnosticRange(document, diagnostic) {
 
 function severity(value) {
   const normalized = String(value || "info").toLowerCase();
-  return ["error", "warning", "info", "hint"].includes(normalized)
-    ? normalized
-    : "info";
+  return ["error", "warning", "info", "hint"].includes(normalized) ? normalized : "info";
 }
 
 /**
@@ -339,98 +327,123 @@ export function createCodeMirrorEditorAdapter(
   ];
 
   const markdownExtensions = [
-        // `markdown()` defaults to CommonMark, so tables, task lists and
-        // strikethrough were never in the syntax tree even though the
-        // publishing engine renders all three. GFM is the dialect this app
-        // actually publishes.
-        markdown({
-          base: markdownLanguage,
-          codeLanguages: CODE_LANGUAGES,
-          extensions: [frontmatter, mathAndFootnotes],
-        }),
-        Prec.highest(keymap.of([
-          ...markdownCommandKeymap(),
-          { key: "ArrowDown", run: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, true), shift: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, true, true) },
-          { key: "ArrowUp", run: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, false), shift: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, false, true) },
-          { key: "Enter", run: exitEmptyBlock },
-        ])),
-        Prec.high(keymap.of(markdownKeymap)),
-        pasteURLAsLink,
-        autocompletion({
-          activateOnTyping: true,
-          maxRenderedOptions: 80,
-          override: [completionSource(getCompletions, () => editorLocale)],
-        }),
+    // `markdown()` defaults to CommonMark, so tables, task lists and
+    // strikethrough were never in the syntax tree even though the
+    // publishing engine renders all three. GFM is the dialect this app
+    // actually publishes.
+    markdown({
+      base: markdownLanguage,
+      codeLanguages: CODE_LANGUAGES,
+      extensions: [frontmatter, mathAndFootnotes],
+    }),
+    Prec.highest(
+      keymap.of([
+        ...markdownCommandKeymap(),
+        {
+          key: "ArrowDown",
+          run: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, true),
+          shift: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, true, true),
+        },
+        {
+          key: "ArrowUp",
+          run: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, false),
+          shift: (view) => editorMode === "live" && moveAcrossCompressedSpacer(view, false, true),
+        },
+        { key: "Enter", run: exitEmptyBlock },
+      ]),
+    ),
+    Prec.high(keymap.of(markdownKeymap)),
+    pasteURLAsLink,
+    autocompletion({
+      activateOnTyping: true,
+      maxRenderedOptions: 80,
+      override: [completionSource(getCompletions, () => editorLocale)],
+    }),
   ];
-  const previewExtensions = (resolver = resolveAsset) => editorModeExtension(markdownDocument ? editorMode : "source", { resolveAsset: resolver, requestOnlineImage, strings: editorText, renderMath });
-  const selectionExtensions = () => selectionToolbarExtension(editorLocale, markdownDocument && editorMode === "live");
+  const previewExtensions = (resolver = resolveAsset) =>
+    editorModeExtension(markdownDocument ? editorMode : "source", {
+      resolveAsset: resolver,
+      requestOnlineImage,
+      strings: editorText,
+      renderMath,
+    });
+  const selectionExtensions = () =>
+    selectionToolbarExtension(editorLocale, markdownDocument && editorMode === "live");
   const extensions = [
-        basicSetup,
-        documentLanguage.of(markdownExtensions),
-        // Prose has to wrap. A horizontal scrollbar under a paragraph forces
-        // the reader to pan back and forth for every line, which is unusable
-        // for writing; only code fences keep their own horizontal overflow.
-        EditorView.lineWrapping,
-        appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
-        preview.of(previewExtensions()),
-        writingRhythm.of(typewriterExtension(typewriterEnabled)),
-        selectionTools.of(selectionExtensions()),
-        authoringToolsTheme,
-        searchHighlights,
-        // The read-only facet prevents ordinary typing. This also protects
-        // transactions from custom commands, history and rendered widgets.
-        readOnlyDocumentGuard,
-        EditorState.allowMultipleSelections.of(true),
-        // App navigation and history belong to all text documents. Markdown
-        // commands, completions and paste rules live in documentLanguage.
-        Prec.highest(keymap.of(completionKeymap)),
-        Prec.highest(keymap.of([
-          ...APPLICATION_OWNED_KEYS,
-          // Accept the same redo gesture on every desktop platform and keep
-          // undo/redo in CodeMirror even when the relevant history is empty.
-          { key: "Mod-z", run: undo, shift: redo, preventDefault: true },
-        ])),
-        tabEscapeHatch(onLeaveEditor),
-        readOnly.of(accessExtensions()),
-        // No `dir` on the content element.
-        //
-        // It carried `dir="auto"`, which cannot work here: every line inside
-        // it declares a direction of its own, so the automatic resolution sees
-        // a run of isolated objects with no strong character among them and
-        // falls back to left-to-right. The content element was therefore
-        // always left-to-right, whatever the workbench around it was doing,
-        // and any line with nothing strong in it inherited that. Without the
-        // attribute it inherits the editor's direction, which is the answer
-        // the fallback was reaching for.
-        EditorView.contentAttributes.of(() => ({
-          "aria-label": textarea.getAttribute("aria-label") || "Markdown editor",
-          spellcheck: markdownDocument && textarea.spellcheck ? "true" : "false",
-        })),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) textarea.value = update.state.doc.toString();
-          if (suppressCallbacks) return;
-          if (update.docChanged) onChange?.();
-          if (update.selectionSet || update.docChanged) onSelectionChange?.();
-        }),
+    basicSetup,
+    documentLanguage.of(markdownExtensions),
+    // Prose has to wrap. A horizontal scrollbar under a paragraph forces
+    // the reader to pan back and forth for every line, which is unusable
+    // for writing; only code fences keep their own horizontal overflow.
+    EditorView.lineWrapping,
+    appearance.of(mardasEditorAppearance(appearanceMode === "dark")),
+    preview.of(previewExtensions()),
+    writingRhythm.of(typewriterExtension(typewriterEnabled)),
+    selectionTools.of(selectionExtensions()),
+    authoringToolsTheme,
+    searchHighlights,
+    // The read-only facet prevents ordinary typing. This also protects
+    // transactions from custom commands, history and rendered widgets.
+    readOnlyDocumentGuard,
+    EditorState.allowMultipleSelections.of(true),
+    // App navigation and history belong to all text documents. Markdown
+    // commands, completions and paste rules live in documentLanguage.
+    Prec.highest(keymap.of(completionKeymap)),
+    Prec.highest(
+      keymap.of([
+        ...APPLICATION_OWNED_KEYS,
+        // Accept the same redo gesture on every desktop platform and keep
+        // undo/redo in CodeMirror even when the relevant history is empty.
+        { key: "Mod-z", run: undo, shift: redo, preventDefault: true },
+      ]),
+    ),
+    tabEscapeHatch(onLeaveEditor),
+    readOnly.of(accessExtensions()),
+    // No `dir` on the content element.
+    //
+    // It carried `dir="auto"`, which cannot work here: every line inside
+    // it declares a direction of its own, so the automatic resolution sees
+    // a run of isolated objects with no strong character among them and
+    // falls back to left-to-right. The content element was therefore
+    // always left-to-right, whatever the workbench around it was doing,
+    // and any line with nothing strong in it inherited that. Without the
+    // attribute it inherits the editor's direction, which is the answer
+    // the fallback was reaching for.
+    EditorView.contentAttributes.of(() => ({
+      "aria-label": textarea.getAttribute("aria-label") || "Markdown editor",
+      spellcheck: markdownDocument && textarea.spellcheck ? "true" : "false",
+    })),
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged) textarea.value = update.state.doc.toString();
+      if (suppressCallbacks) return;
+      if (update.docChanged) onChange?.();
+      if (update.selectionSet || update.docChanged) onSelectionChange?.();
+    }),
   ];
-  const createState = (doc, selection = 0) => EditorState.create({
-    doc,
-    selection: EditorSelection.cursor(clampOffset(selection, doc.length)),
-    extensions,
-  });
+  const createState = (doc, selection = 0) =>
+    EditorState.create({
+      doc,
+      selection: EditorSelection.cursor(clampOffset(selection, doc.length)),
+      extensions,
+    });
   const view = new EditorView({ parent: mount, state: createState(textarea.value) });
-  let destroyed = false, searchQueued = false, pendingSearch = null, paintedSearch = null;
+  let destroyed = false,
+    searchQueued = false,
+    pendingSearch = null,
+    paintedSearch = null;
 
   function restorePresentation(scrollSnapshot) {
-    view.dispatch({ effects: [
-      readOnly.reconfigure(accessExtensions()),
-      appearance.reconfigure(mardasEditorAppearance(appearanceMode === "dark")),
-      documentLanguage.reconfigure(markdownDocument ? markdownExtensions : []),
-      preview.reconfigure(previewExtensions()),
-      writingRhythm.reconfigure(typewriterExtension(typewriterEnabled)),
-      selectionTools.reconfigure(selectionExtensions()),
-      ...(scrollSnapshot ? [scrollSnapshot] : []),
-    ] });
+    view.dispatch({
+      effects: [
+        readOnly.reconfigure(accessExtensions()),
+        appearance.reconfigure(mardasEditorAppearance(appearanceMode === "dark")),
+        documentLanguage.reconfigure(markdownDocument ? markdownExtensions : []),
+        preview.reconfigure(previewExtensions()),
+        writingRhythm.reconfigure(typewriterExtension(typewriterEnabled)),
+        selectionTools.reconfigure(selectionExtensions()),
+        ...(scrollSnapshot ? [scrollSnapshot] : []),
+      ],
+    });
   }
 
   const scroll = () => onScroll?.(view.scrollDOM.scrollTop);
@@ -542,10 +555,12 @@ export function createCodeMirrorEditorAdapter(
       // Newly referenced files are granted asynchronously by the native host.
       // Rebuild image decorations after that grant without editing the buffer
       // or replacing its document state, selection, scroll or undo history.
-      view.dispatch({ effects: [
-        preview.reconfigure(previewExtensions((source) => resolveAsset?.(source))),
-        view.scrollSnapshot(),
-      ] });
+      view.dispatch({
+        effects: [
+          preview.reconfigure(previewExtensions((source) => resolveAsset?.(source))),
+          view.scrollSnapshot(),
+        ],
+      });
     },
     firstVisibleLine() {
       // Document lines may wrap across many visual rows, and block widgets
@@ -617,7 +632,12 @@ export function createCodeMirrorEditorAdapter(
         searchQueued = false;
         const next = pendingSearch;
         if (destroyed || next.doc !== view.state.doc) return;
-        if (paintedSearch?.matches === next.matches && paintedSearch.index === next.index && paintedSearch.doc === next.doc) return;
+        if (
+          paintedSearch?.matches === next.matches &&
+          paintedSearch.index === next.index &&
+          paintedSearch.doc === next.doc
+        )
+          return;
         paintedSearch = next;
         view.dispatch({ effects: searchMatchesEffect.of(next) });
       });
@@ -653,10 +673,7 @@ export function createCodeMirrorEditorAdapter(
       const to = Math.max(from, clampOffset(end, documentLength));
       const replacement = String(value ?? "");
       const nextLength = documentLength - (to - from) + replacement.length;
-      const selectionFrom = clampOffset(
-        selectionStart ?? from + replacement.length,
-        nextLength,
-      );
+      const selectionFrom = clampOffset(selectionStart ?? from + replacement.length, nextLength);
       const selectionTo = clampOffset(selectionEnd ?? selectionFrom, nextLength);
       view.dispatch({
         changes: { from, to, insert: replacement },

@@ -5,7 +5,9 @@ import { bookTaskBlocked, claimBookTask } from "../../frontend/js/core/book-task
 
 function deferred() {
   let resolve;
-  const promise = new Promise((done) => { resolve = done; });
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
 
@@ -38,15 +40,21 @@ test("project cancellation handoff blocks a new book request factory", () => {
     bookCancellationHandoff: Promise.resolve(true),
   };
   let starts = 0;
-  assert.equal(claimBookTask(state, () => { starts += 1; return { promise: null }; }), null);
+  assert.equal(
+    claimBookTask(state, () => {
+      starts += 1;
+      return { promise: null };
+    }),
+    null,
+  );
   assert.equal(starts, 0);
 });
 
 test("main creates sidecar tasks lazily behind the exclusive guard", () => {
   const main = readFileSync(new URL("../../frontend/js/main.mjs", import.meta.url), "utf8");
-  assert.doesNotMatch(main, /runBookTask\(startBook/);
+  assert.doesNotMatch(main, /runBookTask\(\s*startBook/);
   for (const factory of ["startBookValidation", "startBookPreview", "startBookExport"]) {
-    assert.match(main, new RegExp(`runBookTask\\(\\(\\) => ${factory}`));
+    assert.match(main, new RegExp(`runBookTask\\(\\s*\\(\\)\\s*=>\\s*${factory}`));
   }
   assert.match(main, /#book-add-chapter, #book-validate, #book-preview, #book-export/);
   assert.match(main, /bookDisabledBeforeLock/);

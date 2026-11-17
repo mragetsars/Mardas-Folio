@@ -4,21 +4,54 @@ import { isolateHistory } from "@codemirror/commands";
 import { WidgetType } from "@codemirror/view";
 
 const TEXT = {
-  en: { block: "Code block", language: "Code language", plain: "Plain text", edit: "Edit code", copy: "Copy", copied: "Copied", failed: "Copy failed" },
-  fa: { block: "بلوک کد", language: "زبان کد", plain: "متن ساده", edit: "ویرایش کد", copy: "کپی", copied: "کپی شد", failed: "کپی نشد" },
+  en: {
+    block: "Code block",
+    language: "Code language",
+    plain: "Plain text",
+    edit: "Edit code",
+    copy: "Copy",
+    copied: "Copied",
+    failed: "Copy failed",
+  },
+  fa: {
+    block: "بلوک کد",
+    language: "زبان کد",
+    plain: "متن ساده",
+    edit: "ویرایش کد",
+    copy: "کپی",
+    copied: "کپی شد",
+    failed: "کپی نشد",
+  },
 };
-const LANGUAGES = ["javascript", "typescript", "python", "bash", "json", "html", "css", "sql", "rust", "java", "c", "cpp", "markdown", "yaml"];
+const LANGUAGES = [
+  "javascript",
+  "typescript",
+  "python",
+  "bash",
+  "json",
+  "html",
+  "css",
+  "sql",
+  "rust",
+  "java",
+  "c",
+  "cpp",
+  "markdown",
+  "yaml",
+];
 
 function codeBodyPrefix(opener, opening) {
   // A fence may start on the list-marker row. Continuation code belongs under
   // the marker's content column, while blockquote marks remain structural.
-  return opener.text.slice(0, opening.from - opener.from)
-    .replace(/(?:[-+*]|\d+[.)])[ \t]+$/, marker => " ".repeat(marker.length));
+  return opener.text
+    .slice(0, opening.from - opener.from)
+    .replace(/(?:[-+*]|\d+[.)])[ \t]+$/, (marker) => " ".repeat(marker.length));
 }
 
 function stripCodePrefix(line, prefix) {
   if (!prefix) return line;
-  let content = line, rest = prefix;
+  let content = line,
+    rest = prefix;
   // Quote marks may independently include their optional following space on
   // each physical row (`>````, `> code`, `>> code`). They are still the same
   // structural prefix, rather than code indentation to copy or edit.
@@ -37,8 +70,11 @@ function stripCodePrefix(line, prefix) {
 
 /** Copy semantic code, omitting list/quote/fence indentation scaffolding. */
 export function codeBodyText(state, spec) {
-  return state.doc.sliceString(spec.bodyFrom, spec.bodyTo).split("\n")
-    .map(line => stripCodePrefix(line, spec.bodyPrefix)).join("\n");
+  return state.doc
+    .sliceString(spec.bodyFrom, spec.bodyTo)
+    .split("\n")
+    .map((line) => stripCodePrefix(line, spec.bodyPrefix))
+    .join("\n");
 }
 
 /** Hide container/fence indentation, keeping every semantic code space. */
@@ -65,7 +101,10 @@ export function fencedCodeSpec(state, value) {
   }
   if (!marks.length) return null;
   const opening = marks[0];
-  const closing = marks.length > 1 && state.doc.lineAt(marks.at(-1).from).number > opener.number ? marks.at(-1) : null;
+  const closing =
+    marks.length > 1 && state.doc.lineAt(marks.at(-1).from).number > opener.number
+      ? marks.at(-1)
+      : null;
   const rawInfo = state.doc.sliceString(opening.to, opener.to);
   const language = /^\s*(\S+)/.exec(rawInfo);
   const languageFrom = language ? opening.to + language[0].length - language[1].length : opening.to;
@@ -74,20 +113,37 @@ export function fencedCodeSpec(state, value) {
   const bodyTo = closing ? state.doc.lineAt(closing.from).from : node.to;
   const bodyPrefix = codeBodyPrefix(opener, opening);
   return {
-    from: node.from, to: node.to, openerFrom: opener.from, openerTo: opener.to,
-    openerText: opener.text, languageFrom, languageTo, language: language?.[1] || "",
+    from: node.from,
+    to: node.to,
+    openerFrom: opener.from,
+    openerTo: opener.to,
+    openerText: opener.text,
+    languageFrom,
+    languageTo,
+    language: language?.[1] || "",
     attributes: state.doc.sliceString(languageTo, opener.to).trim(),
-    bodyFrom, bodyTo, bodyPrefix,
-    editFrom: bodyFrom < bodyTo ? bodyFrom + state.doc.lineAt(bodyFrom).text.length - stripCodePrefix(state.doc.lineAt(bodyFrom).text, bodyPrefix).length : bodyFrom,
-    closeFrom: closing?.from ?? null, closeTo: closing?.to ?? null,
+    bodyFrom,
+    bodyTo,
+    bodyPrefix,
+    editFrom:
+      bodyFrom < bodyTo
+        ? bodyFrom +
+          state.doc.lineAt(bodyFrom).text.length -
+          stripCodePrefix(state.doc.lineAt(bodyFrom).text, bodyPrefix).length
+        : bodyFrom,
+    closeFrom: closing?.from ?? null,
+    closeTo: closing?.to ?? null,
     closeText: closing ? state.doc.sliceString(closing.from, closing.to) : "",
   };
 }
 
 function currentSpec(view, spec) {
-  return spec.to <= view.state.doc.length
-    && view.state.doc.lineAt(spec.openerFrom).text === spec.openerText
-    && (spec.closeFrom == null || view.state.doc.sliceString(spec.closeFrom, spec.closeTo) === spec.closeText);
+  return (
+    spec.to <= view.state.doc.length &&
+    view.state.doc.lineAt(spec.openerFrom).text === spec.openerText &&
+    (spec.closeFrom == null ||
+      view.state.doc.sliceString(spec.closeFrom, spec.closeTo) === spec.closeText)
+  );
 }
 
 export function codeLanguageChange(state, spec, language) {
@@ -100,11 +156,22 @@ export function codeLanguageChange(state, spec, language) {
 }
 
 export class CodeBlockHeaderWidget extends WidgetType {
-  constructor(spec, locale = "en", readOnly = false) { super(); this.spec = spec; this.locale = locale; this.readOnly = readOnly; }
-  eq(other) {
-    return this.locale === other.locale && this.readOnly === other.readOnly && Object.keys(this.spec).every(key => this.spec[key] === other.spec[key]);
+  constructor(spec, locale = "en", readOnly = false) {
+    super();
+    this.spec = spec;
+    this.locale = locale;
+    this.readOnly = readOnly;
   }
-  ignoreEvent() { return true; }
+  eq(other) {
+    return (
+      this.locale === other.locale &&
+      this.readOnly === other.readOnly &&
+      Object.keys(this.spec).every((key) => this.spec[key] === other.spec[key])
+    );
+  }
+  ignoreEvent() {
+    return true;
+  }
   toDOM(view) {
     const spec = this.spec;
     const labels = TEXT[this.locale] || TEXT.en;
@@ -117,7 +184,8 @@ export class CodeBlockHeaderWidget extends WidgetType {
     language.className = "cm-code-language";
     language.setAttribute("aria-label", labels.language);
     const options = ["", ...LANGUAGES];
-    if (spec.language && spec.language !== "text" && !options.includes(spec.language)) options.push(spec.language);
+    if (spec.language && spec.language !== "text" && !options.includes(spec.language))
+      options.push(spec.language);
     for (const value of options) {
       const option = document.createElement("option");
       option.value = value;
@@ -129,11 +197,18 @@ export class CodeBlockHeaderWidget extends WidgetType {
     language.addEventListener("change", () => {
       if (view.state.readOnly || !currentSpec(view, spec)) return;
       const change = codeLanguageChange(view.state, spec, language.value);
-      if (change) view.dispatch({ changes: change, annotations: [isolateHistory.of("full"), Transaction.userEvent.of("input.code-language")] });
+      if (change)
+        view.dispatch({
+          changes: change,
+          annotations: [isolateHistory.of("full"), Transaction.userEvent.of("input.code-language")],
+        });
       view.focus();
     });
-    language.addEventListener("keydown", event => {
-      if (event.key === "Escape") { event.stopPropagation(); view.focus(); }
+    language.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        view.focus();
+      }
     });
     const actions = document.createElement("span");
     actions.className = "cm-code-actions";
@@ -149,10 +224,16 @@ export class CodeBlockHeaderWidget extends WidgetType {
         // Empty/unclosed fences still need a real editable body row. This is
         // one normal source transaction, so one Undo restores the original.
         const needsOpeningBreak = spec.bodyFrom === spec.openerTo;
-        transaction.changes = { from: position, insert: needsOpeningBreak ? `\n${spec.bodyPrefix}\n` : `${spec.bodyPrefix}\n` };
+        transaction.changes = {
+          from: position,
+          insert: needsOpeningBreak ? `\n${spec.bodyPrefix}\n` : `${spec.bodyPrefix}\n`,
+        };
         position += spec.bodyPrefix.length + (needsOpeningBreak ? 1 : 0);
         transaction.selection = EditorSelection.cursor(position);
-        transaction.annotations = [isolateHistory.of("full"), Transaction.userEvent.of("input.code-body")];
+        transaction.annotations = [
+          isolateHistory.of("full"),
+          Transaction.userEvent.of("input.code-body"),
+        ];
       }
       view.dispatch(transaction);
       view.focus();
@@ -167,8 +248,12 @@ export class CodeBlockHeaderWidget extends WidgetType {
       try {
         await navigator.clipboard.writeText(codeBodyText(view.state, spec));
         copy.textContent = labels.copied;
-      } catch { copy.textContent = labels.failed; }
-      setTimeout(() => { if (copy.isConnected) copy.textContent = labels.copy; }, 1800);
+      } catch {
+        copy.textContent = labels.failed;
+      }
+      setTimeout(() => {
+        if (copy.isConnected) copy.textContent = labels.copy;
+      }, 1800);
     });
     actions.append(edit, copy);
     root.append(language, actions);

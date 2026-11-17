@@ -1,7 +1,17 @@
 import { updaterStatus, checkForUpdates, installUpdate } from "../../adapters/updater-api.mjs";
 import { saveDocumentsBeforeUpdate } from "../../core/update-preparation.mjs";
 /** Owns this feature's DOM interactions; cross-feature actions are injected. */
-export function createUpdater({ state, query: $, t, toast, errorText, isDirty, confirm, save, refreshAuthoring }) {
+export function createUpdater({
+  state,
+  query: $,
+  t,
+  toast,
+  errorText,
+  isDirty,
+  confirm,
+  save,
+  refreshAuthoring,
+}) {
   function updateUi() {
     const status = state.updateStatus;
     const check = state.updateCheck;
@@ -21,19 +31,24 @@ export function createUpdater({ state, query: $, t, toast, errorText, isDirty, c
     }
     if (state.updateInstalling) {
       $("#update-state").dataset.state = "working";
-      $("#update-state").textContent = t(state.updatePreparing ? "updateSavingDocuments" : "updateInstalling");
+      $("#update-state").textContent = t(
+        state.updatePreparing ? "updateSavingDocuments" : "updateInstalling",
+      );
       const total = Number(state.updateTotal) || 0;
       const downloaded = Number(state.updateDownloaded) || 0;
       const percent = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
       $("#update-progress-bar").value = percent;
       $("#update-progress-label").textContent = total > 0 ? `${percent}%` : "…";
-      $("#update-detail").textContent = check?.version ? `${t("updateVersion")} ${check.version}` : "";
+      $("#update-detail").textContent = check?.version
+        ? `${t("updateVersion")} ${check.version}`
+        : "";
       return;
     }
     if (check?.available) {
       $("#update-state").dataset.state = "available";
       $("#update-state").textContent = t("updateAvailable");
-      $("#update-detail").textContent = `${t("updateVersion")} ${check.version}${check.pub_date ? ` · ${check.pub_date}` : ""}`;
+      $("#update-detail").textContent =
+        `${t("updateVersion")} ${check.version}${check.pub_date ? ` · ${check.pub_date}` : ""}`;
       $("#update-notes").textContent = check.notes || t("noReleaseNotes");
       $("#update-notes").classList.remove("hidden");
       return;
@@ -104,11 +119,12 @@ export function createUpdater({ state, query: $, t, toast, errorText, isDirty, c
       const ready = await saveDocumentsBeforeUpdate({
         getDocuments: () => state.documents,
         isDirty,
-        confirm: () => confirm({
-          title: t("updateSaveDocuments"),
-          message: t("updateSaveDocumentsHelp"),
-          confirmLabel: t("saveAndInstallUpdate"),
-        }),
+        confirm: () =>
+          confirm({
+            title: t("updateSaveDocuments"),
+            message: t("updateSaveDocumentsHelp"),
+            confirmLabel: t("saveAndInstallUpdate"),
+          }),
         save,
       });
       if (!ready) {

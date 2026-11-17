@@ -17,10 +17,14 @@ export function normalizeSession(value) {
     paths.push(normalized);
     if (paths.length >= MAX_SESSION_PATHS) break;
   }
-  const activePath = typeof value?.activePath === "string" && value.activePath.trim() ? value.activePath.trim() : null;
-  const projectPath = typeof value?.projectPath === "string" && value.projectPath.trim()
-    ? value.projectPath.trim()
-    : null;
+  const activePath =
+    typeof value?.activePath === "string" && value.activePath.trim()
+      ? value.activePath.trim()
+      : null;
+  const projectPath =
+    typeof value?.projectPath === "string" && value.projectPath.trim()
+      ? value.projectPath.trim()
+      : null;
   return { paths, activePath, projectPath };
 }
 
@@ -33,14 +37,11 @@ export function readSession(storage = undefined) {
   }
 }
 
-export function writeSession(
-  documents,
-  activeDocument,
-  projectPath = null,
-  storage = undefined,
-) {
+export function writeSession(documents, activeDocument, projectPath = null, storage = undefined) {
   const session = normalizeSession({
-    paths: (Array.isArray(documents) ? documents : []).map((document) => document.path).filter(Boolean),
+    paths: (Array.isArray(documents) ? documents : [])
+      .map((document) => document.path)
+      .filter(Boolean),
     activePath: activeDocument?.path ?? null,
     projectPath,
   });

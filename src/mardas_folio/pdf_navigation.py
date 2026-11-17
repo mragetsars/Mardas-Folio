@@ -302,7 +302,10 @@ def rewrite_pdf_link_annotation_destinations(
                         f"page {page_index + 1} annotation {annotation_index + 1}: {type(exc).__name__}: {exc}"
                     )
                 continue
-            if str(annotation.get(NameObject("/Subtype")) or annotation.get("/Subtype") or "") != "/Link":
+            if (
+                str(annotation.get(NameObject("/Subtype")) or annotation.get("/Subtype") or "")
+                != "/Link"
+            ):
                 continue
             if tracker is not None:
                 tracker.annotations_seen += 1
@@ -411,9 +414,7 @@ def locate_outline_pages(
                 if found:
                     tracker.text_fallback_headings.append(heading_id)
         current_page = page_index
-        located.append(
-            (max(1, min(level, 6)), title, page_index, destination_top_value)
-        )
+        located.append((max(1, min(level, 6)), title, page_index, destination_top_value))
     return located
 
 
@@ -455,13 +456,9 @@ def add_pdf_page_labels(
         )
     nums.append(NumberObject(start))
     nums.append(
-        DictionaryObject(
-            {NameObject("/S"): NameObject("/D"), NameObject("/St"): NumberObject(1)}
-        )
+        DictionaryObject({NameObject("/S"): NameObject("/D"), NameObject("/St"): NumberObject(1)})
     )
-    writer.root_object[NameObject("/PageLabels")] = DictionaryObject(
-        {NameObject("/Nums"): nums}
-    )
+    writer.root_object[NameObject("/PageLabels")] = DictionaryObject({NameObject("/Nums"): nums})
 
 
 def enforce_navigation_quality(

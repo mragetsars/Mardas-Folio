@@ -11,9 +11,7 @@ from mardas_folio.markdown import MarkdownInputError, render_markdown, render_ma
 
 def test_utf8_bom_does_not_break_frontmatter(tmp_path: Path) -> None:
     input_path = tmp_path / "bom.md"
-    input_path.write_bytes(
-        "\ufeff---\ntitle: BOM title\nlang: en\n---\n\n# Body\n".encode("utf-8")
-    )
+    input_path.write_bytes("\ufeff---\ntitle: BOM title\nlang: en\n---\n\n# Body\n".encode("utf-8"))
 
     result = render_markdown_file(input_path)
 
@@ -34,16 +32,13 @@ def test_malformed_yaml_reports_location_and_reason() -> None:
 
 def test_indented_code_preserves_math_and_footnote_literals() -> None:
     result = render_markdown(
-        "# Code\n\n"
-        "    price = \"$x$\"\n"
-        "    ref = \"[^note]\"\n\n"
-        "[^note]: A real footnote.\n"
+        '# Code\n\n    price = "$x$"\n    ref = "[^note]"\n\n[^note]: A real footnote.\n'
     )
     soup = BeautifulSoup(result.body_html, "html.parser")
     code = soup.select_one("figure.code-block pre")
 
     assert code is not None
-    assert '$x$' in code.get_text()
+    assert "$x$" in code.get_text()
     assert "[^note]" in code.get_text()
     assert code.find(class_="math") is None
     assert code.find("sup", class_="footnote-ref") is None
@@ -51,10 +46,7 @@ def test_indented_code_preserves_math_and_footnote_literals() -> None:
 
 def test_multiline_inline_code_preserves_preprocessor_literals() -> None:
     result = render_markdown(
-        "# Inline\n\n"
-        "`first line\n"
-        "$x$ and [^note]`\n\n"
-        "[^note]: A real footnote.\n"
+        "# Inline\n\n`first line\n$x$ and [^note]`\n\n[^note]: A real footnote.\n"
     )
     soup = BeautifulSoup(result.body_html, "html.parser")
     code = soup.find("code")

@@ -10,8 +10,14 @@ import {
   mardasEditorAppearance,
 } from "../../editor-src/editor-theme.mjs";
 
-const themeSource = readFileSync(new URL("../../editor-src/editor-theme.mjs", import.meta.url), "utf8");
-const designTokens = readFileSync(new URL("../../frontend/design/tokens.css", import.meta.url), "utf8");
+const themeSource = readFileSync(
+  new URL("../../editor-src/editor-theme.mjs", import.meta.url),
+  "utf8",
+);
+const designTokens = readFileSync(
+  new URL("../../frontend/design/tokens.css", import.meta.url),
+  "utf8",
+);
 
 /**
  * Every `--cm-` property the highlight style and theme read, whether written

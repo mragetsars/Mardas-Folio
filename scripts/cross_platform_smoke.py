@@ -7,8 +7,9 @@ import platform
 import tempfile
 from pathlib import Path
 
-from mardas_folio.renderer import PdfOptions, convert
 from pypdf import PdfReader
+
+from mardas_folio.renderer import PdfOptions, convert
 
 
 def build_parser() -> argparse.ArgumentParser:

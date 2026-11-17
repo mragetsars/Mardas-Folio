@@ -1,9 +1,11 @@
 """Language labels, text direction, numeral localization, and script isolation."""
+
 from __future__ import annotations
 
 import re
 import unicodedata
 from typing import Any
+
 from bs4 import BeautifulSoup, NavigableString, Tag
 
 ARABIC_RANGES = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
@@ -26,20 +28,27 @@ LTR_ISOLATE_RUN_RE = re.compile(
 )
 LTR_ISOLATE_SKIP_TAGS = {"a", "code", "kbd", "pre", "samp", "script", "style", "textarea"}
 LTR_ISOLATE_SKIP_CLASSES = {"math", "math-inline", "math-display", "mjx-container"}
-LTR_ISOLATE_CONTEXT_TAGS = {"p", "li", "td", "th", "caption", "figcaption", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6"}
+LTR_ISOLATE_CONTEXT_TAGS = {
+    "p",
+    "li",
+    "td",
+    "th",
+    "caption",
+    "figcaption",
+    "blockquote",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+}
 RTL_ISOLATE_RUN_RE = re.compile(
     r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]"
     r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9\u200c\u200d]*"
     r"(?:[ \t]+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9]"
     r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9\u200c\u200d]*)*"
 )
-
-
-
-
-
-
-
 
 
 def normalize_language(value: Any, fallback: str = "auto") -> str:
@@ -154,26 +163,6 @@ def dominant_direction(text: str) -> str:
     return "auto"
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def strong_direction_counts(text: str) -> tuple[int, int]:
     """Return ``(rtl, ltr)`` strong-character counts for bidi-sensitive text.
 
@@ -278,7 +267,11 @@ def localize_digits(value: Any, *, lang: str | None = None, text_hint: str = "")
 
 def localized_number_class(value: Any, *, lang: str | None = None, text_hint: str = "") -> str:
     """Return a stable class for generated localized number labels."""
-    return "persian-generated-number" if language_family(lang, text_hint) == "fa" else "latin-generated-number"
+    return (
+        "persian-generated-number"
+        if language_family(lang, text_hint) == "fa"
+        else "latin-generated-number"
+    )
 
 
 def text_quality_classes(text: str) -> list[str]:
@@ -355,7 +348,9 @@ def _mixed_script_context(tag: Tag | None) -> bool:
     return False
 
 
-def _new_ltr_isolate_span(soup: BeautifulSoup, text: str, *, has_trailing_punctuation: bool = False) -> Tag:
+def _new_ltr_isolate_span(
+    soup: BeautifulSoup, text: str, *, has_trailing_punctuation: bool = False
+) -> Tag:
     span = soup.new_tag("span")
     classes = ["md2pdf-ltr-isolate"]
     if has_trailing_punctuation:
@@ -375,7 +370,9 @@ def _next_meaningful_sibling(tag: Tag) -> Tag | None:
 
 
 def _group_ltr_isolate_footnote_refs(soup: BeautifulSoup) -> None:
-    for span in list(soup.find_all("span", class_=lambda c: c and "md2pdf-ltr-isolate--punct" in c)):
+    for span in list(
+        soup.find_all("span", class_=lambda c: c and "md2pdf-ltr-isolate--punct" in c)
+    ):
         if span.parent and "md2pdf-ltr-isolate-group" in span.parent.get("class", []):
             continue
         sibling = _next_meaningful_sibling(span)
@@ -425,7 +422,9 @@ def isolate_ltr_runs_in_mixed_persian_text(soup: BeautifulSoup) -> None:
             if start > pos:
                 parts.append(text[pos:start])
             isolated = run + punct
-            parts.append(_new_ltr_isolate_span(soup, isolated, has_trailing_punctuation=bool(punct)))
+            parts.append(
+                _new_ltr_isolate_span(soup, isolated, has_trailing_punctuation=bool(punct))
+            )
             pos = end
             changed = True
         if not changed:
@@ -454,7 +453,8 @@ def isolate_rtl_phrase_lists_in_ltr_prose(soup: BeautifulSoup) -> None:
         and sum(
             strong_direction_counts(phrase)[0] > 0
             for phrase in RTL_ISOLATE_RUN_RE.findall(tag.get_text())
-        ) > 1
+        )
+        > 1
     }
     if not contexts:
         return
@@ -467,7 +467,11 @@ def isolate_rtl_phrase_lists_in_ltr_prose(soup: BeautifulSoup) -> None:
         ):
             continue
         context = next(
-            (ancestor for ancestor in _parent_chain(parent) if ancestor.name in LTR_ISOLATE_CONTEXT_TAGS),
+            (
+                ancestor
+                for ancestor in _parent_chain(parent)
+                if ancestor.name in LTR_ISOLATE_CONTEXT_TAGS
+            ),
             None,
         )
         if context is None or id(context) not in contexts:
@@ -479,7 +483,7 @@ def isolate_rtl_phrase_lists_in_ltr_prose(soup: BeautifulSoup) -> None:
             if strong_direction_counts(match.group())[0] == 0:
                 continue
             if match.start() > position:
-                fragments.append(text[position:match.start()])
+                fragments.append(text[position : match.start()])
             span = soup.new_tag("span")
             span["class"] = ["md2pdf-rtl-isolate"]
             span["dir"] = "rtl"

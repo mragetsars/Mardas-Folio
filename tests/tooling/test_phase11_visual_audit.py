@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mardas_folio.mermaid import render_mermaid_to_svg
 from mardas_folio.markdown import render_markdown
+from mardas_folio.mermaid import render_mermaid_to_svg
 from mardas_folio.renderer import PdfOptions, build_html
 
 
@@ -22,8 +22,6 @@ def test_mermaid_edge_labels_use_background_chips_not_stroked_text():
     assert "valid input" in svg
 
 
-
-
 def test_mermaid_edge_labels_use_centered_tspan_and_pipe_labelled_dotted_edges():
     svg = render_mermaid_to_svg(
         """flowchart LR
@@ -33,8 +31,8 @@ def test_mermaid_edge_labels_use_centered_tspan_and_pipe_labelled_dotted_edges()
     )
 
     assert svg is not None
-    assert 'Retry options' in svg
-    assert '>no<' in svg
+    assert "Retry options" in svg
+    assert ">no<" in svg
     assert 'class="md2pdf-mermaid-edge md2pdf-mermaid-edge-dotted"' in svg
     assert 'class="md2pdf-mermaid-edge-label"' in svg
     assert 'dy="0.35em"' in svg

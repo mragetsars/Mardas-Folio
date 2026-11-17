@@ -244,9 +244,8 @@ def _resolve_normalized_dmg(
 ) -> tuple[Path, dict[str, Any]]:
     version = str(manifest.get("version", ""))
     architecture = str(manifest.get("architecture", ""))
-    if (
-        not re.fullmatch(r"[A-Za-z0-9.]+", version)
-        or not re.fullmatch(r"[A-Za-z0-9_]+", architecture)
+    if not re.fullmatch(r"[A-Za-z0-9.]+", version) or not re.fullmatch(
+        r"[A-Za-z0-9_]+", architecture
     ):
         raise MacOSNotarizationError("Native manifest version or architecture is invalid")
     expected_name = f"Mardas-Folio-{version}-macos-{architecture}.dmg"

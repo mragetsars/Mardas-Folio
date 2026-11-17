@@ -5,6 +5,7 @@ The bridge fixture supplies files and deterministic preview HTML; it does not
 claim to test the rendering engine. The checks exercise document identity,
 keyboard navigation, reading safety, authoring actions and responsive reach.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,21 +23,41 @@ from lib.audit.desktop import (
     open_template,
     serve,
 )
-
-
+from lib.audit.editor import (
+    BRIDGE_SCRIPT as BRIDGE_SCRIPT,
+)
+from lib.audit.editor import (
+    CONTENT_A as CONTENT_A,
+)
+from lib.audit.editor import (
+    CONTENT_B as CONTENT_B,
+)
 from lib.audit.editor import (
     FIXTURE_A as FIXTURE_A,
+)
+from lib.audit.editor import (
     FIXTURE_B as FIXTURE_B,
-    CONTENT_A as CONTENT_A,
-    CONTENT_B as CONTENT_B,
-    BRIDGE_SCRIPT as BRIDGE_SCRIPT,
-    initialise as initialise,
-    editor as editor,
-    mirror as mirror,
-    replace_content as replace_content,
-    mode as mode,
-    navigator_item as navigator_item,
+)
+from lib.audit.editor import (
     check_hidden_region as check_hidden_region,
+)
+from lib.audit.editor import (
+    editor as editor,
+)
+from lib.audit.editor import (
+    initialise as initialise,
+)
+from lib.audit.editor import (
+    mirror as mirror,
+)
+from lib.audit.editor import (
+    mode as mode,
+)
+from lib.audit.editor import (
+    navigator_item as navigator_item,
+)
+from lib.audit.editor import (
+    replace_content as replace_content,
 )
 
 
@@ -59,7 +80,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     click_workspace_layout_control(page, "#workspace-toggle-sidebar")
     expect(page.locator("#author-sidebar")).to_be_visible()
     expect(page.locator("#file-navigator")).to_be_visible()
-    page.locator('#navigator-tab-outline').click()
+    page.locator("#navigator-tab-outline").click()
     expect(page.locator("#outline-list")).to_contain_text("بخش دوم")
     inspector_width = page.locator(".editor-pane").bounding_box()["width"]
     page.locator("#inspector-close").click()
@@ -69,7 +90,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
         raise AssertionError("Closing the inspector did not reclaim document width")
     checks.append("independent-explorer-inspector-and-space-reclamation")
 
-    page.locator('#navigator-tab-files').click()
+    page.locator("#navigator-tab-files").click()
 
     navigator_item(page, 0).click()
     expect(mirror(page)).to_have_value(CONTENT_A)
@@ -160,7 +181,7 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     navigator_item(page, 1).click()
     expect(page.locator("#reading-document")).to_contain_text("UNIQUE_BETA")
     click_workspace_layout_control(page, "#workspace-toggle-sidebar")
-    page.locator('#navigator-tab-outline').click()
+    page.locator("#navigator-tab-outline").click()
     page.locator("#outline-list button").last.focus()
     page.keyboard.press("Enter")
     expect(editor(page)).to_be_hidden()
@@ -203,7 +224,9 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     mode(page, "read")
     page.wait_for_function("() => globalThis.__auditPreviewResolvers.length > 0")
     expect(page.locator("#reading-loading")).to_be_visible()
-    expect(page.locator(".reading-toolbar-controls [data-content-status]")).to_have_attribute("data-stale", "true")
+    expect(page.locator(".reading-toolbar-controls [data-content-status]")).to_have_attribute(
+        "data-stale", "true"
+    )
     page.evaluate("""() => {
         globalThis.__auditPreviewHeld = false;
         globalThis.__auditPreviewResolvers.splice(0).forEach(resolve => resolve());
@@ -231,8 +254,11 @@ def run_behavior(page: Any, output: Path, locale: str, theme: str, checks: list[
     for region in ("#file-navigator", "#author-sidebar", ".format-bar"):
         check_hidden_region(page, region)
     page.locator("#exit-focus-mode").click()
-    for key, selector in (("files", "#file-navigator"), ("inspector", "#author-sidebar"),
-                          ("formatting", ".format-bar")):
+    for key, selector in (
+        ("files", "#file-navigator"),
+        ("inspector", "#author-sidebar"),
+        ("formatting", ".format-bar"),
+    ):
         if page.locator(selector).is_visible() != layout_before[key]:
             raise AssertionError(f"Leaving Focus did not restore {key}")
     click_workspace_layout_control(page, "#workspace-focus")
@@ -260,11 +286,15 @@ def run_narrow_panes(page: Any) -> list[str]:
     for selector in ("#file-resizer", "#sidebar-resizer"):
         page.locator(selector).focus()
         page.keyboard.press("End")
-    page.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+    page.evaluate(
+        "() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
+    )
     # Overflow groups can move between the strip and its menu after a resize.
     # Keep node identities rather than live nth() locators whose indices move.
     for button in page.locator(".document-toolbar button").element_handles():
-        if not button.is_visible() or not button.evaluate("el => Boolean(el.closest('.document-toolbar'))"):
+        if not button.is_visible() or not button.evaluate(
+            "el => Boolean(el.closest('.document-toolbar'))"
+        ):
             continue
         button.evaluate("el => el.scrollIntoView({block:'nearest'})")
         geometry = button.evaluate("""el => {
@@ -274,7 +304,9 @@ def run_narrow_panes(page: Any) -> list[str]:
             reachable:hit===el || el.contains(hit)};
         }""")
         if not geometry["inside"] or not geometry["reachable"]:
-            raise AssertionError(f"Narrow editor clips toolbar control {button.get_attribute('id')}: {geometry}")
+            raise AssertionError(
+                f"Narrow editor clips toolbar control {button.get_attribute('id')}: {geometry}"
+            )
     for selector in ("#file-resizer", "#sidebar-resizer"):
         page.locator(selector).focus()
         page.keyboard.press("Home")
@@ -289,7 +321,9 @@ def run_clipboard_race(page: Any, content_a: str) -> list[str]:
     page.wait_for_function("() => globalThis.__auditClipboardResolvers.length > 0")
     navigator_item(page, 1).click()
     expect(mirror(page)).to_have_value(CONTENT_B)
-    page.evaluate("globalThis.__auditClipboardResolvers.splice(0).forEach(resolve => resolve('LATE_PASTE'))")
+    page.evaluate(
+        "globalThis.__auditClipboardResolvers.splice(0).forEach(resolve => resolve('LATE_PASTE'))"
+    )
     page.wait_for_timeout(150)
     expect(mirror(page)).to_have_value(CONTENT_B)
     navigator_item(page, 0).click()
@@ -299,7 +333,9 @@ def run_clipboard_race(page: Any, content_a: str) -> list[str]:
     page.keyboard.press("Control+Shift+v")
     page.wait_for_function("() => globalThis.__auditClipboardResolvers.length > 0")
     page.keyboard.press("Control+Home")
-    page.evaluate("globalThis.__auditClipboardResolvers.splice(0).forEach(resolve => resolve('MOVED_CARET_PASTE'))")
+    page.evaluate(
+        "globalThis.__auditClipboardResolvers.splice(0).forEach(resolve => resolve('MOVED_CARET_PASTE'))"
+    )
     page.wait_for_timeout(150)
     expect(mirror(page)).to_have_value(content_a)
     page.evaluate("globalThis.__auditClipboardHeld = false")
@@ -319,24 +355,46 @@ def run_preview_references(page: Any) -> list[str]:
     expect(page.locator("#preview-document svg:not(.ui-icon)")).to_have_count(1)
     mode(page, "read")
     expect(page.locator("#reading-document svg:not(.ui-icon)")).to_be_visible()
-    for surface, prefix in (("#preview-document", "preview-"),
-                            ("#reading-document", "reading-")):
+    for surface, prefix in (("#preview-document", "preview-"), ("#reading-document", "reading-")):
         root = page.locator(surface)
-        for identifier in ("diagram", "diagram-title", "diagram-description", "arrow",
-                           "diagram-clip", "arrow-line", "reference-note", "reference-jump",
-                           "reference-label", "reference-task"):
+        for identifier in (
+            "diagram",
+            "diagram-title",
+            "diagram-description",
+            "arrow",
+            "diagram-clip",
+            "arrow-line",
+            "reference-note",
+            "reference-jump",
+            "reference-label",
+            "reference-task",
+        ):
             expect(root.locator(f'[id="{prefix}{identifier}"]')).to_have_count(1)
             expect(page.locator(f'[id="{prefix}{identifier}"]')).to_have_count(1)
-        expect(root.locator(f'#{prefix}diagram')).to_have_attribute("aria-labelledby", f"{prefix}diagram-title")
-        expect(root.locator(f'#{prefix}diagram')).to_have_attribute("aria-describedby", f"{prefix}diagram-description")
-        expect(root.locator(f'#{prefix}arrow-line')).to_have_attribute("marker-end", f"url(#{prefix}arrow)")
-        expect(root.locator(f'#{prefix}arrow-line')).to_have_attribute("clip-path", f"url(#{prefix}diagram-clip)")
-        expect(root.locator(f'#{prefix}reference-jump')).to_have_attribute("href", f"#{prefix}reference-note")
-        expect(root.locator(f'#{prefix}reference-label')).to_have_attribute("for", f"{prefix}reference-task")
-        expect(root.locator(f'#{prefix}reference-task')).to_be_disabled()
+        expect(root.locator(f"#{prefix}diagram")).to_have_attribute(
+            "aria-labelledby", f"{prefix}diagram-title"
+        )
+        expect(root.locator(f"#{prefix}diagram")).to_have_attribute(
+            "aria-describedby", f"{prefix}diagram-description"
+        )
+        expect(root.locator(f"#{prefix}arrow-line")).to_have_attribute(
+            "marker-end", f"url(#{prefix}arrow)"
+        )
+        expect(root.locator(f"#{prefix}arrow-line")).to_have_attribute(
+            "clip-path", f"url(#{prefix}diagram-clip)"
+        )
+        expect(root.locator(f"#{prefix}reference-jump")).to_have_attribute(
+            "href", f"#{prefix}reference-note"
+        )
+        expect(root.locator(f"#{prefix}reference-label")).to_have_attribute(
+            "for", f"{prefix}reference-task"
+        )
+        expect(root.locator(f"#{prefix}reference-task")).to_be_disabled()
     mode(page, "source")
     replace_content(page, before)
-    return ["reader-and-split-keep-svg-clip-marker-aria-label-and-anchor-references-within-own-namespace"]
+    return [
+        "reader-and-split-keep-svg-clip-marker-aria-label-and-anchor-references-within-own-namespace"
+    ]
 
 
 def run_reader_empty_navigation(page: Any) -> list[str]:
@@ -371,8 +429,10 @@ def run_reader_empty_navigation(page: Any) -> list[str]:
 
 
 def run_writing_width(page: Any) -> list[str]:
-    for opener, region in (("#workspace-toggle-files", "#file-navigator"),
-                           ("#workspace-toggle-sidebar", "#author-sidebar")):
+    for opener, region in (
+        ("#workspace-toggle-files", "#file-navigator"),
+        ("#workspace-toggle-sidebar", "#author-sidebar"),
+    ):
         if page.locator(region).is_visible():
             click_workspace_layout_control(page, opener)
     mode(page, "write")
@@ -388,15 +448,21 @@ def run_writing_width(page: Any) -> list[str]:
     page.locator('#settings-form button[type="submit"]').click()
     comfortable_width = editor(page).bounding_box()["width"]
     if comfortable_width >= full_width - 100:
-        raise AssertionError(f"Readable column did not narrow full writing space: {full_width} -> {comfortable_width}")
+        raise AssertionError(
+            f"Readable column did not narrow full writing space: {full_width} -> {comfortable_width}"
+        )
     open_settings(page, "writing")
     page.locator("#setting-writing-width").select_option("wide")
     page.locator('#settings-form button[type="submit"]').click()
     expect(page.locator("html")).to_have_attribute("data-writing-width", "wide")
     wide_width = editor(page).bounding_box()["width"]
     if wide_width <= comfortable_width + 100:
-        raise AssertionError(f"Wide column did not enlarge writing space: {comfortable_width} -> {wide_width}")
-    saved = page.evaluate("JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).writingWidth")
+        raise AssertionError(
+            f"Wide column did not enlarge writing space: {comfortable_width} -> {wide_width}"
+        )
+    saved = page.evaluate(
+        "JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).writingWidth"
+    )
     if saved != "wide":
         raise AssertionError("Writing width preference was not persisted")
     expect(mirror(page)).to_have_value(before + "WIDTH_HISTORY_MARKER")
@@ -499,7 +565,9 @@ def run_book_preview(page: Any) -> list[str]:
     page.wait_for_function(
         "() => !document.querySelector('#navigator-project-section')?.classList.contains('hidden')"
     )
-    page.wait_for_function("() => document.querySelector('#editor-path')?.textContent.includes('one.md')")
+    page.wait_for_function(
+        "() => document.querySelector('#editor-path')?.textContent.includes('one.md')"
+    )
     page.locator('[data-sidebar="book"]').click()
     expect(page.locator("#close-book-project")).to_be_visible()
     before = mirror(page).input_value()
@@ -577,8 +645,11 @@ def run_authoring(page: Any, locale: str) -> list[str]:
         second_x = cells.nth(1).bounding_box()["x"]
         if (first_x < second_x) != (direction == "ltr"):
             raise AssertionError(f"{locale}: {direction} table columns follow interface direction")
-    return ["slash-insertion-single-undo-and-code-url-safety", "contextual-formatting-keyboard-selection-and-undo",
-            "english-and-persian-table-column-order-independent-of-interface"]
+    return [
+        "slash-insertion-single-undo-and-code-url-safety",
+        "contextual-formatting-keyboard-selection-and-undo",
+        "english-and-persian-table-column-order-independent-of-interface",
+    ]
 
 
 def run_responsive(page: Any, output: Path, locale: str, theme: str, width: int) -> dict[str, Any]:
@@ -605,7 +676,12 @@ def run_responsive(page: Any, output: Path, locale: str, theme: str, width: int)
     for control in ("#format-find", "#insert-menu-button", "#workspace-layout-button"):
         expect(page.locator(control)).to_be_visible()
     page.locator("#document-actions-menu > summary").click()
-    for action in ("#workspace-new", "#workspace-open", "#workspace-save-as", "#workspace-validate"):
+    for action in (
+        "#workspace-new",
+        "#workspace-open",
+        "#workspace-save-as",
+        "#workspace-validate",
+    ):
         expect(page.locator(action)).to_be_visible()
         box = page.locator(action).bounding_box()
         if not box or box["x"] < -1 or box["x"] + box["width"] > width + 1:
@@ -628,10 +704,18 @@ def run_responsive(page: Any, output: Path, locale: str, theme: str, width: int)
     if geometry["document"]["width"] < min(width - 40, 260):
         raise AssertionError(f"{width}: reader has too little usable width: {geometry}")
     page.screenshot(path=str(output / f"{locale}-{theme}-{width}-reading.png"), full_page=True)
-    return {"width": width, "locale": locale, "theme": theme, "geometry": geometry, "status": "passed"}
+    return {
+        "width": width,
+        "locale": locale,
+        "theme": theme,
+        "geometry": geometry,
+        "status": "passed",
+    }
 
 
-def run_audit(dist: Path, output: Path, *, only: str = "all", variant: str | None = None) -> dict[str, Any]:
+def run_audit(
+    dist: Path, output: Path, *, only: str = "all", variant: str | None = None
+) -> dict[str, Any]:
     output.mkdir(parents=True, exist_ok=True)
     results: list[dict[str, Any]] = []
     errors: list[str] = []
@@ -649,8 +733,14 @@ def run_audit(dist: Path, output: Path, *, only: str = "all", variant: str | Non
                 page_errors: list[str] = []
                 checks: list[str] = []
                 page.on("pageerror", lambda error: page_errors.append(str(error)))
-                page.on("console", lambda message: page_errors.append(f"console.error: {message.text}")
-                        if message.type == "error" else None)
+                page.on(
+                    "console",
+                    lambda message: (
+                        page_errors.append(f"console.error: {message.text}")
+                        if message.type == "error"
+                        else None
+                    ),
+                )
                 try:
                     initialise(page, url, locale, theme)
                     if only == "authoring":
@@ -660,22 +750,38 @@ def run_audit(dist: Path, output: Path, *, only: str = "all", variant: str | Non
                         checks = run_behavior(page, output, locale, theme, checks)
                     if page_errors:
                         raise AssertionError(f"Browser errors: {page_errors}")
-                    results.append({"scenario": scenario,
-                                    "locale": locale, "theme": theme,
-                                    "checks": checks, "status": "passed"})
+                    results.append(
+                        {
+                            "scenario": scenario,
+                            "locale": locale,
+                            "theme": theme,
+                            "checks": checks,
+                            "status": "passed",
+                        }
+                    )
                 except Exception as exc:
                     message = f"{scenario}/{locale}/{theme}: {exc}"
                     errors.append(message)
-                    page.screenshot(path=str(output / f"failure-{locale}-{theme}.png"), full_page=True)
-                    results.append({"scenario": scenario, "locale": locale, "theme": theme,
-                                    "checks": checks, "status": "failed", "error": str(exc),
-                                    "editor_state": page.evaluate("""() => ({
+                    page.screenshot(
+                        path=str(output / f"failure-{locale}-{theme}.png"), full_page=True
+                    )
+                    results.append(
+                        {
+                            "scenario": scenario,
+                            "locale": locale,
+                            "theme": theme,
+                            "checks": checks,
+                            "status": "failed",
+                            "error": str(exc),
+                            "editor_state": page.evaluate("""() => ({
                                         activeElement:document.activeElement?.outerHTML.slice(0,400),
                                         contenteditable:document.querySelector('.cm-content')?.contentEditable,
                                         text:document.querySelector('.cm-content')?.textContent,
                                         inert:document.querySelector('.cm-content')?.closest('[inert]')?.className,
                                         mode:document.querySelector('.editor-pane')?.dataset.viewMode
-                                    })""")})
+                                    })"""),
+                        }
+                    )
                 finally:
                     context.close()
         if only in ("all", "responsive"):
@@ -686,8 +792,14 @@ def run_audit(dist: Path, output: Path, *, only: str = "all", variant: str | Non
                     page.set_default_timeout(12_000)
                     page_errors = []
                     page.on("pageerror", lambda error: page_errors.append(str(error)))
-                    page.on("console", lambda message: page_errors.append(f"console.error: {message.text}")
-                            if message.type == "error" else None)
+                    page.on(
+                        "console",
+                        lambda message: (
+                            page_errors.append(f"console.error: {message.text}")
+                            if message.type == "error"
+                            else None
+                        ),
+                    )
                     try:
                         initialise(page, url, locale, theme, source=False)
                         result = run_responsive(page, output, locale, theme, width)
@@ -697,14 +809,27 @@ def run_audit(dist: Path, output: Path, *, only: str = "all", variant: str | Non
                     except Exception as exc:
                         message = f"responsive/{locale}/{theme}/{width}: {exc}"
                         errors.append(message)
-                        page.screenshot(path=str(output / f"failure-{locale}-{theme}-{width}.png"), full_page=True)
-                        results.append({"scenario": "responsive", "locale": locale, "theme": theme,
-                                        "width": width, "status": "failed", "error": str(exc)})
+                        page.screenshot(
+                            path=str(output / f"failure-{locale}-{theme}-{width}.png"),
+                            full_page=True,
+                        )
+                        results.append(
+                            {
+                                "scenario": "responsive",
+                                "locale": locale,
+                                "theme": theme,
+                                "width": width,
+                                "status": "failed",
+                                "error": str(exc),
+                            }
+                        )
                     finally:
                         context.close()
         browser.close()
     report = {"status": "failed" if errors else "passed", "scenarios": results, "errors": errors}
-    (output / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    (output / "report.json").write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     return report
 
 
@@ -712,7 +837,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dist", type=Path, default=DEFAULT_DIST)
     parser.add_argument("--output-dir", type=Path, default=Path("build/desktop-editor-ux-audit"))
-    parser.add_argument("--only", choices=("all", "behavior", "authoring", "responsive"), default="all")
+    parser.add_argument(
+        "--only", choices=("all", "behavior", "authoring", "responsive"), default="all"
+    )
     parser.add_argument("--variant", choices=("en-light", "en-dark", "fa-light", "fa-dark"))
     args = parser.parse_args()
     report = run_audit(args.dist, args.output_dir, only=args.only, variant=args.variant)

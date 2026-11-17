@@ -7,10 +7,10 @@ import shutil
 import sys
 import tempfile
 from importlib import resources
-from importlib.metadata import PackageNotFoundError, version as package_version
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Any, Callable
-
 
 from . import __version__
 from .appearance import appearance_from_metadata, resolve_appearance
@@ -28,17 +28,26 @@ from .config import (
 )
 from .diagnostics import Diagnostic, format_diagnostic, has_errors, write_diagnostics
 from .markdown import MarkdownInputError, render_markdown_file
-from .runtime import playwright_chromium_path
-
-
 from .projects.validation import (
     _book_validation as _book_validation,
+)
+from .projects.validation import (
     _input_diagnostics as _input_diagnostics,
+)
+from .projects.validation import (
     _project_config_diagnostics as _project_config_diagnostics,
+)
+from .projects.validation import (
     _validate_document as _validate_document,
+)
+from .projects.validation import (
     project_config_diagnostics as project_config_diagnostics,
+)
+from .projects.validation import (
     validate_book_project as validate_book_project,
 )
+from .runtime import playwright_chromium_path
+
 PROJECT_COMMANDS = (
     "init",
     "validate",
@@ -135,9 +144,7 @@ def _analysis_parser(command: str) -> argparse.ArgumentParser:
         "doctor": "Check the local rendering environment and project configuration.",
         "explain-config": "Show effective project settings and their sources.",
     }
-    parser = argparse.ArgumentParser(
-        prog=f"folio {command}", description=descriptions[command]
-    )
+    parser = argparse.ArgumentParser(prog=f"folio {command}", description=descriptions[command])
     parser.add_argument(
         "input",
         nargs="?" if command == "doctor" else None,
@@ -511,9 +518,7 @@ def _audit_parser(command: str) -> argparse.ArgumentParser:
         "audit-book-accessibility": "Audit all ordered Book Mode chapters for accessibility.",
         "audit-pdf": "Inspect PDF accessibility and archival-readiness signals.",
     }
-    parser = argparse.ArgumentParser(
-        prog=f"folio {command}", description=descriptions[command]
-    )
+    parser = argparse.ArgumentParser(prog=f"folio {command}", description=descriptions[command])
     parser.add_argument("input", type=Path)
     if command != "audit-pdf":
         _add_config_arguments(parser)
@@ -596,7 +601,8 @@ def _audit_accessibility_main(argv: list[str]) -> int:
             diagnostics.extend(result.diagnostics)
             appearance = resolve_appearance(
                 style=config.values.get("style") or appearance_from_metadata(result.metadata).style,
-                palette=config.values.get("palette") or appearance_from_metadata(result.metadata).palette,
+                palette=config.values.get("palette")
+                or appearance_from_metadata(result.metadata).palette,
                 mode=config.values.get("mode") or appearance_from_metadata(result.metadata).mode,
             )
             audit = audit_markdown_result(
@@ -745,9 +751,7 @@ def _book_parser(command: str) -> argparse.ArgumentParser:
         "validate-book": "Validate the complete multi-file book without launching Chromium.",
         "explain-book": "Show the resolved chapter order, titles, output, and heading counts.",
     }
-    parser = argparse.ArgumentParser(
-        prog=f"folio {command}", description=descriptions[command]
-    )
+    parser = argparse.ArgumentParser(prog=f"folio {command}", description=descriptions[command])
     parser.add_argument(
         "project",
         nargs="?",

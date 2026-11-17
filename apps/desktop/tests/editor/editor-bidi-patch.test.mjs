@@ -45,7 +45,12 @@ test("the patch still matches the pinned @codemirror/view", async () => {
     "the patch no longer matches; re-derive it, or drop it if fixed upstream.",
   );
   assert.notEqual(patched, source);
-  assert.deepEqual(PATCHED_FUNCTIONS, ["moveToLineBoundary", "wrappedLine", "charType", "rectanglesForRange"]);
+  assert.deepEqual(PATCHED_FUNCTIONS, [
+    "moveToLineBoundary",
+    "wrappedLine",
+    "charType",
+    "rectanglesForRange",
+  ]);
 });
 
 test("neither patched function hit-tests the editor's horizontal edges", async () => {
@@ -67,7 +72,9 @@ test("typographic punctuation keeps Unicode neutral and numeric classes", async 
   const patched = applyPatch(await readFile(viewModule, "utf8"));
   // The branch under test needs only the upstream low/Arabic tables for
   // characters outside this range, which these samples deliberately exclude.
-  const classify = new Function(`const LowTypes=[],ArabicTypes=[]; ${functionBody(patched, "charType")}; return charType;`)();
+  const classify = new Function(
+    `const LowTypes=[],ArabicTypes=[]; ${functionBody(patched, "charType")}; return charType;`,
+  )();
   for (const value of ["—", "–", "‘", "’", "“", "”", "…", "†", "•", "⁂", " "]) {
     assert.equal(classify(value.charCodeAt(0)), 256, value);
   }

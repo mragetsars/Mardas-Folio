@@ -40,15 +40,18 @@ test("project API uses bounded versioned sidecar methods", async (t) => {
     maxResults: 50,
   });
 
-  assert.deepEqual(calls.map((call) => call.args?.method ?? call.command), [
-    "project.open",
-    "project.refresh",
-    "project.read",
-    "project.save",
-    "project.search",
-    "sidecar_cancel",
-    "bibliography.index",
-  ]);
+  assert.deepEqual(
+    calls.map((call) => call.args?.method ?? call.command),
+    [
+      "project.open",
+      "project.refresh",
+      "project.read",
+      "project.save",
+      "project.search",
+      "sidecar_cancel",
+      "bibliography.index",
+    ],
+  );
   assert.equal(calls[4].args.params.max_results, 25);
   assert.equal(calls[4].args.params.case_sensitive, true);
   assert.equal(calls[5].args.request_id, search.requestId);

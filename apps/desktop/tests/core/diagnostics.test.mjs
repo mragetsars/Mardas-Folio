@@ -28,10 +28,9 @@ test("inline diagnostics keep only locations belonging to the current document",
 
 test("untitled editor diagnostics match the engine's synthetic input path", () => {
   assert.deepEqual(
-    inlineDiagnosticsForDocument(
-      [{ path: "untitled.md", line: 1, message: "draft" }],
-      { path: null },
-    ),
+    inlineDiagnosticsForDocument([{ path: "untitled.md", line: 1, message: "draft" }], {
+      path: null,
+    }),
     [{ line: 1, message: "draft" }],
   );
 });
@@ -57,8 +56,8 @@ test("a validation failure explains itself instead of only saying it failed", ()
   };
 
   assert.deepEqual(diagnosticLines(payload), [
-    "Citation key is not defined: nosuchkey (42:7) — Add the key to a configured"
-      + " .bib or CSL .json bibliography source.",
+    "Citation key is not defined: nosuchkey (42:7) — Add the key to a configured" +
+      " .bib or CSL .json bibliography source.",
     "Malformed citation marker",
   ]);
 });

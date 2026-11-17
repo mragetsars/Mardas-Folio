@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import json
 import os
 import stat
@@ -22,6 +20,7 @@ from mardas_folio.workspace import (
     workspace_payload,
     write_workspace_file,
 )
+from tests._paths import ROOT
 
 
 def _project(tmp_path: Path) -> Path:
@@ -381,7 +380,7 @@ def test_book_diagnostics_keep_citation_chapter_path(tmp_path):
     config_path = root / "mardas.toml"
     config_path.write_text(
         config_path.read_text(encoding="utf-8")
-        + "\n[bibliography]\nenabled = true\nsources = [\"references.bib\"]\n",
+        + '\n[bibliography]\nenabled = true\nsources = ["references.bib"]\n',
         encoding="utf-8",
     )
     (root / "chapters/02-method.md").write_text(
@@ -456,9 +455,7 @@ def test_workspace_rejects_invalid_encoding_and_oversized_text(tmp_path, monkeyp
 
 
 def test_visual_audit_script_supports_project_mode():
-    script = (ROOT / "scripts/audit_studio_visual.py").read_text(
-        encoding="utf-8"
-    )
+    script = (ROOT / "scripts/audit_studio_visual.py").read_text(encoding="utf-8")
     assert '"--project"' in script
     assert 'page.route("**/api/**", proxy_studio_api)' in script
     assert '"project_section_visible"' in script
@@ -466,9 +463,7 @@ def test_visual_audit_script_supports_project_mode():
 
 
 def test_studio_html_contains_project_explorer_problems_and_book_actions():
-    html = (ROOT / "src/mardas_folio/assets/gui.html").read_text(
-        encoding="utf-8"
-    )
+    html = (ROOT / "src/mardas_folio/assets/gui.html").read_text(encoding="utf-8")
 
     assert 'id="projectWorkspaceSection"' in html
     assert 'id="projectFileTree"' in html

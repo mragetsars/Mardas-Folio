@@ -22,7 +22,10 @@ function stateAt(text, position = text.length, extensions = []) {
   return EditorState.create({
     doc: text,
     selection: EditorSelection.cursor(position),
-    extensions: [markdown({ base: markdownLanguage, extensions: [frontmatter, mathAndFootnotes] }), ...extensions],
+    extensions: [
+      markdown({ base: markdownLanguage, extensions: [frontmatter, mathAndFootnotes] }),
+      ...extensions,
+    ],
   });
 }
 
@@ -32,8 +35,18 @@ test("slash insertion is available only at a prose line's start", () => {
     assert.ok(slashRequest(state, state.selection.main.head), text);
   }
   for (const text of [
-    "https://", "text /", "1/", "- /", "> /", "    /", "/table existing text",
-    "```\n/", "```js\n/table\n```", "    code\n    /", "---\ntitle: title\n/table\n---", "$$\n/table\n$$",
+    "https://",
+    "text /",
+    "1/",
+    "- /",
+    "> /",
+    "    /",
+    "/table existing text",
+    "```\n/",
+    "```js\n/table\n```",
+    "    code\n    /",
+    "---\ntitle: title\n/table\n---",
+    "$$\n/table\n$$",
   ]) {
     const position = text.includes("/table\n") ? text.indexOf("/table") + 6 : text.length;
     const state = stateAt(text, position);
@@ -48,9 +61,14 @@ test("block search works in either language while option labels follow the local
   assert.equal(slashBlockOptions("رياضی", "fa")[0].blockId, "math-block");
   assert.equal(slashBlockOptions("نقل‌قول", "fa")[0].blockId, "quote");
   assert.equal(slashBlockOptions("does-not-exist", "en").length, 0);
-  assert.deepEqual(slashBlockOptions("h2").map((option) => option.blockId), ["heading-2"]);
+  assert.deepEqual(
+    slashBlockOptions("h2").map((option) => option.blockId),
+    ["heading-2"],
+  );
   const state = stateAt("/table");
-  const result = slashCompletionSource(() => "fa")(new CompletionContext(state, state.doc.length, false));
+  const result = slashCompletionSource(() => "fa")(
+    new CompletionContext(state, state.doc.length, false),
+  );
   assert.equal(result.from, 1);
   assert.equal(result.filter, false);
   assert.equal(result.options[0].label, "جدول");
@@ -84,7 +102,14 @@ test("a slash insertion is a single undo step and redo restores the block", () =
   let state = stateAt("/table", 6, [history()]);
   state = state.update(slashBlockTransaction(state, "table")).state;
   const inserted = state.doc.toString();
-  const target = { get state() { return state; }, dispatch(transaction) { state = transaction.state; } };
+  const target = {
+    get state() {
+      return state;
+    },
+    dispatch(transaction) {
+      state = transaction.state;
+    },
+  };
   assert.equal(undo(target), true);
   assert.equal(state.doc.toString(), "/table");
   assert.equal(redo(target), true);
@@ -93,11 +118,14 @@ test("a slash insertion is a single undo step and redo restores the block", () =
 });
 
 test("selection formatting appears only for an editable prose selection", () => {
-  const select = (text, from, to, extensions = []) => stateAt(text, 0, extensions)
-    .update({ selection: EditorSelection.single(from, to) }).state;
+  const select = (text, from, to, extensions = []) =>
+    stateAt(text, 0, extensions).update({ selection: EditorSelection.single(from, to) }).state;
   assert.equal(selectionToolbarEligible(select("hello", 0, 5)), true);
   assert.equal(selectionToolbarEligible(stateAt("hello")), false);
-  assert.equal(selectionToolbarEligible(select("hello", 0, 5, [EditorState.readOnly.of(true)])), false);
+  assert.equal(
+    selectionToolbarEligible(select("hello", 0, 5, [EditorState.readOnly.of(true)])),
+    false,
+  );
   assert.equal(selectionToolbarEligible(select("```\ncode\n```", 4, 8)), false);
   assert.equal(selectionToolbarEligible(select("before\n```\ncode\n```\nafter", 0, 25)), false);
   assert.equal(selectionToolbarEligible(select("---\ntitle: title\n---", 4, 9)), false);
@@ -106,10 +134,18 @@ test("selection formatting appears only for an editable prose selection", () => 
 
 test("read-only protects custom commands, replacements and history without losing history", () => {
   const access = new Compartment();
-  let state = stateAt("word", 4, [history(), readOnlyDocumentGuard, access.of(EditorState.readOnly.of(false))]);
+  let state = stateAt("word", 4, [
+    history(),
+    readOnlyDocumentGuard,
+    access.of(EditorState.readOnly.of(false)),
+  ]);
   const target = {
-    get state() { return state; },
-    dispatch(transaction) { state = transaction.state || state.update(transaction).state; },
+    get state() {
+      return state;
+    },
+    dispatch(transaction) {
+      state = transaction.state || state.update(transaction).state;
+    },
     focus() {},
   };
   assert.equal(runMarkdownCommand(target, "bold"), true);

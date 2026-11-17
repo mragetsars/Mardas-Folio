@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import hashlib
 import importlib.util
 import json
@@ -12,6 +10,8 @@ import zipfile
 from pathlib import Path
 
 import pytest
+
+from tests._paths import ROOT
 
 SCRIPTS = ROOT / "scripts"
 if str(SCRIPTS) not in sys.path:
@@ -131,7 +131,9 @@ def test_spdx_document_is_deterministic_and_valid(tmp_path: Path) -> None:
     validate_spdx_document(first, expected_version="1.21.0")
 
 
-def test_deterministic_zip_streams_files_with_identical_bytes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_deterministic_zip_streams_files_with_identical_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     source = tmp_path / "large.bin"
     data = b"streamed content\n" * 200_000
     source.write_bytes(data)
@@ -162,7 +164,9 @@ def test_deterministic_zip_has_stable_bytes_and_no_unsafe_members(tmp_path: Path
 
     assert first.read_bytes() == second.read_bytes()
     with pytest.raises(ReleaseProvenanceError, match="Unsafe ZIP member"):
-        deterministic_zip(tmp_path / "unsafe.zip", [("../escape", b"x", 0o644)], epoch=1_735_689_600)
+        deterministic_zip(
+            tmp_path / "unsafe.zip", [("../escape", b"x", 0o644)], epoch=1_735_689_600
+        )
 
 
 def test_release_manifest_and_checksums_detect_tampering(tmp_path: Path) -> None:
@@ -190,9 +194,24 @@ def test_release_manifest_and_checksums_detect_tampering(tmp_path: Path) -> None
     )
     write_json(sbom, spdx)
     records = [
-        ArtifactRecord(wheel.name, "python-wheel", wheel.stat().st_size, hashlib.sha256(wheel.read_bytes()).hexdigest()),
-        ArtifactRecord(sdist.name, "source-distribution", sdist.stat().st_size, hashlib.sha256(sdist.read_bytes()).hexdigest()),
-        ArtifactRecord(sbom.name, "spdx-sbom", sbom.stat().st_size, hashlib.sha256(sbom.read_bytes()).hexdigest()),
+        ArtifactRecord(
+            wheel.name,
+            "python-wheel",
+            wheel.stat().st_size,
+            hashlib.sha256(wheel.read_bytes()).hexdigest(),
+        ),
+        ArtifactRecord(
+            sdist.name,
+            "source-distribution",
+            sdist.stat().st_size,
+            hashlib.sha256(sdist.read_bytes()).hexdigest(),
+        ),
+        ArtifactRecord(
+            sbom.name,
+            "spdx-sbom",
+            sbom.stat().st_size,
+            hashlib.sha256(sbom.read_bytes()).hexdigest(),
+        ),
     ]
     manifest = build_release_manifest(
         records=records,
@@ -250,7 +269,6 @@ def test_offline_bundle_manifest_and_checksums_are_verified(tmp_path: Path) -> N
         manifest = json.loads(archive.read("BUNDLE-MANIFEST.json"))
         assert manifest["browser_included"] is False
         assert manifest["installation_mode"] == "pip-no-index-wheelhouse"
-
 
 
 def test_standalone_runtime_manifest_and_checksums_are_verified(tmp_path: Path) -> None:
@@ -359,7 +377,6 @@ def test_release_manifest_requires_all_native_desktop_platforms(tmp_path: Path) 
             minimum_bundle_count=0,
             required_desktop_platforms=("windows", "macos", "linux"),
         )
-
 
 
 def test_release_scripts_are_executable() -> None:
@@ -483,7 +500,9 @@ def test_finalize_cli_round_trip(tmp_path: Path) -> None:
     ]
 
     first = subprocess.run(command, check=False, capture_output=True, text=True)
-    second = subprocess.run(command + ["--verify-only"], check=False, capture_output=True, text=True)
+    second = subprocess.run(
+        command + ["--verify-only"], check=False, capture_output=True, text=True
+    )
 
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0, second.stderr

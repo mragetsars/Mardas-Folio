@@ -4,10 +4,20 @@ export function localImageDestination(source) {
   if (value.startsWith("<") && value.endsWith(">")) value = value.slice(1, -1);
   value = value.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g, "$1");
   value = value.split(/[?#]/, 1)[0];
-  try { value = decodeURIComponent(value); } catch { return null; }
+  try {
+    value = decodeURIComponent(value);
+  } catch {
+    return null;
+  }
   value = value.replaceAll("\\", "/");
-  if (!value || /^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("/")
-    || value.split("/").includes("..") || /[\u0000-\u001f\u007f]/.test(value)) return null;
+  if (
+    !value ||
+    /^[a-z][a-z0-9+.-]*:/i.test(value) ||
+    value.startsWith("/") ||
+    value.split("/").includes("..") ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  )
+    return null;
   return value;
 }
 
@@ -20,7 +30,8 @@ export function documentImageSources(content, { limit = 4096 } = {}) {
     if (value && sources.size < limit) sources.add(value);
   };
   // Inline links with balanced parentheses, escaped punctuation and <paths>.
-  const inline = /!\[(?:\\.|[^\]\\])*\]\(\s*(<[^>\r\n]+>|(?:\\.|[^\s()\\]|\((?:\\.|[^()\\])*\))+)\s*(?:["'][^\r\n]*?["']\s*)?\)/g;
+  const inline =
+    /!\[(?:\\.|[^\]\\])*\]\(\s*(<[^>\r\n]+>|(?:\\.|[^\s()\\]|\((?:\\.|[^()\\])*\))+)\s*(?:["'][^\r\n]*?["']\s*)?\)/g;
   for (const match of text.matchAll(inline)) add(match[1]);
   // A definition is harmless to grant even if its image reference is outside
   // the current viewport. Native code still validates every canonical path.
@@ -32,7 +43,8 @@ export function documentImageSources(content, { limit = 4096 } = {}) {
 /** Preserve inline Markdown alt text when the engine emits a blocked image card. */
 export function documentImageAlts(content, { limit = 4096 } = {}) {
   const result = new Map();
-  const inline = /!\[((?:\\.|[^\]\\])*)\]\(\s*(<[^>\r\n]+>|(?:\\.|[^\s()\\]|\((?:\\.|[^()\\])*\))+)\s*(?:["'][^\r\n]*?["']\s*)?\)/g;
+  const inline =
+    /!\[((?:\\.|[^\]\\])*)\]\(\s*(<[^>\r\n]+>|(?:\\.|[^\s()\\]|\((?:\\.|[^()\\])*\))+)\s*(?:["'][^\r\n]*?["']\s*)?\)/g;
   for (const match of String(content || "").matchAll(inline)) {
     if (result.size >= limit) break;
     const source = match[2].replace(/^<|>$/g, "");

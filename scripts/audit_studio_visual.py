@@ -13,9 +13,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -63,7 +63,6 @@ def _chromium_executable() -> str | None:
     return None
 
 
-
 def _open_local_studio_url(
     request: str | urllib.request.Request,
     *,
@@ -83,7 +82,9 @@ def _fetch_studio_html(url: str, timeout: float) -> str:
     try:
         with _open_local_studio_url(asset_url, timeout=timeout) as response:
             logo_data = base64.b64encode(response.read()).decode("ascii")
-        html_text = html_text.replace("/assets/mardas-folio-logo.png", f"data:image/png;base64,{logo_data}")
+        html_text = html_text.replace(
+            "/assets/mardas-folio-logo.png", f"data:image/png;base64,{logo_data}"
+        )
     except Exception:
         pass
     return html_text
@@ -147,12 +148,19 @@ def _capture_responsive_surfaces(page: Any, directory: Path) -> list[dict[str, A
         if light != (theme == "light"):
             page.locator("#interfaceBtn").click()
         for width, height in (
-            (1600, 1000), (1440, 1000), (1366, 768), (1280, 800),
-            (1024, 768), (768, 900), (540, 800), (390, 844), (320, 740),
+            (1600, 1000),
+            (1440, 1000),
+            (1366, 768),
+            (1280, 800),
+            (1024, 768),
+            (768, 900),
+            (540, 800),
+            (390, 844),
+            (320, 740),
         ):
             page.set_viewport_size({"width": width, "height": height})
             compact = width <= 1360
-            for panel in (("editor", "settings", "preview") if compact else ("all",)):
+            for panel in ("editor", "settings", "preview") if compact else ("all",):
                 if compact:
                     page.locator(f'[data-studio-target="{panel}"]').click()
                 page.wait_for_timeout(250)
@@ -204,17 +212,36 @@ def _capture_responsive_surfaces(page: Any, directory: Path) -> list[dict[str, A
                     "previewVisible": panel in {"preview", "all"},
                 }
                 failures = [
-                    key for key in ("rootFits", "toolbarFits", "previewHeaderFits", "previewFrameFillsPane", "iconReferencesValid", "textContrastPasses", "primaryContrastPasses")
+                    key
+                    for key in (
+                        "rootFits",
+                        "toolbarFits",
+                        "previewHeaderFits",
+                        "previewFrameFillsPane",
+                        "iconReferencesValid",
+                        "textContrastPasses",
+                        "primaryContrastPasses",
+                    )
                     if not geometry.get(key)
                 ]
-                failures.extend(key for key, value in expected.items() if geometry.get(key) != value)
+                failures.extend(
+                    key for key, value in expected.items() if geometry.get(key) != value
+                )
                 if compact and geometry.get("selectedPanel") != panel:
                     failures.append("selectedPanel")
                 screenshot = f"studio-{theme}-{width}-{panel}.png"
                 page.screenshot(path=str(directory / screenshot))
-                cases.append({"theme": theme, "width": width, "height": height,
-                              "panel": panel, "screenshot": screenshot,
-                              "geometry": geometry, "failures": failures})
+                cases.append(
+                    {
+                        "theme": theme,
+                        "width": width,
+                        "height": height,
+                        "panel": panel,
+                        "screenshot": screenshot,
+                        "geometry": geometry,
+                        "failures": failures,
+                    }
+                )
     page.set_viewport_size({"width": 1440, "height": 1000})
     if not page.evaluate("document.body.classList.contains('light-mode')"):
         page.locator("#interfaceBtn").click()
@@ -425,39 +452,58 @@ def _capture_studio(
                 "title": page.title(),
                 "export_button_visible": page.locator("#exportPdfBtn").is_visible(),
                 "document_section_visible": page.locator("#titleInput").is_visible(),
-                "appearance_section_visible": page.locator('[data-choice-group="style"]').count() > 0,
-                "branding_section_visible": page.locator('[data-choice-group="branding"]').count() > 0,
-                "publication_quality_section_present": page.locator("#publicationQualitySection").count() > 0,
+                "appearance_section_visible": page.locator('[data-choice-group="style"]').count()
+                > 0,
+                "branding_section_visible": page.locator('[data-choice-group="branding"]').count()
+                > 0,
+                "publication_quality_section_present": page.locator(
+                    "#publicationQualitySection"
+                ).count()
+                > 0,
                 "settings_badge": page.locator("#appearanceName").inner_text(),
                 "preview_status": preview_status,
-                "preview_status_unclipped": bool(preview_status_box.get("scrollWidth", 0) <= preview_status_box.get("clientWidth", 0) + 1),
+                "preview_status_unclipped": bool(
+                    preview_status_box.get("scrollWidth", 0)
+                    <= preview_status_box.get("clientWidth", 0) + 1
+                ),
                 "preview_mode": preview_mode,
                 "preview_failed": "failed" in preview_status.lower(),
                 "preview_frame_visible": preview_frame_visible,
-                "pdf_like_preview_loaded": preview_status.strip().lower() in {"ready", "updated", "book ready"},
+                "pdf_like_preview_loaded": preview_status.strip().lower()
+                in {"ready", "updated", "book ready"},
                 "pdf_like_preview_css_loaded": preview_css_loaded,
                 "pdf_like_page_guides_removed": page_guides_removed,
                 "long_editor_line_numbers_ok": bool(line_number_check.get("ok")),
                 "long_editor_line_number_tail": line_number_check.get("visibleTail"),
                 "long_editor_rendered_line_numbers": line_number_check.get("renderedLineNumbers"),
                 "long_editor_wrap": line_number_check.get("wrap"),
-                "pdf_like_scroll_sync_removed": bool(pdf_like_scroll_sync_check.get("removedFrameSync")),
+                "pdf_like_scroll_sync_removed": bool(
+                    pdf_like_scroll_sync_check.get("removedFrameSync")
+                ),
                 "fast_scroll_sync_guarded": bool(pdf_like_scroll_sync_check.get("fastOnlyGuard")),
                 "pdf_like_scrollbar_color": preview_scrollbar_check.get("scrollbarColor"),
                 "toast_region_present": bool(ui_polish_check.get("toastRegion")),
                 "command_palette_navigation": bool(ui_polish_check.get("commandPaletteNavigation")),
                 "export_queue_helpers": bool(ui_polish_check.get("exportQueueHelpers")),
                 "cancel_export_button_present": bool(ui_polish_check.get("cancelExportButton")),
-                "preview_status_unclipped_live": bool(ui_polish_check.get("previewStatusUnclipped")),
+                "preview_status_unclipped_live": bool(
+                    ui_polish_check.get("previewStatusUnclipped")
+                ),
                 "project_mode_requested": project_mode,
                 "project_section_visible": bool(project_checks.get("sectionVisible")),
                 "project_problems_visible": bool(project_checks.get("problemsVisible")),
                 "project_file_count": int(project_checks.get("fileCount") or 0),
                 "project_active_path": str(project_checks.get("activePath") or ""),
                 "project_save_button_present": bool(project_checks.get("saveButtonPresent")),
-                "project_validate_button_present": bool(project_checks.get("validateButtonPresent")),
-                "project_preview_book_button_present": bool(project_checks.get("previewBookButtonPresent")),
-                "project_export_book_button_present": bool(project_checks.get("exportBookButtonPresent")),
+                "project_validate_button_present": bool(
+                    project_checks.get("validateButtonPresent")
+                ),
+                "project_preview_book_button_present": bool(
+                    project_checks.get("previewBookButtonPresent")
+                ),
+                "project_export_book_button_present": bool(
+                    project_checks.get("exportBookButtonPresent")
+                ),
                 "responsive_cases": responsive_cases,
                 "page_errors": page_errors,
             }
@@ -471,9 +517,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path, default=Path("build/visual-qa/studio"))
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=0)
-    parser.add_argument("--timeout", type=float, default=30, help="Seconds to wait for the Studio server")
+    parser.add_argument(
+        "--timeout", type=float, default=30, help="Seconds to wait for the Studio server"
+    )
     parser.add_argument("--browser-timeout-ms", type=int, default=60_000)
-    parser.add_argument("--clean", action="store_true", help="Delete output directory before capturing")
+    parser.add_argument(
+        "--clean", action="store_true", help="Delete output directory before capturing"
+    )
     parser.add_argument(
         "--project",
         type=Path,
@@ -509,7 +559,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         url = _read_server_url(process, timeout=args.timeout)
-        screenshot_path = args.output_dir / ("studio-project.png" if args.project else "studio-default.png")
+        screenshot_path = args.output_dir / (
+            "studio-project.png" if args.project else "studio-default.png"
+        )
         html_text = _fetch_studio_html(url, timeout=args.timeout)
         checks = _capture_studio(
             html_text,
@@ -568,7 +620,9 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("Studio command palette keyboard navigation helpers are missing")
     if not checks.get("export_queue_helpers") or not checks.get("cancel_export_button_present"):
         raise SystemExit("Studio queued-export progress or cancellation controls are missing")
-    if not checks.get("preview_status_unclipped") or not checks.get("preview_status_unclipped_live"):
+    if not checks.get("preview_status_unclipped") or not checks.get(
+        "preview_status_unclipped_live"
+    ):
         raise SystemExit("Studio preview status is visually clipped")
     if args.project is not None:
         required_project_checks = [

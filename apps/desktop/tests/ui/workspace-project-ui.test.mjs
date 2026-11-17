@@ -8,14 +8,23 @@ const main = readFileSync(new URL("../../frontend/js/main.mjs", import.meta.url)
 test("an open project exposes one close action with an explicit keep-open-tabs contract", () => {
   assert.match(index, /id="close-project"[^>]*data-i18n-title="closeProjectHelp"/);
   assert.match(index, /id="close-project"[\s\S]*?<span data-i18n="closeProject">/);
-  assert.match(main, /\{ id: "close-project"[\s\S]*enabled: Boolean\(state\.project\?\.path\)/);
+  assert.match(main, /\{\s*id: "close-project"[\s\S]*enabled: Boolean\(state\.project\?\.path\)/);
   assert.match(main, /\$\("#close-project"\)\.addEventListener\("click", closeActiveProject\)/);
-  assert.match(main, /function closeActiveProject\(\)[\s\S]*const cleanup = clearProjectState\(\)[\s\S]*return cleanup/);
+  assert.match(
+    main,
+    /function closeActiveProject\(\)[\s\S]*const cleanup = clearProjectState\(\)[\s\S]*return cleanup/,
+  );
 });
 
 test("book projects expose one project-level close action in the Project inspector", () => {
-  assert.match(index, /id="sidebar-panel-project"[\s\S]*?id="close-project"[^>]*data-i18n-title="closeProjectHelp"/);
-  const projectFileSection = index.match(/<section class="navigator-section navigator-project-section[\s\S]*?<\/section>/)?.[0] || "";
+  assert.match(
+    index,
+    /id="sidebar-panel-project"[\s\S]*?id="close-project"[^>]*data-i18n-title="closeProjectHelp"/,
+  );
+  const projectFileSection =
+    index.match(
+      /<section class="navigator-section navigator-project-section[\s\S]*?<\/section>/,
+    )?.[0] || "";
   assert.notEqual(projectFileSection, "");
   assert.doesNotMatch(projectFileSection, /id="close-project"/);
   assert.doesNotMatch(index, /id="book-close-project"/);
@@ -32,5 +41,8 @@ test("closing the project clears project state without closing open tabs", () =>
   assert.match(clear, /resetProjectSession\(state\)/);
   assert.match(clear, /persistSession\(\)/);
   assert.doesNotMatch(clear, /closeDocument\(/);
-  assert.match(main, /function closeActiveProject\(\)[\s\S]*const cleanup = clearProjectState\(\)[\s\S]*showView\("workspace"\)/);
+  assert.match(
+    main,
+    /function closeActiveProject\(\)[\s\S]*const cleanup = clearProjectState\(\)[\s\S]*showView\("workspace"\)/,
+  );
 });

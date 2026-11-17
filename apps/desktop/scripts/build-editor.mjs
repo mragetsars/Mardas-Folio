@@ -9,10 +9,7 @@ import { codeMirrorBidiPatch } from "./codemirror-bidi-patch.mjs";
 
 const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const entryPoint = resolve(desktopRoot, "editor-src/codemirror-editor.mjs");
-const outputPath = resolve(
-  desktopRoot,
-  "frontend/js/vendor/codemirror-editor.bundle.mjs",
-);
+const outputPath = resolve(desktopRoot, "frontend/js/vendor/codemirror-editor.bundle.mjs");
 const checkOnly = process.argv.includes("--check");
 
 const result = await build({

@@ -1,7 +1,13 @@
 /** Resolve app shortcuts without requiring a Latin text input layout. */
 export function authoringShortcutKey(event) {
-  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.isComposing
-    || event.keyCode === 229 || event.getModifierState?.("AltGraph")) return null;
+  if (
+    !(event.ctrlKey || event.metaKey) ||
+    event.altKey ||
+    event.isComposing ||
+    event.keyCode === 229 ||
+    event.getModifierState?.("AltGraph")
+  )
+    return null;
   const key = String(event.key || "").toLowerCase();
   if (!key || ["dead", "process", "unidentified"].includes(key)) return null;
   // Keep logical alphabetic keys for Latin layouts (including swapped
@@ -10,8 +16,12 @@ export function authoringShortcutKey(event) {
   if (/^.$/u.test(key) && !/^[a-z]$/.test(key)) {
     const letter = /^Key([A-Z])$/.exec(event.code || "");
     if (letter) return letter[1].toLowerCase();
-    if ((event.code == null || event.code === "") && Number.isInteger(event.keyCode)
-      && event.keyCode >= 65 && event.keyCode <= 90) {
+    if (
+      (event.code == null || event.code === "") &&
+      Number.isInteger(event.keyCode) &&
+      event.keyCode >= 65 &&
+      event.keyCode <= 90
+    ) {
       return String.fromCharCode(event.keyCode + 32);
     }
   }

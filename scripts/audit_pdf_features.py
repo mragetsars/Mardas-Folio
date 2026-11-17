@@ -14,8 +14,6 @@ SRC = ROOT / "src"
 if SRC.is_dir() and str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from mardas_folio import __version__  # noqa: E402
-from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES  # noqa: E402
 from visual_qa import (  # noqa: E402
     ensure_clean_dir,
     png_stats,
@@ -26,7 +24,10 @@ from visual_qa import (  # noqa: E402
     write_json,
 )
 
-FEATURE_SMOKE_MARKDOWN = r'''---
+from mardas_folio import __version__  # noqa: E402
+from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES  # noqa: E402
+
+FEATURE_SMOKE_MARKDOWN = r"""---
 title: "PDF Feature Smoke"
 subtitle: "Tables, code, Mermaid, math, captions, footnotes, and RTL/LTR prose"
 authors:
@@ -98,9 +99,7 @@ flowchart LR
 در این پاراگراف فارسی عبارت‌هایی مثل renderer. و GitHub Actions. و PDF navigation? باید با نشانه‌های پایانی خود کنار هم بمانند و در خروجی PDF از خط جدا نشوند.
 
 [^feature]: A repeated footnote reference should keep back-links and visual grouping stable.
-'''.replace(
-    "__MARDAS_VERSION__", __version__
-)
+""".replace("__MARDAS_VERSION__", __version__)
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -122,7 +121,9 @@ def _parse_appearance(value: str) -> AppearanceCase:
     if style not in STYLES:
         raise SystemExit(f"invalid style {style!r}; expected one of: {', '.join(STYLES)}")
     if palette not in PALETTES_ORDER:
-        raise SystemExit(f"invalid palette {palette!r}; expected one of: {', '.join(PALETTES_ORDER)}")
+        raise SystemExit(
+            f"invalid palette {palette!r}; expected one of: {', '.join(PALETTES_ORDER)}"
+        )
     if mode not in MODES:
         raise SystemExit(f"invalid mode {mode!r}; expected one of: {', '.join(MODES)}")
     return AppearanceCase(style=style, palette=palette, mode=mode)
@@ -132,7 +133,12 @@ def _parse_appearances(value: str | None, *, all_appearances: bool) -> tuple[App
     if all_appearances:
         if value:
             raise SystemExit("--all-appearances cannot be combined with --appearances")
-        return tuple(AppearanceCase(style, palette, mode) for style in STYLES for palette in PALETTES_ORDER for mode in MODES)
+        return tuple(
+            AppearanceCase(style, palette, mode)
+            for style in STYLES
+            for palette in PALETTES_ORDER
+            for mode in MODES
+        )
     if not value:
         return (
             AppearanceCase("modern", "blue", "light"),
@@ -158,7 +164,11 @@ def _load_existing_records(manifest_path: Path) -> dict[str, dict[str, object]]:
     records = payload.get("records", [])
     if not isinstance(records, list):
         return {}
-    return {str(record.get("name")): record for record in records if isinstance(record, dict) and record.get("name")}
+    return {
+        str(record.get("name")): record
+        for record in records
+        if isinstance(record, dict) and record.get("name")
+    }
 
 
 def _record_complete(record: dict[str, object], output_dir: Path, *, render_png: bool) -> bool:
@@ -168,7 +178,9 @@ def _record_complete(record: dict[str, object], output_dir: Path, *, render_png:
     if not render_png:
         return True
     images = record.get("png")
-    return isinstance(images, list) and all(isinstance(image, str) and (output_dir / image).is_file() for image in images)
+    return isinstance(images, list) and all(
+        isinstance(image, str) and (output_dir / image).is_file() for image in images
+    )
 
 
 def _write_manifest(
@@ -216,22 +228,44 @@ def _write_gallery(output_dir: Path, records: dict[str, dict[str, object]]) -> N
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=Path("build/visual-qa/features"))
-    parser.add_argument("--source", type=Path, help="Use an existing feature smoke Markdown document")
+    parser.add_argument(
+        "--source", type=Path, help="Use an existing feature smoke Markdown document"
+    )
     parser.add_argument(
         "--appearances",
         help="Comma-separated appearance triples: style:palette:mode,style:palette:mode",
     )
-    parser.add_argument("--all-appearances", action="store_true", help="Render the feature smoke document for every style/palette/mode")
-    parser.add_argument("--clean", action="store_true", help="Delete output directory before rendering")
-    parser.add_argument("--resume", action="store_true", help="Reuse completed records from an existing manifest")
-    parser.add_argument("--fail-fast", action="store_true", help="Stop after the first render or rasterization failure")
-    parser.add_argument("--max-cases", type=int, help="Limit the number of appearance cases for quick smoke runs")
+    parser.add_argument(
+        "--all-appearances",
+        action="store_true",
+        help="Render the feature smoke document for every style/palette/mode",
+    )
+    parser.add_argument(
+        "--clean", action="store_true", help="Delete output directory before rendering"
+    )
+    parser.add_argument(
+        "--resume", action="store_true", help="Reuse completed records from an existing manifest"
+    )
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="Stop after the first render or rasterization failure",
+    )
+    parser.add_argument(
+        "--max-cases", type=int, help="Limit the number of appearance cases for quick smoke runs"
+    )
     parser.add_argument("--render-png", action="store_true", help="Render representative PNG pages")
     parser.add_argument("--png-dpi", type=int, default=72)
-    parser.add_argument("--pages", default="1,2,3", help="Comma-separated 1-based PDF pages to rasterize")
+    parser.add_argument(
+        "--pages", default="1,2,3", help="Comma-separated 1-based PDF pages to rasterize"
+    )
     parser.add_argument("--timeout", type=int, default=90, help="Seconds per PDF render")
-    parser.add_argument("--timeout-ms", type=int, default=180_000, help="Chromium timeout in milliseconds")
-    parser.add_argument("--raster-timeout", type=int, default=60, help="Seconds per pdftoppm page render")
+    parser.add_argument(
+        "--timeout-ms", type=int, default=180_000, help="Chromium timeout in milliseconds"
+    )
+    parser.add_argument(
+        "--raster-timeout", type=int, default=60, help="Seconds per pdftoppm page render"
+    )
     args = parser.parse_args(argv)
 
     if args.max_cases is not None and args.max_cases < 1:
@@ -258,7 +292,11 @@ def main(argv: list[str] | None = None) -> int:
 
     for appearance in appearances:
         existing = records.get(appearance.name)
-        if args.resume and existing and _record_complete(existing, args.output_dir, render_png=args.render_png):
+        if (
+            args.resume
+            and existing
+            and _record_complete(existing, args.output_dir, render_png=args.render_png)
+        ):
             print(f"skip {appearance.name}")
             continue
         output_pdf = pdf_dir / f"{appearance.name}.pdf"
@@ -290,7 +328,9 @@ def main(argv: list[str] | None = None) -> int:
                     raster_timeout=args.raster_timeout,
                 )
                 record["png"] = [relative_to(path, args.output_dir) for path in rendered_pages]
-                record["png_stats"] = [dataclasses.asdict(png_stats(path)) for path in rendered_pages]
+                record["png_stats"] = [
+                    dataclasses.asdict(png_stats(path)) for path in rendered_pages
+                ]
             records[appearance.name] = record
         except Exception as exc:  # noqa: BLE001 - audit should keep collecting failures.
             failures.append(f"{appearance.name}: {exc}")

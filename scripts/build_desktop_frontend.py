@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -7,17 +8,25 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Iterable
+
 from prepare_preview_mathjax import prepare_preview_mathjax
-from lib.build.paths import mark_output, validate_output
+
+from lib.build.frontend import (
+    MAX_FILE_BYTES as MAX_FILE_BYTES,
+)
 from lib.build.frontend import (
     MAX_FILES as MAX_FILES,
-    MAX_FILE_BYTES as MAX_FILE_BYTES,
+)
+from lib.build.frontend import (
     MAX_TOTAL_BYTES as MAX_TOTAL_BYTES,
+)
+from lib.build.frontend import (
     project_version as project_version,
+)
+from lib.build.frontend import (
     sha256 as sha256,
 )
-
-
+from lib.build.paths import mark_output, validate_output
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT / "apps" / "desktop" / "frontend"
@@ -61,7 +70,9 @@ def build_frontend(
     version: str | None = None,
 ) -> Path:
     source = source.expanduser().resolve(strict=True)
-    output = validate_output(output, workspace=ROOT, protected=(source,), generated=(DEFAULT_OUTPUT,))
+    output = validate_output(
+        output, workspace=ROOT, protected=(source,), generated=(DEFAULT_OUTPUT,)
+    )
     if not source.is_dir():
         raise ValueError(f"Desktop frontend source is not a directory: {source}")
     if source == output or source in output.parents or output in source.parents:
@@ -69,9 +80,7 @@ def build_frontend(
 
     version = version or project_version()
     output.parent.mkdir(parents=True, exist_ok=True)
-    staging: Path | None = Path(
-        tempfile.mkdtemp(prefix=".mardas-desktop-dist-", dir=output.parent)
-    )
+    staging: Path | None = Path(tempfile.mkdtemp(prefix=".mardas-desktop-dist-", dir=output.parent))
     try:
         manifest_files: list[dict[str, object]] = []
         for path in source_files(source):
@@ -99,7 +108,9 @@ def build_frontend(
             target.mkdir(parents=True, exist_ok=True)
             for name in ("tex-svg-full.js", "NOTICE.md"):
                 if name == "tex-svg-full.js":
-                    (target / name).write_bytes(prepare_preview_mathjax((mathjax / name).read_bytes()))
+                    (target / name).write_bytes(
+                        prepare_preview_mathjax((mathjax / name).read_bytes())
+                    )
                 else:
                     shutil.copyfile(mathjax / name, target / name)
                 os.chmod(target / name, 0o644)

@@ -6,6 +6,7 @@ preview body/page output. Only the native transport, file chooser and delivery
 timing are fixtures. No installed app or user profile is opened. Run after
 build_desktop_frontend.py; results and screenshots go to build/preview-audit.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -293,27 +294,49 @@ def backend_payloads(output: Path) -> dict[str, Any]:
             payloads = {}
             for name, content in [("rich", RICH), ("fresh", FRESH), ("security", SECURITY)]:
                 path = sources / f"{name}.md"
-                options = PdfOptions(input_path=path, output_path=sources / f"{name}.pdf",
-                                     document_language="fa-IR" if locale == "fa" else "en-US",
-                                     mode=theme, style="modern", cover=False, unsafe_html=True)
+                options = PdfOptions(
+                    input_path=path,
+                    output_path=sources / f"{name}.pdf",
+                    document_language="fa-IR" if locale == "fa" else "en-US",
+                    mode=theme,
+                    style="modern",
+                    cover=False,
+                    unsafe_html=True,
+                )
                 body = preview_document_text(options, content)
                 page = preview_page_document_text(options, content)
                 soup = BeautifulSoup(body["body_html"], "html.parser")
                 payloads[name] = {
-                    "path": str(path), "content": content, "body": body, "page": page,
+                    "path": str(path),
+                    "content": content,
+                    "body": body,
+                    "page": page,
                     "expected_math": len(soup.select(".math")),
                     "expected_codes": [node.get_text() for node in soup.select("code")],
                     "body_sha256": hashlib.sha256(body["body_html"].encode()).hexdigest(),
                 }
             all_payloads[f"{locale}-{theme}"] = payloads
-    (output / "backend-payloads.json").write_text(json.dumps(all_payloads, ensure_ascii=False), encoding="utf-8")
+    (output / "backend-payloads.json").write_text(
+        json.dumps(all_payloads, ensure_ascii=False), encoding="utf-8"
+    )
     return all_payloads
 
 
-def initialise(browser: Any, url: str, payloads: dict[str, Any], locale: str, theme: str,
-               width: int, errors: list[str], requests: list[str]) -> tuple[Any, Any]:
-    context = browser.new_context(viewport={"width": width, "height": 900 if width > 1000 else 640},
-                                  locale="fa-IR" if locale == "fa" else "en-US")
+def initialise(
+    browser: Any,
+    url: str,
+    payloads: dict[str, Any],
+    locale: str,
+    theme: str,
+    width: int,
+    errors: list[str],
+    requests: list[str],
+) -> tuple[Any, Any]:
+    context = browser.new_context(
+        viewport={"width": width, "height": 900 if width > 1000 else 640},
+        locale="fa-IR" if locale == "fa" else "en-US",
+    )
+
     def route_request(route: Any) -> None:
         request_url = route.request.url
         if request_url.startswith(url) or request_url.startswith(("data:", "blob:")):
@@ -321,6 +344,7 @@ def initialise(browser: Any, url: str, payloads: dict[str, Any], locale: str, th
         else:
             requests.append(request_url)
             route.abort()
+
     context.route("**/*", route_request)
     context.route("**/__preview_audit_payloads.json", lambda route: route.fulfill(json=payloads))
     page = context.new_page()
@@ -333,28 +357,48 @@ def initialise(browser: Any, url: str, payloads: dict[str, Any], locale: str, th
     page.add_init_script(
         "localStorage.setItem('mardas.desktop.locale', " + json.dumps(locale) + ");"
         "localStorage.setItem('mardas.desktop.preferences.v1', JSON.stringify("
-        + json.dumps({"theme": theme, "onboardingComplete": True, "viewMode": "source", "reducedMotion": "reduce"}) + "));"
+        + json.dumps(
+            {
+                "theme": theme,
+                "onboardingComplete": True,
+                "viewMode": "source",
+                "reducedMotion": "reduce",
+            }
+        )
+        + "));"
         "localStorage.setItem('mardas.desktop.workspace-layout.v2', JSON.stringify("
-        + json.dumps({"filesOpen": False, "sidebarOpen": False, "previewWidth": 340}) + "));"
+        + json.dumps({"filesOpen": False, "sidebarOpen": False, "previewWidth": 340})
+        + "));"
     )
     return context, page
 
 
 def wait_math(page: Any, selector: str, expected: int, *, frame: bool = False) -> None:
-    page.wait_for_function("""({selector, expected, frame}) => {
+    page.wait_for_function(
+        """({selector, expected, frame}) => {
       const doc = frame ? document.querySelector('#export-preview iframe')?.contentDocument : document;
       const root = doc?.querySelector(selector);
       const nodes = [...(root?.querySelectorAll('.math') || [])].filter(node => !node.closest('pre,code'));
       return nodes.length >= expected && nodes.every(node => node.dataset.mathRendered === 'true');
-    }""", arg={"selector": selector, "expected": expected, "frame": frame})
+    }""",
+        arg={"selector": selector, "expected": expected, "frame": frame},
+    )
 
 
-def article_check(page: Any, selector: str, fixture: dict[str, Any], *, frame: bool = False) -> dict[str, Any]:
-    args = {"selector": selector, "expectedMath": fixture["expected_math"],
-            "expectedCodes": fixture["expected_codes"]}
+def article_check(
+    page: Any, selector: str, fixture: dict[str, Any], *, frame: bool = False
+) -> dict[str, Any]:
+    args = {
+        "selector": selector,
+        "expectedMath": fixture["expected_math"],
+        "expectedCodes": fixture["expected_codes"],
+    }
     if frame:
-        return page.locator("#export-preview iframe").content_frame.locator("body").evaluate(
-            "(body, args) => (" + ARTICLE_CHECK + ")(args)", args)
+        return (
+            page.locator("#export-preview iframe")
+            .content_frame.locator("body")
+            .evaluate("(body, args) => (" + ARTICLE_CHECK + ")(args)", args)
+        )
     return page.evaluate(ARTICLE_CHECK, args)
 
 
@@ -369,11 +413,31 @@ def show_side_preview(page: Any) -> None:
     expect(page.locator("#preview-pane")).to_be_visible()
 
 
-def run_surface_case(browser: Any, url: str, payloads: dict[str, Any], locale: str, theme: str,
-                     width: int, output: Path) -> dict[str, Any]:
-    result: dict[str, Any] = {"problems": [], "page_errors": [], "external_requests": [], "surfaces": {}}
-    context, page = initialise(browser, url, payloads, locale, theme, width,
-                               result["page_errors"], result["external_requests"])
+def run_surface_case(
+    browser: Any,
+    url: str,
+    payloads: dict[str, Any],
+    locale: str,
+    theme: str,
+    width: int,
+    output: Path,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "problems": [],
+        "page_errors": [],
+        "external_requests": [],
+        "surfaces": {},
+    }
+    context, page = initialise(
+        browser,
+        url,
+        payloads,
+        locale,
+        theme,
+        width,
+        result["page_errors"],
+        result["external_requests"],
+    )
     key = f"{locale}-{theme}-{width}"
     try:
         page.goto(url, wait_until="networkidle")
@@ -385,10 +449,17 @@ def run_surface_case(browser: Any, url: str, payloads: dict[str, Any], locale: s
         result["surfaces"]["split"] = article_check(page, "#preview-document", payloads["rich"])
         result["preview_width"] = page.locator(".preview-pane").bounding_box()["width"]
         page.screenshot(path=str(output / f"{key}-split.png"))
-        page.locator("#preview-document .math.display").last.evaluate("node => node.scrollIntoView({block: 'center'})")
+        page.locator("#preview-document .math.display").last.evaluate(
+            "node => node.scrollIntoView({block: 'center'})"
+        )
         page.screenshot(path=str(output / f"{key}-split-matrix.png"))
-        for feature, selector in [("code", ".code-block--numbered"), ("diagram", ".mermaid-diagram")]:
-            page.locator(f"#preview-document {selector}").evaluate("node => node.scrollIntoView({block: 'center'})")
+        for feature, selector in [
+            ("code", ".code-block--numbered"),
+            ("diagram", ".mermaid-diagram"),
+        ]:
+            page.locator(f"#preview-document {selector}").evaluate(
+                "node => node.scrollIntoView({block: 'center'})"
+            )
             page.screenshot(path=str(output / f"{key}-split-{feature}.png"))
         page.locator('button.view-mode[data-view-mode="read"]').click()
         wait_math(page, "#reading-document", payloads["rich"]["expected_math"])
@@ -400,18 +471,31 @@ def run_surface_case(browser: Any, url: str, payloads: dict[str, Any], locale: s
         if duplicate_ids:
             result["problems"].append(f"Split/Read share IDs: {duplicate_ids}")
         page.screenshot(path=str(output / f"{key}-read.png"))
-        page.locator("#reading-document .math.display").last.evaluate("node => node.scrollIntoView({block: 'center'})")
+        page.locator("#reading-document .math.display").last.evaluate(
+            "node => node.scrollIntoView({block: 'center'})"
+        )
         page.screenshot(path=str(output / f"{key}-read-matrix.png"))
-        for feature, selector in [("code", ".code-block--numbered"), ("diagram", ".mermaid-diagram")]:
-            page.locator(f"#reading-document {selector}").evaluate("node => node.scrollIntoView({block: 'center'})")
+        for feature, selector in [
+            ("code", ".code-block--numbered"),
+            ("diagram", ".mermaid-diagram"),
+        ]:
+            page.locator(f"#reading-document {selector}").evaluate(
+                "node => node.scrollIntoView({block: 'center'})"
+            )
             page.screenshot(path=str(output / f"{key}-read-{feature}.png"))
         page.locator("#workspace-export").click()
         page.locator("#export-format-pdf").click()
         if page.locator("#export-show-preview").is_visible():
             page.locator("#export-show-preview").click()
-        wait_math(page, '.pv-page[data-kind="content"] .md2pdf-article', payloads["rich"]["expected_math"], frame=True)
+        wait_math(
+            page,
+            '.pv-page[data-kind="content"] .md2pdf-article',
+            payloads["rich"]["expected_math"],
+            frame=True,
+        )
         result["surfaces"]["export"] = article_check(
-            page, '.pv-page[data-kind="content"] .md2pdf-article', payloads["rich"], frame=True)
+            page, '.pv-page[data-kind="content"] .md2pdf-article', payloads["rich"], frame=True
+        )
         page.screenshot(path=str(output / f"{key}-export.png"))
         page.locator("#export-back").click()
         page.locator(".document-tab .tab-activate").nth(2).click()
@@ -434,15 +518,27 @@ def run_surface_case(browser: Any, url: str, payloads: dict[str, Any], locale: s
         for surface, checks in result["surfaces"].items():
             result["problems"].extend(f"{surface}: {problem}" for problem in checks["problems"])
         result["problems"].extend(result["page_errors"])
-        result["problems"].extend(f"external request: {request}" for request in result["external_requests"])
+        result["problems"].extend(
+            f"external request: {request}" for request in result["external_requests"]
+        )
         context.close()
     return result
 
 
-def run_stale_case(browser: Any, url: str, payloads: dict[str, Any], output: Path, *, export: bool) -> dict[str, Any]:
+def run_stale_case(
+    browser: Any, url: str, payloads: dict[str, Any], output: Path, *, export: bool
+) -> dict[str, Any]:
     result: dict[str, Any] = {"problems": [], "page_errors": [], "external_requests": []}
-    context, page = initialise(browser, url, payloads, "en", "light", 1440,
-                               result["page_errors"], result["external_requests"])
+    context, page = initialise(
+        browser,
+        url,
+        payloads,
+        "en",
+        "light",
+        1440,
+        result["page_errors"],
+        result["external_requests"],
+    )
     held: list[Any] = []
     page.route("**/vendor/mathjax/tex-svg-full.js", lambda route: held.append(route))
     label = "export" if export else "split"
@@ -452,10 +548,14 @@ def run_stale_case(browser: Any, url: str, payloads: dict[str, Any], output: Pat
             page.locator("#workflow-quick").click()
             page.locator("#export-format-pdf").click()
             page.locator("#choose-source").click()
-            page.wait_for_function("() => !!document.querySelector('#export-preview iframe')?.contentDocument?.querySelector('.math')")
+            page.wait_for_function(
+                "() => !!document.querySelector('#export-preview iframe')?.contentDocument?.querySelector('.math')"
+            )
             page.evaluate("() => { __previewAudit.pick = 'fresh'; }")
             page.locator("#choose-source").click()
-            page.wait_for_function("() => document.querySelector('#export-preview iframe')?.contentDocument?.body.textContent.includes('FRESH_PREVIEW_ONLY')")
+            page.wait_for_function(
+                "() => document.querySelector('#export-preview iframe')?.contentDocument?.body.textContent.includes('FRESH_PREVIEW_ONLY')"
+            )
         else:
             page.locator("#workflow-open").click()
             page.locator(".document-tab .tab-activate").nth(0).click()
@@ -474,12 +574,17 @@ def run_stale_case(browser: Any, url: str, payloads: dict[str, Any], output: Pat
         if len(held) != 1:
             raise AssertionError(f"Expected one held offline MathJax request, got {len(held)}")
         held.pop().continue_()
-        selector = '.pv-page[data-kind="content"] .md2pdf-article' if export else "#preview-document"
+        selector = (
+            '.pv-page[data-kind="content"] .md2pdf-article' if export else "#preview-document"
+        )
         wait_math(page, selector, payloads["fresh"]["expected_math"], frame=export)
         result["article"] = article_check(page, selector, payloads["fresh"], frame=export)
-        text = page.evaluate("""exporting => exporting
+        text = page.evaluate(
+            """exporting => exporting
           ? document.querySelector('#export-preview iframe').contentDocument.body.textContent
-          : document.querySelector('#preview-document').textContent""", export)
+          : document.querySelector('#preview-document').textContent""",
+            export,
+        )
         if "PREVIEW_RICH_ONLY" in text or "FRESH_PREVIEW_ONLY" not in text:
             result["problems"].append("stale typeset mutated the newer document preview")
         result["problems"].extend(result["article"]["problems"])
@@ -491,19 +596,36 @@ def run_stale_case(browser: Any, url: str, payloads: dict[str, Any], output: Pat
         for route in held:
             route.abort()
         result["problems"].extend(result["page_errors"])
-        result["problems"].extend(f"external request: {request}" for request in result["external_requests"])
+        result["problems"].extend(
+            f"external request: {request}" for request in result["external_requests"]
+        )
         context.close()
     return result
 
 
-def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
-              case_limit: int | None = None, skip_stale: bool = False) -> dict[str, Any]:
+def run_audit(
+    dist: Path,
+    output: Path,
+    *,
+    executable_path: str | None = None,
+    case_limit: int | None = None,
+    skip_stale: bool = False,
+) -> dict[str, Any]:
     output.mkdir(parents=True, exist_ok=True)
     all_payloads = backend_payloads(output)
-    report: dict[str, Any] = {"scope": "Actual Python preview body/page payloads and offline browser typesetter; native transport and delivery timing are fixtures",
-                              "scenarios": {}, "stale": {}, "case_limit": case_limit}
-    report["payloads"] = {key: {name: {"math": item["expected_math"], "body_sha256": item["body_sha256"]}
-                                      for name, item in payload.items()} for key, payload in all_payloads.items()}
+    report: dict[str, Any] = {
+        "scope": "Actual Python preview body/page payloads and offline browser typesetter; native transport and delivery timing are fixtures",
+        "scenarios": {},
+        "stale": {},
+        "case_limit": case_limit,
+    }
+    report["payloads"] = {
+        key: {
+            name: {"math": item["expected_math"], "body_sha256": item["body_sha256"]}
+            for name, item in payload.items()
+        }
+        for key, payload in all_payloads.items()
+    }
     with serve(dist) as url, sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True, executable_path=executable_path)
         for locale in ["en", "fa"]:
@@ -512,15 +634,26 @@ def run_audit(dist: Path, output: Path, *, executable_path: str | None = None,
                     if case_limit is not None and len(report["scenarios"]) >= case_limit:
                         continue
                     key = f"{locale}-{theme}-{width}"
-                    report["scenarios"][key] = run_surface_case(browser, url, all_payloads[f"{locale}-{theme}"], locale, theme, width, output)
+                    report["scenarios"][key] = run_surface_case(
+                        browser,
+                        url,
+                        all_payloads[f"{locale}-{theme}"],
+                        locale,
+                        theme,
+                        width,
+                        output,
+                    )
         if not skip_stale:
             for export in [False, True]:
                 report["stale"]["export" if export else "split"] = run_stale_case(
-                    browser, url, all_payloads["en-light"], output, export=export)
+                    browser, url, all_payloads["en-light"], output, export=export
+                )
         browser.close()
     cases = [*report["scenarios"].values(), *report["stale"].values()]
     report["passed"] = bool(cases) and not any(case["problems"] for case in cases)
-    (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (output / "report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     return report
 
 
@@ -532,12 +665,31 @@ def main() -> int:
     parser.add_argument("--case-limit", type=int)
     parser.add_argument("--skip-stale", action="store_true")
     args = parser.parse_args()
-    report = run_audit(args.dist.resolve(), args.out.resolve(), executable_path=args.executable_path,
-                       case_limit=args.case_limit, skip_stale=args.skip_stale)
-    failures = {key: value["problems"] for key, value in {**report["scenarios"], **report["stale"]}.items() if value["problems"]}
-    print(json.dumps({"passed": report["passed"], "scenarios": len(report["scenarios"]),
-                      "stale_cases": len(report["stale"]), "failures": failures,
-                      "report": str(args.out.resolve() / "report.json")}, ensure_ascii=False, indent=2))
+    report = run_audit(
+        args.dist.resolve(),
+        args.out.resolve(),
+        executable_path=args.executable_path,
+        case_limit=args.case_limit,
+        skip_stale=args.skip_stale,
+    )
+    failures = {
+        key: value["problems"]
+        for key, value in {**report["scenarios"], **report["stale"]}.items()
+        if value["problems"]
+    }
+    print(
+        json.dumps(
+            {
+                "passed": report["passed"],
+                "scenarios": len(report["scenarios"]),
+                "stale_cases": len(report["stale"]),
+                "failures": failures,
+                "report": str(args.out.resolve() / "report.json"),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0 if report["passed"] else 1
 
 

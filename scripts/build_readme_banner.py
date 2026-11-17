@@ -8,6 +8,7 @@ the one mistake this project cannot make on its own landing artwork. Chromium
 is also the renderer the publishing engine uses, so the banner is produced by
 the pipeline it advertises.
 """
+
 from __future__ import annotations
 
 import argparse

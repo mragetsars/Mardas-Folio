@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildOutlineTree, OutlineNavigatorModel } from "../../frontend/js/ui/outline-navigator.mjs";
+import {
+  buildOutlineTree,
+  OutlineNavigatorModel,
+} from "../../frontend/js/ui/outline-navigator.mjs";
 
 const sample = [
   { level: 1, title: "Book", line: 1 },
@@ -11,25 +14,40 @@ const sample = [
 ];
 
 test("outline hierarchy follows document structure, including skipped levels", () => {
-  const tree = buildOutlineTree([{ level: 2, title: "Section", line: 2 },
-    { level: 6, title: "Detail", line: 4 }, { level: 2, title: "Next", line: 8 }]);
+  const tree = buildOutlineTree([
+    { level: 2, title: "Section", line: 2 },
+    { level: 6, title: "Detail", line: 4 },
+    { level: 2, title: "Next", line: 8 },
+  ]);
   assert.equal(tree.roots.length, 2);
   assert.equal(tree.roots[0].children[0].depth, 1);
   assert.equal(tree.roots[0].children[0].parentId, tree.roots[0].id);
 });
 
 test("outline ignores malformed source locations and levels", () => {
-  const tree = buildOutlineTree([{ level: 7, title: "Invalid", line: 1 },
-    { level: 2, title: "Invalid", line: 0 }, { level: 1, title: "Valid", line: 2 }]);
-  assert.deepEqual(tree.flat.map((node) => node.title), ["Valid"]);
+  const tree = buildOutlineTree([
+    { level: 7, title: "Invalid", line: 1 },
+    { level: 2, title: "Invalid", line: 0 },
+    { level: 1, title: "Valid", line: 2 },
+  ]);
+  assert.deepEqual(
+    tree.flat.map((node) => node.title),
+    ["Valid"],
+  );
 });
 
 test("duplicate heading titles have separate stable identities", () => {
-  const items = [{ level: 1, title: "Repeat", line: 1 }, { level: 1, title: "Repeat", line: 8 }];
+  const items = [
+    { level: 1, title: "Repeat", line: 1 },
+    { level: 1, title: "Repeat", line: 8 },
+  ];
   const first = buildOutlineTree(items).flat;
   const moved = buildOutlineTree(items.map((item) => ({ ...item, line: item.line + 3 }))).flat;
   assert.notEqual(first[0].id, first[1].id);
-  assert.deepEqual(first.map((node) => node.id), moved.map((node) => node.id));
+  assert.deepEqual(
+    first.map((node) => node.id),
+    moved.map((node) => node.id),
+  );
 });
 
 test("a transient malformed UTF-16 heading cannot break outline updates", () => {
@@ -43,8 +61,14 @@ test("fold state survives paragraph insertion and body-only updates skip rebuild
   assert.equal(model.setDocument("book", sample), true);
   model.toggle(model.current.flat[1].id, false);
   assert.equal(model.setDocument("book", sample), false);
-  model.setDocument("book", sample.map((item) => ({ ...item, line: item.line + 2 })));
-  assert.deepEqual(model.visibleNodes().map((node) => node.title), ["Book", "First chapter", "Second chapter", "Appendix"]);
+  model.setDocument(
+    "book",
+    sample.map((item) => ({ ...item, line: item.line + 2 })),
+  );
+  assert.deepEqual(
+    model.visibleNodes().map((node) => node.title),
+    ["Book", "First chapter", "Second chapter", "Appendix"],
+  );
 });
 
 test("fold state and active position belong to each document", () => {
@@ -56,7 +80,10 @@ test("fold state and active position belong to each document", () => {
   assert.equal(model.visibleNodes().length, 5);
   assert.equal(model.activeNode().title, "Book");
   model.setDocument("a", sample);
-  assert.deepEqual(model.visibleNodes().map((node) => node.title), ["Book", "Appendix"]);
+  assert.deepEqual(
+    model.visibleNodes().map((node) => node.title),
+    ["Book", "Appendix"],
+  );
   assert.equal(model.activeNode().title, "Second chapter");
 });
 
@@ -65,10 +92,16 @@ test("search reveals matching descendants and their context without changing fol
   model.setDocument("book", sample);
   model.collapseAll();
   model.setQuery("detail");
-  assert.deepEqual(model.visibleNodes().map((node) => node.title), ["Book", "First chapter", "Detail"]);
+  assert.deepEqual(
+    model.visibleNodes().map((node) => node.title),
+    ["Book", "First chapter", "Detail"],
+  );
   assert.equal(model.visibleNodes().at(-1).match, true);
   model.setQuery("");
-  assert.deepEqual(model.visibleNodes().map((node) => node.title), ["Book", "Appendix"]);
+  assert.deepEqual(
+    model.visibleNodes().map((node) => node.title),
+    ["Book", "Appendix"],
+  );
 });
 
 test("Persian outline filtering accepts Arabic letter variants and spaced joiners", () => {
@@ -82,7 +115,10 @@ test("Persian outline filtering accepts Arabic letter variants and spaced joiner
 
 test("current heading is the preceding source heading, with collapsed ancestor fallback", () => {
   const model = new OutlineNavigatorModel();
-  model.setDocument("book", sample.map((node) => ({ ...node, line: node.line + 4 })));
+  model.setDocument(
+    "book",
+    sample.map((node) => ({ ...node, line: node.line + 4 })),
+  );
   model.setActiveLine(1);
   assert.equal(model.activeNode(), null);
   model.setActiveLine(15);

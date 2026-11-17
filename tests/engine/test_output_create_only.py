@@ -70,14 +70,19 @@ def test_desktop_export_inspection_and_existing_output_are_fail_closed(tmp_path:
     destination = tmp_path / "source.pdf"
     destination.write_bytes(b"prior bytes")
     service = EngineService()
-    assert service.dispatch("publication.inspect_output", {"output_path": str(destination)}) == {"exists": True}
+    assert service.dispatch("publication.inspect_output", {"output_path": str(destination)}) == {
+        "exists": True
+    }
     with pytest.raises(EngineError) as caught:
-        service.dispatch("render.document", {
-            "input_path": str(source),
-            "output_path": str(destination),
-            "discover_config": False,
-            "create_only": True,
-        })
+        service.dispatch(
+            "render.document",
+            {
+                "input_path": str(source),
+                "output_path": str(destination),
+                "discover_config": False,
+                "create_only": True,
+            },
+        )
     assert caught.value.code == "MARDAS-OUTPUT-EXISTS"
     assert destination.read_bytes() == b"prior bytes"
 
@@ -90,13 +95,16 @@ def test_desktop_export_rejects_auxiliary_outputs_until_protected(tmp_path: Path
     report.write_bytes(b"prior report")
     service = EngineService()
     with pytest.raises(EngineError) as caught:
-        service.dispatch("render.document", {
-            "input_path": str(source),
-            "output_path": str(destination),
-            "discover_config": False,
-            "options": {"quality_report": str(report)},
-            "create_only": True,
-        })
+        service.dispatch(
+            "render.document",
+            {
+                "input_path": str(source),
+                "output_path": str(destination),
+                "discover_config": False,
+                "options": {"quality_report": str(report)},
+                "create_only": True,
+            },
+        )
     assert caught.value.code == "MARDAS-OUTPUT-SIDECAR-UNSUPPORTED"
     assert report.read_bytes() == b"prior report"
     assert not destination.exists()

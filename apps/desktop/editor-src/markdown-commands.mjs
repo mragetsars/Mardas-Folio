@@ -62,19 +62,39 @@ function inlineCommand(before, after = before, placeholderKey = "") {
     // A pressed toolbar toggle also works with just a caret inside its span.
     // The document remains Markdown: remove the surrounding marks rather than
     // inserting a second placeholder into already formatted text.
-    const inlineNode = { "**": "StrongEmphasis", _: "Emphasis", "~~": "Strikethrough", "`": "InlineCode" }[before];
+    const inlineNode = {
+      "**": "StrongEmphasis",
+      _: "Emphasis",
+      "~~": "Strikethrough",
+      "`": "InlineCode",
+    }[before];
     if (inlineNode && before === after && state.selection.ranges.length === 1) {
       const range = state.selection.main;
       for (let node = syntaxTree(state).resolveInner(range.from, 1); node; node = node.parent) {
         if (node.name !== inlineNode || range.from <= node.from || range.to >= node.to) continue;
         const first = node.firstChild;
         const last = node.lastChild;
-        if (!first || !last || first === last || first.from !== node.from || last.to !== node.to
-          || !first.name.endsWith("Mark") || !last.name.endsWith("Mark")
-          || range.from < first.to || range.to > last.from) continue;
+        if (
+          !first ||
+          !last ||
+          first === last ||
+          first.from !== node.from ||
+          last.to !== node.to ||
+          !first.name.endsWith("Mark") ||
+          !last.name.endsWith("Mark") ||
+          range.from < first.to ||
+          range.to > last.from
+        )
+          continue;
         return {
-          changes: [{ from: first.from, to: first.to, insert: "" }, { from: last.from, to: last.to, insert: "" }],
-          selection: EditorSelection.range(range.anchor - (first.to - first.from), range.head - (first.to - first.from)),
+          changes: [
+            { from: first.from, to: first.to, insert: "" },
+            { from: last.from, to: last.to, insert: "" },
+          ],
+          selection: EditorSelection.range(
+            range.anchor - (first.to - first.from),
+            range.head - (first.to - first.from),
+          ),
           scrollIntoView: true,
         };
       }
@@ -88,12 +108,12 @@ function inlineCommand(before, after = before, placeholderKey = "") {
       const outerFrom = Math.max(0, range.from - before.length);
       const outerTo = Math.min(state.doc.length, range.to + after.length);
       const wrappedOutside =
-        state.sliceDoc(outerFrom, range.from) === before
-        && state.sliceDoc(range.to, outerTo) === after;
+        state.sliceDoc(outerFrom, range.from) === before &&
+        state.sliceDoc(range.to, outerTo) === after;
       const wrappedInside =
-        selected.length >= before.length + after.length
-        && selected.startsWith(before)
-        && selected.endsWith(after);
+        selected.length >= before.length + after.length &&
+        selected.startsWith(before) &&
+        selected.endsWith(after);
 
       if (wrappedOutside) {
         // The markers sit outside the selection: drop them and keep the text.
@@ -101,12 +121,7 @@ function inlineCommand(before, after = before, placeholderKey = "") {
           { from: outerFrom, to: range.from, insert: "" },
           { from: range.to, to: outerTo, insert: "" },
         );
-        ranges.push(
-          EditorSelection.range(
-            outerFrom + drift,
-            outerFrom + drift + selected.length,
-          ),
-        );
+        ranges.push(EditorSelection.range(outerFrom + drift, outerFrom + drift + selected.length));
         drift -= before.length + after.length;
         continue;
       }
@@ -233,9 +248,8 @@ function insertBlock(text, { caretOffset = null } = {}) {
     const tail = line.to < state.doc.length ? "\n" : "";
     const insert = `${lead}${text}${tail}`;
     const at = line.to;
-    const caret = caretOffset === null
-      ? at + lead.length + text.length
-      : at + lead.length + caretOffset;
+    const caret =
+      caretOffset === null ? at + lead.length + text.length : at + lead.length + caretOffset;
     return {
       changes: { from: at, to: at, insert },
       selection: EditorSelection.cursor(caret),

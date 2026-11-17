@@ -6,7 +6,9 @@ from mardas_folio import application
 
 
 @pytest.mark.parametrize("bom,newline", [(b"", b"\n"), (b"\xef\xbb\xbf", b"\r\n")])
-def test_existing_document_preserves_encoding_on_noop_and_edit(tmp_path: Path, bom: bytes, newline: bytes):
+def test_existing_document_preserves_encoding_on_noop_and_edit(
+    tmp_path: Path, bom: bytes, newline: bytes
+):
     path = tmp_path / "سند.md"
     original = bom + newline.join([b"# Title", b"First", b""])
     path.write_bytes(original)

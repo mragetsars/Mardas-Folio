@@ -1,21 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import secrets
 import shutil
 import stat
 import tempfile
 import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
 from .render_pool import RenderFuture, RenderPool, RenderQueueFullError
 from .renderer import ProgressCallback, RenderSession
 
-StudioExportWork = Callable[
-    [Path, RenderSession, ProgressCallback, Callable[[], bool]], Path
-]
+StudioExportWork = Callable[[Path, RenderSession, ProgressCallback, Callable[[], bool]], Path]
 
 
 class StudioExportJobError(RuntimeError):

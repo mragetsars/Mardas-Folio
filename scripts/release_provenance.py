@@ -7,6 +7,7 @@ import json
 import os
 import re
 import stat
+
 # Security: subprocess calls use explicit trusted executables and fixed argument arrays.
 import subprocess  # nosec B404
 import sys
@@ -144,7 +145,7 @@ def _normalize_license(value: str | None) -> str:
 
 
 def query_installed_distributions(python_executable: Path) -> list[DistributionRecord]:
-    script = r'''
+    script = r"""
 import json
 from importlib import metadata
 
@@ -163,7 +164,7 @@ for dist in metadata.distributions():
         "project_urls": list(meta.get_all("Project-URL") or []),
     })
 print(json.dumps(rows, ensure_ascii=False, sort_keys=True))
-'''
+"""
     # Query only the explicitly selected Python interpreter with a fixed inline script.
     completed = subprocess.run(  # nosec B603
         [str(python_executable), "-c", script],
@@ -238,7 +239,9 @@ def runtime_dependency_closure(
             if child_key not in visited:
                 queue.append(child_key)
 
-    selected = sorted((by_name[key] for key in visited), key=lambda item: canonicalize_name(item.name))
+    selected = sorted(
+        (by_name[key] for key in visited), key=lambda item: canonicalize_name(item.name)
+    )
     return selected, sorted(relationships)
 
 
@@ -309,8 +312,7 @@ def generate_spdx_document(
             package["homepage"] = homepage
         if key == root_key and artifacts:
             package["checksums"] = [
-                {"algorithm": "SHA256", "checksumValue": item["sha256"]}
-                for item in artifacts
+                {"algorithm": "SHA256", "checksumValue": item["sha256"]} for item in artifacts
             ]
             package["comment"] = "Release artifact checksums: " + ", ".join(
                 f"{item['name']}={item['sha256']}" for item in artifacts
@@ -384,18 +386,22 @@ def validate_spdx_document(payload: Mapping[str, Any], *, expected_version: str)
         raise ReleaseProvenanceError("SBOM is missing the document DESCRIBES relationship")
 
 
-DESKTOP_ARTIFACT_KINDS = frozenset({
-    "desktop-installer",
-    "desktop-portable",
-    "desktop-dmg",
-    "desktop-appimage",
-    "desktop-deb",
-})
+DESKTOP_ARTIFACT_KINDS = frozenset(
+    {
+        "desktop-installer",
+        "desktop-portable",
+        "desktop-dmg",
+        "desktop-appimage",
+        "desktop-deb",
+    }
+)
 
-DESKTOP_UPDATE_ARTIFACT_KINDS = frozenset({
-    "desktop-macos-updater",
-    "desktop-update-signature",
-})
+DESKTOP_UPDATE_ARTIFACT_KINDS = frozenset(
+    {
+        "desktop-macos-updater",
+        "desktop-update-signature",
+    }
+)
 
 
 def artifact_kind(name: str) -> str:
@@ -446,7 +452,9 @@ def desktop_artifact_platform(name: str, kind: str) -> str | None:
     return None
 
 
-def collect_artifacts(directory: Path, *, excluded_names: Iterable[str] = ()) -> list[ArtifactRecord]:
+def collect_artifacts(
+    directory: Path, *, excluded_names: Iterable[str] = ()
+) -> list[ArtifactRecord]:
     root = directory.resolve()
     excluded = set(excluded_names)
     records: list[ArtifactRecord] = []
@@ -523,11 +531,13 @@ def build_release_manifest(
     native_desktop_count = sum(item.kind in DESKTOP_ARTIFACT_KINDS for item in records)
     update_artifact_count = sum(item.kind in DESKTOP_UPDATE_ARTIFACT_KINDS for item in records)
     update_manifest_count = sum(item.kind == "update-manifest" for item in records)
-    desktop_platforms = sorted({
-        platform_name
-        for item in records
-        if (platform_name := desktop_artifact_platform(item.name, item.kind)) is not None
-    })
+    desktop_platforms = sorted(
+        {
+            platform_name
+            for item in records
+            if (platform_name := desktop_artifact_platform(item.name, item.kind)) is not None
+        }
+    )
     sbom_files = [item.name for item in records if item.kind == "spdx-sbom"]
     return {
         "schema_version": RELEASE_MANIFEST_SCHEMA,
@@ -646,7 +656,9 @@ def validate_release_manifest(
             f"Release contains {native_desktop_count} native desktop artifact(s); "
             f"expected at least {minimum_native_desktop_count}"
         )
-    required = {str(value).strip().lower() for value in required_desktop_platforms if str(value).strip()}
+    required = {
+        str(value).strip().lower() for value in required_desktop_platforms if str(value).strip()
+    }
     invalid_required = required - {"windows", "macos", "linux"}
     if invalid_required:
         raise ReleaseProvenanceError(
@@ -665,7 +677,9 @@ def verify_desktop_installer_artifact(path: Path, *, expected_version: str) -> N
         raise ReleaseProvenanceError(f"Desktop installer is missing or unsafe: {path}")
     expected_prefix = f"Mardas-Folio-{expected_version}-windows-"
     if not path.name.startswith(expected_prefix) or not path.name.endswith("-setup.exe"):
-        raise ReleaseProvenanceError("Desktop installer filename does not match the release version")
+        raise ReleaseProvenanceError(
+            "Desktop installer filename does not match the release version"
+        )
     size = path.stat().st_size
     if size < 1024 * 1024 or size > 2 * 1024 * 1024 * 1024:
         raise ReleaseProvenanceError("Desktop installer size is outside the allowed range")
@@ -690,7 +704,9 @@ def deterministic_zip(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     date_time = datetime.fromtimestamp(epoch, tz=timezone.utc).timetuple()[:6]
     seen: set[str] = set()
-    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+    with zipfile.ZipFile(
+        output_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+    ) as archive:
         for raw_name, data, mode in sorted(members, key=lambda item: item[0]):
             name = safe_zip_member(raw_name).as_posix()
             if name in seen:
@@ -712,7 +728,9 @@ def deterministic_zip(
                     while chunk := source.read(1024 * 1024):
                         copied += len(chunk)
                         if copied > MAX_BUNDLE_MEMBER_BYTES or copied > size:
-                            raise ReleaseProvenanceError(f"ZIP source grew during archiving: {name}")
+                            raise ReleaseProvenanceError(
+                                f"ZIP source grew during archiving: {name}"
+                            )
                         destination.write(chunk)
                 if copied != size:
                     raise ReleaseProvenanceError(f"ZIP source changed during archiving: {name}")
@@ -736,15 +754,23 @@ def verify_offline_bundle(path: Path, *, expected_version: str) -> None:
             mode = (info.external_attr >> 16) & 0o170000
             if mode == 0o120000:
                 raise ReleaseProvenanceError(f"Offline bundle contains a symlink: {name}")
-        required = {"README.md", "install.py", "install.sh", "install.ps1", "BUNDLE-MANIFEST.json", "CHECKSUMS.sha256"}
+        required = {
+            "README.md",
+            "install.py",
+            "install.sh",
+            "install.ps1",
+            "BUNDLE-MANIFEST.json",
+            "CHECKSUMS.sha256",
+        }
         missing = sorted(required - names)
         if missing:
             raise ReleaseProvenanceError(
                 "Offline bundle is missing required files: " + ", ".join(missing)
             )
-        if any(archive.getinfo(name).file_size > 8 * 1024 * 1024 for name in (
-            "BUNDLE-MANIFEST.json", "CHECKSUMS.sha256"
-        )):
+        if any(
+            archive.getinfo(name).file_size > 8 * 1024 * 1024
+            for name in ("BUNDLE-MANIFEST.json", "CHECKSUMS.sha256")
+        ):
             raise ReleaseProvenanceError("Offline bundle metadata exceeds the size limit")
         manifest = json.loads(archive.read("BUNDLE-MANIFEST.json").decode("utf-8"))
         if manifest.get("schema_version") != BUNDLE_MANIFEST_SCHEMA:
@@ -764,13 +790,19 @@ def verify_offline_bundle(path: Path, *, expected_version: str) -> None:
             digest, name = match.groups()
             safe_zip_member(name)
             if name == "CHECKSUMS.sha256" or name in observed:
-                raise ReleaseProvenanceError("Offline bundle checksum list is recursive or duplicated")
+                raise ReleaseProvenanceError(
+                    "Offline bundle checksum list is recursive or duplicated"
+                )
             observed[name] = digest
         if set(observed) != names - {"CHECKSUMS.sha256"}:
-            raise ReleaseProvenanceError("Offline bundle checksums do not exactly describe the archive")
+            raise ReleaseProvenanceError(
+                "Offline bundle checksums do not exactly describe the archive"
+            )
         for name, expected in observed.items():
             if name not in names:
-                raise ReleaseProvenanceError(f"Offline bundle checksummed member is missing: {name}")
+                raise ReleaseProvenanceError(
+                    f"Offline bundle checksummed member is missing: {name}"
+                )
             digest = hashlib.sha256()
             with archive.open(name) as source:
                 for chunk in iter(lambda: source.read(1024 * 1024), b""):
@@ -778,8 +810,13 @@ def verify_offline_bundle(path: Path, *, expected_version: str) -> None:
             actual = digest.hexdigest()
             if actual != expected:
                 raise ReleaseProvenanceError(f"Offline bundle checksum mismatch: {name}")
-        wheel_names = [name for name in names if name.startswith("wheelhouse/") and name.endswith(".whl")]
-        if not any(canonicalize_name(PROJECT_NAME).replace("-", "_") in name.lower() for name in wheel_names):
+        wheel_names = [
+            name for name in names if name.startswith("wheelhouse/") and name.endswith(".whl")
+        ]
+        if not any(
+            canonicalize_name(PROJECT_NAME).replace("-", "_") in name.lower()
+            for name in wheel_names
+        ):
             raise ReleaseProvenanceError("Offline bundle does not include the project wheel")
 
 
@@ -850,10 +887,7 @@ def verify_standalone_runtime(path: Path, *, expected_version: str) -> None:
             raise ReleaseProvenanceError("Unsupported standalone runtime manifest schema")
         if manifest.get("version") != expected_version:
             raise ReleaseProvenanceError("Standalone runtime version is incorrect")
-        if (
-            manifest.get("protocol") != "mardas-sidecar"
-            or manifest.get("protocol_version") != 1
-        ):
+        if manifest.get("protocol") != "mardas-sidecar" or manifest.get("protocol_version") != 1:
             raise ReleaseProvenanceError("Standalone runtime protocol metadata is incorrect")
         if manifest.get("browser_bundled") is not True:
             raise ReleaseProvenanceError(
@@ -906,8 +940,7 @@ def verify_standalone_runtime(path: Path, *, expected_version: str) -> None:
                     zip_entry_kind == stat.S_IFLNK
                     or info.is_dir()
                     or (
-                        schema_version == RUNTIME_MANIFEST_SCHEMA
-                        and zip_entry_kind != stat.S_IFREG
+                        schema_version == RUNTIME_MANIFEST_SCHEMA and zip_entry_kind != stat.S_IFREG
                     )
                 ):
                     raise ReleaseProvenanceError(
@@ -932,15 +965,8 @@ def verify_standalone_runtime(path: Path, *, expected_version: str) -> None:
                 if relative in {"mardas-sidecar", "mardas-sidecar.exe"}:
                     executable_found = True
                 regular_inventory_paths.add(relative)
-            elif (
-                entry_type == RUNTIME_SYMLINK_TYPE
-                and schema_version == RUNTIME_MANIFEST_SCHEMA
-            ):
-                if (
-                    zip_entry_kind != stat.S_IFLNK
-                    or info.is_dir()
-                    or info.create_system != 3
-                ):
+            elif entry_type == RUNTIME_SYMLINK_TYPE and schema_version == RUNTIME_MANIFEST_SCHEMA:
+                if zip_entry_kind != stat.S_IFLNK or info.is_dir() or info.create_system != 3:
                     raise ReleaseProvenanceError(
                         f"Standalone runtime symlink has an unsafe ZIP type: {relative}"
                     )

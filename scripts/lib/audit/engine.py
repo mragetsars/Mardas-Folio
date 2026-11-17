@@ -1,18 +1,22 @@
 """Real engine bridge with worker-affine browser sessions and reliable teardown."""
+
 from __future__ import annotations
+
+import json
+import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from functools import partial
 from http.server import ThreadingHTTPServer
-import json
 from pathlib import Path
-import sys
-import threading
-from lib.paths import ROOT
+
 from lib.audit.desktop import QuietHandler
+from lib.paths import ROOT
 
 sys.path.insert(0, str(ROOT / "src"))
 from mardas_folio.application import EngineError, EngineService  # noqa: E402
+
 
 @contextmanager
 def engine_server(dist: Path):
@@ -62,5 +66,3 @@ def engine_server(dist: Path):
         thread.join(timeout=5)
         worker.submit(service.close).result()
         worker.shutdown()
-
-

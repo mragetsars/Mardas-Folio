@@ -2,7 +2,18 @@ import { documentDirty } from "../../core/documents.mjs";
 import { compactDocumentLocation } from "../../core/path-display.mjs";
 import { spriteIcon } from "../../ui/icons.mjs";
 
-export function createDocumentTabs({ state, query: $, activeDocument, activateDocument, activateStartTab, closeStartTab, requestCloseDocument, closeCompactDrawer, setTruncatableText, t }) {
+export function createDocumentTabs({
+  state,
+  query: $,
+  activeDocument,
+  activateDocument,
+  activateStartTab,
+  closeStartTab,
+  requestCloseDocument,
+  closeCompactDrawer,
+  setTruncatableText,
+  t,
+}) {
   function orderedTabs() {
     const tabs = [...state.documents, ...state.startTabs];
     const byId = new Map(tabs.map((tab) => [tab.id, tab]));
@@ -13,7 +24,9 @@ export function createDocumentTabs({ state, query: $, activeDocument, activateDo
 
   function tabElement(model) {
     const isStart = Boolean(model.isStart);
-    const isActive = isStart ? model.id === state.activeStartTabId : model.id === state.activeDocumentId;
+    const isActive = isStart
+      ? model.id === state.activeStartTabId
+      : model.id === state.activeDocumentId;
     const tabs = orderedTabs();
     const tab = window.document.createElement("div");
     tab.className = `document-tab${isActive ? " active" : ""}${!isStart && documentDirty(model) ? " dirty" : ""}`;
@@ -24,7 +37,8 @@ export function createDocumentTabs({ state, query: $, activeDocument, activateDo
     const activate = tab.querySelector(".tab-activate");
     activate.tabIndex = isActive ? 0 : -1;
     activate.setAttribute("aria-selected", String(isActive));
-    const select = (target, focus = "editor") => target.isStart ? activateStartTab(target.id, focus) : activateDocument(target.id, { focus });
+    const select = (target, focus = "editor") =>
+      target.isStart ? activateStartTab(target.id, focus) : activateDocument(target.id, { focus });
     activate.addEventListener("click", () => select(model));
     activate.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -35,8 +49,10 @@ export function createDocumentTabs({ state, query: $, activeDocument, activateDo
       const index = tabs.findIndex((item) => item.id === model.id);
       let target = null;
       const rtl = document.documentElement.dir === "rtl";
-      if (event.key === (rtl ? "ArrowRight" : "ArrowLeft") || event.key === "ArrowUp") target = tabs[(index - 1 + tabs.length) % tabs.length];
-      if (event.key === (rtl ? "ArrowLeft" : "ArrowRight") || event.key === "ArrowDown") target = tabs[(index + 1) % tabs.length];
+      if (event.key === (rtl ? "ArrowRight" : "ArrowLeft") || event.key === "ArrowUp")
+        target = tabs[(index - 1 + tabs.length) % tabs.length];
+      if (event.key === (rtl ? "ArrowLeft" : "ArrowRight") || event.key === "ArrowDown")
+        target = tabs[(index + 1) % tabs.length];
       if (event.key === "Home") target = tabs[0];
       if (event.key === "End") target = tabs.at(-1);
       if (!target) return;
@@ -78,11 +94,13 @@ export function createDocumentTabs({ state, query: $, activeDocument, activateDo
       button.className = `navigator-document${model.id === state.activeDocumentId ? " active" : ""}${documentDirty(model) ? " dirty" : ""}`;
       button.dataset.documentId = model.id;
       button.setAttribute("aria-current", model.id === state.activeDocumentId ? "page" : "false");
-      button.innerHTML = '<i aria-hidden="true"></i><span><strong></strong><small dir="auto"></small></span>';
+      button.innerHTML =
+        '<i aria-hidden="true"></i><span><strong></strong><small dir="auto"></small></span>';
       button.querySelector("i").append(spriteIcon("file"));
       button.querySelector("strong").textContent = model.title;
       button.querySelector("small").textContent = model.path
-        ? compactDocumentLocation(model.path, { projectPath: model.projectPath }) : t("unsavedDocument");
+        ? compactDocumentLocation(model.path, { projectPath: model.projectPath })
+        : t("unsavedDocument");
       button.querySelector("small").title = model.path || t("unsavedDocument");
       button.title = `${model.title}\n${model.path || t("unsavedDocument")}${documentDirty(model) ? `\n${t("unsaved")}` : ""}`;
       button.setAttribute("aria-label", button.title);

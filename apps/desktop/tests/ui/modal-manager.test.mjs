@@ -3,10 +3,18 @@ import assert from "node:assert/strict";
 import { createModalManager } from "../../frontend/js/ui/modal-manager.mjs";
 
 class ClassList {
-  constructor(...values) { this.values = new Set(values); }
-  add(value) { this.values.add(value); }
-  remove(value) { this.values.delete(value); }
-  contains(value) { return this.values.has(value); }
+  constructor(...values) {
+    this.values = new Set(values);
+  }
+  add(value) {
+    this.values.add(value);
+  }
+  remove(value) {
+    this.values.delete(value);
+  }
+  contains(value) {
+    return this.values.has(value);
+  }
 }
 class Element {
   constructor(name, focusables = []) {
@@ -21,10 +29,15 @@ class Element {
     this.scrolledIntoView = false;
     this.focusedWithScroll = null;
   }
-  querySelectorAll() { return this.focusables; }
-  querySelector(selector) { return selector === ".modal-card" ? this.child : null; }
+  querySelectorAll() {
+    return this.focusables;
+  }
+  querySelector(selector) {
+    return selector === ".modal-card" ? this.child : null;
+  }
   closest(selector) {
-    if (selector === "[hidden], .hidden" && (this.hidden || this.classList.contains("hidden"))) return this;
+    if (selector === "[hidden], .hidden" && (this.hidden || this.classList.contains("hidden")))
+      return this;
     return this.parent?.closest(selector) ?? null;
   }
   focus(options) {
@@ -34,14 +47,22 @@ class Element {
     // ancestors, which is the behaviour this manager has to hold back.
     if (this.focusedWithScroll && this.card) this.card.scrollTop = this.offsetTop || 0;
   }
-  scrollIntoView() { this.scrolledIntoView = true; }
+  scrollIntoView() {
+    this.scrolledIntoView = true;
+  }
   getBoundingClientRect() {
     const top = (this.offsetTop || 0) - (this.card ? this.card.scrollTop : 0);
     return { top, bottom: top + 20 };
   }
-  setAttribute(key, value) { this.attributes.set(key, value); }
-  removeAttribute(key) { this.attributes.delete(key); }
-  hasAttribute(key) { return this.attributes.has(key); }
+  setAttribute(key, value) {
+    this.attributes.set(key, value);
+  }
+  removeAttribute(key) {
+    this.attributes.delete(key);
+  }
+  hasAttribute(key) {
+    return this.attributes.has(key);
+  }
   dispatchEvent() {}
 }
 class Document {
@@ -50,13 +71,23 @@ class Document {
     this.shell = new Element("shell");
     this.activeElement = null;
   }
-  querySelector(selector) { return selector === ".shell" ? this.shell : null; }
-  addEventListener(name, callback) { this.listeners.set(name, callback); }
-  removeEventListener(name) { this.listeners.delete(name); }
+  querySelector(selector) {
+    return selector === ".shell" ? this.shell : null;
+  }
+  addEventListener(name, callback) {
+    this.listeners.set(name, callback);
+  }
+  removeEventListener(name) {
+    this.listeners.delete(name);
+  }
 }
 
 test("modal manager makes background inert and restores focus", async () => {
-  globalThis.CustomEvent = class { constructor(type) { this.type = type; } };
+  globalThis.CustomEvent = class {
+    constructor(type) {
+      this.type = type;
+    }
+  };
   const documentRef = new Document();
   const opener = new Element("opener");
   opener.document = documentRef;
@@ -104,7 +135,11 @@ test("Tab skips controls in a hidden settings section", async () => {
 });
 
 test("Escape uses the modal close callback for control-specific ARIA cleanup", async () => {
-  globalThis.CustomEvent = class { constructor(type) { this.type = type; } };
+  globalThis.CustomEvent = class {
+    constructor(type) {
+      this.type = type;
+    }
+  };
   const documentRef = new Document();
   const modal = new Element("modal");
   modal.document = documentRef;
@@ -116,7 +151,9 @@ test("Escape uses the modal close callback for control-specific ARIA cleanup", a
   let prevented = false;
   documentRef.listeners.get("keydown")({
     key: "Escape",
-    preventDefault: () => { prevented = true; },
+    preventDefault: () => {
+      prevented = true;
+    },
   });
   assert.equal(prevented, true);
   assert.deepEqual(reasons, ["escape"]);
@@ -151,7 +188,11 @@ test("a dialog opens at its own beginning, not wherever focus lands", async () =
   // The help dialog is taller than the window and its last control is a Close
   // button at the far end. Focusing that scrolled the card 273px down, past
   // the dialog's title and its first two sections, every time it was opened.
-  globalThis.CustomEvent = class { constructor(type) { this.type = type; } };
+  globalThis.CustomEvent = class {
+    constructor(type) {
+      this.type = type;
+    }
+  };
   const documentRef = new Document();
   const card = new Element("card");
   card.getBoundingClientRect = () => ({ top: 0, bottom: 400 });
@@ -180,7 +221,11 @@ test("a dialog opens at its own beginning, not wherever focus lands", async () =
 });
 
 test("a control genuinely out of view is still brought into it", async () => {
-  globalThis.CustomEvent = class { constructor(type) { this.type = type; } };
+  globalThis.CustomEvent = class {
+    constructor(type) {
+      this.type = type;
+    }
+  };
   const documentRef = new Document();
   const card = new Element("card");
   card.getBoundingClientRect = () => ({ top: 0, bottom: 400 });

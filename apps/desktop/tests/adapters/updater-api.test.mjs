@@ -1,11 +1,14 @@
 import { installTauriFixture } from "../fixtures/tauri.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { updaterStatus, checkForUpdates, installUpdate } from "../../frontend/js/adapters/updater-api.mjs";
+import {
+  updaterStatus,
+  checkForUpdates,
+  installUpdate,
+} from "../../frontend/js/adapters/updater-api.mjs";
 
 test("updater API uses native commands without direct network access", async (t) => {
   const { calls } = installTauriFixture(t);
-
 
   await updaterStatus();
   await checkForUpdates();
@@ -18,7 +21,6 @@ test("updater API uses native commands without direct network access", async (t)
   assert.deepEqual(calls[0].args, {});
   assert.deepEqual(calls[1].args, {});
   assert.deepEqual(calls[2].args, { expectedVersion: "1.30.0" });
-
 });
 
 test("updater API rejects missing expected version before invoking native code", async (t) => {

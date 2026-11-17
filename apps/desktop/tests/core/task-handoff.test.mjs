@@ -7,7 +7,9 @@ import {
 
 function deferred() {
   let resolve;
-  const promise = new Promise((done) => { resolve = done; });
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
 
@@ -16,7 +18,9 @@ test("a project handoff waits for the previous task to settle after cancellation
   const events = [];
   const handoff = beginCancellationHandoff({
     completion: task.promise,
-    cancel: () => { events.push("cancel"); },
+    cancel: () => {
+      events.push("cancel");
+    },
   }).then(() => events.push("open"));
 
   await Promise.resolve();
@@ -30,9 +34,14 @@ test("a failed cancel is handled and a stuck task releases only at the bound", a
   let releaseTimeout;
   const result = beginCancellationHandoff({
     completion: new Promise(() => {}),
-    cancel: () => { throw new Error("transport stopped"); },
+    cancel: () => {
+      throw new Error("transport stopped");
+    },
     timeoutMs: 10,
-    setTimer: (callback) => { releaseTimeout = callback; return 1; },
+    setTimer: (callback) => {
+      releaseTimeout = callback;
+      return 1;
+    },
     clearTimer: () => {},
   });
   releaseTimeout();

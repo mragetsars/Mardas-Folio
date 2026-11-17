@@ -10,7 +10,6 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
-
 SUPPORTED_TARGETS = {
     "windows-x86_64",
     "windows-aarch64",
@@ -25,7 +24,6 @@ MAX_NOTES_BYTES = 128 * 1024
 
 class UpdateManifestError(ValueError):
     pass
-
 
 
 _SEMVER_RE = re.compile(
@@ -48,7 +46,9 @@ def _validate_https_url(value: str) -> str:
     url = value.strip()
     parsed = urlparse(url)
     if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
-        raise UpdateManifestError(f"Update URL must be an HTTPS URL without embedded credentials: {value!r}")
+        raise UpdateManifestError(
+            f"Update URL must be an HTTPS URL without embedded credentials: {value!r}"
+        )
     if parsed.fragment:
         raise UpdateManifestError("Update URLs must not contain fragments")
     return url
@@ -84,9 +84,7 @@ def _validate_pub_date(value: str | None) -> str | None:
 def _parse_platform_spec(spec: str) -> tuple[str, str, Path]:
     # TARGET=HTTPS_URL,SIGNATURE_FILE
     if "=" not in spec or "," not in spec:
-        raise UpdateManifestError(
-            "Platform specification must be TARGET=HTTPS_URL,SIGNATURE_FILE"
-        )
+        raise UpdateManifestError("Platform specification must be TARGET=HTTPS_URL,SIGNATURE_FILE")
     target, rest = spec.split("=", 1)
     url, signature_path = rest.rsplit(",", 1)
     target = target.strip()

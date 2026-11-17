@@ -7,7 +7,7 @@ import stat
 import sys
 from pathlib import Path, PurePosixPath
 
-from lib.build.frontend import MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, project_version, sha256
+from lib.build.frontend import MAX_FILE_BYTES, MAX_FILES, MAX_TOTAL_BYTES, project_version, sha256
 
 
 def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[str, object]:
@@ -56,7 +56,7 @@ def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[
     }
     if names != actual:
         raise ValueError(
-            f"Desktop frontend inventory mismatch; missing={sorted(names-actual)}, extra={sorted(actual-names)}"
+            f"Desktop frontend inventory mismatch; missing={sorted(names - actual)}, extra={sorted(actual - names)}"
         )
     required = {
         "THIRD_PARTY_NOTICES.md",
@@ -74,7 +74,7 @@ def verify_frontend(root: Path, *, expected_version: str | None = None) -> dict[
         "styles/workspace.css",
     }
     if not required.issubset(names):
-        raise ValueError(f"Desktop frontend is missing required files: {sorted(required-names)}")
+        raise ValueError(f"Desktop frontend is missing required files: {sorted(required - names)}")
     index = (root / "index.html").read_text(encoding="utf-8")
     if "__MARDAS_VERSION__" in index or expected_version not in index:
         raise ValueError("Desktop frontend version token was not resolved")

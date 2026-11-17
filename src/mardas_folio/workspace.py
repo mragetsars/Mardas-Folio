@@ -1,115 +1,251 @@
 from __future__ import annotations
 
-from .citations import MAX_BIBLIOGRAPHY_ENTRIES as MAX_BIBLIOGRAPHY_ENTRIES  # noqa: F401 - compatibility facade
-from .book import load_book_manifest as load_book_manifest, render_book as render_book  # noqa: F401 - compatibility facade
-from .config import CONFIG_FILENAME as CONFIG_FILENAME, default_config_text as default_config_text, load_project_config as load_project_config, tomllib as tomllib  # noqa: F401 - compatibility facade
-from .file_io import atomic_write_text as atomic_write_text, sync_directory as sync_directory, FILE_WRITE_LOCK as FILE_WRITE_LOCK, serialized_file_write as serialized_file_write  # noqa: F401 - compatibility facade
-from .projects.validation import project_config_diagnostics as project_config_diagnostics, validate_book_project as validate_book_project  # noqa: F401 - compatibility facade
-from .renderer import RenderCancelledError as RenderCancelledError  # noqa: F401 - compatibility facade
-
-from .projects.files import (
-    _file_hash as _file_hash,
-    _read_file_snapshot as _read_file_snapshot,
-    _read_bytes as _read_bytes,
-    read_workspace_file as read_workspace_file,
-    write_workspace_file as write_workspace_file,
-    _write_workspace_file_locked as _write_workspace_file_locked,
-    _atomic_replace_text as _atomic_replace_text,
-    _config_sha256 as _config_sha256,
-    _validate_expected_config_sha256 as _validate_expected_config_sha256,
-    MAX_WORKSPACE_TEXT_BYTES as MAX_WORKSPACE_TEXT_BYTES,
-    _WORKSPACE_SAVE_LOCK as _WORKSPACE_SAVE_LOCK,
-)
-from .projects.books import (
-    _toml_string as _toml_string,
-    _relative_book_output as _relative_book_output,
-    _book_chapter_entries as _book_chapter_entries,
-    _book_section_text as _book_section_text,
-    _toml_header_lines as _toml_header_lines,
-    _replace_toml_section as _replace_toml_section,
-    _commit_book_chapters as _commit_book_chapters,
-    _write_book_chapters as _write_book_chapters,
-    _validate_book_title as _validate_book_title,
-    _safe_project_folder_name as _safe_project_folder_name,
-    _slug as _slug,
-    _next_chapter_path as _next_chapter_path,
-    create_book_workspace as create_book_workspace,
-    add_workspace_book_chapter as add_workspace_book_chapter,
-    duplicate_workspace_book_chapter as duplicate_workspace_book_chapter,
-    reorder_workspace_book_chapters as reorder_workspace_book_chapters,
-    remove_workspace_book_chapter as remove_workspace_book_chapter,
-    MAX_BOOK_PROJECT_TITLE_CHARS as MAX_BOOK_PROJECT_TITLE_CHARS,
-    MAX_BOOK_PROJECT_FOLDER_CHARS as MAX_BOOK_PROJECT_FOLDER_CHARS,
-    MAX_BOOK_CHAPTER_TITLE_CHARS as MAX_BOOK_CHAPTER_TITLE_CHARS,
-    MAX_BOOK_CHAPTERS as MAX_BOOK_CHAPTERS,
-    _BOOK_PROJECT_DIRECTIONS as _BOOK_PROJECT_DIRECTIONS,
-    _BOOK_PROJECT_LANGUAGES as _BOOK_PROJECT_LANGUAGES,
-    _WINDOWS_RESERVED_NAMES as _WINDOWS_RESERVED_NAMES,
-    _TOML_KEY_PATTERN as _TOML_KEY_PATTERN,
-    _TOML_TABLE_HEADER as _TOML_TABLE_HEADER,
-)
-from .projects.loading import (
-    validate_workspace_book_payload as validate_workspace_book_payload,
-    _diagnostic_dict as _diagnostic_dict,
-    load_workspace as load_workspace,
-    refresh_workspace as refresh_workspace,
-    workspace_diagnostics_payload as workspace_diagnostics_payload,
-    workspace_payload as workspace_payload,
-)
-from .projects.search import (
-    fold_persian_letters as fold_persian_letters,
-    _has_quantified_regex_group as _has_quantified_regex_group,
-    _variable_regex_quantifier_count as _variable_regex_quantifier_count,
-    _compile_workspace_regex as _compile_workspace_regex,
-    search_workspace as search_workspace,
-    workspace_bibliography as workspace_bibliography,
-    MAX_WORKSPACE_SEARCH_RESULTS as MAX_WORKSPACE_SEARCH_RESULTS,
-    MAX_WORKSPACE_SEARCH_QUERY_CHARS as MAX_WORKSPACE_SEARCH_QUERY_CHARS,
-    _PERSIAN_LETTER_FOLD as _PERSIAN_LETTER_FOLD,
-    MAX_WORKSPACE_SEARCH_LINE_CHARS as MAX_WORKSPACE_SEARCH_LINE_CHARS,
-    _UNSAFE_REGEX_TOKENS as _UNSAFE_REGEX_TOKENS,
-    _LARGE_REGEX_REPEAT as _LARGE_REGEX_REPEAT,
-    _MAX_REGEX_REPEAT as _MAX_REGEX_REPEAT,
-)
-
 import tempfile
 from pathlib import Path
 from typing import Callable
 
-from .citations import load_bibliography
 from .book import (
     BookManifest,
     BookRenderBundle,
     book_pdf_options,
     convert_book,
 )
+from .book import load_book_manifest as load_book_manifest  # noqa: F401 - compatibility facade
+from .book import render_book as render_book
+from .citations import (
+    MAX_BIBLIOGRAPHY_ENTRIES as MAX_BIBLIOGRAPHY_ENTRIES,  # noqa: F401 - compatibility facade
+)
+from .citations import load_bibliography
+from .config import CONFIG_FILENAME as CONFIG_FILENAME  # noqa: F401 - compatibility facade
+from .config import default_config_text as default_config_text
+from .config import load_project_config as load_project_config
+from .config import tomllib as tomllib
 from .diagnostics import Diagnostic, has_errors
+from .file_io import FILE_WRITE_LOCK as FILE_WRITE_LOCK
+from .file_io import atomic_write_text as atomic_write_text  # noqa: F401 - compatibility facade
+from .file_io import serialized_file_write as serialized_file_write
+from .file_io import sync_directory as sync_directory
 from .markdown import embed_local_images, render_markdown
-from .renderer import CancellationCallback, PdfOptions, RenderSession, build_html
-
-
+from .projects.books import (
+    _BOOK_PROJECT_DIRECTIONS as _BOOK_PROJECT_DIRECTIONS,
+)
+from .projects.books import (
+    _BOOK_PROJECT_LANGUAGES as _BOOK_PROJECT_LANGUAGES,
+)
+from .projects.books import (
+    _TOML_KEY_PATTERN as _TOML_KEY_PATTERN,
+)
+from .projects.books import (
+    _TOML_TABLE_HEADER as _TOML_TABLE_HEADER,
+)
+from .projects.books import (
+    _WINDOWS_RESERVED_NAMES as _WINDOWS_RESERVED_NAMES,
+)
+from .projects.books import (
+    MAX_BOOK_CHAPTER_TITLE_CHARS as MAX_BOOK_CHAPTER_TITLE_CHARS,
+)
+from .projects.books import (
+    MAX_BOOK_CHAPTERS as MAX_BOOK_CHAPTERS,
+)
+from .projects.books import (
+    MAX_BOOK_PROJECT_FOLDER_CHARS as MAX_BOOK_PROJECT_FOLDER_CHARS,
+)
+from .projects.books import (
+    MAX_BOOK_PROJECT_TITLE_CHARS as MAX_BOOK_PROJECT_TITLE_CHARS,
+)
+from .projects.books import (
+    _book_chapter_entries as _book_chapter_entries,
+)
+from .projects.books import (
+    _book_section_text as _book_section_text,
+)
+from .projects.books import (
+    _commit_book_chapters as _commit_book_chapters,
+)
+from .projects.books import (
+    _next_chapter_path as _next_chapter_path,
+)
+from .projects.books import (
+    _relative_book_output as _relative_book_output,
+)
+from .projects.books import (
+    _replace_toml_section as _replace_toml_section,
+)
+from .projects.books import (
+    _safe_project_folder_name as _safe_project_folder_name,
+)
+from .projects.books import (
+    _slug as _slug,
+)
+from .projects.books import (
+    _toml_header_lines as _toml_header_lines,
+)
+from .projects.books import (
+    _toml_string as _toml_string,
+)
+from .projects.books import (
+    _validate_book_title as _validate_book_title,
+)
+from .projects.books import (
+    _write_book_chapters as _write_book_chapters,
+)
+from .projects.books import (
+    add_workspace_book_chapter as add_workspace_book_chapter,
+)
+from .projects.books import (
+    create_book_workspace as create_book_workspace,
+)
+from .projects.books import (
+    duplicate_workspace_book_chapter as duplicate_workspace_book_chapter,
+)
+from .projects.books import (
+    remove_workspace_book_chapter as remove_workspace_book_chapter,
+)
+from .projects.books import (
+    reorder_workspace_book_chapters as reorder_workspace_book_chapters,
+)
+from .projects.discovery import (
+    MAX_WORKSPACE_DEPTH as MAX_WORKSPACE_DEPTH,
+)
+from .projects.discovery import (
+    MAX_WORKSPACE_FILES as MAX_WORKSPACE_FILES,
+)
+from .projects.discovery import (
+    MAX_WORKSPACE_SCAN_ENTRIES as MAX_WORKSPACE_SCAN_ENTRIES,
+)
+from .projects.discovery import (
+    WORKSPACE_TEXT_SUFFIXES as WORKSPACE_TEXT_SUFFIXES,
+)
+from .projects.discovery import (
+    _chapter_map as _chapter_map,
+)
+from .projects.discovery import (
+    _contains_path as _contains_path,
+)
+from .projects.discovery import (
+    _iter_workspace_files as _iter_workspace_files,
+)
+from .projects.discovery import (
+    _kind_for_path as _kind_for_path,
+)
+from .projects.discovery import (
+    _relative_path as _relative_path,
+)
+from .projects.discovery import (
+    _safe_workspace_file as _safe_workspace_file,
+)
+from .projects.discovery import (
+    _workspace_files as _workspace_files,
+)
+from .projects.files import (
+    _WORKSPACE_SAVE_LOCK as _WORKSPACE_SAVE_LOCK,
+)
+from .projects.files import (
+    MAX_WORKSPACE_TEXT_BYTES as MAX_WORKSPACE_TEXT_BYTES,
+)
+from .projects.files import (
+    _atomic_replace_text as _atomic_replace_text,
+)
+from .projects.files import (
+    _config_sha256 as _config_sha256,
+)
+from .projects.files import (
+    _file_hash as _file_hash,
+)
+from .projects.files import (
+    _read_bytes as _read_bytes,
+)
+from .projects.files import (
+    _read_file_snapshot as _read_file_snapshot,
+)
+from .projects.files import (
+    _validate_expected_config_sha256 as _validate_expected_config_sha256,
+)
+from .projects.files import (
+    _write_workspace_file_locked as _write_workspace_file_locked,
+)
+from .projects.files import (
+    read_workspace_file as read_workspace_file,
+)
+from .projects.files import (
+    write_workspace_file as write_workspace_file,
+)
+from .projects.loading import (
+    _diagnostic_dict as _diagnostic_dict,
+)
+from .projects.loading import (
+    load_workspace as load_workspace,
+)
+from .projects.loading import (
+    refresh_workspace as refresh_workspace,
+)
+from .projects.loading import (
+    validate_workspace_book_payload as validate_workspace_book_payload,
+)
+from .projects.loading import (
+    workspace_diagnostics_payload as workspace_diagnostics_payload,
+)
+from .projects.loading import (
+    workspace_payload as workspace_payload,
+)
+from .projects.models import (
+    ProjectWorkspace as ProjectWorkspace,
+)
+from .projects.models import (
+    WorkspaceError as WorkspaceError,
+)
+from .projects.models import (
+    WorkspaceFile as WorkspaceFile,
+)
 from .projects.paths import (
     WORKSPACE_IGNORED_PARTS as WORKSPACE_IGNORED_PARTS,
 )
-
-from .projects.models import (
-    ProjectWorkspace as ProjectWorkspace,
-    WorkspaceError as WorkspaceError,
-    WorkspaceFile as WorkspaceFile,
+from .projects.search import (
+    _LARGE_REGEX_REPEAT as _LARGE_REGEX_REPEAT,
 )
-
-from .projects.discovery import (
-    MAX_WORKSPACE_DEPTH as MAX_WORKSPACE_DEPTH,
-    MAX_WORKSPACE_FILES as MAX_WORKSPACE_FILES,
-    MAX_WORKSPACE_SCAN_ENTRIES as MAX_WORKSPACE_SCAN_ENTRIES,
-    WORKSPACE_TEXT_SUFFIXES as WORKSPACE_TEXT_SUFFIXES,
-    _chapter_map as _chapter_map,
-    _contains_path as _contains_path,
-    _iter_workspace_files as _iter_workspace_files,
-    _kind_for_path as _kind_for_path,
-    _relative_path as _relative_path,
-    _safe_workspace_file as _safe_workspace_file,
-    _workspace_files as _workspace_files,
+from .projects.search import (
+    _MAX_REGEX_REPEAT as _MAX_REGEX_REPEAT,
+)
+from .projects.search import (
+    _PERSIAN_LETTER_FOLD as _PERSIAN_LETTER_FOLD,
+)
+from .projects.search import (
+    _UNSAFE_REGEX_TOKENS as _UNSAFE_REGEX_TOKENS,
+)
+from .projects.search import (
+    MAX_WORKSPACE_SEARCH_LINE_CHARS as MAX_WORKSPACE_SEARCH_LINE_CHARS,
+)
+from .projects.search import (
+    MAX_WORKSPACE_SEARCH_QUERY_CHARS as MAX_WORKSPACE_SEARCH_QUERY_CHARS,
+)
+from .projects.search import (
+    MAX_WORKSPACE_SEARCH_RESULTS as MAX_WORKSPACE_SEARCH_RESULTS,
+)
+from .projects.search import (
+    _compile_workspace_regex as _compile_workspace_regex,
+)
+from .projects.search import (
+    _has_quantified_regex_group as _has_quantified_regex_group,
+)
+from .projects.search import (
+    _variable_regex_quantifier_count as _variable_regex_quantifier_count,
+)
+from .projects.search import (
+    fold_persian_letters as fold_persian_letters,
+)
+from .projects.search import (
+    search_workspace as search_workspace,
+)
+from .projects.search import (
+    workspace_bibliography as workspace_bibliography,
+)
+from .projects.validation import (  # noqa: F401 - compatibility facade
+    project_config_diagnostics as project_config_diagnostics,
+)
+from .projects.validation import validate_book_project as validate_book_project
+from .renderer import CancellationCallback, PdfOptions, RenderSession, build_html
+from .renderer import (
+    RenderCancelledError as RenderCancelledError,  # noqa: F401 - compatibility facade
 )
 
 
@@ -138,9 +274,7 @@ def render_workspace_book_html(
 ) -> tuple[str, ProjectWorkspace]:
     refreshed, manifest, bundle = _validated_book_workspace(
         workspace,
-        progress=(
-            (lambda stage, value: progress(stage, value * 0.8)) if progress else None
-        ),
+        progress=((lambda stage, value: progress(stage, value * 0.8)) if progress else None),
         cancelled=cancelled,
     )
     if cancelled and cancelled():
@@ -181,9 +315,7 @@ def export_workspace_book_pdf(
 ) -> tuple[Path, str, ProjectWorkspace]:
     refreshed, manifest, bundle = _validated_book_workspace(
         workspace,
-        progress=(
-            (lambda stage, value: progress(stage, value * 0.35)) if progress else None
-        ),
+        progress=((lambda stage, value: progress(stage, value * 0.35)) if progress else None),
         cancelled=cancelled,
     )
     built, _bundle, diagnostics = convert_book(
@@ -192,9 +324,7 @@ def export_workspace_book_pdf(
         bundle=bundle,
         session=session,
         progress=(
-            (lambda stage, value: progress(stage, 0.35 + value * 0.65))
-            if progress
-            else None
+            (lambda stage, value: progress(stage, 0.35 + value * 0.65)) if progress else None
         ),
         cancelled=cancelled,
         create_only=create_only,
@@ -307,11 +437,7 @@ def _cross_chapter_preview_reference_labels(
     for item in workspace.bundle.result.reference_objects:
         label = item.get("label")
         chapter_index = item.get("chapter_index")
-        if (
-            isinstance(label, str)
-            and label
-            and chapter_index != current_chapter_index
-        ):
+        if isinstance(label, str) and label and chapter_index != current_chapter_index:
             labels.add(label)
     return frozenset(labels)
 
@@ -319,9 +445,8 @@ def _cross_chapter_preview_reference_labels(
 def _is_valid_cross_chapter_preview_reference(
     diagnostic: Diagnostic, known_labels: frozenset[str]
 ) -> bool:
-    if (
-        diagnostic.code != "MARDAS-E602"
-        or not diagnostic.message.startswith(_MISSING_REFERENCE_PREFIX)
+    if diagnostic.code != "MARDAS-E602" or not diagnostic.message.startswith(
+        _MISSING_REFERENCE_PREFIX
     ):
         return False
 
@@ -374,15 +499,11 @@ def render_workspace_file_html(
         document_root=refreshed.root,
         allow_remote_images=bool(values.get("allow_remote_assets", False)),
     )
-    known_cross_chapter_references = _cross_chapter_preview_reference_labels(
-        refreshed, source_path
-    )
+    known_cross_chapter_references = _cross_chapter_preview_reference_labels(refreshed, source_path)
     diagnostics.extend(
         item
         for item in result.diagnostics
-        if not _is_valid_cross_chapter_preview_reference(
-            item, known_cross_chapter_references
-        )
+        if not _is_valid_cross_chapter_preview_reference(item, known_cross_chapter_references)
     )
     if has_errors(diagnostics):
         raise WorkspaceError(

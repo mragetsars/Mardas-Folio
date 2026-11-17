@@ -20,12 +20,13 @@ for path in (SCRIPTS, ROOT / "src"):
         sys.path.insert(0, str(path))
 
 from build_desktop_frontend import build_frontend  # noqa: E402
-from lib.build.paths import prepare_output  # noqa: E402
-from lib.build.publish import publish_verified  # noqa: E402
 from release_provenance import deterministic_zip, sha256_file, source_date_epoch  # noqa: E402
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402
 from verify_native_desktop import verify_native_artifact  # noqa: E402
+
+from lib.build.paths import prepare_output  # noqa: E402
+from lib.build.publish import publish_verified  # noqa: E402
 from mardas_folio import __version__  # noqa: E402
 
 DESKTOP_ROOT = ROOT / "apps" / "desktop"
@@ -33,7 +34,9 @@ TAURI_ROOT = DESKTOP_ROOT / "src-tauri"
 CARGO_LOCK = TAURI_ROOT / "Cargo.lock"
 RESOURCE_RUNTIME = TAURI_ROOT / "resources" / "sidecar"
 DEFAULT_OUTPUT = ROOT / "build" / "desktop-native"
-DEFAULT_UPDATE_ENDPOINT = "https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json"
+DEFAULT_UPDATE_ENDPOINT = (
+    "https://github.com/mragetsars/Mardas-Folio/releases/latest/download/latest.json"
+)
 MAX_UPDATER_PUBKEY_BYTES = 32 * 1024
 MAX_SIGNING_VALUE_BYTES = 4096
 MAX_CARGO_LOCK_BYTES = 4 * 1024 * 1024
@@ -47,7 +50,6 @@ APPLE_API_ISSUER_RE = re.compile(
 APPLE_API_KEY_RE = re.compile(r"^[A-Z0-9]{10}$")
 APPLE_TEAM_ID_RE = re.compile(r"^[A-Z0-9]{10}$")
 APPLE_ID_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
 
 
 def architecture_tag() -> str:
@@ -99,7 +101,6 @@ def default_bundles(platform_name: str) -> tuple[str, ...]:
     raise ValueError(f"Unsupported platform: {platform_name}")
 
 
-
 def _validate_update_endpoint(value: str) -> str:
     candidate = value.strip()
     parsed = urlparse(candidate)
@@ -139,16 +140,12 @@ def _validate_timestamp_url(value: str) -> str:
         or parsed.fragment
         or any(character.isspace() for character in candidate)
     ):
-        raise SystemExit(
-            "Windows timestamp URL must use HTTP(S) without credentials or fragments."
-        )
+        raise SystemExit("Windows timestamp URL must use HTTP(S) without credentials or fragments.")
     return candidate
 
 
 def _windows_signing_config(environment: dict[str, str]) -> dict[str, object]:
-    thumbprint = _bounded_environment_value(
-        environment, "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT"
-    )
+    thumbprint = _bounded_environment_value(environment, "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT")
     if not WINDOWS_THUMBPRINT_RE.fullmatch(thumbprint):
         raise SystemExit(
             "MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT must be exactly 40 hexadecimal characters."
@@ -224,9 +221,7 @@ def _macos_signing_config(environment: dict[str, str]) -> dict[str, object]:
             not APPLE_TEAM_ID_RE.fullmatch(configured_team)
             or configured_team != identity_match.group("team")
         ):
-            raise SystemExit(
-                "APPLE_TEAM_ID does not match the Developer ID signing identity."
-            )
+            raise SystemExit("APPLE_TEAM_ID does not match the Developer ID signing identity.")
     else:
         apple_id, password, team_id = apple_id_values
         if (
@@ -267,9 +262,7 @@ def _read_updater_pubkey(path: Path | None, environment: dict[str, str]) -> str:
     return value
 
 
-def _write_temporary_build_config(
-    output: Path, *, prefix: str, payload: dict[str, object]
-) -> Path:
+def _write_temporary_build_config(output: Path, *, prefix: str, payload: dict[str, object]) -> Path:
     fd, raw = tempfile.mkstemp(prefix=prefix, suffix=".json", dir=output)
     path = Path(raw)
     try:
@@ -443,7 +436,10 @@ def _bundle_snapshot() -> dict[Path, tuple[int, int, int, int]]:
                 continue
             metadata = path.stat()
             snapshot[path] = (
-                metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns, metadata.st_ino
+                metadata.st_size,
+                metadata.st_mtime_ns,
+                metadata.st_ctime_ns,
+                metadata.st_ino,
             )
     return snapshot
 
@@ -472,7 +468,8 @@ def _latest_candidate(bundle: str, *, produced: frozenset[Path] | None = None) -
     directory = locations[bundle]
     candidates = sorted(
         (
-            path for path in directory.glob(patterns[bundle])
+            path
+            for path in directory.glob(patterns[bundle])
             if not path.is_symlink()
             and path.is_file()
             and f"_{__version__}_" in path.name
@@ -511,7 +508,9 @@ def _copy_verified(
         bundle, platform_name=platform_name, architecture=architecture
     )
     return publish_verified(
-        candidate, final, lambda staged: verify_native_artifact(staged, expected_version=__version__)
+        candidate,
+        final,
+        lambda staged: verify_native_artifact(staged, expected_version=__version__),
     )
 
 
@@ -583,7 +582,6 @@ def _build_windows_portable(output: Path, *, architecture: str) -> Path:
     return final
 
 
-
 def _copy_signature(
     candidate: Path, final_payload: Path, output: Path, *, produced: frozenset[Path]
 ) -> Path:
@@ -592,7 +590,9 @@ def _copy_signature(
         raise SystemExit(f"Tauri did not create updater signature: {signature}")
     final = output / f"{final_payload.name}.sig"
     return publish_verified(
-        signature, final, lambda staged: verify_native_artifact(staged, expected_version=__version__)
+        signature,
+        final,
+        lambda staged: verify_native_artifact(staged, expected_version=__version__),
     )
 
 
@@ -600,7 +600,8 @@ def _latest_macos_updater(*, produced: frozenset[Path]) -> Path:
     directory = TAURI_ROOT / "target" / "release" / "bundle" / "macos"
     candidates = sorted(
         (
-            path for path in directory.glob("*.app.tar.gz")
+            path
+            for path in directory.glob("*.app.tar.gz")
             if not path.is_symlink() and path.is_file() and path in produced
         ),
         key=lambda path: path.stat().st_mtime_ns,
@@ -638,7 +639,8 @@ def _copy_updater_artifacts(
         stem = f"Mardas-Folio-{__version__}-macos-{architecture}-updater.tar.gz"
         payload = output / stem
         publish_verified(
-            candidate, payload,
+            candidate,
+            payload,
             lambda staged: verify_native_artifact(staged, expected_version=__version__),
         )
         created.append(payload)

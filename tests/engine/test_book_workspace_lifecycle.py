@@ -69,9 +69,7 @@ def test_create_book_workspace_is_offline_safe_and_ready_to_open(tmp_path: Path)
     "folder",
     ["../escape", "bad/name", "bad:name", "CON", "trailing.", ".hidden", ".hidden/name"],
 )
-def test_create_book_workspace_rejects_unsafe_folder_names(
-    tmp_path: Path, folder: str
-) -> None:
+def test_create_book_workspace_rejects_unsafe_folder_names(tmp_path: Path, folder: str) -> None:
     with pytest.raises(WorkspaceError) as exc_info:
         create_book_workspace(
             tmp_path,
@@ -155,9 +153,7 @@ def test_chapter_lifecycle_preserves_sources_and_detects_stale_config(
         expected_config_sha256=str(payload["config_sha256"]),
     )
     reordered = workspace_payload(workspace)
-    assert [item["path"] for item in reordered["book"]["chapters"]] == list(
-        reversed(paths)
-    )
+    assert [item["path"] for item in reordered["book"]["chapters"]] == list(reversed(paths))
 
     removed_source = workspace.root / paths[0]
     workspace = remove_workspace_book_chapter(

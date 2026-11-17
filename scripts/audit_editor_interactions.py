@@ -5,15 +5,15 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import tempfile
 import traceback
-
-from playwright.sync_api import expect, sync_playwright
+from pathlib import Path
 
 from audit_authoring_workspace import BRIDGE
-from lib.audit.engine import engine_server
+from playwright.sync_api import expect, sync_playwright
+
 from lib.audit.desktop import DEFAULT_DIST, click_workspace_layout_control
+from lib.audit.engine import engine_server
 
 SAMPLE = (
     ("متن فارسی برای انتخاب راحت و خواندن طولانی، همراه با English words و عدد ۱۲۳. " * 12)
@@ -125,7 +125,9 @@ def run(dist: Path, output: Path) -> dict:
                     # The formula widget has its own source-edit listener. A
                     # click in a table formula must remain a cell edit, even
                     # when the actual target is MathJax's nested SVG.
-                    table.locator("tbody tr").first.locator("td").nth(2).locator("svg").first.click()
+                    table.locator("tbody tr").first.locator("td").nth(2).locator(
+                        "svg"
+                    ).first.click()
                     expect(cell_editor).to_have_value("$E=mc^2$")
                     expect(table).to_be_visible()
                     cell_editor.press("Escape")
@@ -201,7 +203,9 @@ def run(dist: Path, output: Path) -> dict:
                         '#preview-document .online-image-control[data-online-image-state="blocked"]'
                     )
                     assert (
-                        placeholder.locator(".online-image-origin").evaluate("e=>getComputedStyle(e).textOverflow")
+                        placeholder.locator(".online-image-origin").evaluate(
+                            "e=>getComputedStyle(e).textOverflow"
+                        )
                         == "ellipsis"
                     )
                     case["checks"].append(

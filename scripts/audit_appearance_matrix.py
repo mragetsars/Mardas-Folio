@@ -21,8 +21,6 @@ SRC = ROOT / "src"
 if SRC.is_dir() and str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from mardas_folio import __version__  # noqa: E402
-from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES  # noqa: E402
 from visual_qa import (  # noqa: E402
     ensure_clean_dir,
     png_stats,
@@ -32,6 +30,9 @@ from visual_qa import (  # noqa: E402
     write_html_gallery,
     write_json,
 )
+
+from mardas_folio import __version__  # noqa: E402
+from mardas_folio.appearance import MODES, PALETTES_ORDER, STYLES  # noqa: E402
 
 SAMPLE_MARKDOWN = """---
 title: "Appearance Matrix Smoke"
@@ -141,7 +142,9 @@ def _parse_appearance(value: str) -> RenderItem:
     if style not in STYLES:
         raise SystemExit(f"invalid style {style!r}; expected one of: {', '.join(STYLES)}")
     if palette not in PALETTES_ORDER:
-        raise SystemExit(f"invalid palette {palette!r}; expected one of: {', '.join(PALETTES_ORDER)}")
+        raise SystemExit(
+            f"invalid palette {palette!r}; expected one of: {', '.join(PALETTES_ORDER)}"
+        )
     if mode not in MODES:
         raise SystemExit(f"invalid mode {mode!r}; expected one of: {', '.join(MODES)}")
     return RenderItem(style, palette, mode)
@@ -171,7 +174,11 @@ def _load_existing_records(manifest_path: Path) -> dict[str, dict[str, object]]:
     records = payload.get("records", [])
     if not isinstance(records, list):
         return {}
-    return {str(record.get("name")): record for record in records if isinstance(record, dict) and record.get("name")}
+    return {
+        str(record.get("name")): record
+        for record in records
+        if isinstance(record, dict) and record.get("name")
+    }
 
 
 def _record_complete(record: dict[str, object], output_dir: Path, *, render_png: bool) -> bool:
@@ -182,7 +189,12 @@ def _record_complete(record: dict[str, object], output_dir: Path, *, render_png:
         return True
     cover = record.get("cover_png")
     content = record.get("content_png")
-    return isinstance(cover, str) and isinstance(content, str) and (output_dir / cover).is_file() and (output_dir / content).is_file()
+    return (
+        isinstance(cover, str)
+        and isinstance(content, str)
+        and (output_dir / cover).is_file()
+        and (output_dir / content).is_file()
+    )
 
 
 def _write_manifest(
@@ -227,8 +239,12 @@ def _write_galleries(output_dir: Path, records: dict[str, dict[str, object]]) ->
         for record in ordered_records
         if "content_png" in record
     ]
-    write_html_gallery(output_dir / "cover-gallery.html", title="Appearance cover matrix", items=cover_items)
-    write_html_gallery(output_dir / "content-gallery.html", title="Appearance content matrix", items=content_items)
+    write_html_gallery(
+        output_dir / "cover-gallery.html", title="Appearance cover matrix", items=cover_items
+    )
+    write_html_gallery(
+        output_dir / "content-gallery.html", title="Appearance content matrix", items=content_items
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -238,16 +254,35 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--styles", help="Comma-separated style filter")
     parser.add_argument("--palettes", help="Comma-separated palette filter")
     parser.add_argument("--modes", help="Comma-separated mode filter")
-    parser.add_argument("--appearances", help="Comma-separated appearance triples: style:palette:mode,style:palette:mode")
-    parser.add_argument("--clean", action="store_true", help="Delete output directory before rendering")
-    parser.add_argument("--resume", action="store_true", help="Reuse completed records from an existing manifest")
-    parser.add_argument("--fail-fast", action="store_true", help="Stop after the first render or rasterization failure")
-    parser.add_argument("--max-cases", type=int, help="Limit the number of matrix cases for quick smoke runs")
-    parser.add_argument("--render-png", action="store_true", help="Render cover/content PNGs with pdftoppm")
+    parser.add_argument(
+        "--appearances",
+        help="Comma-separated appearance triples: style:palette:mode,style:palette:mode",
+    )
+    parser.add_argument(
+        "--clean", action="store_true", help="Delete output directory before rendering"
+    )
+    parser.add_argument(
+        "--resume", action="store_true", help="Reuse completed records from an existing manifest"
+    )
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="Stop after the first render or rasterization failure",
+    )
+    parser.add_argument(
+        "--max-cases", type=int, help="Limit the number of matrix cases for quick smoke runs"
+    )
+    parser.add_argument(
+        "--render-png", action="store_true", help="Render cover/content PNGs with pdftoppm"
+    )
     parser.add_argument("--png-dpi", type=int, default=72)
     parser.add_argument("--timeout", type=int, default=90, help="Seconds per PDF render")
-    parser.add_argument("--timeout-ms", type=int, default=180_000, help="Chromium timeout in milliseconds")
-    parser.add_argument("--raster-timeout", type=int, default=60, help="Seconds per pdftoppm page render")
+    parser.add_argument(
+        "--timeout-ms", type=int, default=180_000, help="Chromium timeout in milliseconds"
+    )
+    parser.add_argument(
+        "--raster-timeout", type=int, default=60, help="Seconds per pdftoppm page render"
+    )
     args = parser.parse_args(argv)
 
     if args.max_cases is not None and args.max_cases < 1:
@@ -272,9 +307,16 @@ def main(argv: list[str] | None = None) -> int:
     content_dir = args.output_dir / "content_png"
     pdf_dir.mkdir(parents=True, exist_ok=True)
 
-    cases = list(explicit_appearances) if explicit_appearances else [
-        RenderItem(style, palette, mode) for style in styles for palette in palettes for mode in modes
-    ]
+    cases = (
+        list(explicit_appearances)
+        if explicit_appearances
+        else [
+            RenderItem(style, palette, mode)
+            for style in styles
+            for palette in palettes
+            for mode in modes
+        ]
+    )
     if args.max_cases is not None:
         cases = cases[: args.max_cases]
 
@@ -284,7 +326,11 @@ def main(argv: list[str] | None = None) -> int:
 
     for item in cases:
         existing = records.get(item.name)
-        if args.resume and existing and _record_complete(existing, args.output_dir, render_png=args.render_png):
+        if (
+            args.resume
+            and existing
+            and _record_complete(existing, args.output_dir, render_png=args.render_png)
+        ):
             print(f"skip {item.name}")
             continue
         output_pdf = pdf_dir / f"{item.name}.pdf"

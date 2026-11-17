@@ -17,16 +17,22 @@ export function documentBelongsToProject(model, projectPath) {
 
 /** Book operations consume disk files; first persist all of their open inputs. */
 export async function prepareBookFiles({
-  projectPath, getDocuments, isDirty, confirm, save, isCurrent = () => true,
+  projectPath,
+  getDocuments,
+  isDirty,
+  confirm,
+  save,
+  isCurrent = () => true,
 }) {
-  const affected = () => getDocuments().filter((model) => documentBelongsToProject(model, projectPath));
+  const affected = () =>
+    getDocuments().filter((model) => documentBelongsToProject(model, projectPath));
   const pending = affected().filter(isDirty);
-  if (!isCurrent() || (pending.length && !await confirm(pending))) return false;
+  if (!isCurrent() || (pending.length && !(await confirm(pending)))) return false;
   for (const model of pending) {
     if (!isCurrent() || !getDocuments().includes(model)) return false;
     if (!isDirty(model)) continue;
     const originalPath = fileIdentity(model.path);
-    if (!await save(model) || !isCurrent() || isDirty(model)) return false;
+    if (!(await save(model)) || !isCurrent() || isDirty(model)) return false;
     // Save As must not silently move a chapter away from its manifest path.
     if (originalPath && fileIdentity(model.path) !== originalPath) return false;
   }

@@ -3,7 +3,13 @@ import globals from "globals";
 export default [
   { ignores: ["node_modules/**", "dist/**", "frontend/js/vendor/**", "src-tauri/**"] },
   {
-    files: ["frontend/js/**/*.mjs", "editor-src/**/*.mjs", "scripts/**/*.mjs", "tests/**/*.mjs", "*.config.mjs"],
+    files: [
+      "frontend/js/**/*.mjs",
+      "editor-src/**/*.mjs",
+      "scripts/**/*.mjs",
+      "tests/**/*.mjs",
+      "*.config.mjs",
+    ],
     languageOptions: { ecmaVersion: "latest", sourceType: "module", globals: globals.browser },
     rules: {
       "no-undef": "error",
@@ -20,19 +26,41 @@ export default [
   {
     files: ["frontend/js/core/**/*.mjs"],
     rules: {
-      "no-restricted-imports": ["error", { patterns: [{
-        group: ["**/features/**", "**/ui/**", "**/preview/**", "**/main.mjs", "**/adapters/*-api.mjs", "**/adapters/tauri.mjs"],
-        message: "Core rules must not depend on feature controllers, DOM components, or native commands.",
-      }] }],
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "**/features/**",
+                "**/ui/**",
+                "**/preview/**",
+                "**/main.mjs",
+                "**/adapters/*-api.mjs",
+                "**/adapters/tauri.mjs",
+              ],
+              message:
+                "Core rules must not depend on feature controllers, DOM components, or native commands.",
+            },
+          ],
+        },
+      ],
     },
   },
   {
     files: ["frontend/js/ui/**/*.mjs"],
     rules: {
-      "no-restricted-imports": ["error", { patterns: [{
-        group: ["**/features/**", "**/main.mjs", "**/adapters/**"],
-        message: "Shared UI receives application/native actions through explicit callbacks.",
-      }] }],
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/features/**", "**/main.mjs", "**/adapters/**"],
+              message: "Shared UI receives application/native actions through explicit callbacks.",
+            },
+          ],
+        },
+      ],
     },
   },
 ];

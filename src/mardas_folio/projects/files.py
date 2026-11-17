@@ -1,21 +1,23 @@
 """Bounded workspace reads, revision checks, and conflict-aware atomic saves."""
+
 from __future__ import annotations
+
 import hashlib
 import os
 import stat
 import tempfile
 from pathlib import Path
 from typing import Callable
+
 from ..citations import load_bibliography
 from ..config import CONFIG_FILENAME, tomllib
 from ..diagnostics import has_errors
-from ..file_io import atomic_write_text, sync_directory, FILE_WRITE_LOCK
-from .models import ProjectWorkspace, WorkspaceError
+from ..file_io import FILE_WRITE_LOCK, atomic_write_text, sync_directory
 from .discovery import _kind_for_path, _safe_workspace_file
+from .models import ProjectWorkspace, WorkspaceError
 
 MAX_WORKSPACE_TEXT_BYTES = 4 * 1024 * 1024
 _WORKSPACE_SAVE_LOCK = FILE_WRITE_LOCK
-
 
 
 def _file_hash(data: bytes) -> str:
@@ -213,7 +215,3 @@ def _validate_expected_config_sha256(
             status=409,
         )
     return path
-
-
-
-

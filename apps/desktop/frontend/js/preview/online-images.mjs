@@ -8,28 +8,49 @@
  */
 
 const LOCAL_SUFFIXES = [
-  "localhost", "local", "localdomain", "internal", "intranet", "lan", "home",
-  "home.arpa", "test", "invalid", "onion",
+  "localhost",
+  "local",
+  "localdomain",
+  "internal",
+  "intranet",
+  "lan",
+  "home",
+  "home.arpa",
+  "test",
+  "invalid",
+  "onion",
 ];
 
 /** A normalized public-looking HTTPS destination, or null. Never a local URL. */
 export function safeOnlineImageURL(source) {
   if (typeof source !== "string") return null;
   const candidate = source.trim();
-  if (!candidate || candidate.length > 8192 || /[\u0000-\u001f\u007f\\]/.test(candidate)
-      || candidate.startsWith("///")) return null;
+  if (
+    !candidate ||
+    candidate.length > 8192 ||
+    /[\u0000-\u001f\u007f\\]/.test(candidate) ||
+    candidate.startsWith("///")
+  )
+    return null;
   let url;
-  try { url = new URL(candidate.startsWith("//") ? `https:${candidate}` : candidate); }
-  catch { return null; }
+  try {
+    url = new URL(candidate.startsWith("//") ? `https:${candidate}` : candidate);
+  } catch {
+    return null;
+  }
   if (url.protocol !== "https:" || url.username || url.password || url.port) return null;
   // URL normalizes octal, hexadecimal and abbreviated IPv4 forms before this
   // check. Requiring a real domain suffix also rejects all numeric addresses.
   const host = url.hostname.toLowerCase().replace(/\.$/, "");
   const labels = host.split(".");
-  if (host.length > 253 || labels.length < 2
-      || !labels.every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))
-      || !/^(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/.test(labels.at(-1))
-      || LOCAL_SUFFIXES.some(suffix => host === suffix || host.endsWith(`.${suffix}`))) return null;
+  if (
+    host.length > 253 ||
+    labels.length < 2 ||
+    !labels.every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) ||
+    !/^(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})$/.test(labels.at(-1)) ||
+    LOCAL_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`))
+  )
+    return null;
   url.hostname = host;
   return url.href;
 }
@@ -40,13 +61,14 @@ export function safeOnlineImageURL(source) {
  * return true to grant this request. A rejected/failed request stays local.
  * A failed image has a Retry button, never a broken-image glyph.
  */
-export function onlineImageControl(document, {
-  source, alt = "", allowed = false, onRequest, strings = {},
-} = {}) {
+export function onlineImageControl(
+  document,
+  { source, alt = "", allowed = false, onRequest, strings = {} } = {},
+) {
   const url = safeOnlineImageURL(source);
   const origin = url ? new URL(url).origin : "";
-  const label = (key, fallback) => typeof strings[key] === "string" && strings[key]
-    ? strings[key] : fallback;
+  const label = (key, fallback) =>
+    typeof strings[key] === "string" && strings[key] ? strings[key] : fallback;
   const text = typeof alt === "string" ? alt : "";
   const root = document.createElement("span");
   root.className = "online-image-control";
@@ -60,11 +82,14 @@ export function onlineImageControl(document, {
   function message(state) {
     const heading = document.createElement("span");
     heading.className = "online-image-label";
-    heading.textContent = state === "loading"
-      ? label("remoteImageLoading", "Loading online image…")
-      : state === "error" ? label("remoteImageFailed", "Image could not be loaded")
-        : state === "invalid" ? label("remoteImageBlocked", "Unsupported online image address")
-          : label("remoteImageNotLoaded", "Online image not loaded");
+    heading.textContent =
+      state === "loading"
+        ? label("remoteImageLoading", "Loading online image…")
+        : state === "error"
+          ? label("remoteImageFailed", "Image could not be loaded")
+          : state === "invalid"
+            ? label("remoteImageBlocked", "Unsupported online image address")
+            : label("remoteImageNotLoaded", "Online image not loaded");
     const status = document.createElement("span");
     status.className = "online-image-status";
     status.setAttribute("role", "status");
@@ -88,12 +113,14 @@ export function onlineImageControl(document, {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "online-image-load";
-      button.textContent = state === "error"
-        ? label("retryRemoteImage", "Retry") : label("loadRemoteImages", "Load images");
+      button.textContent =
+        state === "error"
+          ? label("retryRemoteImage", "Retry")
+          : label("loadRemoteImages", "Load images");
       button.setAttribute("aria-label", `${button.textContent} — ${origin}`);
       button.title = `${button.textContent} — ${origin}`;
-      button.addEventListener("mousedown", event => event.stopPropagation());
-      button.addEventListener("click", async event => {
+      button.addEventListener("mousedown", (event) => event.stopPropagation());
+      button.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
         if (pending) return;
@@ -102,12 +129,15 @@ export function onlineImageControl(document, {
         // focus on the button until the replacement status can inherit it.
         button.setAttribute("aria-disabled", "true");
         try {
-          if (!granted) granted = typeof onRequest === "function"
-            && await onRequest(origin, url) === true;
+          if (!granted)
+            granted = typeof onRequest === "function" && (await onRequest(origin, url)) === true;
           if (granted) load();
           else show("blocked");
-        } catch { show("error"); }
-        finally { pending = false; }
+        } catch {
+          show("error");
+        } finally {
+          pending = false;
+        }
       });
       children.push(button);
     }

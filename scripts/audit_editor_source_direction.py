@@ -8,13 +8,15 @@ preview HTML; these checks exercise CodeMirror rather than the rendering engine.
 """
 
 from __future__ import annotations
+
 import argparse
 import json
 from pathlib import Path
 
-from lib.audit.editor import initialise, replace_content, mode
+from playwright.sync_api import expect, sync_playwright
+
 from lib.audit.desktop import DEFAULT_DIST, open_template, serve
-from playwright.sync_api import sync_playwright, expect
+from lib.audit.editor import initialise, mode, replace_content
 
 ROOT = Path(__file__).resolve().parents[1]
 

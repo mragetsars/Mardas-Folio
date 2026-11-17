@@ -15,6 +15,7 @@ guides and is held to staying lightweight.
 Chromium renders it, as it does the README banner, so both pieces of project
 artwork come out of the same renderer the publishing engine uses.
 """
+
 from __future__ import annotations
 
 import argparse

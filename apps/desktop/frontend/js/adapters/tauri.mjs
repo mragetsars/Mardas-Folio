@@ -1,7 +1,12 @@
 import { createEngineQueue } from "../core/engine-queue.mjs";
 
 const queues = new WeakMap();
-const IMMEDIATE_METHODS = new Set(["system.health", "system.capabilities", "system.shutdown", "job.cancel"]);
+const IMMEDIATE_METHODS = new Set([
+  "system.health",
+  "system.capabilities",
+  "system.shutdown",
+  "job.cancel",
+]);
 
 export function tauriApi(globalObject = globalThis) {
   const api = globalObject.__TAURI__;
@@ -16,8 +21,12 @@ export async function invoke(command, args = {}, globalObject = globalThis) {
     queue = createEngineQueue();
     queues.set(api.core, queue);
   }
-  const cancellation = command === "sidecar_cancel" ? args.request_id
-    : command === "sidecar_request" && args.method === "job.cancel" ? args.params?.request_id : null;
+  const cancellation =
+    command === "sidecar_cancel"
+      ? args.request_id
+      : command === "sidecar_request" && args.method === "job.cancel"
+        ? args.params?.request_id
+        : null;
   if (cancellation != null && queue.cancel(cancellation)) {
     return { request_id: cancellation, cancel_requested: true };
   }

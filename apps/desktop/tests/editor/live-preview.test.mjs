@@ -41,7 +41,11 @@ test("source mode renders the document verbatim but keeps bidi measurement", () 
   const text = "---\ndir: rtl\n---\n# English and فارسی\n\n```js\nconst value=1;\n```";
   const state = EditorState.create({ doc: text, extensions: source });
   assert.equal(state.doc.toString(), text);
-  assert.ok(state.facet(EditorView.editorAttributes).some(attributes => attributes["data-source-direction"] === "rtl"));
+  assert.ok(
+    state
+      .facet(EditorView.editorAttributes)
+      .some((attributes) => attributes["data-source-direction"] === "rtl"),
+  );
   assert.notDeepEqual(live, source);
 });
 
@@ -87,7 +91,10 @@ test("hidden ranges are atomic so the caret cannot stall inside them", () => {
 
 test("the caret's own prose line reveals its source syntax", () => {
   assert.match(source, /activeLines/);
-  assert.match(source, /if \(active\.has\(state\.doc\.lineAt\(node\.from\)\.number\) && !stableCodeMarker\) return;/);
+  assert.match(
+    source,
+    /if \(active\.has\(state\.doc\.lineAt\(node\.from\)\.number\) && !stableCodeMarker\) return;/,
+  );
 });
 
 test("one view mode decides both the rendering and the preview pane", () => {
@@ -114,7 +121,10 @@ test("one view mode decides both the rendering and the preview pane", () => {
 test("block widgets come from a state field, never from a view plugin", () => {
   // CodeMirror rejects block decorations supplied by plugins outright, and the
   // symptom is an unrelated "No tile at position" during measurement.
-  const widgets = readFileSync(new URL("../../editor-src/live-widgets.mjs", import.meta.url), "utf8");
+  const widgets = readFileSync(
+    new URL("../../editor-src/live-widgets.mjs", import.meta.url),
+    "utf8",
+  );
   assert.match(widgets, /StateField\.define/);
   assert.match(widgets, /EditorView\.decorations\.from/);
   assert.match(widgets, /block: true/);
@@ -134,11 +144,15 @@ test("line decorations never add box spacing that desynchronises the caret", () 
   assert.ok(headingRules.length >= 3, "expected the heading line rules");
   for (const rule of headingRules) {
     assert.ok(!/margin/.test(rule), `heading line rule uses margin: ${rule.trim()}`);
-    assert.ok(!/padding-block|padding-top|padding-bottom/.test(rule),
-      `heading line rule uses vertical padding: ${rule.trim()}`);
+    assert.ok(
+      !/padding-block|padding-top|padding-bottom/.test(rule),
+      `heading line rule uses vertical padding: ${rule.trim()}`,
+    );
   }
-  assert.ok(headingRules.some((rule) => /line-height/.test(rule)),
-    "heading spacing should come from line-height");
+  assert.ok(
+    headingRules.some((rule) => /line-height/.test(rule)),
+    "heading spacing should come from line-height",
+  );
 });
 
 test("a callout is drawn as the card the engine will publish", () => {
@@ -173,11 +187,14 @@ test("only a link that shows other text may have its address hidden", () => {
   // "and an autolink ." with the link simply gone.
   const parentOfUrl = (markdown) => {
     let found = null;
-    parser.configure(GFM).parse(markdown).iterate({
-      enter: (node) => {
-        if (node.name === "URL" && found === null) found = node.node.parent?.name ?? null;
-      },
-    });
+    parser
+      .configure(GFM)
+      .parse(markdown)
+      .iterate({
+        enter: (node) => {
+          if (node.name === "URL" && found === null) found = node.node.parent?.name ?? null;
+        },
+      });
     return found;
   };
 
@@ -230,7 +247,10 @@ test("inline widgets are drawn over the viewport, not by the document-wide field
   // viewport-scoped plugin left the field only blocks to find, which is what
   // removed the size bound that used to switch live preview off entirely: a
   // 281,000-character Persian document rendered nothing at all.
-  const widgets = readFileSync(new URL("../../editor-src/live-widgets.mjs", import.meta.url), "utf8");
+  const widgets = readFileSync(
+    new URL("../../editor-src/live-widgets.mjs", import.meta.url),
+    "utf8",
+  );
 
   assert.doesNotMatch(widgets, /MAX_SCANNED_CHARS/, "no document is too long to render");
   assert.doesNotMatch(widgets, /node\.name === "Image"/, "images belong to the viewport layer");
@@ -256,7 +276,10 @@ test("a line with nothing strong in it takes the editor's direction, not left-to
     new URL("../../editor-src/live-preview.mjs", import.meta.url),
     "utf8",
   );
-  assert.match(source, /const neutralDirection = Decoration\.line\(\{ class: "cm-line-neutral" \}\)/);
+  assert.match(
+    source,
+    /const neutralDirection = Decoration\.line\(\{ class: "cm-line-neutral" \}\)/,
+  );
   assert.match(source, /HAS_STRONG_CHARACTER\.test\(text\) \? autoDirection : neutralDirection/);
   // Asking the view for its direction is the version that did not work: the
   // plugin builds before the first measurement, so every neutral line was

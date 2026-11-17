@@ -15,7 +15,6 @@ import {
 test("book API maps UI workflows to versioned sidecar methods", async (t) => {
   const { calls } = installTauriFixture(t);
 
-
   await createBookProject({
     parentPath: "/books",
     folderName: "thesis",

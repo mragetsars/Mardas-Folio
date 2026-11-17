@@ -562,7 +562,9 @@ def _conversion_main(argv: list[str]) -> int:
     options = PdfOptions(
         input_path=input_path,
         output_path=output_path,
-        protected_inputs=(("project configuration", config.path),) if config.path is not None else (),
+        protected_inputs=(("project configuration", config.path),)
+        if config.path is not None
+        else (),
         title=args.title,
         author=args.author,
         description=args.description,

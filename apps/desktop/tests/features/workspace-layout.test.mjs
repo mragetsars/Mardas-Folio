@@ -30,25 +30,39 @@ test("workspace layout normalizes visibility and bounded pane widths", () => {
 
 test("workspace layout persists safely without making editing depend on storage", () => {
   const store = storage();
-  const written = writeWorkspaceLayout({
-    sidebarOpen: false,
-    previewOpen: true,
-    sidebarWidth: 320,
-    previewWidth: 620,
-  }, store);
+  const written = writeWorkspaceLayout(
+    {
+      sidebarOpen: false,
+      previewOpen: true,
+      sidebarWidth: 320,
+      previewWidth: 620,
+    },
+    store,
+  );
   assert.deepEqual(readWorkspaceLayout(store), written);
 
   const broken = {
-    getItem() { throw new Error("blocked"); },
-    setItem() { throw new Error("blocked"); },
+    getItem() {
+      throw new Error("blocked");
+    },
+    setItem() {
+      throw new Error("blocked");
+    },
   };
   assert.deepEqual(readWorkspaceLayout(broken), DEFAULT_WORKSPACE_LAYOUT);
   assert.equal(writeWorkspaceLayout({ sidebarWidth: 280 }, broken).sidebarWidth, 280);
 });
 
 test("four panes fit the viewport without destroying preferred widths", () => {
-  const preferred = { ...DEFAULT_WORKSPACE_LAYOUT, filesOpen: true, sidebarOpen: true, previewOpen: true,
-    filesWidth: 360, sidebarWidth: 420, previewWidth: 760 };
+  const preferred = {
+    ...DEFAULT_WORKSPACE_LAYOUT,
+    filesOpen: true,
+    sidebarOpen: true,
+    previewOpen: true,
+    filesWidth: 360,
+    sidebarWidth: 420,
+    previewWidth: 760,
+  };
   for (const width of [1280, 1440, 1920]) {
     const fitted = fitWorkspaceWidths(preferred, width);
     assert.ok(width - fitted.filesWidth - fitted.sidebarWidth - fitted.previewWidth - 3 >= 320);

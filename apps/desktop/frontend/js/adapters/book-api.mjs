@@ -67,11 +67,7 @@ export function duplicateBookChapter({
   });
 }
 
-export function reorderBookChapters({
-  projectPath,
-  orderedPaths,
-  expectedConfigSha256,
-}) {
+export function reorderBookChapters({ projectPath, orderedPaths, expectedConfigSha256 }) {
   return result("book.reorder_chapters", {
     project_path: projectPath,
     ordered_paths: orderedPaths,
@@ -79,11 +75,7 @@ export function reorderBookChapters({
   });
 }
 
-export function removeBookChapter({
-  projectPath,
-  relativePath,
-  expectedConfigSha256,
-}) {
+export function removeBookChapter({ projectPath, relativePath, expectedConfigSha256 }) {
   return result("book.remove_chapter", {
     project_path: projectPath,
     relative_path: relativePath,

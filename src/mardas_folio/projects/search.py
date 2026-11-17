@@ -1,12 +1,14 @@
 """Bounded project search, safe regular expressions, and bibliography lookup."""
+
 from __future__ import annotations
+
 import re
 from pathlib import Path
 from typing import Iterable
+
 from ..citations import MAX_BIBLIOGRAPHY_ENTRIES, load_bibliography
 from ..diagnostics import Diagnostic, has_errors
 from ..renderer import CancellationCallback
-from .models import ProjectWorkspace, WorkspaceError
 from .discovery import _contains_path, _safe_workspace_file
 from .files import (
     _read_bytes,
@@ -14,6 +16,7 @@ from .files import (
 from .loading import (
     workspace_diagnostics_payload,
 )
+from .models import ProjectWorkspace, WorkspaceError
 
 MAX_WORKSPACE_SEARCH_RESULTS = 500
 MAX_WORKSPACE_SEARCH_QUERY_CHARS = 512
@@ -44,7 +47,6 @@ _UNSAFE_REGEX_TOKENS = (
 )
 _LARGE_REGEX_REPEAT = re.compile(r"\{\s*(\d+)(?:\s*,\s*(\d*)?)?\s*\}")
 _MAX_REGEX_REPEAT = 1_000
-
 
 
 def fold_persian_letters(value: str) -> str:
@@ -120,9 +122,7 @@ def _variable_regex_quantifier_count(query: str) -> int:
             if repeat is not None:
                 lower = int(repeat.group(1))
                 upper_text = repeat.group(2)
-                if "," in repeat.group(0) and (
-                    not upper_text or int(upper_text) != lower
-                ):
+                if "," in repeat.group(0) and (not upper_text or int(upper_text) != lower):
                     count += 1
                 index = repeat.end()
                 if index < len(query) and query[index] in {"?", "+"}:
@@ -137,10 +137,7 @@ def _compile_workspace_regex(query: str, flags: int) -> re.Pattern[str]:
 
     unsafe_repeat = any(
         int(match.group(1)) > _MAX_REGEX_REPEAT
-        or (
-            match.group(2)
-            and int(match.group(2)) > _MAX_REGEX_REPEAT
-        )
+        or (match.group(2) and int(match.group(2)) > _MAX_REGEX_REPEAT)
         for match in _LARGE_REGEX_REPEAT.finditer(query)
     )
     if (
@@ -344,17 +341,3 @@ def workspace_bibliography(
         "ok": not has_errors(diagnostics),
         "truncated": matched_total > len(entries),
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

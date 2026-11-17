@@ -611,7 +611,9 @@ def render_book(
         bibliography_sources=(
             bibliography_library.sources if bibliography_library is not None else ()
         ),
-        source_assets=tuple(sorted({path for chapter in chapter_results for path in chapter.source_assets})),
+        source_assets=tuple(
+            sorted({path for chapter in chapter_results for path in chapter.source_assets})
+        ),
         citation_entries=citation_entries,
         cited_keys=cited_keys,
         diagnostics=tuple(diagnostics),
@@ -709,9 +711,7 @@ def convert_book(
     if bundle is None:
         bundle, diagnostics = render_book(
             manifest,
-            progress=(
-                (lambda stage, value: progress(stage, value * 0.3)) if progress else None
-            ),
+            progress=((lambda stage, value: progress(stage, value * 0.3)) if progress else None),
             cancelled=cancelled,
         )
     if bundle is None or has_errors(diagnostics):
@@ -720,9 +720,7 @@ def convert_book(
         manifest,
         output_path=output_path,
         debug_html=debug_html,
-        progress=(
-            (lambda stage, value: progress(stage, 0.3 + value * 0.7)) if progress else None
-        ),
+        progress=((lambda stage, value: progress(stage, 0.3 + value * 0.7)) if progress else None),
         cancelled=cancelled,
     )
     options.output_create_only = create_only

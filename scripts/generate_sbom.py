@@ -19,9 +19,13 @@ from release_provenance import (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate a deterministic SPDX 2.3 runtime SBOM")
-    parser.add_argument("--python", type=Path, default=Path(sys.executable), help="Python environment to inspect")
+    parser.add_argument(
+        "--python", type=Path, default=Path(sys.executable), help="Python environment to inspect"
+    )
     parser.add_argument("--distribution", default=PROJECT_NAME, help="Root installed distribution")
-    parser.add_argument("--artifact", action="append", type=Path, default=[], help="Release artifact to bind")
+    parser.add_argument(
+        "--artifact", action="append", type=Path, default=[], help="Release artifact to bind"
+    )
     parser.add_argument("--output", required=True, type=Path, help="Output SPDX JSON path")
     parser.add_argument("--source-revision", default="unknown", help="Source Git revision")
     parser.add_argument("--source-date-epoch", help="Deterministic creation timestamp")
@@ -33,7 +37,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         records = query_installed_distributions(args.python)
         selected, relationships = runtime_dependency_closure(records, args.distribution)
-        root = next(item for item in selected if item.name.lower().replace("_", "-") == args.distribution.lower().replace("_", "-"))
+        root = next(
+            item
+            for item in selected
+            if item.name.lower().replace("_", "-") == args.distribution.lower().replace("_", "-")
+        )
         payload = generate_spdx_document(
             distributions=selected,
             relationships=relationships,

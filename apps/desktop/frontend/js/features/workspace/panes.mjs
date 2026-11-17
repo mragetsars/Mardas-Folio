@@ -1,6 +1,19 @@
-import { DEFAULT_WORKSPACE_LAYOUT, clampWorkspaceWidth, fitWorkspaceWidths, writeWorkspaceLayout } from "./workspace-layout.mjs";
+import {
+  DEFAULT_WORKSPACE_LAYOUT,
+  clampWorkspaceWidth,
+  fitWorkspaceWidths,
+  writeWorkspaceLayout,
+} from "./workspace-layout.mjs";
 /** Owns this feature's DOM interactions; cross-feature actions are injected. */
-export function createWorkspacePanes({ state, query: $, queryAll: $$, compactSidePanes, activeDocument, isMarkdownModel, focusDocument }) {
+export function createWorkspacePanes({
+  state,
+  query: $,
+  queryAll: $$,
+  compactSidePanes,
+  activeDocument,
+  isMarkdownModel,
+  focusDocument,
+}) {
   function applyWorkspaceLayout({ persist = false } = {}) {
     const grid = $(".authoring-grid");
     const workspace = $("#workspace-view");
@@ -46,9 +59,15 @@ export function createWorkspacePanes({ state, query: $, queryAll: $$, compactSid
       button.tabIndex = active ? 0 : -1;
       button.disabled = button.dataset.navigatorTab === "outline" && !markdown;
     }
-    for (const [name, selector] of [["files", "#navigator-panel-files"], ["outline", "#sidebar-panel-outline"]]) {
+    for (const [name, selector] of [
+      ["files", "#navigator-panel-files"],
+      ["outline", "#sidebar-panel-outline"],
+    ]) {
       const panel = $(selector);
-      if (panel) { panel.hidden = tab !== name; panel.inert = tab !== name; }
+      if (panel) {
+        panel.hidden = tab !== name;
+        panel.inert = tab !== name;
+      }
     }
     $(".navigator-footer")?.classList.toggle("hidden", tab === "outline");
   }
@@ -65,7 +84,9 @@ export function createWorkspacePanes({ state, query: $, queryAll: $$, compactSid
   }
 
   function workspacePaneOpen(name) {
-    return isCompactDrawer(name) ? state.compactDrawer === name : state.workspaceLayout[`${name}Open`];
+    return isCompactDrawer(name)
+      ? state.compactDrawer === name
+      : state.workspaceLayout[`${name}Open`];
   }
 
   function setWorkspacePaneOpen(name, open) {
@@ -121,7 +142,8 @@ export function createWorkspacePanes({ state, query: $, queryAll: $$, compactSid
 
   let finishPaneResize = null;
   function beginPaneResize(event, name) {
-    if (event.button !== 0 || isCompactDrawer(name) || (name === "preview" && innerWidth <= 760)) return;
+    if (event.button !== 0 || isCompactDrawer(name) || (name === "preview" && innerWidth <= 760))
+      return;
     finishPaneResize?.();
     event.preventDefault();
     const handle = event.currentTarget;
@@ -150,7 +172,8 @@ export function createWorkspacePanes({ state, query: $, queryAll: $$, compactSid
       handle.removeEventListener("lostpointercapture", end);
       document.removeEventListener("keydown", keydown, true);
       window.removeEventListener("blur", end);
-      if (handle.hasPointerCapture?.(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+      if (handle.hasPointerCapture?.(event.pointerId))
+        handle.releasePointerCapture(event.pointerId);
       state.workspaceLayout = writeWorkspaceLayout(state.workspaceLayout);
       finishPaneResize = null;
     };
@@ -173,7 +196,9 @@ export function createWorkspacePanes({ state, query: $, queryAll: $$, compactSid
   function resizePaneWithKeyboard(event, name) {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const current = Number(event.currentTarget.getAttribute("aria-valuenow")) || state.workspaceLayout[`${name}Width`];
+    const current =
+      Number(event.currentTarget.getAttribute("aria-valuenow")) ||
+      state.workspaceLayout[`${name}Width`];
     const sign = paneResizeSign(name);
     let next = current;
     if (event.key === "ArrowLeft") next -= sign * 16;
@@ -182,5 +207,17 @@ export function createWorkspacePanes({ state, query: $, queryAll: $$, compactSid
     if (event.key === "End") next = clampWorkspaceWidth(name, 9999);
     setWorkspacePaneWidth(name, next, { persist: true });
   }
-  return { applyWorkspaceLayout, applyNavigatorContext, activateNavigator, isCompactDrawer, workspacePaneOpen, setWorkspacePaneOpen, toggleWorkspacePane, resetWorkspacePaneSizes, closeCompactDrawer, beginPaneResize, resizePaneWithKeyboard };
+  return {
+    applyWorkspaceLayout,
+    applyNavigatorContext,
+    activateNavigator,
+    isCompactDrawer,
+    workspacePaneOpen,
+    setWorkspacePaneOpen,
+    toggleWorkspacePane,
+    resetWorkspacePaneSizes,
+    closeCompactDrawer,
+    beginPaneResize,
+    resizePaneWithKeyboard,
+  };
 }

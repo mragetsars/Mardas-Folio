@@ -114,11 +114,7 @@ const block = (top, height, flags = {}) => ({ top, height, ...flags });
 test("splittable content fills each page to the bottom", () => {
   // Plain paragraphs carry no break rules, so a printer runs them right to the
   // edge of the margin box and continues on the next page.
-  const pages = paginate(
-    [block(0, 100), block(100, 100), block(200, 100)],
-    120,
-    300,
-  );
+  const pages = paginate([block(0, 100), block(100, 100), block(200, 100)], 120, 300);
   assert.deepEqual(pages, [0, 120, 240]);
 });
 
@@ -163,11 +159,7 @@ test("a heading is not left alone at the foot of a page", () => {
   // The heading ends exactly where the unsplittable block begins, and asks to
   // stay with it, so the break moves up to take the heading along.
   const pages = paginate(
-    [
-      block(0, 90),
-      block(90, 20, { keepWithNext: true }),
-      block(110, 60, { breakInside: true }),
-    ],
+    [block(0, 90), block(90, 20, { keepWithNext: true }), block(110, 60, { breakInside: true })],
     140,
     170,
   );
@@ -211,7 +203,10 @@ test("the deck renders inside a frame because engine CSS needs a real document",
   // appearance, direction and break rules off `body.md2pdf-…`. Neither can
   // match inside a shadow tree, so a shadow-root preview loses exactly the
   // things the export screen exists to show.
-  const deck = readFileSync(new URL("../../frontend/js/preview/page-deck.mjs", import.meta.url), "utf8");
+  const deck = readFileSync(
+    new URL("../../frontend/js/preview/page-deck.mjs", import.meta.url),
+    "utf8",
+  );
   assert.match(deck, /createElement\("iframe"\)/);
   assert.doesNotMatch(deck, /attachShadow/);
   // Break decisions come from the document's own computed style.
@@ -256,14 +251,20 @@ test("the preview stands down gracefully on an engine that predates it", () => {
 test("an engine that cannot describe itself is not assumed to be broken", () => {
   const main = readFileSync(new URL("../../frontend/js/main.mjs", import.meta.url), "utf8");
   const start = main.indexOf("function engineSupports");
-  assert.match(main.slice(start, start + 200), /!state\.engineMethods \|\| state\.engineMethods\.has/);
+  assert.match(
+    main.slice(start, start + 200),
+    /!state\.engineMethods \|\| state\.engineMethods\.has/,
+  );
 });
 
 test("the deck restores itself if the webview replaces the frame document", () => {
   // Writing into the initial about:blank is the standard way to own a frame's
   // document, but WebView2, WKWebView and WebKitGTK do not sequence that load
   // identically, and a late navigation would silently discard the deck.
-  const deck = readFileSync(new URL("../../frontend/js/preview/page-deck.mjs", import.meta.url), "utf8");
+  const deck = readFileSync(
+    new URL("../../frontend/js/preview/page-deck.mjs", import.meta.url),
+    "utf8",
+  );
   assert.match(deck, /function reattach\(\)/);
   assert.match(deck, /frame\.addEventListener\("load", reattach\)/);
   assert.match(deck, /state\.lastPayload/);

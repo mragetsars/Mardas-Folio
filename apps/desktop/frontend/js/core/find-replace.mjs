@@ -19,9 +19,7 @@ export function findLiteralMatches(text, query, { limit = 10_000 } = {}) {
   if (!needle) return [];
 
   const numericLimit = Number(limit);
-  const maximum = Number.isFinite(numericLimit)
-    ? Math.max(0, Math.floor(numericLimit))
-    : 10_000;
+  const maximum = Number.isFinite(numericLimit) ? Math.max(0, Math.floor(numericLimit)) : 10_000;
   if (!maximum) return [];
 
   // Match against a fold of the original string so offsets always remain valid

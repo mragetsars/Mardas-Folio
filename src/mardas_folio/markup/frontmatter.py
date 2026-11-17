@@ -1,4 +1,5 @@
 """Bounded YAML front matter parsing and validation."""
+
 from __future__ import annotations
 
 import re
@@ -13,14 +14,6 @@ try:
     import yaml
 except Exception:  # pragma: no cover - declared dependency
     yaml = None
-
-
-
-
-
-
-
-
 
 
 class MarkdownInputError(ValueError):
@@ -94,6 +87,8 @@ def extract_frontmatter(text: str) -> tuple[dict[str, Any], str]:
         location = f" at line {mark.line + 1}, column {mark.column + 1}" if mark else ""
         raise MarkdownInputError(f"Invalid YAML front matter{location}: {problem}") from exc
     if not isinstance(data, dict):
-        raise MarkdownInputError("YAML front matter must contain a mapping/object at the top level.")
+        raise MarkdownInputError(
+            "YAML front matter must contain a mapping/object at the top level."
+        )
     _validate_frontmatter_graph(data)
     return data, body

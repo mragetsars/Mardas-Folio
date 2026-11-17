@@ -69,9 +69,10 @@ def render_mermaid_to_svg(source: str) -> str | None:
     if not diagram or not diagram.nodes:
         return None
     # SHA-1 is used only for a deterministic SVG marker ID, not security.
-    marker_id = "md2pdf-mermaid-arrow-" + hashlib.sha1(
-        source.encode("utf-8"), usedforsecurity=False
-    ).hexdigest()[:10]
+    marker_id = (
+        "md2pdf-mermaid-arrow-"
+        + hashlib.sha1(source.encode("utf-8"), usedforsecurity=False).hexdigest()[:10]
+    )
     return _diagram_to_svg(diagram, marker_id=marker_id)
 
 
@@ -258,8 +259,13 @@ def _diagram_to_svg(diagram: MermaidDiagram, *, marker_id: str) -> str:
         ordered_ranks = list(reversed(ordered_ranks))
 
     width, height = _place_nodes(layers, ordered_ranks, horizontal=horizontal)
-    node_svg = "\n".join(_node_svg(node) for node in sorted(diagram.nodes.values(), key=lambda item: item.order))
-    edge_svg = "\n".join(_edge_svg(edge, diagram.nodes, horizontal=horizontal, marker_id=marker_id) for edge in diagram.edges)
+    node_svg = "\n".join(
+        _node_svg(node) for node in sorted(diagram.nodes.values(), key=lambda item: item.order)
+    )
+    edge_svg = "\n".join(
+        _edge_svg(edge, diagram.nodes, horizontal=horizontal, marker_id=marker_id)
+        for edge in diagram.edges
+    )
     safe_title = html.escape("Mermaid flowchart")
     return f'''<svg class="md2pdf-mermaid-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width:.0f} {height:.0f}" role="img" aria-label="{safe_title}">
   <defs>
@@ -283,12 +289,21 @@ def _assign_ranks(diagram: MermaidDiagram) -> dict[str, int]:
         incoming[edge.target] += 1
         outgoing[edge.source].append(edge.target)
 
-    queue = [node_id for node_id, node in sorted(diagram.nodes.items(), key=lambda item: item[1].order) if incoming[node_id] == 0]
+    queue = [
+        node_id
+        for node_id, node in sorted(diagram.nodes.items(), key=lambda item: item[1].order)
+        if incoming[node_id] == 0
+    ]
     if not queue:
-        queue = [node_id for node_id, _node in sorted(diagram.nodes.items(), key=lambda item: item[1].order)]
+        queue = [
+            node_id
+            for node_id, _node in sorted(diagram.nodes.items(), key=lambda item: item[1].order)
+        ]
 
     processed: set[str] = set()
-    all_nodes = [node_id for node_id, _node in sorted(diagram.nodes.items(), key=lambda item: item[1].order)]
+    all_nodes = [
+        node_id for node_id, _node in sorted(diagram.nodes.items(), key=lambda item: item[1].order)
+    ]
     while len(processed) < len(diagram.nodes):
         if not queue:
             remaining = [node_id for node_id in all_nodes if node_id not in processed]
@@ -297,7 +312,13 @@ def _assign_ranks(diagram: MermaidDiagram) -> dict[str, int]:
             # Break cycles deterministically. The selected node keeps the best
             # rank discovered so far; its outgoing edges can still push later
             # nodes into deeper layers.
-            remaining.sort(key=lambda node_id: (incoming.get(node_id, 0), ranks.get(node_id, 0), diagram.nodes[node_id].order))
+            remaining.sort(
+                key=lambda node_id: (
+                    incoming.get(node_id, 0),
+                    ranks.get(node_id, 0),
+                    diagram.nodes[node_id].order,
+                )
+            )
             queue.append(remaining[0])
 
         source = queue.pop(0)
@@ -422,7 +443,11 @@ def _node_svg(node: MermaidNode) -> str:
         top = f"M{x:.1f},{y + curve:.1f} C{x:.1f},{y + curve * 2:.1f} {x + w:.1f},{y + curve * 2:.1f} {x + w:.1f},{y + curve:.1f}"
         shape = f'<path class="md2pdf-mermaid-node-shape" d="{body}" /><path class="md2pdf-mermaid-node-shape md2pdf-mermaid-node-detail" d="{top}" />'
     else:
-        rx = h / 2 if node.shape == "stadium" else (16 if node.shape in {"round", "subroutine"} else 9)
+        rx = (
+            h / 2
+            if node.shape == "stadium"
+            else (16 if node.shape in {"round", "subroutine"} else 9)
+        )
         shape = f'<rect class="md2pdf-mermaid-node-shape" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="{rx:.1f}" />'
         if node.shape == "subroutine":
             pad = min(14, w * 0.12)
@@ -437,9 +462,7 @@ def _node_text_svg(node: MermaidNode, center_x: float, center_y: float) -> str:
     tspans = []
     for index, line in enumerate(node.lines):
         dy = 0 if index == 0 else TEXT_LINE_H
-        tspans.append(
-            f'<tspan x="{center_x:.1f}" dy="{dy:.1f}">{html.escape(line)}</tspan>'
-        )
+        tspans.append(f'<tspan x="{center_x:.1f}" dy="{dy:.1f}">{html.escape(line)}</tspan>')
     return (
         f'<text class="md2pdf-mermaid-node-label" x="{center_x:.1f}" y="{start_y:.1f}" '
         f'text-anchor="middle" direction="{direction}" unicode-bidi="plaintext">{"".join(tspans)}</text>'
@@ -450,7 +473,9 @@ def _text_direction(text: str) -> str:
     return "rtl" if ARABIC_RE.search(text or "") else "ltr"
 
 
-def _edge_svg(edge: MermaidEdge, nodes: dict[str, MermaidNode], *, horizontal: bool, marker_id: str) -> str:
+def _edge_svg(
+    edge: MermaidEdge, nodes: dict[str, MermaidNode], *, horizontal: bool, marker_id: str
+) -> str:
     source = nodes.get(edge.source)
     target = nodes.get(edge.target)
     if not source or not target:
@@ -494,7 +519,7 @@ def _edge_svg(edge: MermaidEdge, nodes: dict[str, MermaidNode], *, horizontal: b
             f'<text class="md2pdf-mermaid-edge-label" x="{label_x:.1f}" y="{label_center_y:.1f}" '
             f'text-anchor="middle" direction="{direction}" unicode-bidi="plaintext">'
             f'<tspan x="{label_x:.1f}" dy="0.35em">{safe_label}</tspan></text>'
-            f'</g>'
+            f"</g>"
         )
     return f'<g class="{" ".join(classes)}"><path d="{path}"{marker} />{label}</g>'
 

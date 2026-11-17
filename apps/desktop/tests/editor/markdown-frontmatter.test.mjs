@@ -12,7 +12,10 @@ import {
 } from "../../frontend/js/core/markdown-analysis.mjs";
 
 const fixture = JSON.parse(
-  readFileSync(new URL("../../../../tests/fixtures/frontmatter_cases.json", import.meta.url), "utf8"),
+  readFileSync(
+    new URL("../../../../tests/fixtures/frontmatter_cases.json", import.meta.url),
+    "utf8",
+  ),
 );
 
 const markdown = parser.configure([frontmatter]);
@@ -35,7 +38,11 @@ test("the editor parser recognises front matter exactly like the publishing engi
 
 test("the outline helper recognises front matter exactly like the publishing engine", () => {
   for (const { name, text, frontmatter: expected } of fixture.cases) {
-    assert.equal(frontMatterRange(text) !== null, expected, `frontMatterRange disagrees on "${name}"`);
+    assert.equal(
+      frontMatterRange(text) !== null,
+      expected,
+      `frontMatterRange disagrees on "${name}"`,
+    );
   }
 });
 
@@ -78,7 +85,8 @@ test("an unterminated fence stays a thematic break and consumes no lines", () =>
 });
 
 test("a YAML comment inside front matter is metadata, not a document heading", () => {
-  const document = "---\ntitle: Report\n# a note in the metadata\n---\n\n# Real heading\n\n## Second\n";
+  const document =
+    "---\ntitle: Report\n# a note in the metadata\n---\n\n# Real heading\n\n## Second\n";
 
   assert.deepEqual(
     extractOutline(document).map((entry) => entry.title),
@@ -103,5 +111,8 @@ test("two consecutive rules are thematic breaks, not empty metadata", () => {
   const parsed = parseFrontMatter("---\n---\n\n# Heading\n");
 
   assert.equal(parsed.present, false);
-  assert.deepEqual(extractOutline("---\n---\n\n# Heading\n").map((entry) => entry.title), ["Heading"]);
+  assert.deepEqual(
+    extractOutline("---\n---\n\n# Heading\n").map((entry) => entry.title),
+    ["Heading"],
+  );
 });

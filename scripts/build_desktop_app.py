@@ -17,11 +17,12 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from build_desktop_frontend import build_frontend  # noqa: E402
-from lib.build.paths import prepare_output  # noqa: E402
-from lib.build.publish import publish_verified  # noqa: E402
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402
 from verify_desktop_installer import verify_installer  # noqa: E402
+
+from lib.build.paths import prepare_output  # noqa: E402
+from lib.build.publish import publish_verified  # noqa: E402
 from mardas_folio import __version__  # noqa: E402
 
 DESKTOP_ROOT = ROOT / "apps" / "desktop"
@@ -84,8 +85,11 @@ def build(args: argparse.Namespace) -> Path:
     )
     produced = _produced_bundle_files(before)
     candidates = sorted(
-        (path for path in (TAURI_ROOT / "target" / "release" / "bundle" / "nsis").glob("*-setup.exe")
-         if path in produced and not path.is_symlink()),
+        (
+            path
+            for path in (TAURI_ROOT / "target" / "release" / "bundle" / "nsis").glob("*-setup.exe")
+            if path in produced and not path.is_symlink()
+        ),
         key=lambda path: path.stat().st_mtime_ns,
         reverse=True,
     )

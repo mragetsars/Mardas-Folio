@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check pre-install document safety with isolated native IPC fixtures."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,7 +10,6 @@ from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
 
 from lib.audit.desktop import DEFAULT_DIST, INIT_SCRIPT, open_settings, open_template, serve
-
 
 UPDATE_FIXTURE = r"""
 localStorage.setItem('mardas.desktop.locale', 'en');
@@ -69,10 +69,14 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
             page.keyboard.press("Control+a")
             content = "draft needing a file"
             if scenario == "large-and-delayed":
-                content = "A long draft. " * 72_000  # 1,008,000 chars, beyond per-document recovery.
+                content = (
+                    "A long draft. " * 72_000
+                )  # 1,008,000 chars, beyond per-document recovery.
             page.keyboard.insert_text(content)
             # Disk saving, not recovery storage, is the safety boundary.
-            page.evaluate("() => { Storage.prototype.setItem = () => { throw new DOMException('quota', 'QuotaExceededError'); }; }")
+            page.evaluate(
+                "() => { Storage.prototype.setItem = () => { throw new DOMException('quota', 'QuotaExceededError'); }; }"
+            )
             if scenario == "large-and-delayed":
                 page.evaluate("globalThis.__delayNextSave = true")
                 page.locator("#workspace-save").click()
@@ -108,8 +112,12 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                 assert page.evaluate("globalThis.__installs.length") == 0
                 page.evaluate("globalThis.__completeSave()")
                 page.wait_for_function("() => globalThis.__installs.length === 1")
-                saved = page.evaluate("globalThis.__saved.map(item => ({path: item.path, content: item.content}))")
-                assert len(saved) == 15, len(saved)  # old pending snapshot + latest first draft + 13 others.
+                saved = page.evaluate(
+                    "globalThis.__saved.map(item => ({path: item.path, content: item.content}))"
+                )
+                assert len(saved) == 15, len(
+                    saved
+                )  # old pending snapshot + latest first draft + 13 others.
                 assert saved[1]["content"] == content
                 assert len({item["path"] for item in saved}) == 14
                 page.locator("#close-settings").click()
@@ -117,11 +125,21 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                 page.keyboard.insert_text("MUST_NOT_EDIT_DURING_INSTALL")
                 expect(page.locator("#markdown-editor")).to_have_value("Other draft 12")
                 page.evaluate("globalThis.__completeInstall({})")
-                page.wait_for_function("() => document.querySelector('.cm-content').getAttribute('contenteditable') === 'true'")
+                page.wait_for_function(
+                    "() => document.querySelector('.cm-content').getAttribute('contenteditable') === 'true'"
+                )
                 page.keyboard.insert_text(" editable again")
-                expect(page.locator("#markdown-editor")).to_have_value("Other draft 12 editable again")
-                checks.extend(["14 dirty drafts saved beyond recovery limits", "1M+ draft persisted with unavailable storage",
-                               "update waits for pending save and persists newer edits", "editing frozen only during install"])
+                expect(page.locator("#markdown-editor")).to_have_value(
+                    "Other draft 12 editable again"
+                )
+                checks.extend(
+                    [
+                        "14 dirty drafts saved beyond recovery limits",
+                        "1M+ draft persisted with unavailable storage",
+                        "update waits for pending save and persists newer edits",
+                        "editing frozen only during install",
+                    ]
+                )
             else:
                 if scenario == "conflict":
                     expect(page.locator("#confirm-accept")).to_have_text("Replace file")

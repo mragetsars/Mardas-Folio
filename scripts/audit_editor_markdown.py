@@ -21,6 +21,7 @@ flips: the gutter moves, and every line with no strong character of its own
 lays out the other way. The corpus does not change, so any difference between
 the two runs is the mirroring.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,9 +31,9 @@ import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 from lib.audit.desktop import open_settings, open_template, select_settings_section
-from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DIST = ROOT / "apps" / "desktop" / "dist"
@@ -343,9 +344,11 @@ def run(
         # audit sees every decoration missing and no error at all.
         page.on(
             "console",
-            lambda message: errors.append(f"console.{message.type}: {message.text}")
-            if message.type == "error"
-            else None,
+            lambda message: (
+                errors.append(f"console.{message.type}: {message.text}")
+                if message.type == "error"
+                else None
+            ),
         )
         page.goto(url, wait_until="networkidle")
 
@@ -450,9 +453,7 @@ def run(
         # formula's source can be reached by clicking into it. A decoration
         # that forgets to check the active line turns the mode into a preview
         # you cannot edit, and nothing else in this audit would notice.
-        report["editable"] = (
-            check_caret_reveals_source(page, text) if mode == "write" else []
-        )
+        report["editable"] = check_caret_reveals_source(page, text) if mode == "write" else []
         # Typing is checked last: it rewrites the buffer, so everything that
         # reads the corpus has to have run already.
         report["typing"] = check_typing_behaviour(page)
@@ -466,8 +467,9 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--dist", type=Path, default=DEFAULT_DIST)
     parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
@@ -530,8 +532,10 @@ def main(argv: list[str] | None = None) -> int:
     if live:
         print(f"\n{len(missing)} construct(s) with no decoration: {', '.join(missing) or 'none'}")
     else:
-        print(f"\n{len(missing)} construct(s) decorated in source mode: "
-              f"{', '.join(missing) or 'none'}")
+        print(
+            f"\n{len(missing)} construct(s) decorated in source mode: "
+            f"{', '.join(missing) or 'none'}"
+        )
     failed_interactions = sum(not item.get("ok") for item in [*editable, *typing])
     return 1 if missing or failed_interactions or report["page_errors"] else 0
 

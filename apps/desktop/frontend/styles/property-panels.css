@@ -29,7 +29,9 @@ body[data-view="workspace"] :is(.navigator-heading, .inspector-heading) > strong
 body[data-view="workspace"] :is(.navigator-heading, .inspector-heading) > :is(div, button) {
   flex: 0 0 auto;
 }
-body[data-view="workspace"] .navigator-heading > div { gap: 0; }
+body[data-view="workspace"] .navigator-heading > div {
+  gap: 0;
+}
 body[data-view="workspace"] .navigator-heading .toolbar-icon-button {
   inline-size: 24px;
   block-size: 28px;
@@ -80,7 +82,9 @@ body[data-view="workspace"] :is(.navigator-tabs, .sidebar-tabs) > button {
   white-space: nowrap;
   cursor: pointer;
 }
-body[data-view="workspace"] :is(.navigator-tabs, .sidebar-tabs) > button:hover:not(:disabled):not([aria-selected="true"]) {
+body[data-view="workspace"]
+  :is(.navigator-tabs, .sidebar-tabs)
+  > button:hover:not(:disabled):not([aria-selected="true"]) {
   color: var(--ui-text);
   background: var(--ui-panel-muted);
 }
@@ -92,10 +96,20 @@ body[data-view="workspace"] :is(.navigator-tabs, .sidebar-tabs) > button:focus-v
   outline: var(--ui-focus-ring);
   outline-offset: -2px;
 }
-body[data-view="workspace"] .sidebar-tabs > button { padding-inline: 3px; }
-body[data-view="workspace"] .sidebar-tab-icon { inline-size: 17px; block-size: 17px; }
-body[data-view="workspace"] .sidebar-tab-icon .ui-icon { inline-size: 16px; block-size: 16px; }
-body[data-view="workspace"] .sidebar-tabs > button::before { display: none; }
+body[data-view="workspace"] .sidebar-tabs > button {
+  padding-inline: 3px;
+}
+body[data-view="workspace"] .sidebar-tab-icon {
+  inline-size: 17px;
+  block-size: 17px;
+}
+body[data-view="workspace"] .sidebar-tab-icon .ui-icon {
+  inline-size: 16px;
+  block-size: 16px;
+}
+body[data-view="workspace"] .sidebar-tabs > button::before {
+  display: none;
+}
 body[data-view="workspace"] .sidebar-tab-badge {
   inset-block-start: 0;
   inset-inline-end: 0;
@@ -110,21 +124,29 @@ body[data-view="workspace"] :is(.navigator-content, .navigator-outline-panel, .s
   min-inline-size: 0;
   min-block-size: 0;
 }
-body[data-view="workspace"] .file-navigator .navigator-footer { grid-row: 3; }
-body[data-view="workspace"] .navigator-content { padding: 12px 8px; }
+body[data-view="workspace"] .file-navigator .navigator-footer {
+  grid-row: 3;
+}
+body[data-view="workspace"] .navigator-content {
+  padding: 12px 8px;
+}
 body[data-view="workspace"] .navigator-document {
   min-block-size: 44px;
   padding: 6px 8px;
   border-radius: var(--ui-radius-sm, 8px);
 }
-body[data-view="workspace"] .navigator-document > span { gap: 2px; }
+body[data-view="workspace"] .navigator-document > span {
+  gap: 2px;
+}
 body[data-view="workspace"] .navigator-document small,
 .recent-copy > small {
   direction: ltr;
   unicode-bidi: isolate;
   text-align: start;
 }
-body[data-view="workspace"] .sidebar-panel { padding: 12px; }
+body[data-view="workspace"] .sidebar-panel {
+  padding: 12px;
+}
 body[data-view="workspace"] .sidebar-panel > header {
   min-block-size: 28px;
   margin: 0 0 12px;
@@ -143,7 +165,9 @@ body[data-view="workspace"] #sidebar-panel-frontmatter.active {
   overflow: hidden;
   padding: 12px 0 0;
 }
-body[data-view="workspace"] #sidebar-panel-frontmatter > header { margin-inline: 12px; }
+body[data-view="workspace"] #sidebar-panel-frontmatter > header {
+  margin-inline: 12px;
+}
 body[data-view="workspace"] #frontmatter-form {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
@@ -180,7 +204,10 @@ body[data-view="workspace"] #frontmatter-form {
   border: 0;
   font: 450 var(--ui-text-xs)/1.5 var(--app-font);
 }
-.property-grid-body > label:not(.toggle) > span { color: var(--ui-text-soft); overflow-wrap: break-word; }
+.property-grid-body > label:not(.toggle) > span {
+  color: var(--ui-text-soft);
+  overflow-wrap: break-word;
+}
 body[data-view="workspace"] .property-grid-body :is(input[type="text"], select) {
   inline-size: 100%;
   min-inline-size: 0;
@@ -193,7 +220,11 @@ body[data-view="workspace"] .property-grid-body :is(input[type="text"], select) 
   color: var(--ui-text);
   font: 400 var(--ui-text-xs)/1.5 var(--app-font);
 }
-body[data-view="workspace"] .property-grid-body :is(input[type="text"], select):hover:not(:disabled) { border-color: var(--ui-border); }
+body[data-view="workspace"]
+  .property-grid-body
+  :is(input[type="text"], select):hover:not(:disabled) {
+  border-color: var(--ui-border);
+}
 body[data-view="workspace"] .property-grid-body :is(input[type="text"], select):focus-visible {
   border-color: var(--ui-accent);
   outline: 2px solid var(--ui-focus-halo);
@@ -209,7 +240,10 @@ body[data-view="workspace"] .property-grid-body :is(input[type="text"], select):
   margin-block: 8px 0;
   border-block-start: 1px solid var(--ui-border);
 }
-.property-grid-body > .toggle > span { order: -1; margin-inline-end: auto; }
+.property-grid-body > .toggle > span {
+  order: -1;
+  margin-inline-end: auto;
+}
 .property-grid-footer {
   display: flex;
   align-items: center;
@@ -228,9 +262,16 @@ body[data-view="workspace"] .property-grid-body :is(input[type="text"], select):
   font-size: var(--ui-text-xs);
 }
 /* Tree structure follows UI direction; each title owns only its text BiDi. */
-.navigator-outline-panel > header { padding: 12px 12px 4px; }
-.navigator-outline-panel .outline-controls { gap: 4px; padding-inline: 8px; }
-.navigator-outline-panel .outline-navigator { padding: 4px 6px 12px; }
+.navigator-outline-panel > header {
+  padding: 12px 12px 4px;
+}
+.navigator-outline-panel .outline-controls {
+  gap: 4px;
+  padding-inline: 8px;
+}
+.navigator-outline-panel .outline-navigator {
+  padding: 4px 6px 12px;
+}
 .navigator-outline-panel .outline-row {
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr);

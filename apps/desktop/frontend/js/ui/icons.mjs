@@ -14,4 +14,3 @@ export function spriteIcon(name, documentRef = globalThis.document) {
   svg.append(use);
   return svg;
 }
-

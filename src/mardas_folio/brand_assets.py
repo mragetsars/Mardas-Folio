@@ -29,7 +29,9 @@ def packaged_asset_path(filename: str) -> Path:
 
 
 def product_logo_path(*, variant: str = "default") -> Path | None:
-    candidates = COVER_LABEL_LOGO_CANDIDATES if variant == "cover-label" else DEFAULT_LOGO_CANDIDATES
+    candidates = (
+        COVER_LABEL_LOGO_CANDIDATES if variant == "cover-label" else DEFAULT_LOGO_CANDIDATES
+    )
     for filename in candidates:
         path = packaged_asset_path(filename)
         if path.exists():

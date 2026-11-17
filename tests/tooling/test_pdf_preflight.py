@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import sys
+
+from tests._paths import ROOT
 
 sys.path.insert(0, str(ROOT / "scripts"))
 

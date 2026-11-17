@@ -11,13 +11,28 @@ export const searchHighlights = StateField.define({
     for (const effect of transaction.effects) {
       if (!effect.is(searchMatchesEffect)) continue;
       const { matches = [], index = -1 } = effect.value;
-      value = Decoration.set(matches.slice(0, 10_000).flatMap((match, at) => {
-        const from = Number(match.start), to = Number(match.end);
-        if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to <= from || to > transaction.state.doc.length) return [];
-        return [Decoration.mark({ class: at === index ? "cm-findMatch cm-findMatch-current" : "cm-findMatch" }).range(from, to)];
-      }), true);
+      value = Decoration.set(
+        matches.slice(0, 10_000).flatMap((match, at) => {
+          const from = Number(match.start),
+            to = Number(match.end);
+          if (
+            !Number.isInteger(from) ||
+            !Number.isInteger(to) ||
+            from < 0 ||
+            to <= from ||
+            to > transaction.state.doc.length
+          )
+            return [];
+          return [
+            Decoration.mark({
+              class: at === index ? "cm-findMatch cm-findMatch-current" : "cm-findMatch",
+            }).range(from, to),
+          ];
+        }),
+        true,
+      );
     }
     return value;
   },
-  provide: field => EditorView.decorations.from(field),
+  provide: (field) => EditorView.decorations.from(field),
 });

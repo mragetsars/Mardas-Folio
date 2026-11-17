@@ -37,18 +37,28 @@ def audit_html(html: str) -> list[Finding]:
 
     html_node = soup.find("html")
     if not html_node or not html_node.get("lang"):
-        findings.append(Finding("error", "A11Y-LANG", "The document must declare an interface language.", "html"))
+        findings.append(
+            Finding(
+                "error", "A11Y-LANG", "The document must declare an interface language.", "html"
+            )
+        )
     if not html_node or html_node.get("dir") not in {"rtl", "ltr"}:
-        findings.append(Finding("error", "A11Y-DIR", "The document must declare a base text direction.", "html"))
+        findings.append(
+            Finding("error", "A11Y-DIR", "The document must declare a base text direction.", "html")
+        )
 
     ids: list[str] = [str(node["id"]) for node in soup.find_all(id=True)]
     duplicates = sorted({value for value in ids if ids.count(value) > 1})
     for value in duplicates:
-        findings.append(Finding("error", "A11Y-DUPLICATE-ID", f"Duplicate id: {value}", f"#{value}"))
+        findings.append(
+            Finding("error", "A11Y-DUPLICATE-ID", f"Duplicate id: {value}", f"#{value}")
+        )
 
     skip = soup.select_one('a.skip-link[href="#app-main"]')
     if skip is None:
-        findings.append(Finding("error", "A11Y-SKIP-LINK", "A keyboard skip link to #app-main is required."))
+        findings.append(
+            Finding("error", "A11Y-SKIP-LINK", "A keyboard skip link to #app-main is required.")
+        )
 
     for button in soup.find_all("button"):
         name = (
@@ -59,13 +69,23 @@ def audit_html(html: str) -> list[Finding]:
         )
         if not name:
             findings.append(
-                Finding("error", "A11Y-BUTTON-NAME", "Button has no accessible name.", _element_name(button))
+                Finding(
+                    "error",
+                    "A11Y-BUTTON-NAME",
+                    "Button has no accessible name.",
+                    _element_name(button),
+                )
             )
 
     for image in soup.find_all("img"):
         if image.get("alt") is None:
             findings.append(
-                Finding("error", "A11Y-IMAGE-ALT", "Image is missing an alt attribute.", _element_name(image))
+                Finding(
+                    "error",
+                    "A11Y-IMAGE-ALT",
+                    "Image is missing an alt attribute.",
+                    _element_name(image),
+                )
             )
 
     explicit_labels = {
@@ -94,13 +114,23 @@ def audit_html(html: str) -> list[Finding]:
     for modal in soup.select('[role="dialog"]'):
         if modal.get("aria-modal") != "true":
             findings.append(
-                Finding("error", "A11Y-DIALOG-MODAL", "Dialog must declare aria-modal=true.", _element_name(modal))
+                Finding(
+                    "error",
+                    "A11Y-DIALOG-MODAL",
+                    "Dialog must declare aria-modal=true.",
+                    _element_name(modal),
+                )
             )
         labelledby = modal.get("aria-labelledby")
         label = modal.get("aria-label")
         if not labelledby and not label:
             findings.append(
-                Finding("error", "A11Y-DIALOG-NAME", "Dialog must have an accessible name.", _element_name(modal))
+                Finding(
+                    "error",
+                    "A11Y-DIALOG-NAME",
+                    "Dialog must have an accessible name.",
+                    _element_name(modal),
+                )
             )
         if labelledby and soup.find(id=labelledby) is None:
             findings.append(
@@ -117,7 +147,9 @@ def audit_html(html: str) -> list[Finding]:
             value = int(str(node.get("tabindex")))
         except ValueError:
             findings.append(
-                Finding("error", "A11Y-TABINDEX", "tabindex must be an integer.", _element_name(node))
+                Finding(
+                    "error", "A11Y-TABINDEX", "tabindex must be an integer.", _element_name(node)
+                )
             )
             continue
         if value > 0:
@@ -133,7 +165,12 @@ def audit_html(html: str) -> list[Finding]:
     toast = soup.select_one("#toast-region")
     if toast is None or toast.get("aria-live") not in {"polite", "assertive"}:
         findings.append(
-            Finding("error", "A11Y-LIVE-REGION", "Toast region must expose an ARIA live region.", "#toast-region")
+            Finding(
+                "error",
+                "A11Y-LIVE-REGION",
+                "Toast region must expose an ARIA live region.",
+                "#toast-region",
+            )
         )
 
     return findings
@@ -168,7 +205,9 @@ def write_report(findings: list[Finding], output_dir: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit structural accessibility contracts in Mardas Folio.")
+    parser = argparse.ArgumentParser(
+        description="Audit structural accessibility contracts in Mardas Folio."
+    )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args(argv)

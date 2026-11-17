@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import sys
 from pathlib import Path
 
 import pytest
+
+from tests._paths import ROOT
 
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -89,8 +89,11 @@ def test_payload_entries_land_under_the_bundled_browser_root(tmp_path: Path) -> 
     destinations = {destination for _, destination in entries}
     names = {Path(source).name for source, _ in entries}
 
-    assert destinations == {"runtime/chromium", "runtime/chromium/hyphen-data",
-                            "runtime/chromium/locales"}
+    assert destinations == {
+        "runtime/chromium",
+        "runtime/chromium/hyphen-data",
+        "runtime/chromium/locales",
+    }
     assert "chrome-headless-shell" in names
     assert "hyph-fa.hyb" in names
     assert names & {f"{locale}" for locale in KEPT_LOCALES} == set(KEPT_LOCALES)

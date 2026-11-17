@@ -29,7 +29,9 @@ export function filterCommands(commands, query, limit = 12) {
     scored.push({ command, score });
   }
   return scored
-    .sort((a, b) => b.score - a.score || String(a.command.label).localeCompare(String(b.command.label)))
+    .sort(
+      (a, b) => b.score - a.score || String(a.command.label).localeCompare(String(b.command.label)),
+    )
     .slice(0, Math.max(1, Number(limit) || 12))
     .map(({ command }) => command);
 }

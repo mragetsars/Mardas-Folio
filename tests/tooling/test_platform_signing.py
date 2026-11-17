@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import importlib.util
 import json
 import subprocess
@@ -10,6 +8,8 @@ import zipfile
 from pathlib import Path
 
 import pytest
+
+from tests._paths import ROOT
 
 SCRIPTS = ROOT / "scripts"
 
@@ -200,9 +200,7 @@ def test_windows_authenticode_timestamp_and_portable_payload_are_verified(
     assert evidence["status"] == "verified"
     assert len(evidence["checks"]["authenticode"]) == 2
     assert evidence["checks"]["portable_executable_matches_verified_binary"] is True
-    module._validate_verified_evidence(
-        evidence, platform_name="windows", artifact_dir=artifact_dir
-    )
+    module._validate_verified_evidence(evidence, platform_name="windows", artifact_dir=artifact_dir)
 
     invalid_signature = json.loads(signature)
     invalid_signature["TimeStamperThumbprint"] = ""
@@ -293,9 +291,7 @@ def test_macos_requires_codesign_gatekeeper_and_stapled_notary_tickets(
     }
     assert sum(command[:2] == ["xcrun", "stapler"] for command in commands) == 2
     assert sum(command[0] == "spctl" for command in commands) == 2
-    module._validate_verified_evidence(
-        evidence, platform_name="macos", artifact_dir=artifact_dir
-    )
+    module._validate_verified_evidence(evidence, platform_name="macos", artifact_dir=artifact_dir)
 
 
 def test_public_verification_failure_leaves_manifest_pending(
@@ -391,8 +387,7 @@ def test_release_evidence_set_is_complete_and_bound_to_artifact_hashes(
             "signer": None,
         }
         path = (
-            tmp_path
-            / f"Mardas-Folio-1.31.0-{platform_name}-{architecture}-signing-evidence.json"
+            tmp_path / f"Mardas-Folio-1.31.0-{platform_name}-{architecture}-signing-evidence.json"
         )
         path.write_text(json.dumps(evidence), encoding="utf-8")
 

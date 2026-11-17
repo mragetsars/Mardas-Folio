@@ -48,12 +48,16 @@ export function validateDocumentText({ path, content, options = {} }) {
 }
 
 export function previewDocumentText({ path, content, options = {}, requestId: id } = {}) {
-  return sidecar("preview.document_text", {
-    input_path: path || "untitled.md",
-    content,
-    discover_config: Boolean(path),
-    options,
-  }, id);
+  return sidecar(
+    "preview.document_text",
+    {
+      input_path: path || "untitled.md",
+      content,
+      discover_config: Boolean(path),
+      options,
+    },
+    id,
+  );
 }
 
 /**
@@ -64,12 +68,16 @@ export function previewDocumentText({ path, content, options = {}, requestId: id
  * and the sheet geometry — which is what the export screen has to show.
  */
 export function previewDocumentPage({ path, content, options = {}, requestId: id } = {}) {
-  return sidecar("preview.document_page", {
-    input_path: path || "untitled.md",
-    content,
-    discover_config: Boolean(path),
-    options,
-  }, id);
+  return sidecar(
+    "preview.document_page",
+    {
+      input_path: path || "untitled.md",
+      content,
+      discover_config: Boolean(path),
+      options,
+    },
+    id,
+  );
 }
 
 export function listDocumentAssets(path) {

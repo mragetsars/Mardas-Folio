@@ -1,22 +1,50 @@
 import { invoke } from "../../adapters/tauri.mjs";
 import { saveProjectFile } from "../../adapters/project-api.mjs";
 import { saveDocument, saveTextDocument } from "../../adapters/authoring-api.mjs";
-import { closeDocument, documentDirty, findSavePathCollision, markDocumentSaved, pathKey } from "../../core/documents.mjs";
+import {
+  closeDocument,
+  documentDirty,
+  findSavePathCollision,
+  markDocumentSaved,
+  pathKey,
+} from "../../core/documents.mjs";
 import { recoveryKey, removeRecovery, saveRecovery } from "./recovery.mjs";
 
-export function createDocumentPersistence({ state, query: $, getEditor, activeDocument, isMarkdownModel, saveCoordinator, activateDocument, activateStartTab, focusDocument, saveRecent, persistSession, renderWorkspace, renderDocumentTabs, refreshActiveProject, setSaveState, askConfirmation, t, toast, errorText, errorPayload }) {
+export function createDocumentPersistence({
+  state,
+  query: $,
+  getEditor,
+  activeDocument,
+  isMarkdownModel,
+  saveCoordinator,
+  activateDocument,
+  activateStartTab,
+  focusDocument,
+  saveRecent,
+  persistSession,
+  renderWorkspace,
+  renderDocumentTabs,
+  refreshActiveProject,
+  setSaveState,
+  askConfirmation,
+  t,
+  toast,
+  errorText,
+  errorPayload,
+}) {
   async function saveActiveDocument({ saveAs = false, force = false } = {}) {
     if (getEditor()?.commitPendingDrafts?.() === false) return false;
     const model = activeDocument();
     if (!model) return false;
-    return saveCoordinator.save(
-      model,
-      () => persistDocumentModel(model, { saveAs, force }),
-      { alwaysRun: saveAs },
-    );
+    return saveCoordinator.save(model, () => persistDocumentModel(model, { saveAs, force }), {
+      alwaysRun: saveAs,
+    });
   }
 
-  async function persistDocumentModel(model, { saveAs = false, force = false, refreshProjectOnSave = true } = {}) {
+  async function persistDocumentModel(
+    model,
+    { saveAs = false, force = false, refreshProjectOnSave = true } = {},
+  ) {
     if (!state.documents.includes(model)) return false;
     if (model.readOnly && !saveAs) {
       toast(t("readOnlyDocument"), "error");
@@ -55,11 +83,15 @@ export function createDocumentPersistence({ state, query: $, getEditor, activeDo
           expectedSha256: model.projectSha256,
         });
         model.projectSha256 = result.sha256;
-        markDocumentSaved(model, {
-          path: result.absolute_path || model.path,
-          revision: result.revision,
-          read_only: result.read_only,
-        }, contentSnapshot);
+        markDocumentSaved(
+          model,
+          {
+            path: result.absolute_path || model.path,
+            revision: result.revision,
+            read_only: result.read_only,
+          },
+          contentSnapshot,
+        );
       } else {
         const saveStandalone = isMarkdownModel(model) ? saveDocument : saveTextDocument;
         result = await saveStandalone({
@@ -95,10 +127,12 @@ export function createDocumentPersistence({ state, query: $, getEditor, activeDo
       return true;
     } catch (error) {
       const payload = errorPayload(error);
-      const applicationCode = payload?.application_code || payload?.data?.application_code || payload?.code;
-      const conflict = applicationCode === "MARDAS-DOCUMENT-CONFLICT"
-        || applicationCode === "MARDAS-PROJECT-FILE-CHANGED"
-        || applicationCode === "project_file_changed";
+      const applicationCode =
+        payload?.application_code || payload?.data?.application_code || payload?.code;
+      const conflict =
+        applicationCode === "MARDAS-DOCUMENT-CONFLICT" ||
+        applicationCode === "MARDAS-PROJECT-FILE-CHANGED" ||
+        applicationCode === "project_file_changed";
       if (conflict) {
         if (activeDocument()?.id === model.id) setSaveState("dirty");
         if (isProjectSave) {
@@ -111,7 +145,8 @@ export function createDocumentPersistence({ state, query: $, getEditor, activeDo
           confirmLabel: t("forceSave"),
           danger: true,
         });
-        if (overwrite) return persistDocumentModel(model, { saveAs: false, force: true, refreshProjectOnSave });
+        if (overwrite)
+          return persistDocumentModel(model, { saveAs: false, force: true, refreshProjectOnSave });
         return false;
       }
       if (activeDocument()?.id === model.id) {
@@ -165,7 +200,11 @@ export function createDocumentPersistence({ state, query: $, getEditor, activeDo
       if (!state.documents.includes(model) || !documentDirty(model)) return;
       const result = saveRecovery(model);
       if (activeDocument()?.id === model.id) {
-        $("#recovery-status").textContent = result.ok ? t("recoverySaved") : result.reason === "too_large" ? t("recoveryTooLarge") : "";
+        $("#recovery-status").textContent = result.ok
+          ? t("recoverySaved")
+          : result.reason === "too_large"
+            ? t("recoveryTooLarge")
+            : "";
         setTimeout(() => {
           if ($("#recovery-status") && activeDocument()?.id === model.id) {
             $("#recovery-status").textContent = "";
@@ -175,5 +214,11 @@ export function createDocumentPersistence({ state, query: $, getEditor, activeDo
     }, 700);
     state.recoveryTimers.set(model.id, timer);
   }
-  return { saveActiveDocument, persistDocumentModel, requestCloseDocument, cancelRecoveryTimer, scheduleRecovery };
+  return {
+    saveActiveDocument,
+    persistDocumentModel,
+    requestCloseDocument,
+    cancelRecoveryTimer,
+    scheduleRecovery,
+  };
 }

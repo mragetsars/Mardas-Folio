@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """Exercise Write code controls against actual CodeMirror, source bytes and Undo."""
+
 from __future__ import annotations
 
 import argparse
+import json
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-import json
 from pathlib import Path
 from threading import Thread
 
 from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
-SAMPLE = ('# Code writing\n\n```javascript title="listing.js"\n'
-          'const text = "فارسی";\nconsole.log(text);\n```\n\n'
-          '## Empty block\n\n~~~\n~~~\n\n'
-          '## Unclosed code\n\n```python\nprint("tail")')
+SAMPLE = (
+    '# Code writing\n\n```javascript title="listing.js"\n'
+    'const text = "فارسی";\nconsole.log(text);\n```\n\n'
+    "## Empty block\n\n~~~\n~~~\n\n"
+    '## Unclosed code\n\n```python\nprint("tail")'
+)
 BODY = 'const text = "فارسی";\nconsole.log(text);\n'
 HTML = """<!doctype html><html lang="__LANG__" dir="__DIR__" data-theme="__THEME__"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/styles/base.css"><link rel="stylesheet" href="/styles/workspace.css">
@@ -41,17 +44,36 @@ def run(dist: Path, output: Path, bundle: Path | None = None) -> dict:
     try:
         with sync_playwright() as runtime:
             browser = runtime.chromium.launch()
-            for locale, theme, width in [("en", "light", 1200), ("fa", "dark", 1200), ("en", "dark", 680), ("fa", "light", 360)]:
+            for locale, theme, width in [
+                ("en", "light", 1200),
+                ("fa", "dark", 1200),
+                ("en", "dark", 680),
+                ("fa", "light", 360),
+            ]:
                 case = {"locale": locale, "theme": theme, "width": width, "checks": []}
                 report["cases"].append(case)
                 page = browser.new_page(viewport={"width": width, "height": 1000})
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
-                page.add_init_script("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{globalThis.__copied=value}}})")
-                html = HTML.replace("__LANG__", locale).replace("__DIR__", "rtl" if locale == "fa" else "ltr").replace("__THEME__", theme)
-                page.route("**/code-block-fixture.html", lambda route: route.fulfill(body=html, content_type="text/html"))
+                page.add_init_script(
+                    "Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{globalThis.__copied=value}}})"
+                )
+                html = (
+                    HTML.replace("__LANG__", locale)
+                    .replace("__DIR__", "rtl" if locale == "fa" else "ltr")
+                    .replace("__THEME__", theme)
+                )
+                page.route(
+                    "**/code-block-fixture.html",
+                    lambda route: route.fulfill(body=html, content_type="text/html"),
+                )
                 if bundle:
-                    page.route("**/js/vendor/codemirror-editor.bundle.mjs", lambda route: route.fulfill(path=str(bundle), content_type="text/javascript"))
+                    page.route(
+                        "**/js/vendor/codemirror-editor.bundle.mjs",
+                        lambda route: route.fulfill(
+                            path=str(bundle), content_type="text/javascript"
+                        ),
+                    )
                 try:
                     page.goto(f"http://127.0.0.1:{server.server_port}/code-block-fixture.html")
                     page.wait_for_function("Boolean(window.adapter)")
@@ -60,31 +82,53 @@ def run(dist: Path, output: Path, bundle: Path | None = None) -> dict:
                     expect(headers).to_have_count(3)
                     expect(page.locator(".cm-code-close")).to_have_count(2)
                     expect(page.locator(".cm-code-unclosed-end")).to_have_count(1)
-                    shape = headers.first.evaluate("e=>{const a=e.getBoundingClientRect(),r=e.closest('.cm-line'),s=getComputedStyle(r);return{left:a.left,right:a.right,radius:s.borderTopLeftRadius,border:s.borderTopWidth,indent:s.textIndent}}")
+                    shape = headers.first.evaluate(
+                        "e=>{const a=e.getBoundingClientRect(),r=e.closest('.cm-line'),s=getComputedStyle(r);return{left:a.left,right:a.right,radius:s.borderTopLeftRadius,border:s.borderTopWidth,indent:s.textIndent}}"
+                    )
                     assert shape["left"] >= 0 and shape["right"] <= width + 1, shape
-                    assert shape["radius"] == "10px" and shape["border"] == "1px" and shape["indent"] == "0px", shape
-                    case["checks"].append("language/copy/edit header fits, code boundaries and unclosed final line remain correct")
+                    assert (
+                        shape["radius"] == "10px"
+                        and shape["border"] == "1px"
+                        and shape["indent"] == "0px"
+                    ), shape
+                    case["checks"].append(
+                        "language/copy/edit header fits, code boundaries and unclosed final line remain correct"
+                    )
                     headers.first.locator(".cm-code-copy").click()
                     assert page.evaluate("globalThis.__copied") == BODY
                     assert page.evaluate("adapter.value") == SAMPLE
-                    case["checks"].append("Copy contains only exact code body, excludes language/fences, does not edit source")
+                    case["checks"].append(
+                        "Copy contains only exact code body, excludes language/fences, does not edit source"
+                    )
                     headers.first.locator("select").select_option("python")
-                    assert page.evaluate("adapter.value") == SAMPLE.replace("```javascript", "```python", 1)
+                    assert page.evaluate("adapter.value") == SAMPLE.replace(
+                        "```javascript", "```python", 1
+                    )
                     page.keyboard.press("Control+z")
                     assert page.evaluate("adapter.value") == SAMPLE
-                    case["checks"].append("language picker preserves attributes, body and delimiters; one Undo restores exact source")
+                    case["checks"].append(
+                        "language picker preserves attributes, body and delimiters; one Undo restores exact source"
+                    )
                     headers.first.locator("button").first.click()
                     page.keyboard.insert_text("EDIT_")
-                    assert page.evaluate("adapter.value") == SAMPLE.replace("const text", "EDIT_const text", 1)
+                    assert page.evaluate("adapter.value") == SAMPLE.replace(
+                        "const text", "EDIT_const text", 1
+                    )
                     expect(headers).to_have_count(3)
                     page.keyboard.press("Control+z")
                     assert page.evaluate("adapter.value") == SAMPLE
-                    case["checks"].append("Edit code places a precise native caret, keeps header visible, typing and Undo preserve source")
+                    case["checks"].append(
+                        "Edit code places a precise native caret, keeps header visible, typing and Undo preserve source"
+                    )
                     headers.nth(1).locator("button").first.click()
-                    assert page.evaluate("adapter.value") == SAMPLE.replace("~~~\n~~~", "~~~\n\n~~~", 1)
+                    assert page.evaluate("adapter.value") == SAMPLE.replace(
+                        "~~~\n~~~", "~~~\n\n~~~", 1
+                    )
                     page.keyboard.press("Control+z")
                     assert page.evaluate("adapter.value") == SAMPLE
-                    case["checks"].append("empty block gets an editable body row with one reversible source transaction")
+                    case["checks"].append(
+                        "empty block gets an editable body row with one reversible source transaction"
+                    )
                     page.evaluate("adapter.setReadOnly(true)")
                     expect(headers.first.locator("select")).to_be_disabled()
                     expect(headers.first.locator("button").first).to_be_disabled()
@@ -95,53 +139,81 @@ def run(dist: Path, output: Path, bundle: Path | None = None) -> dict:
                     page.evaluate("adapter.setMode('live')")
                     expect(headers).to_have_count(3)
                     assert not errors, errors
-                    case["checks"].append("read-only state disables editing and leaves copying; switching Source/Write preserves all bytes")
+                    case["checks"].append(
+                        "read-only state disables editing and leaves copying; switching Source/Write preserves all bytes"
+                    )
 
                     # Container marks belong to Markdown, not copied code.
                     # Editing an empty nested block must create a continuation
                     # row inside that same container, then place its caret
                     # after the prefix rather than before the quote/list.
-                    nested = '> ```js\n> console.log(1);\n> ```\n\nAfter.'
-                    page.evaluate("text=>{adapter.value=text;adapter.setSelectionRange(text.length)}", nested)
+                    nested = "> ```js\n> console.log(1);\n> ```\n\nAfter."
+                    page.evaluate(
+                        "text=>{adapter.value=text;adapter.setSelectionRange(text.length)}", nested
+                    )
                     headers.first.locator(".cm-code-copy").click()
-                    assert page.evaluate("globalThis.__copied") == 'console.log(1);\n'
+                    assert page.evaluate("globalThis.__copied") == "console.log(1);\n"
                     headers.first.locator("button").first.click()
                     page.keyboard.insert_text("EDIT_")
-                    assert page.evaluate("adapter.value") == nested.replace('> console.log', '> EDIT_console.log')
+                    assert page.evaluate("adapter.value") == nested.replace(
+                        "> console.log", "> EDIT_console.log"
+                    )
                     page.keyboard.press("Control+z")
                     assert page.evaluate("adapter.value") == nested
                     for nested, prefix in [
-                        ('> ```\n> ```\n\nAfter.', '> '),
-                        ('- ```\n  ```\n\nAfter.', '  '),
-                        ('> - ```\n>   ```\n\nAfter.', '>   '),
+                        ("> ```\n> ```\n\nAfter.", "> "),
+                        ("- ```\n  ```\n\nAfter.", "  "),
+                        ("> - ```\n>   ```\n\nAfter.", ">   "),
                     ]:
-                        page.evaluate("text=>{adapter.value=text;adapter.setSelectionRange(text.length)}", nested)
+                        page.evaluate(
+                            "text=>{adapter.value=text;adapter.setSelectionRange(text.length)}",
+                            nested,
+                        )
                         headers.first.locator("button").first.click()
-                        first, rest = nested.split('\n', 1)
-                        expected = first + '\n' + prefix + '\n' + rest
+                        first, rest = nested.split("\n", 1)
+                        expected = first + "\n" + prefix + "\n" + rest
                         assert page.evaluate("adapter.value") == expected
                         page.keyboard.insert_text("BODY")
-                        assert page.evaluate("adapter.value") == first + '\n' + prefix + 'BODY\n' + rest
+                        assert (
+                            page.evaluate("adapter.value")
+                            == first + "\n" + prefix + "BODY\n" + rest
+                        )
                         expect(headers).to_have_count(1)
                         page.keyboard.press("Control+z")
                         page.keyboard.press("Control+z")
                         assert page.evaluate("adapter.value") == nested
-                    case["checks"].append("nested quote/list Copy excludes container marks; empty Edit and its caret preserve structural prefixes with exact Undo")
+                    case["checks"].append(
+                        "nested quote/list Copy excludes container marks; empty Edit and its caret preserve structural prefixes with exact Undo"
+                    )
 
                     # Do not infer visual correctness from Copy's normalized
                     # text. Read the actual rendered line DOM: quote/list
                     # scaffolding must disappear while semantic indentation
                     # and a code comparison operator remain visible.
                     for quoted, expected_lines in [
-                        ('> ```python\n> ```\n\nAfter.', ["", ""]),
-                        ('> ```js\n> code > 1\n>   nested();\n> ```\n\nAfter.', ["", "code > 1", "  nested();", ""]),
-                        ('> > ```js\n>> code\n> > ```\n\nAfter.', ["", "code", ""]),
-                        ('- ```js\n  code\n    nested();\n  ```\n\nAfter.', ["", "code", "  nested();", ""]),
-                        ('> - ```js\n>   code\n>     nested();\n>   ```\n\nAfter.', ["", "code", "  nested();", ""]),
+                        ("> ```python\n> ```\n\nAfter.", ["", ""]),
+                        (
+                            "> ```js\n> code > 1\n>   nested();\n> ```\n\nAfter.",
+                            ["", "code > 1", "  nested();", ""],
+                        ),
+                        ("> > ```js\n>> code\n> > ```\n\nAfter.", ["", "code", ""]),
+                        (
+                            "- ```js\n  code\n    nested();\n  ```\n\nAfter.",
+                            ["", "code", "  nested();", ""],
+                        ),
+                        (
+                            "> - ```js\n>   code\n>     nested();\n>   ```\n\nAfter.",
+                            ["", "code", "  nested();", ""],
+                        ),
                     ]:
-                        page.evaluate("text=>{adapter.value=text;adapter.setSelectionRange(text.length)}", quoted)
+                        page.evaluate(
+                            "text=>{adapter.value=text;adapter.setSelectionRange(text.length)}",
+                            quoted,
+                        )
                         for selection in ([len(quoted)], [0, quoted.index("\n\nAfter.")]):
-                            page.evaluate("positions=>adapter.setSelectionRange(...positions)", selection)
+                            page.evaluate(
+                                "positions=>adapter.setSelectionRange(...positions)", selection
+                            )
                             actual_lines = page.locator(".cm-code-line").evaluate_all("""lines=>lines.map(line=>{
                               const clone=line.cloneNode(true);
                               clone.querySelector('.cm-code-header')?.remove();
@@ -150,10 +222,16 @@ def run(dist: Path, output: Path, bundle: Path | None = None) -> dict:
                               clone.querySelector('.cm-md-bullet')?.remove();
                               return clone.textContent.replace(/\\u200b/g,'').trimEnd();
                             })""")
-                            assert actual_lines == expected_lines, {"source": quoted, "selection": selection, "lines": actual_lines}
+                            assert actual_lines == expected_lines, {
+                                "source": quoted,
+                                "selection": selection,
+                                "lines": actual_lines,
+                            }
                             assert page.evaluate("adapter.value") == quoted
                         page.screenshot(path=str(output / f"{locale}-{theme}-{width}-nested.png"))
-                    case["checks"].append("rendered nested code hides quote/list scaffold even in a selection, retaining semantic indentation and comparison operators")
+                    case["checks"].append(
+                        "rendered nested code hides quote/list scaffold even in a selection, retaining semantic indentation and comparison operators"
+                    )
                     page.evaluate("text=>{adapter.value=text;adapter.setSelectionRange(0)}", SAMPLE)
                     page.screenshot(path=str(output / f"{locale}-{theme}-{width}.png"))
                     case["status"] = "pass"
@@ -164,12 +242,16 @@ def run(dist: Path, output: Path, bundle: Path | None = None) -> dict:
                 finally:
                     page.close()
             browser.close()
-        report["status"] = "pass" if all(case["status"] == "pass" for case in report["cases"]) else "fail"
+        report["status"] = (
+            "pass" if all(case["status"] == "pass" for case in report["cases"]) else "fail"
+        )
         return report
     finally:
         server.shutdown()
         server.server_close()
-        (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        (output / "report.json").write_text(
+            json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
 
 if __name__ == "__main__":
@@ -178,6 +260,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, default=ROOT / "build/write-code-blocks")
     parser.add_argument("--bundle", type=Path)
     args = parser.parse_args()
-    result = run(args.dist.resolve(), args.output.resolve(), args.bundle.resolve() if args.bundle else None)
+    result = run(
+        args.dist.resolve(), args.output.resolve(), args.bundle.resolve() if args.bundle else None
+    )
     print(json.dumps(result, ensure_ascii=False))
     raise SystemExit(result["status"] != "pass")

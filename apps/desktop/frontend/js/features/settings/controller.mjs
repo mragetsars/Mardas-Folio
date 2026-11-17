@@ -1,7 +1,15 @@
 import { createSettingsPanel } from "./settings-panel.mjs";
 import { DEFAULT_PREFERENCES, writePreferences } from "./preferences.mjs";
 /** Owns this feature's DOM interactions; cross-feature actions are injected. */
-export function createSettingsController({ state, query: $, getModalManager, applyInterfacePreferences, setLocale, t, toast }) {
+export function createSettingsController({
+  state,
+  query: $,
+  getModalManager,
+  applyInterfacePreferences,
+  setLocale,
+  t,
+  toast,
+}) {
   const settingsPanel = createSettingsPanel($("#settings-form"));
   function fillSettingsForm() {
     $("#setting-theme").value = state.preferences.theme;
@@ -11,7 +19,8 @@ export function createSettingsController({ state, query: $, getModalManager, app
     $("#setting-motion").value = state.preferences.reducedMotion;
     $("#setting-auto-preview").checked = state.preferences.autoPreview;
     $("#setting-typewriter").checked = state.preferences.typewriter;
-    if ($("#setting-writing-width")) $("#setting-writing-width").value = state.preferences.writingWidth;
+    if ($("#setting-writing-width"))
+      $("#setting-writing-width").value = state.preferences.writingWidth;
     $("#setting-locale").value = state.locale;
     settingsPanel.updateAccentPreview();
   }

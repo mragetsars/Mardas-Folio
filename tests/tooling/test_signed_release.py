@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import base64
 import importlib.util
 import io
@@ -9,11 +7,13 @@ import json
 import os
 import shutil
 import subprocess
-import tarfile
 import sys
+import tarfile
 from pathlib import Path
 
 import pytest
+
+from tests._paths import ROOT
 
 try:
     import tomllib
@@ -57,7 +57,8 @@ def _signed_release_files(root: Path, version: str) -> str:
     if not secret.exists():
         subprocess.run(
             [minisign, "-G", "-W", "-s", str(secret), "-p", str(public)],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
     _write_payload(
         root / f"Mardas-Folio-{version}-windows-x86_64-setup.exe",
@@ -68,16 +69,15 @@ def _signed_release_files(root: Path, version: str) -> str:
         b"\x7fELF",
     )
     for arch in ("arm64", "x86_64"):
-        _write_mac_updater(
-            root / f"Mardas-Folio-{version}-macos-{arch}-updater.tar.gz"
-        )
+        _write_mac_updater(root / f"Mardas-Folio-{version}-macos-{arch}-updater.tar.gz")
     for payload in sorted(root.glob(f"Mardas-Folio-{version}-*")):
         if payload.name.endswith(".sig"):
             continue
         detached = signing / "payload.minisig"
         subprocess.run(
             [minisign, "-S", "-s", str(secret), "-m", str(payload), "-x", str(detached)],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         (root / f"{payload.name}.sig").write_text(
             base64.b64encode(detached.read_bytes()).decode("ascii"), encoding="utf-8"
@@ -149,9 +149,7 @@ def test_signed_update_assembly_without_optional_notes(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("corruption", ["payload", "signature", "public-key", "trusted-comment"])
-def test_updater_assembly_rejects_cryptographic_mismatches(
-    tmp_path: Path, corruption: str
-) -> None:
+def test_updater_assembly_rejects_cryptographic_mismatches(tmp_path: Path, corruption: str) -> None:
     module = _load("assemble_signed_updates.py")
     version = "2.1.0"
     public_key = _signed_release_files(tmp_path, version)
@@ -220,9 +218,7 @@ def test_release_preflight_separates_draft_and_public_signing_requirements() -> 
         "APPLE_API_KEY_P8": _fake_api_key(),
         "APPLE_TEAM_ID": "ABCDEFGHIJ",
     }
-    production = module.report(
-        module.evaluate(production_env, mode="public"), mode="public"
-    )
+    production = module.report(module.evaluate(production_env, mode="public"), mode="public")
     assert production["ready"] is True
 
     apple_id_environment = dict(production_env)
@@ -240,9 +236,7 @@ def test_release_preflight_separates_draft_and_public_signing_requirements() -> 
     assert apple_id_release["ready"] is True
 
     production_env["MARDAS_WINDOWS_CERTIFICATE_THUMBPRINT"] = "not-a-thumbprint"
-    malformed = module.report(
-        module.evaluate(production_env, mode="public"), mode="public"
-    )
+    malformed = module.report(module.evaluate(production_env, mode="public"), mode="public")
     assert "windows_code_signing" in malformed["blocking"]
 
 
@@ -304,7 +298,7 @@ def test_release_workflow_stages_signed_updater_assets_in_draft_only() -> None:
 
     for marker in (
         "release-preflight:",
-        "python scripts/release_preflight.py --mode \"$MARDAS_RELEASE_MODE\"",
+        'python scripts/release_preflight.py --mode "$MARDAS_RELEASE_MODE"',
         "TAURI_SIGNING_PRIVATE_KEY",
         "MARDAS_UPDATER_PUBKEY",
         "--create-updater-artifacts",
@@ -334,7 +328,6 @@ def test_release_workflow_stages_signed_updater_assets_in_draft_only() -> None:
     assert "gh release upload" in workflow
     assert "gh release edit" in workflow
     assert "gh release create" not in workflow.split("publish-draft:", 1)[0]
-
 
 
 def test_native_builder_requires_https_and_materializes_updater_config(tmp_path: Path) -> None:
@@ -461,9 +454,7 @@ def test_native_builder_validates_macos_notarization_key_without_serializing_it(
         payload = json.loads(config.read_text(encoding="utf-8"))
         assert payload == {
             "bundle": {
-                "macOS": {
-                    "signingIdentity": "Developer ID Application: Example (ABCDEFGHIJ)"
-                }
+                "macOS": {"signingIdentity": "Developer ID Application: Example (ABCDEFGHIJ)"}
             }
         }
         assert str(key) not in config.read_text(encoding="utf-8")
@@ -515,16 +506,13 @@ def test_native_builder_requires_a_regular_locked_cargo_graph(
             build_config=None,
         )
 
+
 def test_updater_rust_boundary_is_secret_driven_and_https_only() -> None:
-    updates = (
-        ROOT / "apps" / "desktop" / "src-tauri" / "src" / "updates.rs"
-    ).read_text(encoding="utf-8")
-    cargo = (ROOT / "apps" / "desktop" / "src-tauri" / "Cargo.toml").read_text(
+    updates = (ROOT / "apps" / "desktop" / "src-tauri" / "src" / "updates.rs").read_text(
         encoding="utf-8"
     )
-    main = (ROOT / "apps" / "desktop" / "src-tauri" / "src" / "main.rs").read_text(
-        encoding="utf-8"
-    )
+    cargo = (ROOT / "apps" / "desktop" / "src-tauri" / "Cargo.toml").read_text(encoding="utf-8")
+    main = (ROOT / "apps" / "desktop" / "src-tauri" / "src" / "main.rs").read_text(encoding="utf-8")
 
     assert 'option_env!("MARDAS_UPDATER_PUBKEY")' in updates
     assert 'option_env!("MARDAS_UPDATE_ENDPOINT")' in updates

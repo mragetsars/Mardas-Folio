@@ -21,7 +21,9 @@ const engine = JSON.parse(
 test("the settings panel exposes every option the engine accepts", () => {
   // The point of the panel is that nothing is CLI-only. If the engine gains an
   // option, this fails until it is given a control.
-  const missing = Object.keys(engine).filter((key) => !(key in OPTION_FIELDS)).sort();
+  const missing = Object.keys(engine)
+    .filter((key) => !(key in OPTION_FIELDS))
+    .sort();
   assert.deepEqual(missing, [], "these engine options have no control in the interface");
 });
 
@@ -62,12 +64,13 @@ test("negated engine options are shown positively and flipped on the way out", (
 
 test("numbers and lists are converted to the shapes the engine expects", () => {
   assert.deepEqual(collectRenderOptions({ toc_depth: "3" }), { toc_depth: 3 });
-  assert.deepEqual(collectRenderOptions({ watermark_opacity: "0.15" }), { watermark_opacity: 0.15 });
+  assert.deepEqual(collectRenderOptions({ watermark_opacity: "0.15" }), {
+    watermark_opacity: 0.15,
+  });
   assert.deepEqual(collectRenderOptions({ toc_depth: "abc" }), {});
-  assert.deepEqual(
-    collectRenderOptions({ required_fonts: "Vazirmatn, Cascadia Mono ,, " }),
-    { required_fonts: ["Vazirmatn", "Cascadia Mono"] },
-  );
+  assert.deepEqual(collectRenderOptions({ required_fonts: "Vazirmatn, Cascadia Mono ,, " }), {
+    required_fonts: ["Vazirmatn", "Cascadia Mono"],
+  });
   assert.deepEqual(collectRenderOptions({ required_fonts: " , " }), {});
 });
 

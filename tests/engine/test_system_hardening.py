@@ -121,7 +121,9 @@ def test_studio_returns_controlled_error_for_invalid_frontmatter() -> None:
     assert "Invalid YAML front matter" in payload["error"]
 
 
-def test_studio_export_concurrency_is_bounded(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_studio_export_concurrency_is_bounded(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     active = 0
     maximum = 0
     state_lock = Lock()
@@ -216,7 +218,9 @@ def test_preview_freshness_is_isolated_per_client(monkeypatch: pytest.MonkeyPatc
 
 
 def test_heading_ids_are_unique_across_raw_html_and_markdown() -> None:
-    result = render_markdown('<h2 id="dup">Raw</h2>\n\n## Markdown {#ignored}\n\n<h3 id="dup">Again</h3>')
+    result = render_markdown(
+        '<h2 id="dup">Raw</h2>\n\n## Markdown {#ignored}\n\n<h3 id="dup">Again</h3>'
+    )
 
     assert result.body_html.count('id="dup"') == 1
     assert 'id="dup-2"' in result.body_html
@@ -226,7 +230,9 @@ def test_heading_ids_are_unique_across_raw_html_and_markdown() -> None:
 def test_relative_file_links_are_inert_and_html_has_no_local_base_path(tmp_path: Path) -> None:
     input_path = tmp_path / "document" / "report.md"
     input_path.parent.mkdir()
-    result = render_markdown("[Sibling](secret.txt) [Parent](../outside.txt) [Web](https://example.com) [Section](#part)")
+    result = render_markdown(
+        "[Sibling](secret.txt) [Parent](../outside.txt) [Web](https://example.com) [Section](#part)"
+    )
     html = build_html(result, PdfOptions(input_path=input_path, output_path=tmp_path / "out.pdf"))
 
     assert "<base " not in html

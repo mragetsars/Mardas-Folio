@@ -12,7 +12,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
-
 _FILE_READ_ATTRIBUTES = 0x0080
 _GENERIC_READ = 0x80000000
 _FILE_SHARE_READ = 0x00000001
@@ -69,9 +68,7 @@ def _kernel32():
 
 def _open(path: Path, *, access: int, share: int, flags: int):
     kernel32 = _kernel32()
-    handle = kernel32.CreateFileW(
-        str(path), access, share, None, _OPEN_EXISTING, flags, None
-    )
+    handle = kernel32.CreateFileW(str(path), access, share, None, _OPEN_EXISTING, flags, None)
     if handle in (None, _INVALID_HANDLE_VALUE):
         raise ctypes.WinError(ctypes.get_last_error())
     return kernel32, handle
@@ -143,9 +140,10 @@ def matches_regular_file(path: Path, expected_size: int, expected_digest: bytes)
         while remaining:
             requested = min(remaining, _READ_CHUNK_SIZE)
             read = ctypes.c_uint32()
-            if not kernel32.ReadFile(
-                handle, buffer, requested, ctypes.byref(read), None
-            ) or read.value == 0:
+            if (
+                not kernel32.ReadFile(handle, buffer, requested, ctypes.byref(read), None)
+                or read.value == 0
+            ):
                 return False
             digest.update(buffer.raw[: read.value])
             remaining -= read.value

@@ -61,7 +61,15 @@ def _verify_signature(payload: Path, signature: Path, *, public_key: str) -> Non
         signature_path.write_bytes(signature_text)
         try:
             completed = subprocess.run(
-                [executable, "-Vm", str(payload), "-p", str(public_path), "-x", str(signature_path)],
+                [
+                    executable,
+                    "-Vm",
+                    str(payload),
+                    "-p",
+                    str(public_path),
+                    "-x",
+                    str(signature_path),
+                ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=False,
@@ -113,7 +121,9 @@ def assemble(
     tag = tag or f"v{version}"
     if tag != f"v{version}":
         raise ValueError("Release tag must exactly match v<version>")
-    public_key = public_key if public_key is not None else os.environ.get("MARDAS_UPDATER_PUBKEY", "")
+    public_key = (
+        public_key if public_key is not None else os.environ.get("MARDAS_UPDATER_PUBKEY", "")
+    )
     _decode_tauri_minisign(public_key, label="public key", maximum=MAX_UPDATER_KEY_BYTES)
 
     targets: list[tuple[str, str, Path]] = []
@@ -143,9 +153,7 @@ def assemble(
         payload, signature = _require_pair(
             directory, payload_name, version=version, public_key=public_key
         )
-        targets.append(
-            (target, _release_url(repository, tag, payload.name), signature)
-        )
+        targets.append((target, _release_url(repository, tag, payload.name), signature))
 
     payload = build_update_manifest(
         version=version,

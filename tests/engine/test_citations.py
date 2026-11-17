@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from bs4 import BeautifulSoup
 
 from mardas_folio.citations import (

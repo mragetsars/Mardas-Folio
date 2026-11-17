@@ -3,21 +3,29 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const main = readFileSync(new URL("../../frontend/js/main.mjs", import.meta.url), "utf8");
-const sanitizerSource = readFileSync(new URL("../../frontend/js/preview/sanitize.mjs", import.meta.url), "utf8");
-const index = readFileSync(new URL("../../frontend/index.html", import.meta.url), "utf8");
-const tauri = JSON.parse(readFileSync(
-  new URL("../../src-tauri/tauri.conf.json", import.meta.url),
+const sanitizerSource = readFileSync(
+  new URL("../../frontend/js/preview/sanitize.mjs", import.meta.url),
   "utf8",
-));
+);
+const index = readFileSync(new URL("../../frontend/index.html", import.meta.url), "utf8");
+const tauri = JSON.parse(
+  readFileSync(new URL("../../src-tauri/tauri.conf.json", import.meta.url), "utf8"),
+);
 
 test("full-book preview sanitizes body content without injecting renderer head styles", () => {
   const start = main.indexOf("function renderFullBookPreview");
   const end = main.indexOf("async function previewActiveBook", start);
   const implementation = main.slice(start, end);
-  assert.match(implementation, /safePreviewHtml\((?:parsed\.body|content)\.innerHTML, "book-review-"\)/);
+  assert.match(
+    implementation,
+    /safePreviewHtml\((?:parsed\.body|content)\.innerHTML, "book-review-"\)/,
+  );
   assert.match(implementation, /#book-review-document/);
   assert.doesNotMatch(implementation, /setViewMode|#preview-document/);
-  assert.doesNotMatch(implementation, /parsed\.head|querySelectorAll\(["']style|createElement\(["']style/);
+  assert.doesNotMatch(
+    implementation,
+    /parsed\.head|querySelectorAll\(["']style|createElement\(["']style/,
+  );
 
   const sanitizerStart = sanitizerSource.indexOf("function safePreviewHtml");
   const sanitizerEnd = sanitizerSource.length;
@@ -26,7 +34,10 @@ test("full-book preview sanitizes body content without injecting renderer head s
 });
 
 test("command palette delegates every close path to shared ARIA cleanup", () => {
-  const palette = readFileSync(new URL("../../frontend/js/ui/command-palette.mjs", import.meta.url), "utf8");
+  const palette = readFileSync(
+    new URL("../../frontend/js/ui/command-palette.mjs", import.meta.url),
+    "utf8",
+  );
   const start = palette.indexOf("function openCommandPalette");
   const end = palette.indexOf("async function runCommand", start);
   const implementation = palette.slice(start, end);
@@ -56,7 +67,7 @@ test("prefixing preview ids also prefixes what points at them", () => {
   assert.match(sanitizer, /const localReference =/);
   assert.match(sanitizer, /idMap\.get\(id\)/);
   assert.match(sanitizer, /removeAttribute\("href"\);[\s\S]*?continue;/);
-  assert.match(sanitizer, /"marker-start", "marker-mid", "marker-end"/);
+  assert.match(sanitizer, /"marker-start",\s*"marker-mid",\s*"marker-end"/);
 });
 
 test("find navigation never asks the editor adapter for a computed style", () => {

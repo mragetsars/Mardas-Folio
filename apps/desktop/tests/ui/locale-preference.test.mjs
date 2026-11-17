@@ -25,8 +25,12 @@ test("locale preference uses persisted language and a normalized fallback", () =
 
 test("locale persistence failures never block application startup or switching", () => {
   const broken = {
-    getItem() { throw new Error("blocked"); },
-    setItem() { throw new Error("blocked"); },
+    getItem() {
+      throw new Error("blocked");
+    },
+    setItem() {
+      throw new Error("blocked");
+    },
   };
   assert.equal(readLocalePreference(broken, "fa-IR"), "fa");
   assert.equal(writeLocalePreference("fa-IR", broken), "fa");
@@ -45,9 +49,11 @@ test("every interface string exists in both languages", () => {
   // English table falls back silently — the whole export preview and view
   // switcher shipped in English inside a Persian window that way.
   const source = readFileSync(new URL("../../frontend/js/core/i18n.mjs", import.meta.url), "utf8");
-  const keys = [...new Set(
-    [...source.matchAll(/["']?([A-Za-z][A-Za-z0-9_.]*)["']?\s*:\s*["']/g)].map((m) => m[1]),
-  )];
+  const keys = [
+    ...new Set(
+      [...source.matchAll(/["']?([A-Za-z][A-Za-z0-9_.]*)["']?\s*:\s*["']/g)].map((m) => m[1]),
+    ),
+  ];
   const fa = createTranslator("fa");
   const en = createTranslator("en");
   const untranslated = keys.filter((key) => {

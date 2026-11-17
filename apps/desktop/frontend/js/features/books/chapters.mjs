@@ -1,7 +1,26 @@
-import { addBookChapter, duplicateBookChapter, reorderBookChapters, removeBookChapter } from "../../adapters/book-api.mjs";
+import {
+  addBookChapter,
+  duplicateBookChapter,
+  reorderBookChapters,
+  removeBookChapter,
+} from "../../adapters/book-api.mjs";
 import { spriteIcon } from "../../ui/icons.mjs";
 
-export function createBookChapters({ state, query: $, getModalManager, activeDocument, currentProjectContext, projectContextIsCurrent, applyProjectPayload, openProjectRelativeFile, askConfirmation, setTruncatableText, t, toast, errorText }) {
+export function createBookChapters({
+  state,
+  query: $,
+  getModalManager,
+  activeDocument,
+  currentProjectContext,
+  projectContextIsCurrent,
+  applyProjectPayload,
+  openProjectRelativeFile,
+  askConfirmation,
+  setTruncatableText,
+  t,
+  toast,
+  errorText,
+}) {
   function openChapterModal(mode, chapter = null) {
     state.chapterModalMode = mode;
     state.chapterModalPath = chapter?.path || null;
@@ -40,18 +59,19 @@ export function createBookChapters({ state, query: $, getModalManager, activeDoc
     const submit = event.submitter || $("#chapter-form button[type='submit']");
     submit.disabled = true;
     try {
-      const result = mode === "duplicate"
-        ? await duplicateBookChapter({
-            projectPath: project.path,
-            relativePath: state.chapterModalPath,
-            title,
-            expectedConfigSha256: project.config_sha256,
-          })
-        : await addBookChapter({
-            projectPath: project.path,
-            title,
-            expectedConfigSha256: project.config_sha256,
-          });
+      const result =
+        mode === "duplicate"
+          ? await duplicateBookChapter({
+              projectPath: project.path,
+              relativePath: state.chapterModalPath,
+              title,
+              expectedConfigSha256: project.config_sha256,
+            })
+          : await addBookChapter({
+              projectPath: project.path,
+              title,
+              expectedConfigSha256: project.config_sha256,
+            });
       if (!projectContextIsCurrent(projectContext)) return;
       applyProjectPayload(result);
       closeChapterModal();
@@ -136,7 +156,10 @@ export function createBookChapters({ state, query: $, getModalManager, activeDoc
       </span>`;
     row.querySelector(".book-chapter-handle").append(spriteIcon("grip"));
     for (const [action, symbol] of Object.entries({
-      up: "chevron-up", down: "chevron-down", duplicate: "duplicate", remove: "close",
+      up: "chevron-up",
+      down: "chevron-down",
+      duplicate: "duplicate",
+      remove: "close",
     })) {
       row.querySelector(`[data-action="${action}"]`).append(spriteIcon(symbol));
     }

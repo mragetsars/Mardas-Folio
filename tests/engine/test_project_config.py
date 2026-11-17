@@ -501,10 +501,10 @@ def test_bibliography_config_rejects_absolute_and_escaping_sources(tmp_path: Pat
     absolute.write_text("", encoding="utf-8")
     config_path = tmp_path / "mardas.toml"
     config_path.write_text(
-        f'''schema_version = 1
+        f"""schema_version = 1
 [bibliography]
 sources = [{str(absolute)!r}, "../outside.bib"]
-''',
+""",
         encoding="utf-8",
     )
 

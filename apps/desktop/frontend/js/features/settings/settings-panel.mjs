@@ -32,7 +32,8 @@ export function createSettingsPanel(form) {
       hasMatch ||= show;
     }
     for (const button of buttons) {
-      if (!searching && button.getAttribute("aria-controls") === activeSection) button.setAttribute("aria-current", "true");
+      if (!searching && button.getAttribute("aria-controls") === activeSection)
+        button.setAttribute("aria-current", "true");
       else button.removeAttribute("aria-current");
     }
     clear.hidden = !search.value;
@@ -64,10 +65,14 @@ export function createSettingsPanel(form) {
   });
   accent.addEventListener("change", updateAccentPreview);
   // A draft can contain an invalid number after its row has been filtered out.
-  form.addEventListener("invalid", (event) => {
-    const section = event.target.closest(".settings-section");
-    if (section && event.target.closest("[hidden]")) showSection(section.id);
-  }, true);
+  form.addEventListener(
+    "invalid",
+    (event) => {
+      const section = event.target.closest(".settings-section");
+      if (section && event.target.closest("[hidden]")) showSection(section.id);
+    },
+    true,
+  );
 
   return { showSection, updateAccentPreview };
 }

@@ -20,28 +20,38 @@ function storage(initial = {}) {
 }
 
 test("preferences normalize invalid values and persist safely", () => {
-  assert.deepEqual(normalizePreferences({ theme: "neon", contentScale: "huge" }), DEFAULT_PREFERENCES);
+  assert.deepEqual(
+    normalizePreferences({ theme: "neon", contentScale: "huge" }),
+    DEFAULT_PREFERENCES,
+  );
   const store = storage();
-  const value = writePreferences({
-    theme: "dark",
-    contentScale: "large",
-    reducedMotion: "reduce",
-    autoPreview: false,
-    onboardingComplete: true,
-  }, store);
+  const value = writePreferences(
+    {
+      theme: "dark",
+      contentScale: "large",
+      reducedMotion: "reduce",
+      autoPreview: false,
+      onboardingComplete: true,
+    },
+    store,
+  );
   assert.equal(value.theme, "dark");
   assert.deepEqual(readPreferences(store), value);
 });
 
 test("preferences resolve system appearance without network state", () => {
   const dataset = {};
-  applyPreferences({ dataset }, {
-    theme: "system",
-    contentScale: "extra-large",
-    reducedMotion: "system",
-    autoPreview: true,
-    onboardingComplete: false,
-  }, (query) => ({ matches: query.includes("dark") || query.includes("reduced-motion") }));
+  applyPreferences(
+    { dataset },
+    {
+      theme: "system",
+      contentScale: "extra-large",
+      reducedMotion: "system",
+      autoPreview: true,
+      onboardingComplete: false,
+    },
+    (query) => ({ matches: query.includes("dark") || query.includes("reduced-motion") }),
+  );
   assert.equal(dataset.theme, "dark");
   assert.equal(dataset.themePreference, "system");
   assert.equal(dataset.contentScale, "extra-large");
@@ -51,7 +61,17 @@ test("preferences resolve system appearance without network state", () => {
 test("accent settings migrate, validate and survive a restart", () => {
   assert.equal(normalizePreferences({ theme: "dark" }).accent, "monochrome");
   assert.equal(normalizePreferences({ accent: "unknown" }).accent, "monochrome");
-  for (const accent of ["monochrome", "gray", "blue", "red", "amber", "green", "teal", "purple", "pink"]) {
+  for (const accent of [
+    "monochrome",
+    "gray",
+    "blue",
+    "red",
+    "amber",
+    "green",
+    "teal",
+    "purple",
+    "pink",
+  ]) {
     const store = storage();
     writePreferences({ accent, theme: "dark" }, store);
     const dataset = {};
@@ -96,10 +116,13 @@ test("document text controls step cleanly from legacy percentages without exceed
 test("document text zoom exposes its own scale without altering the interface or legacy scale", () => {
   const dataset = {};
   const properties = new Map();
-  applyPreferences({ dataset, style: { setProperty: (key, value) => properties.set(key, value) } }, {
-    documentZoom: 150,
-    writingWidth: "full",
-  });
+  applyPreferences(
+    { dataset, style: { setProperty: (key, value) => properties.set(key, value) } },
+    {
+      documentZoom: 150,
+      writingWidth: "full",
+    },
+  );
   assert.equal(dataset.documentZoom, "150");
   assert.equal(dataset.contentScale, "comfortable");
   assert.equal(dataset.writingWidth, "full");
@@ -111,7 +134,11 @@ test("document text zoom exposes its own scale without altering the interface or
 
 test("legacy Split migrates to editable Source with an independent side preview", () => {
   const store = storage({
-    "mardas.desktop.preferences.v1": JSON.stringify({ viewMode: "split", documentZoom: 125, autoPreview: false }),
+    "mardas.desktop.preferences.v1": JSON.stringify({
+      viewMode: "split",
+      documentZoom: 125,
+      autoPreview: false,
+    }),
   });
   const migrated = readPreferences(store);
   assert.equal(migrated.viewMode, "source");
@@ -125,12 +152,18 @@ test("legacy Split migrates to editable Source with an independent side preview"
 test("side preview is a remembered layout choice for either editing representation", () => {
   const store = storage();
   for (const viewMode of ["write", "source", "read", "write"]) {
-    const current = writePreferences({ ...readPreferences(store), viewMode, sidePreview: true }, store);
+    const current = writePreferences(
+      { ...readPreferences(store), viewMode, sidePreview: true },
+      store,
+    );
     assert.equal(current.sidePreview, true);
     assert.equal(previewVisibleForView(current.viewMode, current.sidePreview), viewMode !== "read");
     assert.equal(editorModeForView(current.viewMode), viewMode === "write" ? "live" : "source");
   }
-  assert.equal(writePreferences({ viewMode: "source", sidePreview: false }, store).sidePreview, false);
+  assert.equal(
+    writePreferences({ viewMode: "source", sidePreview: false }, store).sidePreview,
+    false,
+  );
   assert.equal(readPreferences(store).viewMode, "source");
   for (const sidePreview of [null, "true", 1, {}]) {
     assert.equal(normalizePreferences({ viewMode: "write", sidePreview }).sidePreview, false);

@@ -1,10 +1,8 @@
-
-from tests._paths import ROOT
 from io import StringIO
 
 from mardas_folio.cli import _CliProgressBar, build_parser
 from mardas_folio.renderer import _report_progress
-
+from tests._paths import ROOT
 
 GUI_HTML = ROOT / "src" / "mardas_folio" / "assets" / "gui.html"
 

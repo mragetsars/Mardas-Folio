@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import threading
 from contextlib import contextmanager
 from pathlib import Path
-import threading
 
 import pytest
 
@@ -116,6 +116,7 @@ def test_studio_export_manager_canonicalizes_temporary_root(
 
 def test_studio_export_manager_writes_results_outside_memory(tmp_path: Path) -> None:
     with StudioExportManager(workers=1, queue_size=1, idle_timeout=10) as manager:
+
         def work(directory, session, progress, cancelled):
             output = directory / "report.pdf"
             output.write_bytes(b"%PDF-1.7\n")
@@ -145,6 +146,7 @@ def test_studio_export_manager_rejects_symlink_results(tmp_path: Path) -> None:
     target = tmp_path / "target.pdf"
     target.write_bytes(b"%PDF-1.7\n")
     with StudioExportManager(workers=1, queue_size=1, idle_timeout=10) as manager:
+
         def work(directory, session, progress, cancelled):
             output = directory / "linked.pdf"
             try:

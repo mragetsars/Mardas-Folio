@@ -33,7 +33,9 @@ def test_frontmatter_branding_cannot_read_absolute_or_parent_files(tmp_path: Pat
             f"---\nbranding: full\nbrand_logo: {json.dumps(reference)}\n---\n\n# Report\n"
         )
         with pytest.raises(DocumentAssetError, match="document directory"):
-            build_html(result, PdfOptions(input_path=input_path, output_path=document_dir / "out.pdf"))
+            build_html(
+                result, PdfOptions(input_path=input_path, output_path=document_dir / "out.pdf")
+            )
 
 
 def test_frontmatter_branding_rejects_symlink_escape(tmp_path: Path) -> None:
@@ -62,9 +64,7 @@ def test_studio_reports_unsafe_frontmatter_asset_without_disclosing_file(tmp_pat
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        markdown = (
-            f"---\nbranding: full\nbrand_logo: {json.dumps(str(outside))}\n---\n\n# Report\n"
-        )
+        markdown = f"---\nbranding: full\nbrand_logo: {json.dumps(str(outside))}\n---\n\n# Report\n"
         body = json.dumps({"markdown": markdown, "options": {"branding": "full"}})
         connection = HTTPConnection("127.0.0.1", server.server_port, timeout=10)
         connection.request(
@@ -138,8 +138,8 @@ def test_fast_preview_enforces_safe_link_and_image_url_policy() -> None:
     assert "function safeFastPreviewImageUrl" in source
     assert "['http:', 'https:', 'mailto:']" in source
     assert "Fast Preview blocks local and remote images" in source
-    assert "src=\"$2\"" not in source
-    assert "href=\"$2\"" not in source
+    assert 'src="$2"' not in source
+    assert 'href="$2"' not in source
 
 
 def test_conversion_paths_protect_bibliography_sources(tmp_path: Path) -> None:
@@ -222,11 +222,14 @@ def test_render_rpc_reports_config_collision_without_writing(tmp_path):
     original = config.read_bytes()
     service = EngineService()
     with pytest.raises(EngineError) as error:
-        service.dispatch("render.document", {
-            "input_path": str(source),
-            "output_path": str(tmp_path / "out.pdf"),
-            "options": {"debug_html": "mardas.toml"},
-        })
+        service.dispatch(
+            "render.document",
+            {
+                "input_path": str(source),
+                "output_path": str(tmp_path / "out.pdf"),
+                "options": {"debug_html": "mardas.toml"},
+            },
+        )
     assert error.value.code == "MARDAS-OUTPUT-PATH-COLLISION"
     assert "project configuration" in str(error.value)
     assert "debug HTML" in str(error.value)

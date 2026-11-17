@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import hashlib
 import json
 import re
@@ -10,6 +8,8 @@ import subprocess
 import sys
 import unicodedata
 from pathlib import Path
+
+from tests._paths import ROOT
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -28,6 +28,7 @@ from prepare_preview_mathjax import prepare_preview_mathjax  # noqa: E402
 from stage_desktop_runtime import stage_runtime  # noqa: E402
 from verify_desktop_frontend import verify_frontend  # noqa: E402
 from verify_desktop_installer import MIN_INSTALLER_BYTES, verify_installer  # noqa: E402
+
 from mardas_folio import __version__  # noqa: E402
 
 DESKTOP = ROOT / "apps" / "desktop"
@@ -52,7 +53,7 @@ def _pictographs(text: str) -> list[str]:
         for character in text
         if ord(character) > 0x7F
         and character not in _ALLOWED_SYMBOLS
-        and not ("\u0600" <= character <= "\u06FF")
+        and not ("\u0600" <= character <= "\u06ff")
         and unicodedata.category(character) in {"So", "Sm", "Sk", "Po"}
     ]
 
@@ -215,14 +216,8 @@ def test_native_shell_uses_stdio_sidecar_and_single_instance_first() -> None:
         "sidecar_request",
         "sidecar_cancel",
     ):
-        sync_signature = (
-            '#[tauri::command(rename_all = "snake_case")]\n'
-            f'fn {command}('
-        )
-        async_signature = (
-            '#[tauri::command(rename_all = "snake_case")]\n'
-            f'async fn {command}('
-        )
+        sync_signature = f'#[tauri::command(rename_all = "snake_case")]\nfn {command}('
+        async_signature = f'#[tauri::command(rename_all = "snake_case")]\nasync fn {command}('
         assert sync_signature in main or async_signature in main
 
     assert "Stdio::piped()" in sidecar
@@ -374,7 +369,11 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     assert sidebar is not None
     assert sidebar.get("data-i18n-aria-label") == "documentTools"
     engine = soup.select_one("#engine-state")
-    assert engine is not None and engine.get("role") == "status" and engine.get("aria-live") == "polite"
+    assert (
+        engine is not None
+        and engine.get("role") == "status"
+        and engine.get("aria-live") == "polite"
+    )
     preview_loading = soup.select_one("#preview-loading")
     assert preview_loading is not None and preview_loading.get("role") == "status"
     tabs = sidebar.select(".sidebar-tabs [data-sidebar]")
@@ -384,7 +383,10 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     assert len(sidebar.select("[role='tabpanel']")) == 6
     navigator = soup.select_one("#file-navigator")
     assert navigator is not None
-    assert [tab.get("data-navigator-tab") for tab in navigator.select("[role='tab']")] == ["files", "outline"]
+    assert [tab.get("data-navigator-tab") for tab in navigator.select("[role='tab']")] == [
+        "files",
+        "outline",
+    ]
     assert navigator.select_one("#outline-list") is not None
     assert sidebar.select_one("#outline-list") is None
 
@@ -428,20 +430,25 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
         assert separator.get("aria-valuenow")
 
     assert "readWorkspaceLayout" in main
-    assert "writeWorkspaceLayout" in (DESKTOP / "frontend/js/features/workspace/panes.mjs").read_text(encoding="utf-8")
+    assert "writeWorkspaceLayout" in (
+        DESKTOP / "frontend/js/features/workspace/panes.mjs"
+    ).read_text(encoding="utf-8")
     assert "beginPaneResize" in main
     assert "resizePaneWithKeyboard" in main
     panes = (DESKTOP / "frontend/js/features/workspace/panes.mjs").read_text(encoding="utf-8")
     assert 'sidebarResizer.setAttribute("aria-valuenow"' in panes
     assert 'previewResizer.setAttribute("aria-valuenow"' in panes
-    assert 'document.body.dataset.view = name' in main
+    assert "document.body.dataset.view = name" in main
     assert soup.select_one("#mardas-ui-icons") is not None
     assert len(sidebar.select(".sidebar-tab-icon .ui-icon")) == 6
     assert 'body[data-view="workspace"] main' in workspace_css
-    assert 'var(--files-track) var(--files-divider) minmax(0, 1fr)' in workspace_css
-    assert 'var(--preview-divider) var(--preview-track) var(--sidebar-divider) var(--sidebar-track)' in workspace_css
-    assert '@media (max-width: 1100px)' in workspace_css
-    assert '@media (max-width: 760px)' in workspace_css
+    assert "var(--files-track) var(--files-divider) minmax(0, 1fr)" in workspace_css
+    assert (
+        "var(--preview-divider) var(--preview-track) var(--sidebar-divider) var(--sidebar-track)"
+        in " ".join(workspace_css.split())
+    )
+    assert "@media (max-width: 1100px)" in workspace_css
+    assert "@media (max-width: 760px)" in workspace_css
     assert soup.select_one("#exit-focus-mode") is not None
 
 
@@ -475,9 +482,7 @@ def test_workbench_takes_its_direction_from_the_interface_language() -> None:
     for sheet in (styles, workspace_css):
         for selector in pinned:
             for block in _rule_blocks(sheet, selector):
-                assert not declares_direction.search(block), (
-                    f"{selector} still pins a direction"
-                )
+                assert not declares_direction.search(block), f"{selector} still pins a direction"
 
     # The panes swap edges when the layout mirrors, so a drag that widened one
     # has to narrow it. Without a sign taken from the document the handle runs
@@ -505,16 +510,12 @@ def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
     """
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
     main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
-    templates = (DESKTOP / "frontend" / "js" / "core" / "templates.mjs").read_text(
-        encoding="utf-8"
-    )
-    document_renderer = (DESKTOP / "frontend" / "js" / "preview" / "document-content.mjs").read_text(
-        encoding="utf-8"
-    )
+    templates = (DESKTOP / "frontend" / "js" / "core" / "templates.mjs").read_text(encoding="utf-8")
+    document_renderer = (
+        DESKTOP / "frontend" / "js" / "preview" / "document-content.mjs"
+    ).read_text(encoding="utf-8")
 
-    sprite = re.search(
-        r'<svg class="ui-icon-sprite".*?</svg>', index, re.S
-    )
+    sprite = re.search(r'<svg class="ui-icon-sprite".*?</svg>', index, re.S)
     assert sprite is not None, "the sprite is missing"
     symbols = set(re.findall(r'<symbol id="icon-([a-z0-9-]+)"', sprite.group(0)))
     assert len(symbols) >= 40
@@ -524,8 +525,10 @@ def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
     for source in (index, main, templates, document_renderer):
         for name in re.findall(r'href="#icon-([a-z0-9-]+)"', source):
             assert name in symbols, f"#icon-{name} has no symbol"
-    ui_sources = "\n".join(path.read_text(encoding="utf-8")
-                           for path in (DESKTOP / "frontend" / "js" / "ui").glob("*.mjs"))
+    ui_sources = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (DESKTOP / "frontend" / "js" / "ui").glob("*.mjs")
+    )
     for name in re.findall(r'spriteIcon\("([a-z0-9-]+)"', main + ui_sources):
         assert name in symbols, f"spriteIcon({name!r}) has no symbol"
     for name in re.findall(r'symbol: "([a-z0-9-]+)"', main + templates):
@@ -554,8 +557,11 @@ def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
     # `>\u00d7</button>` inside a template string both count: a multiplication
     # sign standing in for a close button is the same defect as a shaded block
     # standing in for a table.
-    for source, label in ((main, "main.mjs"), (templates, "templates.mjs"),
-                          (document_renderer, "document-renderer.mjs")):
+    for source, label in (
+        (main, "main.mjs"),
+        (templates, "templates.mjs"),
+        (document_renderer, "document-renderer.mjs"),
+    ):
         for body in re.findall(r'(?:icon|textContent) *[:=] *"([^"]{1,4})"', source):
             assert not _pictographs(body), f"{label} still writes the glyph {body!r}"
         for body in re.findall(r">([^<>{}`\n]{1,4})</button>", source):
@@ -626,7 +632,9 @@ def test_export_status_badge_does_not_rely_on_colour_alone() -> None:
     only its hue, so "PDF was not created" and "PDF created successfully" were
     the same picture to anyone who does not separate red from green.
     """
-    main = (DESKTOP / "frontend" / "js" / "features" / "export" / "controller.mjs").read_text(encoding="utf-8")
+    main = (DESKTOP / "frontend" / "js" / "features" / "export" / "controller.mjs").read_text(
+        encoding="utf-8"
+    )
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="status-symbol"' in index
     assert "STATUS_SYMBOLS" in main
@@ -669,9 +677,7 @@ def test_frontend_build_is_atomic_and_does_not_remove_working_directory(tmp_path
     assert payload["version"] == __version__
     assert __version__ in (built / "index.html").read_text(encoding="utf-8")
     mathjax = "js/vendor/mathjax/tex-svg-full.js"
-    original_mathjax = (
-        ROOT / "src/mardas_folio/assets/mathjax/tex-svg-full.js"
-    ).read_bytes()
+    original_mathjax = (ROOT / "src/mardas_folio/assets/mathjax/tex-svg-full.js").read_bytes()
     assert (built / mathjax).read_bytes() == prepare_preview_mathjax(original_mathjax)
     assert mathjax in {item["path"] for item in payload["files"]}
 
@@ -877,7 +883,7 @@ def test_desktop_ux_is_offline_and_exposes_guided_entry_points() -> None:
     assert 'data-theme="dark"' in tokens
     assert "https://" not in index
     assert "fetch(" not in main
-    assert 'openOnboarding({ force: true })' in main
+    assert "openOnboarding({ force: true })" in main
     assert "openOnboarding();" not in main
 
 
@@ -924,7 +930,7 @@ def test_editor_parses_front_matter_and_owns_its_syntax_palette() -> None:
     assert "extensions: [frontmatter, mathAndFootnotes]" in editor
     extras = (DESKTOP / "editor-src" / "markdown-extras.mjs").read_text(encoding="utf-8")
     for node in ("InlineMath", "BlockMath", "FootnoteReference"):
-        assert f'"{node}"' in extras or f"name: \"{node}\"" in extras
+        assert f'"{node}"' in extras or f'name: "{node}"' in extras
     assert "codeLanguages: CODE_LANGUAGES" in editor
     # The app publishes GitHub-flavoured Markdown, so the editor has to parse
     # the same dialect; `markdown()` alone is CommonMark and drops tables,
@@ -939,7 +945,7 @@ def test_editor_parses_front_matter_and_owns_its_syntax_palette() -> None:
     assert "appearance.reconfigure" in editor
 
     assert "syntaxHighlighting(mardasHighlightStyle)" in theme
-    assert "textDecoration: \"underline\"" not in theme
+    assert 'textDecoration: "underline"' not in theme
 
     assert "--cm-heading: var(--ui-text)" in design_tokens
 
@@ -999,9 +1005,9 @@ def test_live_preview_mode_is_presentation_only() -> None:
     # The writing tools belong to the document, not to the window chrome.
     assert '<div class="format-bar"' in index
     assert index.index('class="format-bar"') > index.index('class="editor-pane"')
-    assert "viewMode" in (DESKTOP / "frontend" / "js" / "features" / "settings" / "preferences.mjs").read_text(
-        encoding="utf-8"
-    )
+    assert "viewMode" in (
+        DESKTOP / "frontend" / "js" / "features" / "settings" / "preferences.mjs"
+    ).read_text(encoding="utf-8")
 
 
 def test_every_engine_render_option_has_a_control() -> None:
@@ -1021,9 +1027,9 @@ def test_every_engine_render_option_has_a_control() -> None:
         "regenerate tests/fixtures/render_options.json; the engine option list moved"
     )
 
-    schema = (
-        DESKTOP / "frontend" / "js" / "features" / "export" / "render-options.mjs"
-    ).read_text(encoding="utf-8")
+    schema = (DESKTOP / "frontend" / "js" / "features" / "export" / "render-options.mjs").read_text(
+        encoding="utf-8"
+    )
     missing = [key for key in RENDER_OPTION_SPECS if f'key: "{key}"' not in schema]
     assert missing == [], f"these engine options have no interface control: {missing}"
 
@@ -1035,7 +1041,9 @@ def test_editor_recognises_every_callout_the_engine_publishes() -> None:
     only knows some of the kinds, the rest are written as plain quotations and
     the difference appears for the first time in the PDF.
     """
-    engine_source = (ROOT / "src" / "mardas_folio" / "markup" / "bidi.py").read_text(encoding="utf-8")
+    engine_source = (ROOT / "src" / "mardas_folio" / "markup" / "bidi.py").read_text(
+        encoding="utf-8"
+    )
     engine_kinds = set(re.findall(r'"callout_([a-z]+)"', engine_source))
     assert engine_kinds, "the engine's callout label table moved"
     live = (DESKTOP / "editor-src" / "live-preview.mjs").read_text(encoding="utf-8")
@@ -1060,11 +1068,11 @@ def test_palette_swatches_show_the_colour_the_engine_prints() -> None:
     """
     from mardas_folio.appearance import PALETTES
 
-    main = (DESKTOP / "frontend" / "js" / "features" / "export" / "export-options-panel.mjs").read_text(encoding="utf-8")
+    main = (
+        DESKTOP / "frontend" / "js" / "features" / "export" / "export-options-panel.mjs"
+    ).read_text(encoding="utf-8")
     block = main.split("const PALETTE_ACCENTS = Object.freeze({", 1)[1].split("});", 1)[0]
-    shown = dict(
-        re.findall(r'(\w+):\s*"(#[0-9a-fA-F]{6})"', block)
-    )
+    shown = dict(re.findall(r'(\w+):\s*"(#[0-9a-fA-F]{6})"', block))
     expected = {name: palette["accent"] for name, palette in PALETTES.items()}
     assert shown == expected, "the palette swatches have drifted from the engine's accents"
 
@@ -1076,9 +1084,9 @@ def test_settings_panel_explains_every_option_it_offers() -> None:
     keys has to resolve in both interface languages — an option whose
     explanation renders as ``help.margin_x`` is worse than no explanation.
     """
-    schema = (
-        DESKTOP / "frontend" / "js" / "features" / "export" / "render-options.mjs"
-    ).read_text(encoding="utf-8")
+    schema = (DESKTOP / "frontend" / "js" / "features" / "export" / "render-options.mjs").read_text(
+        encoding="utf-8"
+    )
     help_keys = set(re.findall(r'helpKey:\s*"([^"]+)"', schema))
     assert len(help_keys) >= 50, "options lost their help text"
 
@@ -1099,12 +1107,17 @@ def test_editor_images_load_through_a_bounded_asset_scope() -> None:
     assert security["assetProtocol"]["enable"] is True
     assert security["assetProtocol"]["scope"] == [], "the static scope must stay empty"
     assert "img-src 'self' data: https: asset: http://asset.localhost" in security["csp"]
-    assert "connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost" in security["csp"]
+    assert (
+        "connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost"
+        in security["csp"]
+    )
 
     main_rs = (TAURI / "src" / "main.rs").read_text(encoding="utf-8")
     assert "fn allow_document_images" in main_rs
     assert "asset_protocol_scope()" in main_rs
-    grant = main_rs.split("async fn allow_document_images", 1)[1].split("fn document_image_paths", 1)[0]
+    grant = main_rs.split("async fn allow_document_images", 1)[1].split(
+        "fn document_image_paths", 1
+    )[0]
     assert ".allow_file(image)" in grant
     assert "allow_directory" not in grant, "never grant a directory wildcard"
     assert "document_image_paths(Path::new(&path), 4096)" in grant
@@ -1115,7 +1128,9 @@ def test_editor_images_load_through_a_bounded_asset_scope() -> None:
     assert "canonical.starts_with(&directory)" in inventory
     assert "kind.is_file()" in inventory
     assert "supported_image_path" in inventory
-    supported_images = main_rs.split("fn supported_image_path", 1)[1].split("fn document_image_paths", 1)[0]
+    supported_images = main_rs.split("fn supported_image_path", 1)[1].split(
+        "fn document_image_paths", 1
+    )[0]
     assert '"png" | "jpg" | "jpeg" | "webp" | "gif" | "svg"' in supported_images
     assert "Some(sources) => referenced_document_images" in grant
     assert "sources: Option<Vec<String>>" in grant
@@ -1125,7 +1140,9 @@ def test_editor_images_load_through_a_bounded_asset_scope() -> None:
     assert '"allow_document_images"' in main_js
     # Remote sources and parent-directory escapes are refused in the interface
     # too, so a document cannot pull the webview off the machine.
-    assert "normalized.split(\"/\").includes(\"..\")" in main_js
-    assets_js = (DESKTOP / "frontend" / "js" / "core" / "document-assets.mjs").read_text(encoding="utf-8")
+    assert 'normalized.split("/").includes("..")' in main_js
+    assets_js = (DESKTOP / "frontend" / "js" / "core" / "document-assets.mjs").read_text(
+        encoding="utf-8"
+    )
     assert "/^[a-z][a-z0-9+.-]*:/i" in assets_js
     assert 'invoke("allow_document_images", { path, sources })' in main_js

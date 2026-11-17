@@ -18,7 +18,7 @@ def test_accessibility_audit_reports_source_and_semantic_problems(tmp_path: Path
     path = tmp_path / "bad.md"
     path.write_text(
         "# Title\n\n### Skipped\n\n![](image.png)\n\n[click here](https://example.com)\n\n"
-        "<img src=\"x.png\">\n\n<table><tr><td>value</td></tr></table>\n",
+        '<img src="x.png">\n\n<table><tr><td>value</td></tr></table>\n',
         encoding="utf-8",
     )
     result = render_markdown_file(path)
@@ -92,9 +92,7 @@ def test_audit_book_accessibility_reports_chapter_paths(tmp_path: Path, capsys) 
     (tmp_path / "chapters" / "one.md").write_text(
         "---\nlang: en\n---\n# One\n\nGood text.\n", encoding="utf-8"
     )
-    (tmp_path / "chapters" / "two.md").write_text(
-        "# Two\n\n![](missing.png)\n", encoding="utf-8"
-    )
+    (tmp_path / "chapters" / "two.md").write_text("# Two\n\n![](missing.png)\n", encoding="utf-8")
     (tmp_path / "mardas.toml").write_text(
         'schema_version = 1\n[project]\nlanguage = "en-US"\n[book]\nchapters = ["chapters/one.md", "chapters/two.md"]\noutput = "dist/book.pdf"\n',
         encoding="utf-8",

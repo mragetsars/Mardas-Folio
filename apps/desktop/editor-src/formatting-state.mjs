@@ -11,9 +11,17 @@ const INLINE_NODES = Object.freeze({
 
 function rangeFormatting(state, range) {
   const result = {
-    bold: false, italic: false, strike: false, code: false, link: false,
-    heading: 0, "bullet-list": false, "ordered-list": false,
-    "task-list": false, quote: false, "code-block": false,
+    bold: false,
+    italic: false,
+    strike: false,
+    code: false,
+    link: false,
+    heading: 0,
+    "bullet-list": false,
+    "ordered-list": false,
+    "task-list": false,
+    quote: false,
+    "code-block": false,
   };
   let listItem = null;
   let listSeen = false;
@@ -42,7 +50,8 @@ export function markdownFormattingState(state) {
   const states = state.selection.ranges.map((range) => rangeFormatting(state, range));
   const result = { ...states[0] };
   for (const key of Object.keys(result)) {
-    if (!states.every((value) => value[key] === result[key])) result[key] = key === "heading" ? 0 : false;
+    if (!states.every((value) => value[key] === result[key]))
+      result[key] = key === "heading" ? 0 : false;
   }
   for (let level = 1; level <= 6; level += 1) result[`heading-${level}`] = result.heading === level;
   return result;

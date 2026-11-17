@@ -173,29 +173,41 @@ const REPLACEMENTS = [
   // ranges (including the IPA length marks U+02D0/U+02D1) unchanged.
   // Exact Spacing Modifier Letters and printable General Punctuation classes:
   // https://www.unicode.org/Public/17.0.0/ucd/extracted/DerivedBidiClass.txt
-  ["charType", "0x2000 <= ch && ch <= 0x200c ? 256 /* T.NI */ :", `0x2b9 <= ch && ch <= 0x2ff && (ch <= 0x2ba || 0x2c2 <= ch && ch <= 0x2cf || 0x2d2 <= ch && ch <= 0x2df || 0x2e5 <= ch && ch <= 0x2ed || 0x2ef <= ch) ? 256 /* T.NI */ :
+  [
+    "charType",
+    "0x2000 <= ch && ch <= 0x200c ? 256 /* T.NI */ :",
+    `0x2b9 <= ch && ch <= 0x2ff && (ch <= 0x2ba || 0x2c2 <= ch && ch <= 0x2cf || 0x2d2 <= ch && ch <= 0x2df || 0x2e5 <= ch && ch <= 0x2ed || 0x2ef <= ch) ? 256 /* T.NI */ :
                         0x2000 <= ch && ch <= 0x200c ? 256 /* T.NI */ :
                         0x2010 <= ch && ch <= 0x2027 || 0x2035 <= ch && ch <= 0x2043 || 0x2045 <= ch && ch <= 0x205f ? 256 /* T.NI */ :
                             ch == 0x202f || ch == 0x2044 ? 128 /* T.CS */ :
-                                0x2030 <= ch && ch <= 0x2034 ? 64 /* T.ET */ :`],
+                                0x2030 <= ch && ch <= 0x2034 ? 64 /* T.ET */ :`,
+  ],
   // The content box includes the writing margins. Continuation rectangles
   // must start at its text area, just like the actual selected glyphs do.
-  ["rectanglesForRange", `let leftSide = contentRect.left +
+  [
+    "rectanglesForRange",
+    `let leftSide = contentRect.left +
         (lineStyle ? parseInt(lineStyle.paddingLeft) + Math.min(0, parseInt(lineStyle.textIndent)) : 0);
-    let rightSide = contentRect.right - (lineStyle ? parseInt(lineStyle.paddingRight) : 0);`, `let contentStyle = window.getComputedStyle(content);
+    let rightSide = contentRect.right - (lineStyle ? parseInt(lineStyle.paddingRight) : 0);`,
+    `let contentStyle = window.getComputedStyle(content);
     let leftSide = contentRect.left +
         ((parseFloat(contentStyle.paddingLeft) || 0) +
          (lineStyle ? (parseFloat(lineStyle.paddingLeft) || 0) + Math.min(0, parseFloat(lineStyle.textIndent) || 0) : 0)) * view.scaleX;
     let rightSide = contentRect.right -
         ((parseFloat(contentStyle.paddingRight) || 0) +
-         (lineStyle ? (parseFloat(lineStyle.paddingRight) || 0) : 0)) * view.scaleX;`],
+         (lineStyle ? (parseFloat(lineStyle.paddingRight) || 0) : 0)) * view.scaleX;`,
+  ],
   // Continuation edges belong to the paragraph's base direction. Using the
   // editor's UI direction can fill over unselected RTL text when a soft row
   // begins inside a Latin run (or vice versa).
-  ["rectanglesForRange", `function drawForLine(from, to, line) {
-        let top`, `function drawForLine(from, to, line) {
+  [
+    "rectanglesForRange",
+    `function drawForLine(from, to, line) {
+        let top`,
+    `function drawForLine(from, to, line) {
         let ltr = view.textDirectionAt(line.from) == Direction.LTR;
-        let top`],
+        let top`,
+  ],
 ];
 
 const VIEW_MODULE = /@codemirror[/\\]view[/\\]dist[/\\]index\.js$/;

@@ -1,5 +1,3 @@
-
-from tests._paths import ROOT
 import socket
 import time
 from email.message import Message
@@ -8,6 +6,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from threading import Event, Lock, Thread
 
+from tests._paths import ROOT
 
 GUI_HTML = ROOT / "src" / "mardas_folio" / "assets" / "gui.html"
 
@@ -25,8 +24,6 @@ def test_gui_exposes_pdf_like_and_fast_preview_modes_and_custom_page_sizes():
     assert '<option value="fast">Fast (approx)</option>' in html
     assert "A4 landscape" in html
     assert "210mm 297mm" in html
-
-
 
 
 def test_studio_pdf_like_preview_page_dimensions():
@@ -149,6 +146,7 @@ def test_gui_clarifies_fast_mermaid_preview_is_subset_based():
     assert "Mermaid flowchart preview" in html
     assert "export uses offline subset" in html
 
+
 def test_gui_asset_writer_enforces_size_limits(tmp_path, monkeypatch):
     import base64
 
@@ -166,8 +164,6 @@ def test_gui_asset_writer_enforces_size_limits(tmp_path, monkeypatch):
     assert (tmp_path / "a.png").exists()
     assert not (tmp_path / "b.png").exists()
     assert not (tmp_path / "c.png").exists()
-
-
 
 
 def _encoded_asset(path: str, payload: str = "eA==") -> dict[str, str]:
@@ -291,7 +287,10 @@ def test_studio_asset_paths_preserve_spaces_and_unicode(tmp_path):
 
     assert (tmp_path / "images" / "my chart ۱۴۰۵.png").read_bytes() == b"x"
     assert (tmp_path / "my chart ۱۴۰۵.png").read_bytes() == b"x"
-    assert gui._safe_asset_relative_path("images/my chart ۱۴۰۵.png").as_posix() == "images/my chart ۱۴۰۵.png"
+    assert (
+        gui._safe_asset_relative_path("images/my chart ۱۴۰۵.png").as_posix()
+        == "images/my chart ۱۴۰۵.png"
+    )
 
 
 def test_studio_html_render_embeds_attached_assets_with_spaces_in_paths():
@@ -349,7 +348,7 @@ def test_studio_json_decode_errors_are_client_facing():
     from mardas_folio import gui
 
     with pytest.raises(gui.StudioRequestError) as exc_info:
-        gui._decode_json_payload(b'{bad json')
+        gui._decode_json_payload(b"{bad json")
 
     assert exc_info.value.status == 400
     assert exc_info.value.code == "invalid_json"
@@ -445,8 +444,6 @@ def test_studio_api_headers_require_same_origin_json_and_token():
             raise AssertionError(f"expected StudioRequestError for {expected_code}")
 
 
-
-
 def test_studio_content_length_requires_non_negative_bounded_values():
     import pytest
 
@@ -488,9 +485,7 @@ def test_studio_post_headers_reject_transfer_encoding():
         X_Mardas_Studio_Token="secret",
     )
     with pytest.raises(gui.StudioRequestError) as exc_info:
-        gui._validate_studio_post_headers(
-            headers, bind_host="127.0.0.1", csrf_token="secret"
-        )
+        gui._validate_studio_post_headers(headers, bind_host="127.0.0.1", csrf_token="secret")
 
     assert exc_info.value.status == 400
     assert exc_info.value.code == "unsupported_transfer_encoding"
@@ -619,7 +614,7 @@ def test_gui_wires_studio_api_token_into_render_fetches():
     assert "function studioApiHeaders" in html
     assert "X-Mardas-Studio-Token" in html
     assert "headers: studioApiHeaders()" in html
-    assert ".replace(\"__MARDAS_STUDIO_TOKEN__\", self._studio_csrf_token())" in gui_source
+    assert '.replace("__MARDAS_STUDIO_TOKEN__", self._studio_csrf_token())' in gui_source
     assert "secrets.token_urlsafe(32)" in gui_source
 
 
@@ -776,7 +771,6 @@ def test_studio_http_preview_requests_are_latest_only(monkeypatch):
     assert responses["new"] == (200, "<html><body>new</body></html>")
 
 
-
 def test_studio_html_preview_allows_empty_draft_but_pdf_export_still_requires_content():
     import pytest
 
@@ -849,6 +843,7 @@ def test_gui_large_document_preview_and_local_save_warnings_are_explicit():
     assert "Settings saved · draft too large for local save" in html
     assert "Refresh PDF-like preview" in html
 
+
 def test_studio_bind_warning_only_for_non_local_hosts():
     from mardas_folio import gui
 
@@ -891,7 +886,6 @@ def test_gui_displays_structured_render_error_codes():
     assert "Export failed (" in html
 
 
-
 def test_studio_validates_render_options():
     import pytest
 
@@ -917,7 +911,9 @@ def test_studio_validates_render_options():
     assert options["toc"] is False
     assert options["cover"] is False
 
-    custom = gui._validated_render_options({"style": "textbook", "palette": "emerald", "mode": "dark", "branding": "full"})
+    custom = gui._validated_render_options(
+        {"style": "textbook", "palette": "emerald", "mode": "dark", "branding": "full"}
+    )
     assert custom["style"] == "textbook"
     assert custom["palette"] == "emerald"
     assert custom["mode"] == "dark"
@@ -1000,17 +996,17 @@ def test_gui_replaces_static_view_modes_with_resizable_panes():
     assert 'id="settingsGutter"' in html
     assert 'id="previewGutter"' in html
     assert 'id="settingsRestoreBtn"' in html
-    assert 'function resizeSettingsPane' in html
-    assert 'function resizePreviewPane' in html
-    assert 'function collapseSettingsPane' in html
-    assert 'function expandSettingsPane' in html
-    assert 'SETTINGS_COLLAPSE_THRESHOLD' in html
-    assert 'settingsCollapsed' in html
-    assert 'layoutSplit' not in html
-    assert 'layoutEditor' not in html
-    assert 'layoutPreview' not in html
-    assert 'layoutZen' not in html
-    assert 'zenToolbar' not in html
+    assert "function resizeSettingsPane" in html
+    assert "function resizePreviewPane" in html
+    assert "function collapseSettingsPane" in html
+    assert "function expandSettingsPane" in html
+    assert "SETTINGS_COLLAPSE_THRESHOLD" in html
+    assert "settingsCollapsed" in html
+    assert "layoutSplit" not in html
+    assert "layoutEditor" not in html
+    assert "layoutPreview" not in html
+    assert "layoutZen" not in html
+    assert "zenToolbar" not in html
 
 
 def test_gui_topbar_uses_grouped_toolbar_and_icon_buttons():
@@ -1026,8 +1022,6 @@ def test_gui_topbar_uses_grouped_toolbar_and_icon_buttons():
     assert 'id="interfaceBtn" title="Switch to light Studio UI"' in html
 
 
-
-
 def test_gui_uses_inline_svg_icons_and_project_vector_brand_mark():
     html = GUI_HTML.read_text(encoding="utf-8")
 
@@ -1040,16 +1034,29 @@ def test_gui_uses_inline_svg_icons_and_project_vector_brand_mark():
     # The brand mark is the project's own vector, inlined so it inherits the
     # header's colour and needs no request to render.
     assert '<span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 512 512"' in html
-    assert html.count('d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"') >= 4, "the Studio mark is not the four-fold F"
+    assert html.count('d="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"') >= 4, (
+        "the Studio mark is not the four-fold F"
+    )
     assert 'fill="currentColor"' in html
-    assert 'stroke-width:1.8' in html
+    assert "stroke-width:1.8" in html
 
 
 def test_gui_has_no_emoji_icon_glyphs():
     html = GUI_HTML.read_text(encoding="utf-8")
     emoji_codepoints = [
-        0x1F4C2, 0x1F4BE, 0x1F5BC, 0x2600, 0x1F319, 0x1F4CC, 0x1F3A8,
-        0x1F3F7, 0x1F9ED, 0x2699, 0x1F4C4, 0x1F517, 0x2705,
+        0x1F4C2,
+        0x1F4BE,
+        0x1F5BC,
+        0x2600,
+        0x1F319,
+        0x1F4CC,
+        0x1F3A8,
+        0x1F3F7,
+        0x1F9ED,
+        0x2699,
+        0x1F4C4,
+        0x1F517,
+        0x2705,
     ]
     for codepoint in emoji_codepoints:
         assert chr(codepoint) not in html
@@ -1058,25 +1065,26 @@ def test_gui_has_no_emoji_icon_glyphs():
 def test_gui_microinteractions_use_stable_numeric_and_soft_cards():
     html = GUI_HTML.read_text(encoding="utf-8")
 
-    assert 'font-variant-numeric:tabular-nums' in html
-    assert '.choice-copy{color:color-mix' in html
-    assert 'body:not(.light-mode) .choice-copy{color:var(--muted)}' in html
-    assert '.format-btn{height:30px' in html
-    assert '--muted:#d0d0d0' in html
-    assert '--faint:#adadad' in html
-    assert '.editor-formatbar{gap:6px' in html
-    assert 'border-color:transparent;background:transparent' in html
+    assert "font-variant-numeric:tabular-nums" in html
+    assert ".choice-copy{color:color-mix" in html
+    assert "body:not(.light-mode) .choice-copy{color:var(--muted)}" in html
+    assert ".format-btn{height:30px" in html
+    assert "--muted:#d0d0d0" in html
+    assert "--faint:#adadad" in html
+    assert ".editor-formatbar{gap:6px" in html
+    assert "border-color:transparent;background:transparent" in html
+
 
 def test_gui_uses_thin_scrollbars_and_brand_interface_surfaces():
     html = GUI_HTML.read_text(encoding="utf-8")
 
-    assert '*::-webkit-scrollbar' in html
-    assert '--scroll-thumb:#686868' in html
-    assert '--scroll-thumb:#8c8c8c' in html
-    assert '--bg:#101010' in html
-    assert '--panel-2:#242424' in html
-    assert '--panel:#ffffff' in html
-    assert '--preview:#f3f3f3' in html
+    assert "*::-webkit-scrollbar" in html
+    assert "--scroll-thumb:#686868" in html
+    assert "--scroll-thumb:#8c8c8c" in html
+    assert "--bg:#101010" in html
+    assert "--panel-2:#242424" in html
+    assert "--panel:#ffffff" in html
+    assert "--preview:#f3f3f3" in html
 
 
 def test_gui_export_button_keeps_contrast_on_hover_and_active():
@@ -1084,22 +1092,22 @@ def test_gui_export_button_keeps_contrast_on_hover_and_active():
 
     # The bright brand fill has its own dark ink in both themes; readable
     # foreground accents are separate from filled button backgrounds.
-    assert '.btn-primary:hover{color:var(--on-accent-fill)' in html
-    assert '.btn-primary:active{color:var(--on-accent-fill)' in html
-    assert '--on-accent-fill:#241600' in html
-    assert '--accent-fill:#ff9f00' in html
-    assert '.btn-primary:focus-visible' in html
+    assert ".btn-primary:hover{color:var(--on-accent-fill)" in html
+    assert ".btn-primary:active{color:var(--on-accent-fill)" in html
+    assert "--on-accent-fill:#241600" in html
+    assert "--accent-fill:#ff9f00" in html
+    assert ".btn-primary:focus-visible" in html
 
 
 def test_gui_settings_are_accordion_sections_with_switches():
     html = GUI_HTML.read_text(encoding="utf-8")
 
     assert 'class="card settings-section" open' in html
-    assert '#icon-palette' in html
-    assert '#icon-badge' in html
-    assert '#icon-compass' in html
+    assert "#icon-palette" in html
+    assert "#icon-badge" in html
+    assert "#icon-compass" in html
     assert '<details class="card settings-section" open><summary>' in html
-    assert 'interpolate-size:allow-keywords' in html
+    assert "interpolate-size:allow-keywords" in html
     assert 'class="switch"><span>Generate table of contents</span>' in html
     assert 'class="switch"><span>Hide footer/page number</span>' in html
 
@@ -1112,14 +1120,14 @@ def test_gui_editor_has_formatting_toolbar_line_numbers_and_sync_scroll():
     assert "onclick=\"insertMarkdown('table')\"" in html
     assert 'id="lineNumbers" class="line-numbers"' in html
     assert 'id="lineNumberContent" class="line-number-content"' in html
-    assert 'function insertMarkdown' in html
-    assert 'function syncLineNumbers' in html
-    assert 'function scheduleLineNumberSync' in html
-    assert 'function countTextLines' in html
-    assert 'function syncFramePreviewScroll' not in html
+    assert "function insertMarkdown" in html
+    assert "function syncLineNumbers" in html
+    assert "function scheduleLineNumberSync" in html
+    assert "function countTextLines" in html
+    assert "function syncFramePreviewScroll" not in html
     assert "activePreviewMode() !== 'fast'" in html
-    assert 'function syncPreviewScroll' in html
-    assert 'function schedulePreviewScrollSync' in html
+    assert "function syncPreviewScroll" in html
+    assert "function schedulePreviewScrollSync" in html
     assert "editor.addEventListener('scroll'" in html
 
 
@@ -1127,12 +1135,12 @@ def test_gui_preview_exposes_render_status_and_footer_save_state():
     html = GUI_HTML.read_text(encoding="utf-8")
 
     assert 'id="previewStatus" class="preview-status"' in html
-    assert 'function setPreviewStatus' in html
-    assert 'function schedulePreviewRender' in html
+    assert "function setPreviewStatus" in html
+    assert "function schedulePreviewRender" in html
     assert "setPreviewStatus('Updating preview...', true)" in html
     assert "setPreviewStatus('Ready', false)" in html
     assert '<span id="savedState">Live preview</span>' in html
-    assert 'Markdown source' in html
+    assert "Markdown source" in html
 
 
 def test_gui_has_toast_feedback_region_and_stable_status_helpers():
@@ -1140,30 +1148,36 @@ def test_gui_has_toast_feedback_region_and_stable_status_helpers():
 
     assert 'id="toastRegion" class="toast-region"' in html
     assert 'aria-live="polite"' in html
-    assert 'function notify(message' in html
-    assert 'function setServerStatus' in html
-    assert '.toast.show' in html
+    assert "function notify(message" in html
+    assert "function setServerStatus" in html
+    assert ".toast.show" in html
     assert "setServerStatus('CLI command copied'" in html
 
 
 def test_gui_sidebar_scrolls_and_palette_uses_compact_swatches():
     html = GUI_HTML.read_text(encoding="utf-8")
 
-    assert '.sidebar{height:100%;display:flex;flex-direction:column;overflow:hidden' in html
-    assert '.sidebar-body{display:block;flex:1 1 auto;min-height:0;padding:16px;overflow-y:auto;overflow-x:hidden' in html
-    assert '.palette-grid{display:flex;align-items:center;gap:8px;flex-wrap:wrap' in html
-    assert '.palette-card{position:relative;display:inline-grid;place-items:center;width:34px;height:34px' in html
+    assert ".sidebar{height:100%;display:flex;flex-direction:column;overflow:hidden" in html
+    assert (
+        ".sidebar-body{display:block;flex:1 1 auto;min-height:0;padding:16px;overflow-y:auto;overflow-x:hidden"
+        in html
+    )
+    assert ".palette-grid{display:flex;align-items:center;gap:8px;flex-wrap:wrap" in html
+    assert (
+        ".palette-card{position:relative;display:inline-grid;place-items:center;width:34px;height:34px"
+        in html
+    )
     assert 'title="Blue palette" aria-label="Blue palette"' in html
-    assert '.palette-card > span:not(.palette-dot)' in html
+    assert ".palette-card > span:not(.palette-dot)" in html
 
 
 def test_gui_logo_uses_contain_fit_with_breathing_room():
     html = GUI_HTML.read_text(encoding="utf-8")
 
-    assert '.brand-mark{overflow:visible;background:transparent' in html
-    assert '.brand-mark svg{width:100%;height:100%;display:block;color:inherit}' in html
-    assert '.brand-mark svg g{fill:currentColor}' in html
-    assert 'body.light-mode .brand-mark{background:transparent;border:0;box-shadow:none}' in html
+    assert ".brand-mark{overflow:visible;background:transparent" in html
+    assert ".brand-mark svg{width:100%;height:100%;display:block;color:inherit}" in html
+    assert ".brand-mark svg g{fill:currentColor}" in html
+    assert "body.light-mode .brand-mark{background:transparent;border:0;box-shadow:none}" in html
 
 
 def test_studio_project_files_roundtrip_workspace_state():
@@ -1184,7 +1198,7 @@ def test_studio_project_files_roundtrip_workspace_state():
 def test_studio_file_toolbar_exposes_new_project_workflow():
     html = GUI_HTML.read_text(encoding="utf-8")
 
-    assert "onclick=\"newDocument()\"" in html
+    assert 'onclick="newDocument()"' in html
     assert "Open MD" in html
     assert "Open Bundle" in html
     assert "Save Bundle" in html
@@ -1210,8 +1224,6 @@ def test_studio_asset_manager_supports_drag_drop_and_asset_actions():
     assert "function validateProjectAssets" in html
     assert "normalizeBundleAssetPath" in html
     assert "unsafe/oversized assets" in html
-
-
 
 
 def test_studio_project_bundle_loader_validates_embedded_assets():

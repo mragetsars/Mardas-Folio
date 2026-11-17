@@ -1,7 +1,12 @@
 /** Presentation only. Keep original paths for opening, tooltips and identity. */
 function normalizedPath(value) {
   if (typeof value !== "string") return "";
-  return value.trim().replaceAll("\\", "/").replace(/^\/\/\?\/UNC\//i, "//").replace(/^\/\/\?\//, "").replace(/\/+$/, "");
+  return value
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/^\/\/\?\/UNC\//i, "//")
+    .replace(/^\/\/\?\//, "")
+    .replace(/\/+$/, "");
 }
 
 function pathKey(value) {
@@ -16,8 +21,16 @@ export function compactDocumentLocation(path, { projectPath = "" } = {}) {
   if (slash < 0) return "";
   const parent = normalized.slice(0, slash);
   const project = normalizedPath(projectPath);
-  if (project && (pathKey(parent) === pathKey(project) || pathKey(parent).startsWith(`${pathKey(project)}/`))) {
-    return parent.length === project.length ? project.split("/").at(-1) || project : parent.slice(project.length + 1).split("/").join(" / ");
+  if (
+    project &&
+    (pathKey(parent) === pathKey(project) || pathKey(parent).startsWith(`${pathKey(project)}/`))
+  ) {
+    return parent.length === project.length
+      ? project.split("/").at(-1) || project
+      : parent
+          .slice(project.length + 1)
+          .split("/")
+          .join(" / ");
   }
   if (!parent) return "/";
   const folders = parent.split("/").filter(Boolean);

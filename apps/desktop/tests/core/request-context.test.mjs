@@ -37,5 +37,8 @@ test("a late book response is rejected after switching from project A to project
     true,
   );
   assert.equal(projectContextCurrent(context, { projectPath: null, projectGeneration: 5 }), false);
-  assert.equal(projectContextCurrent(context, { projectPath: projectA, projectGeneration: 5 }), false);
+  assert.equal(
+    projectContextCurrent(context, { projectPath: projectA, projectGeneration: 5 }),
+    false,
+  );
 });

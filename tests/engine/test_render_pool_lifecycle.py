@@ -1,13 +1,18 @@
 from __future__ import annotations
 
-from pathlib import Path
 import threading
 import time
+from pathlib import Path
 
 import pytest
 
 from mardas_folio import render_pool, studio_jobs
-from mardas_folio.render_pool import RenderFuture, RenderPool, RenderPoolClosedError, RenderQueueFullError
+from mardas_folio.render_pool import (
+    RenderFuture,
+    RenderPool,
+    RenderPoolClosedError,
+    RenderQueueFullError,
+)
 from mardas_folio.renderer import RenderCancelledError
 from mardas_folio.studio_jobs import StudioExportManager
 
@@ -105,7 +110,9 @@ def test_failed_startup_cleanup_does_not_kill_worker(session_probe) -> None:
         failed = pool.submit(lambda session, progress, cancelled: "unreachable")
         with pytest.raises(RuntimeError, match="startup failed"):
             failed.result(timeout=3)
-        assert pool.submit(lambda session, progress, cancelled: "recovered").result(3) == "recovered"
+        assert (
+            pool.submit(lambda session, progress, cancelled: "recovered").result(3) == "recovered"
+        )
     assert pool.shutdown_complete
 
 
@@ -134,7 +141,9 @@ def test_idle_session_is_closed_and_replaced_even_when_close_fails(session_probe
     assert pool.shutdown_complete
 
 
-def test_close_without_wait_cancels_full_queue_without_waiting_for_active_work(session_probe) -> None:
+def test_close_without_wait_cancels_full_queue_without_waiting_for_active_work(
+    session_probe,
+) -> None:
     entered = threading.Event()
     release = threading.Event()
     close_returned = threading.Event()

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise overlapping editor, file, export, image and clipboard operations."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,7 +10,6 @@ from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
 
 from lib.audit.desktop import DEFAULT_DIST, INIT_SCRIPT, serve
-
 
 FIXTURE = r"""
 localStorage.setItem('mardas.desktop.locale', 'en');
@@ -122,7 +122,10 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         page.locator("#workspace-save").click()
         page.locator("#navigator-open").click()
         page.wait_for_timeout(100)
-        assert page.evaluate("globalThis.__calls.filter(method => method === 'document.save').length") == 0
+        assert (
+            page.evaluate("globalThis.__calls.filter(method => method === 'document.save').length")
+            == 0
+        )
         page.evaluate("globalThis.__releasePreview()")
         expect(mirror).to_have_value("# Other document\n\nOTHER_BUFFER")
         page.wait_for_function("() => globalThis.__calls.includes('document.save')")
@@ -146,14 +149,18 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
           r.method.startsWith('preview.') && r.params.options?.palette === 'neutral')""")
         page.locator("#validate-button").click()
         expect(page.locator("#validate-button")).to_be_enabled()
-        page.wait_for_function("() => globalThis.__requests.some(r => r.method === 'validate.document')")
+        page.wait_for_function(
+            "() => globalThis.__requests.some(r => r.method === 'validate.document')"
+        )
         preview_options = page.evaluate("""() => globalThis.__requests.filter(r =>
           r.method.startsWith('preview.')).at(-1).params.options""")
         validation_options = page.evaluate("""() => globalThis.__requests.filter(r =>
           r.method === 'validate.document').at(-1).params.options""")
         assert preview_options == validation_options, (preview_options, validation_options)
         assert preview_options["toc"] is False
-        checks.append("reset keeps the selected preset identical in preview and document validation")
+        checks.append(
+            "reset keeps the selected preset identical in preview and document validation"
+        )
         page.locator("#option-category").select_option("contents")
         toggle = page.locator('[data-option-key="toc"] .tri-toggle-option')
         expect(toggle).to_have_count(3)
@@ -169,16 +176,23 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         page.wait_for_function("""() => globalThis.__requests.some(r =>
           r.method === 'validate.document' && !('toc' in r.params.options))""")
         page.locator("#export-button").click()
-        page.wait_for_function("() => globalThis.__requests.some(r => r.method === 'render.document')")
+        page.wait_for_function(
+            "() => globalThis.__requests.some(r => r.method === 'render.document')"
+        )
         render_options = page.evaluate("""() => globalThis.__requests.filter(r =>
           r.method === 'render.document').at(-1).params.options""")
         validation_options = page.evaluate("""() => globalThis.__requests.filter(r =>
           r.method === 'validate.document').at(-1).params.options""")
         assert render_options == validation_options and "toc" not in render_options
-        assert page.evaluate("""() => globalThis.__requests.filter(r =>
-          r.method === 'render.document').at(-1).params.create_only""") is True
+        assert (
+            page.evaluate("""() => globalThis.__requests.filter(r =>
+          r.method === 'render.document').at(-1).params.create_only""")
+            is True
+        )
         page.evaluate("globalThis.__calls = []")
-        checks.append("inherited preset option stays inherited for preview and validation with keyboard focus")
+        checks.append(
+            "inherited preset option stays inherited for preview and validation with keyboard focus"
+        )
         for outcome in ("cancelled", "completed"):
             page.evaluate("globalThis.__renderOutcome = true; globalThis.__resolveRender = null")
             page.locator("#export-button").click()
@@ -193,23 +207,34 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                 expect(page.locator("#export-feedback")).to_contain_text("PDF created successfully")
                 expect(page.locator("#open-pdf")).to_be_visible()
         page.evaluate("globalThis.__renderOutcome = null; globalThis.__calls = []")
-        checks.append("cancellation reports the actual job outcome, including completion after cancel")
+        checks.append(
+            "cancellation reports the actual job outcome, including completion after cancel"
+        )
         page.evaluate("globalThis.__holdPreview = true; globalThis.__releasePreview = null")
         # Schedule a new output preview through a real option change.
         page.locator("#export-close-settings").click()
         preset.select_option("technical")
         page.wait_for_function("() => typeof globalThis.__releasePreview === 'function'")
-        page.locator("#export-form").evaluate("form => { form.requestSubmit(); form.requestSubmit(); }")
+        page.locator("#export-form").evaluate(
+            "form => { form.requestSubmit(); form.requestSubmit(); }"
+        )
         expect(page.locator("#export-button")).to_be_disabled()
         expect(page.locator("#choose-output")).to_be_disabled()
         page.evaluate("globalThis.__releasePreview()")
         expect(page.locator("#export-button")).to_be_enabled()
-        assert page.evaluate("globalThis.__calls.filter(method => method === 'render.document').length") == 1
+        assert (
+            page.evaluate(
+                "globalThis.__calls.filter(method => method === 'render.document').length"
+            )
+            == 1
+        )
         assert not page.evaluate("globalThis.__overlaps")
         expect(page.locator("#export-feedback")).to_contain_text("PDF created successfully")
         expect(page.locator("#export-preview-state")).to_be_empty()
         expect(page.locator("#preview-zoom-in")).to_be_enabled()
-        checks.append("double submission claims one job and an interrupted preview refreshes afterwards")
+        checks.append(
+            "double submission claims one job and an interrupted preview refreshes afterwards"
+        )
 
         page.evaluate("globalThis.__holdPreview = true; globalThis.__releasePreview = null")
         preset.select_option("general")
@@ -220,7 +245,12 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         page.locator("#cancel-button").click()
         page.evaluate("globalThis.__releasePreview()")
         expect(page.locator("#export-button")).to_be_enabled()
-        assert page.evaluate("globalThis.__calls.filter(method => method === 'render.document').length") == 1
+        assert (
+            page.evaluate(
+                "globalThis.__calls.filter(method => method === 'render.document').length"
+            )
+            == 1
+        )
         expect(page.locator("#status-message")).to_have_text("The operation was cancelled.")
         checks.append("cancel before preview drains prevents the export from starting")
 
@@ -229,22 +259,29 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         page.evaluate("globalThis.__holdScope = true; globalThis.__releaseScope = null")
         editor.click()
         page.keyboard.press("Control+a")
-        image_text = '# Image\n\n![spaces](<assets/Persian chart.png>)\n\n![encoded](assets/chart%20two.png)\n\nAfter images.'
+        image_text = "# Image\n\n![spaces](<assets/Persian chart.png>)\n\n![encoded](assets/chart%20two.png)\n\nAfter images."
         page.keyboard.insert_text(image_text)
         page.keyboard.press("Control+End")
         page.wait_for_function("() => typeof globalThis.__releaseScope === 'function'")
         assert page.locator(".cm-md-image img").count() == 0
         page.evaluate("globalThis.__holdScope = false; globalThis.__releaseScope()")
         expect(page.locator(".cm-md-image img")).to_have_count(2)
-        assert page.evaluate("globalThis.__granted") == ["assets/Persian chart.png", "assets/chart two.png"]
-        page.wait_for_function("() => [...document.querySelectorAll('.cm-md-image img')].length === 2 && [...document.querySelectorAll('.cm-md-image img')].every(node => node.complete && node.naturalWidth > 0)")
+        assert page.evaluate("globalThis.__granted") == [
+            "assets/Persian chart.png",
+            "assets/chart two.png",
+        ]
+        page.wait_for_function(
+            "() => [...document.querySelectorAll('.cm-md-image img')].length === 2 && [...document.querySelectorAll('.cm-md-image img')].every(node => node.complete && node.naturalWidth > 0)"
+        )
         expect(mirror).to_have_value(image_text)
-        checks.append("new image references wait for exact native grants and load without retry or document edits")
+        checks.append(
+            "new image references wait for exact native grants and load without retry or document edits"
+        )
 
         # Manual preview can be disabled; Copy as HTML must still use the
         # current buffer and retain the selection when its menu is dismissed.
         page.locator('button[data-view-mode="source"]').click()
-        if page.locator('#workspace-toggle-preview').get_attribute('aria-pressed') != 'true':
+        if page.locator("#workspace-toggle-preview").get_attribute("aria-pressed") != "true":
             page.locator("#workspace-layout-button").click()
             page.locator("#workspace-toggle-preview").click()
             page.keyboard.press("Escape")
@@ -266,8 +303,12 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         page.locator('[data-context-action="copyHtml"]').click()
         page.wait_for_function("() => globalThis.__copiedHtml.includes('FRESH_CLIPBOARD_CONTENT')")
         assert not page.evaluate("globalThis.__overlaps")
-        checks.extend(["context menu arrow/Home/End/Escape navigation returns focus to editor",
-                       "copy HTML renders current unsaved buffer with automatic preview disabled"])
+        checks.extend(
+            [
+                "context menu arrow/Home/End/Escape navigation returns focus to editor",
+                "copy HTML renders current unsaved buffer with automatic preview disabled",
+            ]
+        )
         assert not errors, errors
         browser.close()
     report = {"status": "passed", "checks": checks}

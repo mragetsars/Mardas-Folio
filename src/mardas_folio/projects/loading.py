@@ -1,17 +1,20 @@
 """Workspace loading, validation snapshots, and public payload assembly."""
+
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Callable, Iterable
+
 from ..book import BookManifest, BookRenderBundle, load_book_manifest, render_book
 from ..config import CONFIG_FILENAME, load_project_config
 from ..diagnostics import Diagnostic, has_errors
-from .validation import project_config_diagnostics, validate_book_project
 from ..render_contracts import CancellationCallback, RenderCancelledError
-from .models import ProjectWorkspace, WorkspaceError
 from .discovery import _relative_path, _workspace_files
 from .files import (
     _config_sha256,
 )
+from .models import ProjectWorkspace, WorkspaceError
+from .validation import project_config_diagnostics, validate_book_project
 
 
 def validate_workspace_book_payload(

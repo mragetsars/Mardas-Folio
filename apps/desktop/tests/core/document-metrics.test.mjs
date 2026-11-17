@@ -5,7 +5,10 @@ import { textMetrics } from "../../frontend/js/core/markdown-analysis.mjs";
 
 test("moving through a long document analyzes words once and retains current cursor", () => {
   let scans = 0;
-  const metrics = createDocumentMetrics((...args) => { scans++; return textMetrics(...args); });
+  const metrics = createDocumentMetrics((...args) => {
+    scans++;
+    return textMetrics(...args);
+  });
   const model = { content: "متن فارسی and English\n".repeat(15000), contentVersion: 0 };
   for (let line = 1; line <= 100; line++) {
     const result = metrics(model, { line, column: 3 });

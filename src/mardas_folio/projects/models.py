@@ -1,9 +1,11 @@
 """Workspace snapshots and shared project error contracts."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+
 from ..book import BookManifest, BookRenderBundle
 from ..config import LoadedProjectConfig
 from ..diagnostics import Diagnostic

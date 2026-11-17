@@ -6,9 +6,8 @@ Five renders of the published Persian guide produced five different documents,
 which quietly cost the project reproducible output: a PDF's checksum depended
 on which process produced it.
 """
-from __future__ import annotations
 
-from tests._paths import ROOT
+from __future__ import annotations
 
 import hashlib
 import subprocess
@@ -19,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from mardas_folio.markdown import render_markdown, render_markdown_file
-
+from tests._paths import ROOT
 
 MIXED_DOCUMENT = textwrap.dedent(
     """\

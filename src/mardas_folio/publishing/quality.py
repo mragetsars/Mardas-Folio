@@ -1,9 +1,17 @@
 """Publication quality policy, diagnostics, and cancellation checks."""
+
 from __future__ import annotations
+
 import hashlib
 from pathlib import Path
 from typing import Any
-from ..quality import RenderQualityError, handle_quality_issue, profile_policy, validate_quality_profile
+
+from ..quality import (
+    RenderQualityError,
+    handle_quality_issue,
+    profile_policy,
+    validate_quality_profile,
+)
 from ..render_contracts import PdfOptions, RenderCancelledError
 
 

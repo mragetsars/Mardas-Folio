@@ -73,7 +73,7 @@ npm --prefix apps/desktop run check:editor
 python scripts/build_desktop_frontend.py
 python scripts/verify_desktop_frontend.py apps/desktop/dist
 node --test apps/desktop/tests/*.test.mjs
-python -m pytest -q tests/test_desktop_app.py
+python -m pytest -q tests/desktop/test_desktop_app.py
 ```
 
 ## Windows installer build

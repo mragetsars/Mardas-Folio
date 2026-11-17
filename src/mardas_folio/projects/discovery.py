@@ -1,15 +1,19 @@
 """Bounded, cancellable workspace file discovery."""
+
 from __future__ import annotations
 
 import os
 from pathlib import Path
 from typing import Iterable
+
 from ..book import BookManifest
 from ..config import CONFIG_FILENAME
 from ..diagnostics import Diagnostic
 from ..render_contracts import CancellationCallback, RenderCancelledError
+from .models import ProjectWorkspace as ProjectWorkspace
+from .models import WorkspaceError as WorkspaceError
+from .models import WorkspaceFile as WorkspaceFile
 from .paths import WORKSPACE_IGNORED_PARTS as WORKSPACE_IGNORED_PARTS
-from .models import ProjectWorkspace as ProjectWorkspace, WorkspaceError as WorkspaceError, WorkspaceFile as WorkspaceFile
 
 MAX_WORKSPACE_FILES = 2_000
 MAX_WORKSPACE_SCAN_ENTRIES = 20_000
@@ -28,15 +32,6 @@ WORKSPACE_TEXT_SUFFIXES = frozenset(
         ".yml",
     }
 )
-
-
-
-
-
-
-
-
-
 
 
 def _contains_path(root: Path, candidate: Path) -> bool:

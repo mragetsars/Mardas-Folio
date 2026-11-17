@@ -1,4 +1,10 @@
-export function replaceSelection(text, start, end, replacement, selectionOffset = replacement.length) {
+export function replaceSelection(
+  text,
+  start,
+  end,
+  replacement,
+  selectionOffset = replacement.length,
+) {
   const source = String(text ?? "");
   const left = Math.max(0, Math.min(source.length, Number(start) || 0));
   const right = Math.max(left, Math.min(source.length, Number(end) || left));
@@ -27,7 +33,10 @@ export function prefixSelectedLines(text, start, end, prefix) {
   const rightBreak = source.indexOf("\n", Math.max(end, start));
   const right = rightBreak < 0 ? source.length : rightBreak;
   const block = source.slice(left, right);
-  const replaced = block.split("\n").map((line) => `${prefix}${line}`).join("\n");
+  const replaced = block
+    .split("\n")
+    .map((line) => `${prefix}${line}`)
+    .join("\n");
   return {
     text: source.slice(0, left) + replaced + source.slice(right),
     start: left,

@@ -1,4 +1,5 @@
 """Ownership checks before build tools replace or recursively clean directories."""
+
 from __future__ import annotations
 
 import json
@@ -39,7 +40,11 @@ def validate_output(
     candidate = candidate.resolve()
     workspace = workspace.resolve()
     home = Path.home().resolve()
-    if candidate in (workspace, home) or candidate in workspace.parents or candidate in home.parents:
+    if (
+        candidate in (workspace, home)
+        or candidate in workspace.parents
+        or candidate in home.parents
+    ):
         raise ValueError(f"Refusing unsafe build output: {candidate}")
     for source in protected:
         source = source.resolve()
@@ -58,13 +63,13 @@ def validate_output(
         if marker.is_file() and not marker.is_symlink():
             try:
                 owned = json.loads(marker.read_text(encoding="utf-8")) == {
-                    "schema_version": 1, "producer": "mardas-folio-build"
+                    "schema_version": 1,
+                    "producer": "mardas-folio-build",
                 }
             except (OSError, ValueError):
                 pass
         placeholders = entries.issubset(placeholder_files) and all(
-            (candidate / name).is_file() and not (candidate / name).is_symlink()
-            for name in entries
+            (candidate / name).is_file() and not (candidate / name).is_symlink() for name in entries
         )
         if entries and not managed and not owned and not placeholders:
             raise ValueError(
@@ -75,8 +80,12 @@ def validate_output(
 
 
 def prepare_output(
-    path: Path, *, workspace: Path, clean: bool,
-    protected: Iterable[Path] = (), generated: Iterable[Path] = (),
+    path: Path,
+    *,
+    workspace: Path,
+    clean: bool,
+    protected: Iterable[Path] = (),
+    generated: Iterable[Path] = (),
 ) -> Path:
     candidate = validate_output(path, workspace=workspace, protected=protected, generated=generated)
     if clean and candidate.exists():

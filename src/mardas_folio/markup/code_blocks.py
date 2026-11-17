@@ -1,15 +1,19 @@
 """Fenced-code parsing, highlighting, and code-block HTML normalization."""
+
 from __future__ import annotations
 
 import html
 import re
 from typing import Any
-from .bidi import has_latin as has_latin, has_persian as has_persian
+
 from bs4 import BeautifulSoup, Tag
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import TextLexer, get_lexer_by_name
 from pygments.util import ClassNotFound
+
+from .bidi import has_latin as has_latin
+from .bidi import has_persian as has_persian
 
 HIGHLIGHT_TRAILING_NEWLINE_RE = re.compile(
     r'(<span class="hll">.*?)(\r?\n)(</span>)',
@@ -24,9 +28,7 @@ CODE_FENCE_ATTR_CLASS_RE = re.compile(r"(?<!\S)\.(?P<class>[A-Za-z_][\w.-]*)")
 CODE_FENCE_LABEL_RE = re.compile(
     r"(?:^|[\s{])#(?P<label>(?:fig|tbl|eq|lst):[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?)(?=[\s}]|$)"
 )
-CODE_FENCE_LABEL_CANDIDATE_RE = re.compile(
-    r"(?:^|[\s{])#(?P<label>(?:fig|tbl|eq|lst):[^\s}]*)"
-)
+CODE_FENCE_LABEL_CANDIDATE_RE = re.compile(r"(?:^|[\s{])#(?P<label>(?:fig|tbl|eq|lst):[^\s}]*)")
 CODE_FENCE_LABEL_VALUE_RE = re.compile(
     r"^(?:fig|tbl|eq|lst):[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$"
 )
@@ -79,7 +81,6 @@ CODE_FENCE_LANGUAGE_ALIASES = {
 }
 
 
-
 class CodeHtmlFormatter(HtmlFormatter):
     """Pygments formatter. The Pygments style is selected by the resolved appearance."""
 
@@ -101,8 +102,6 @@ class CodeHtmlFormatter(HtmlFormatter):
         )
 
 
-
-
 def _normalize_highlight_line_breaks(highlighted_html: str) -> str:
     """Keep Pygments highlighted-line wrappers from swallowing the next line's indent.
 
@@ -116,34 +115,6 @@ def _normalize_highlight_line_breaks(highlighted_html: str) -> str:
     return HIGHLIGHT_TRAILING_NEWLINE_RE.sub(r"\1\3\2", highlighted_html)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def _parse_line_highlights(spec: str | None) -> list[int]:
     if not spec:
         return []
@@ -153,8 +124,8 @@ def _parse_line_highlights(spec: str | None) -> list[int]:
         part = part.strip()
         if not part:
             continue
-        if '-' in part:
-            start_text, end_text = [chunk.strip() for chunk in part.split('-', 1)]
+        if "-" in part:
+            start_text, end_text = [chunk.strip() for chunk in part.split("-", 1)]
             if start_text.isdigit() and end_text.isdigit():
                 start, end = int(start_text), int(end_text)
                 if start > 0 and end >= start:
@@ -317,13 +288,17 @@ def highlight_code(
     language = parts[0] if parts else ""
     label = language or "text"
     try:
-        lexer = get_lexer_by_name(language, stripall=False) if language else TextLexer(stripall=False)
+        lexer = (
+            get_lexer_by_name(language, stripall=False) if language else TextLexer(stripall=False)
+        )
     except ClassNotFound:
         lexer = TextLexer(stripall=False)
         label = language or "text"
     normalized_highlight_lines = highlight_lines or []
-    if line_start > 1 and normalized_highlight_lines and all(
-        line >= line_start for line in normalized_highlight_lines
+    if (
+        line_start > 1
+        and normalized_highlight_lines
+        and all(line >= line_start for line in normalized_highlight_lines)
     ):
         normalized_highlight_lines = [line - line_start + 1 for line in normalized_highlight_lines]
     formatter = CodeHtmlFormatter(
@@ -336,18 +311,18 @@ def highlight_code(
     caption_value = caption if caption not in (None, "") else label.upper()
     caption_html = (
         '<figcaption class="md2pdf-caption md2pdf-caption--code" dir="auto">'
-        f'{html.escape(caption_value)}'
-        '</figcaption>'
+        f"{html.escape(caption_value)}"
+        "</figcaption>"
         if caption_value
         else ""
     )
     line_count = max(1, len(code.rstrip("\n").splitlines()))
-    extra_attrs = f" data-lang=\"{html.escape(language)}\"" if language else ""
+    extra_attrs = f' data-lang="{html.escape(language)}"' if language else ""
     if reference_label:
-        extra_attrs += f" data-md2pdf-label=\"{html.escape(reference_label)}\""
-    extra_attrs += f" data-lines=\"{line_count}\""
+        extra_attrs += f' data-md2pdf-label="{html.escape(reference_label)}"'
+    extra_attrs += f' data-lines="{line_count}"'
     if linenos and line_start > 1:
-        extra_attrs += f" data-line-start=\"{line_start}\""
+        extra_attrs += f' data-line-start="{line_start}"'
     classes = "code-block" + (f" {html.escape(extra_classes)}" if extra_classes else "")
     if has_persian(code):
         classes += " code-block--rtl-script"
@@ -363,12 +338,7 @@ def highlight_code(
         classes += " code-block--long"
     if line_count >= 90:
         classes += " code-block--very-long"
-    return (
-        f'<figure class="{classes}" dir="ltr"{extra_attrs}>'
-        f"{caption_html}"
-        f"{highlighted}"
-        f"</figure>"
-    )
+    return f'<figure class="{classes}" dir="ltr"{extra_attrs}>{caption_html}{highlighted}</figure>'
 
 
 def guess_code_language(code: str) -> tuple[str, str]:
@@ -396,7 +366,9 @@ def guess_code_language(code: str) -> tuple[str, str]:
         return "javascript", "JAVASCRIPT"
     if re.search(r"^\s*</?[-a-zA-Z][^>]*>\s*$", stripped, re.M):
         return "html", "HTML"
-    if re.search(r"^\s*(make|gdb|qemu|cat|dice|ksort|usort|pidtest|ptest|makenums)(\s|$)", stripped, re.M):
+    if re.search(
+        r"^\s*(make|gdb|qemu|cat|dice|ksort|usort|pidtest|ptest|makenums)(\s|$)", stripped, re.M
+    ):
         return "bash", "BASH"
     if re.search(r"^\s*\(gdb\)\s+", stripped, re.M):
         return "bash", "GDB"
@@ -420,7 +392,11 @@ def normalize_raw_code_blocks(soup: BeautifulSoup, *, code_style: str) -> None:
     skip_parent_classes = {"code-block", "codehilite", "highlight"}
     for pre in list(soup.find_all("pre")):
         parents = list(pre.parents)
-        if any(skip_parent_classes.intersection(set(parent.get("class", []))) for parent in parents if isinstance(parent, Tag)):
+        if any(
+            skip_parent_classes.intersection(set(parent.get("class", [])))
+            for parent in parents
+            if isinstance(parent, Tag)
+        ):
             continue
         code_tag = pre.find("code")
         code = code_tag.get_text() if code_tag else pre.get_text()

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from tests._paths import ROOT
-
 import re
 import struct
 from pathlib import Path
@@ -11,6 +9,7 @@ from bs4 import BeautifulSoup
 
 from mardas_folio import __version__
 from mardas_folio.markdown import render_markdown_file
+from tests._paths import ROOT
 
 GUIDES = [
     ROOT / "docs/guides/GUIDE.en.md",
@@ -103,8 +102,12 @@ def test_project_logo_assets_are_packaged_and_documented():
     # the generator has to name the canonical icon rather than any other SVG.
     icon_generator = (ROOT / "scripts/generate_desktop_icons.py").read_text(encoding="utf-8")
     assert f'"{app_icon.name}"' in icon_generator
-    assert (ROOT / "apps/desktop/frontend/assets/app-icon.svg").read_bytes() == app_icon.read_bytes()
-    assert (ROOT / "apps/desktop/frontend/assets/workspace-mark.svg").read_bytes() == app_icon.read_bytes()
+    assert (
+        ROOT / "apps/desktop/frontend/assets/app-icon.svg"
+    ).read_bytes() == app_icon.read_bytes()
+    assert (
+        ROOT / "apps/desktop/frontend/assets/workspace-mark.svg"
+    ).read_bytes() == app_icon.read_bytes()
     assert guide_logo_png.read_bytes() == logo.read_bytes()
 
     # Every variant is the same drawing: one F glyph in four-fold rotational
@@ -114,8 +117,12 @@ def test_project_logo_assets_are_packaged_and_documented():
     mark_text = mark.read_text(encoding="utf-8")
     assert "#FFFFFF" in mark_white_text
     glyph = 'd="M0 0 H40 V14 H14 V20 H30 V34 H14 V50 H0 Z"'
-    for svg_text in (mark_text, mark_white_text, app_icon.read_text(encoding="utf-8"),
-                     gui_mark_mask.read_text(encoding="utf-8")):
+    for svg_text in (
+        mark_text,
+        mark_white_text,
+        app_icon.read_text(encoding="utf-8"),
+        gui_mark_mask.read_text(encoding="utf-8"),
+    ):
         assert svg_text.count(glyph) == 4, "the mark is no longer the four-fold F"
     assert not (ROOT / "docs/guides/images/logo.svg").exists()
     architecture = ROOT / "docs/guides/images/architecture.png"
@@ -544,9 +551,7 @@ def test_docs_describe_accessibility_and_archival_readiness_without_false_claims
 
 def test_sidecar_architecture_and_protocol_docs_are_complete():
     docs_index = (ROOT / "docs/README.md").read_text(encoding="utf-8")
-    protocol_doc = (ROOT / "docs/architecture/SIDECAR-PROTOCOL-v1.md").read_text(
-        encoding="utf-8"
-    )
+    protocol_doc = (ROOT / "docs/architecture/SIDECAR-PROTOCOL-v1.md").read_text(encoding="utf-8")
     for filename in (
         "ADR-001-desktop-product-boundaries.md",
         "ADR-002-sidecar-ipc.md",

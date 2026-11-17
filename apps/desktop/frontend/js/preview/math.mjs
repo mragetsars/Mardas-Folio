@@ -27,7 +27,20 @@ function loadMathJax() {
       // require/autoload and HTML commands: a document cannot load scripts or
       // turn TeX into active links or arbitrary styled application elements.
       tex: {
-        packages: ["base", "ams", "newcommand", "noerrors", "noundefined", "boldsymbol", "braket", "cancel", "color", "mathtools", "textmacros", "verb"],
+        packages: [
+          "base",
+          "ams",
+          "newcommand",
+          "noerrors",
+          "noundefined",
+          "boldsymbol",
+          "braket",
+          "cancel",
+          "color",
+          "mathtools",
+          "textmacros",
+          "verb",
+        ],
         maxMacros: 1000,
         maxBuffer: 16 * 1024,
       },
@@ -38,13 +51,22 @@ function loadMathJax() {
     };
     const script = document.createElement("script");
     script.src = new URL("../vendor/mathjax/tex-svg-full.js", import.meta.url).href;
-    script.addEventListener("load", () => {
-      Promise.resolve(globalThis.MathJax?.startup?.promise).then(() => {
-        if (typeof globalThis.MathJax?.tex2svgPromise !== "function") reject(new Error("MathJax unavailable"));
-        else resolve(globalThis.MathJax);
-      }, reject);
-    }, { once: true });
-    script.addEventListener("error", () => reject(new Error("Offline MathJax could not be loaded")), { once: true });
+    script.addEventListener(
+      "load",
+      () => {
+        Promise.resolve(globalThis.MathJax?.startup?.promise).then(() => {
+          if (typeof globalThis.MathJax?.tex2svgPromise !== "function")
+            reject(new Error("MathJax unavailable"));
+          else resolve(globalThis.MathJax);
+        }, reject);
+      },
+      { once: true },
+    );
+    script.addEventListener(
+      "error",
+      () => reject(new Error("Offline MathJax could not be loaded")),
+      { once: true },
+    );
     document.head.append(script);
   }).catch((error) => {
     startup = undefined;
@@ -62,8 +84,13 @@ function inertMath(node) {
   for (const element of [node, ...node.querySelectorAll("*")]) {
     for (const attribute of [...element.attributes]) {
       const name = attribute.name.toLowerCase();
-      if (name.startsWith("on") || name === "id" || name === "href" || name === "xlink:href"
-        || (name === "style" && /url\s*\(|position\s*:/i.test(attribute.value))) {
+      if (
+        name.startsWith("on") ||
+        name === "id" ||
+        name === "href" ||
+        name === "xlink:href" ||
+        (name === "style" && /url\s*\(|position\s*:/i.test(attribute.value))
+      ) {
         element.removeAttribute(attribute.name);
       }
     }
@@ -73,28 +100,35 @@ function inertMath(node) {
   // so carry the fixed accessibility presentation with the generated node.
   // Otherwise the browser paints MathML beside the SVG as a second formula.
   for (const assistive of node.querySelectorAll("mjx-assistive-mml")) {
-    assistive.style.cssText = "position:absolute!important;clip:rect(1px,1px,1px,1px)!important;clip-path:inset(50%)!important;width:1px!important;height:1px!important;overflow:hidden!important;padding:0!important;border:0!important;white-space:nowrap!important";
+    assistive.style.cssText =
+      "position:absolute!important;clip:rect(1px,1px,1px,1px)!important;clip-path:inset(50%)!important;width:1px!important;height:1px!important;overflow:hidden!important;padding:0!important;border:0!important;white-space:nowrap!important";
   }
   if (node.querySelector("mjx-assistive-mml")) node.style.position = "relative";
   return node;
 }
 
-export function typesetPreviewMath(container, {
-  isCurrent = () => true,
-  errorLabel = "This formula could not be rendered. Its TeX source is shown.",
-} = {}) {
-  const expressions = [...container.querySelectorAll(".math")]
-    .filter((element) => !element.closest("pre,code") && !element.querySelector("mjx-container"));
+export function typesetPreviewMath(
+  container,
+  {
+    isCurrent = () => true,
+    errorLabel = "This formula could not be rendered. Its TeX source is shown.",
+  } = {},
+) {
+  const expressions = [...container.querySelectorAll(".math")].filter(
+    (element) => !element.closest("pre,code") && !element.querySelector("mjx-container"),
+  );
   if (!expressions.length) return Promise.resolve({ rendered: 0, failed: 0 });
   const job = async () => {
     if (!isCurrent()) return { rendered: 0, failed: 0 };
     let mathjax;
-    try { mathjax = await loadMathJax(); }
-    catch {
-      if (isCurrent()) for (const element of expressions) {
-        element.dataset.mathError = "true";
-        element.title = errorLabel;
-      }
+    try {
+      mathjax = await loadMathJax();
+    } catch {
+      if (isCurrent())
+        for (const element of expressions) {
+          element.dataset.mathError = "true";
+          element.title = errorLabel;
+        }
       return { rendered: 0, failed: expressions.length };
     }
     let rendered = 0;
@@ -103,16 +137,22 @@ export function typesetPreviewMath(container, {
       if (!isCurrent() || !container.contains(element)) break;
       const display = element.classList.contains("display");
       const source = mathSource(element.textContent, display);
-      const fontSize = Number.parseFloat(container.ownerDocument.defaultView.getComputedStyle(element).fontSize) || 18;
+      const fontSize =
+        Number.parseFloat(container.ownerDocument.defaultView.getComputedStyle(element).fontSize) ||
+        18;
       const key = `${display}:${fontSize}:${source}`;
       try {
         let node = cache.get(key)?.cloneNode(true);
         if (!node) {
           mathjax.texReset();
-          node = inertMath(await mathjax.tex2svgPromise(source, {
-            display, em: fontSize, ex: fontSize / 2,
-            containerWidth: container.clientWidth || 760,
-          }));
+          node = inertMath(
+            await mathjax.tex2svgPromise(source, {
+              display,
+              em: fontSize,
+              ex: fontSize / 2,
+              containerWidth: container.clientWidth || 760,
+            }),
+          );
           cache.set(key, node.cloneNode(true));
           if (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value);
         }
@@ -122,9 +162,11 @@ export function typesetPreviewMath(container, {
         const invalid = Boolean(node.querySelector("[data-mjx-error]"));
         // MathJax can paint an empty error rectangle for malformed TeX.
         // Preserve readable source rather than replacing it with that box.
-        element.replaceChildren(invalid
-          ? container.ownerDocument.createTextNode(source)
-          : container.ownerDocument.importNode(node, true));
+        element.replaceChildren(
+          invalid
+            ? container.ownerDocument.createTextNode(source)
+            : container.ownerDocument.importNode(node, true),
+        );
         element.dataset.mathRendered = "true";
         if (invalid) {
           element.dataset.mathError = "true";

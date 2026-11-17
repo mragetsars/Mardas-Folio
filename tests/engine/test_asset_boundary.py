@@ -50,7 +50,9 @@ def test_discovery_skips_nested_link_and_honours_cancellation(tmp_path: Path) ->
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX directory descriptor regression")
-def test_import_rejects_directory_swap_before_commit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_import_rejects_directory_swap_before_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = tmp_path / "documents"
     root.mkdir()
     document = root / "test.md"
@@ -91,10 +93,18 @@ def test_windows_junction_root_and_nested_are_not_followed(tmp_path: Path) -> No
     def make_junction(path: Path) -> None:
         env = dict(os.environ, MARDAS_TEST_JUNCTION=str(path), MARDAS_TEST_TARGET=str(outside))
         result = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-             "New-Item -ItemType Junction -Path $env:MARDAS_TEST_JUNCTION "
-             "-Target $env:MARDAS_TEST_TARGET -ErrorAction Stop | Out-Null"],
-            env=env, capture_output=True, text=True, check=False,
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "New-Item -ItemType Junction -Path $env:MARDAS_TEST_JUNCTION "
+                "-Target $env:MARDAS_TEST_TARGET -ErrorAction Stop | Out-Null",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if result.returncode:
             pytest.skip(f"Junction creation unavailable: {result.stderr}")
@@ -118,7 +128,9 @@ def test_windows_junction_root_and_nested_are_not_followed(tmp_path: Path) -> No
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows directory-handle regression")
-def test_windows_import_keeps_assets_directory_anchored(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_windows_import_keeps_assets_directory_anchored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = tmp_path / "documents"
     root.mkdir()
     document = root / "test.md"

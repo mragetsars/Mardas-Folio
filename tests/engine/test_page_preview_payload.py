@@ -18,7 +18,6 @@ from mardas_folio.application import EngineService
 from mardas_folio.markdown import render_markdown_text
 from mardas_folio.renderer import PdfOptions, build_html, compose_document, page_geometry
 
-
 DOCUMENT = """---
 title: Quarterly Report
 author: Mardas

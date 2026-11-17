@@ -19,7 +19,7 @@ test("closing a project detaches open documents but keeps their buffers and dirt
     projectRequestSequence: 7,
     projectSearchSequence: 2,
     activeProjectSearchRequestId: "search-1",
-    projectFileRequests: new Map([["4:chapters/one.md", Promise.resolve()] ]),
+    projectFileRequests: new Map([["4:chapters/one.md", Promise.resolve()]]),
     projectDiagnostics: [{ code: "BOOK" }],
     bibliographyEntries: [{ id: "ref" }],
     bibliographySequence: 3,

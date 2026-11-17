@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Benchmark representative Mardas Folio documents with reproducible inputs."""
+
 from __future__ import annotations
 
 import argparse
