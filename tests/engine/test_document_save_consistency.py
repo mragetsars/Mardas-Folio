@@ -7,6 +7,7 @@ from threading import Barrier
 import pytest
 
 from mardas_folio import application, document_store, workspace
+from mardas_folio.projects import files as workspace_files
 
 
 def test_document_read_revision_describes_the_returned_content(
@@ -80,13 +81,13 @@ def test_workspace_save_detects_changes_during_temporary_write(
     path.write_text("# Original\n", encoding="utf-8")
     project = workspace.load_workspace(tmp_path)
     opened = workspace.read_workspace_file(project, "report.md")
-    real_fsync = workspace.os.fsync
+    real_fsync = workspace_files.os.fsync
 
     def external_edit_after_flush(descriptor: int) -> None:
         real_fsync(descriptor)
         path.write_text("# External edit\n", encoding="utf-8")
 
-    monkeypatch.setattr(workspace.os, "fsync", external_edit_after_flush)
+    monkeypatch.setattr(workspace_files.os, "fsync", external_edit_after_flush)
     with pytest.raises(workspace.WorkspaceError) as error:
         workspace.write_workspace_file(
             project, "report.md", "# Editor\n", expected_sha256=str(opened["sha256"])
@@ -104,13 +105,13 @@ def test_workspace_save_response_describes_written_buffer_after_external_replace
     path.write_text("# Original\n", encoding="utf-8")
     project = workspace.load_workspace(tmp_path)
     opened = workspace.read_workspace_file(project, "report.md")
-    real_replace = workspace.os.replace
+    real_replace = workspace_files.os.replace
 
     def external_edit_after_replace(source, target):
         real_replace(source, target)
         Path(target).write_text("# External edit\n", encoding="utf-8")
 
-    monkeypatch.setattr(workspace.os, "replace", external_edit_after_replace)
+    monkeypatch.setattr(workspace_files.os, "replace", external_edit_after_replace)
     saved = workspace.write_workspace_file(
         project, "report.md", "# Editor\n", expected_sha256=str(opened["sha256"])
     )

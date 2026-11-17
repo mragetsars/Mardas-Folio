@@ -507,7 +507,11 @@ def test_release_jobs_install_what_their_scripts_import() -> None:
     import ast
 
     scripts_dir = ROOT / "scripts"
-    local = {path.stem: path for path in scripts_dir.glob("*.py")}
+    local = {}
+    for path in scripts_dir.rglob("*.py"):
+        parts = path.relative_to(scripts_dir).with_suffix("").parts
+        name = ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+        local[name] = path
     stdlib = set(sys.stdlib_module_names)
 
     def third_party_closure(entry: str) -> set[str]:
@@ -522,16 +526,16 @@ def test_release_jobs_install_what_their_scripts_import() -> None:
             tree = ast.parse(local[name].read_text(encoding="utf-8"))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
-                    modules = {alias.name.split(".")[0] for alias in node.names}
+                    modules = {alias.name for alias in node.names}
                 elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                    modules = {node.module.split(".")[0]}
+                    modules = {node.module}
                 else:
                     continue
                 for module in modules:
                     if module in local:
                         pending.append(module)
-                    elif module not in stdlib and module != "__future__":
-                        found.add(module)
+                    elif module.split(".")[0] not in stdlib and module != "__future__":
+                        found.add(module.split(".")[0])
         return found
 
     workflow = yaml.safe_load(_read(".github/workflows/release.yml"))

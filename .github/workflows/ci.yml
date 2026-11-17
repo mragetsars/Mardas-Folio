@@ -54,7 +54,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
         run: |
           python -m ruff check .
-          python -m ruff format --check src scripts tests
+          python -m ruff format --check src scripts tests packaging
 
       - name: Run scoped type checks
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
@@ -452,7 +452,9 @@ jobs:
         run: python scripts/build_desktop_frontend.py
 
       - name: Run locked Rust tests
-        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+        run: |
+          cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
+          cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 
       - name: Build native Windows packages
         shell: pwsh
@@ -536,7 +538,9 @@ jobs:
         run: python scripts/build_desktop_frontend.py
 
       - name: Run locked Rust tests
-        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+        run: |
+          cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
+          cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 
       - name: Install Chromium runtime
         if: runner.os != 'Linux'

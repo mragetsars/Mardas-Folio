@@ -74,8 +74,8 @@ def _book(tmp_path: Path) -> Path:
         'schema_version = 1\n[book]\nchapters = ["first.md", "second.md"]\n',
         encoding="utf-8",
     )
-    (tmp_path / "first.md").write_text("# First\n", encoding="utf-8")
-    (tmp_path / "second.md").write_text("# Second\n", encoding="utf-8")
+    (tmp_path / "first.md").write_text("# First\n", encoding="utf-8", newline="")
+    (tmp_path / "second.md").write_text("# Second\n", encoding="utf-8", newline="")
     return tmp_path
 
 

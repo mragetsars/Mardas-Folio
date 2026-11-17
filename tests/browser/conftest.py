@@ -13,8 +13,10 @@ from tests._paths import ROOT
 FRONTEND = ROOT / "apps" / "desktop" / "frontend"
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def component_browser():
+    # Sync Playwright owns an event loop until teardown; release it before
+    # engine/PDF suites create their own sessions in this pytest process.
     if os.environ.get("MARDAS_BROWSER_TESTS") != "1":
         pytest.skip("Set MARDAS_BROWSER_TESTS=1 to run Chromium component tests")
     from playwright.sync_api import sync_playwright
@@ -27,7 +29,7 @@ def component_browser():
             browser.close()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def frontend_url(component_browser):
     class QuietHandler(SimpleHTTPRequestHandler):
         def log_message(self, *_args):
