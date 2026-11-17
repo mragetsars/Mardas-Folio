@@ -7,22 +7,28 @@ boundary over introducing a new framework or duplicating behavior.
 
 ## Ownership and dependencies
 
-| Boundary | Owns | Does not own |
-| --- | --- | --- |
-| `document_store.py` | Bounded UTF-8 reads, revisions, BOM/newline preservation, conflict-aware saves | Rendering, RPC, project discovery |
-| `file_io.py` | Temporary allocation, exact bytes, permission preservation, atomic replacement, cleanup | Extension rules, conflict policy, application errors |
-| `document_assets.py` | Bounded discovery, safe asset names, anchored create-only imports | Editor state or native dialogs |
-| `request_validation.py` | Request shape, scalar types, UTF-8 and NUL checks | Filesystem work or rendering |
-| `render_requests.py` | Request overrides, project defaults, path normalization, option-schema parity | Transport envelopes or UI state |
-| `render_contracts.py` / `page_geometry.py` | Publication option types, shared exceptions, validated physical page sizes | Markdown parsing or Chromium imports |
-| `print_layout.py` / `assets/print-layout.css` | Dynamic print variables and static publication layout rules | Browser sessions or application requests |
-| `application.py` | Use-case orchestration and stable public facade | Low-level file commit mechanics |
-| `sidecar.py` / `protocol.py` | JSON-RPC, bounded requests, one active job, cancellation, stdout discipline | Widgets or file-dialog policy |
-| `renderer.py` / `markdown.py` | Publication pipeline, rendering and document semantics | Desktop window state |
-| `src-tauri/src` | Native dialogs, process lifecycle, local grants, updater boundary | Reimplementation of publishing logic |
-| `frontend/js/core` | Reusable state, schemas, adapters and request policy | Importing the application entrypoint |
-| `frontend/js/ui` | DOM components, focus, event lifecycle, injected host callbacks | Native bridge calls hidden inside a control |
-| `frontend/js/main.mjs` | Composition and cross-feature orchestration | New independent feature implementations |
+| Boundary | Responsibility |
+| --- | --- |
+| `markup/` | Front matter, BiDi/text isolation, math protection and code-block transformations; `markdown.py` orders the semantic pipeline and preserves imports |
+| `publishing/` | HTML/cover composition, thread-affine Chromium sessions, quality checks, PDF metadata/navigation and atomic publication; `renderer.py` preserves the API and orchestrates conversion |
+| `projects/` | Workspace models, bounded discovery/search, revision-aware file I/O, loading/validation and transactional book mutations; `workspace.py` preserves imports and composes previews/exports |
+| `document_store.py`, `document_assets.py` | Document encoding/revisions/conflicts and bounded, anchored asset operations |
+| `file_io.py` | Shared exact-byte writes, permissions, atomic replacement and cleanup |
+| `request_validation.py`, `render_requests.py` | Request shape, options/defaults and path normalization; no transport or widget state |
+| `render_contracts.py`, `page_geometry.py`, `print_layout.py` | Publication types, shared errors, physical page rules and static print CSS |
+| `application.py`, `sidecar.py`, `protocol.py` | Use cases and stable facades, bounded JSON-RPC, job lifecycle/cancellation and stdout discipline |
+| `apps/desktop/src-tauri/src/` | Native dialogs, process lifecycle, local file grants and updater; no publishing reimplementation |
+| `frontend/js/core/` | Shared models, analysis, request/state policies; no feature/UI/native-command imports |
+| `frontend/js/adapters/` | Native commands, RPC payloads and storage access |
+| `frontend/js/features/` | Documents/tabs/persistence, book chapter editing, export, settings/updater and workspace panes |
+| `frontend/js/ui/` | Shared DOM components, focus, keyboard interactions and notifications with injected callbacks |
+| `frontend/js/preview/` | Safe document content, sanitization, page layout, online-image controls and math |
+| `frontend/js/main.mjs` | Composition, cross-feature coordination and remaining project/book workflows; new independent behavior belongs with its feature |
+| `editor-src/` | CodeMirror extensions; generated bundle in `frontend/js/vendor/` |
+| `scripts/`, `scripts/lib/` | Stable command entrypoints and reusable `audit/` / `build/` libraries |
+| `tests/engine/`, `tests/desktop/`, `tests/tooling/`, `tests/browser/` | Engine behavior, native/frontend contracts, developer tools and real-browser integration |
+| `apps/desktop/tests/` | Node suites grouped by `core/`, `adapters/`, `features/`, `ui/`, `editor/`; shared native fixtures in `fixtures/` |
+| `docs/reviews/` | Historical evidence; this file is the current engineering standard |
 
 `application` re-exports its existing document and option APIs. Move implementation
 without forcing every CLI/sidecar consumer to migrate. Leaf modules must not import
@@ -47,6 +53,53 @@ flowchart TD
   Renderer --> Layout[Print layout CSS]
   Renderer --> Browser[Isolated Chromium sessions]
 ```
+
+## Naming and source organization
+
+- Python uses `snake_case` for modules/functions/fields, `PascalCase` for classes
+  and exceptions, and `UPPER_SNAKE_CASE` for constants. Private helpers start with
+  `_`; public facades explicitly re-export existing symbols.
+- JavaScript filenames use `kebab-case.mjs`, functions/locals use `camelCase`,
+  classes use `PascalCase`, and fixed shared constants use `UPPER_SNAKE_CASE`.
+  Rust follows rustfmt and the standard snake-case / PascalCase conventions.
+- Names describe domain responsibility. Include units when otherwise ambiguous
+  (`timeout_ms`, `maxBytes`), keep established terms such as document, chapter,
+  workspace and publication, and avoid generic `utils`, redundant class prefixes
+  or duplicate abbreviations.
+- Prefer imports, constants/contracts, then related API/helper groups. Group by
+  responsibility rather than splitting every helper into its own file.
+- `.editorconfig` defines UTF-8/LF and indentation. Pinned Ruff owns Python
+  formatting/import order; pinned Prettier owns authored desktop JS/CSS; rustfmt
+  owns Rust. ESLint checks undeclared/unused names and frontend import boundaries.
+- Do not format generated bundles, vendor code, lockfiles, semantic Markdown
+  fixtures or embedded publication HTML/CSS strings. Rebuild the editor bundle
+  with `npm --prefix apps/desktop run build:editor` when its authored inputs change.
+
+## Compatibility and extending the project
+
+Add semantic transformations to `markup/` and call them in the existing pipeline
+order. Add publication behavior to the corresponding `publishing/` owner.
+Project I/O and mutations belong in `projects/`; CLI commands call those services.
+Implementation packages must not import their legacy facade or transport entrypoint;
+the architecture tests enforce that direction.
+
+Feature controllers take explicit callbacks for cross-feature actions and receive
+the existing application state where workflows share ownership. They must not import
+`main.mjs`. Core policies remain reusable; optional locale storage in `core/i18n.mjs`
+is the existing persistence boundary, not permission to put native commands in core.
+Use the native/storage adapters for environment access and inject native actions
+into shared UI components.
+
+Preserve CLI names, Python compatibility imports, JSON-RPC schemas, Tauri commands,
+storage keys/recovery payloads, installation identifiers and emitted `md2pdf-*`
+HTML/CSS names. Internal moves are not a reason to rename these contracts.
+Keep the old facade when moving implementation. Update imports, build inventories,
+tests and CI paths in the same batch.
+
+New tests belong beside their owning suite. Use `tests/_paths.py` for Python
+repository paths; do not derive the root from a test's directory depth. Node's
+`scripts/test.mjs` discovers suites recursively and works without shell globbing.
+Move an existing suite only after comparing collected test identities.
 
 ## Files, errors and asynchronous work
 
@@ -74,7 +127,10 @@ flowchart TD
 ## Interface and design system
 
 `frontend/design/tokens.css` owns semantic colors, typography, spacing, and sizing.
-`design/components.css` owns shared controls. Feature styles own layout. New UI
+`design/components.css` owns shared controls. `frontend/styles/` owns shell and feature layout. `index.html` is the explicit
+cascade order; preserve both stylesheet order and computed styles when moving CSS.
+Existing `editing-polish.css` and related layered sheets retain their order. Add
+rules to the responsible sheet rather than appending another override stylesheet. New UI
 colors must use the existing `--ui-*` roles. Publication palette swatches are an
 intentional exception: their values must match `appearance.PALETTES`.
 Publication layout is separate: edit native CSS in `assets/print-layout.css`;
@@ -128,6 +184,8 @@ explicitly so the type check uses the same dependencies as the tests.
 ```bash
 source .venv/bin/activate
 bash scripts/check.sh -q
+npm --prefix apps/desktop run lint
+npm --prefix apps/desktop run format:check
 npm --prefix apps/desktop test
 npm --prefix apps/desktop run check:editor
 bash scripts/check_critical_coverage.sh
@@ -139,6 +197,7 @@ python scripts/build_desktop_frontend.py
 python scripts/verify_desktop_frontend.py apps/desktop/dist
 python scripts/audit_export_layout.py
 python scripts/audit_desktop_documents.py
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 ```
 
@@ -165,3 +224,17 @@ coverage by excluding error paths or counting only easy functions.
   browser state for each test rather than repairing it between scenarios.
 - [Geist foundations](https://vercel.com/geist/introduction): the reference used by
   the current interface; local semantic tokens remain this product's source of truth.
+
+Formatting-only changes belong in their own commit. Run targeted suites after
+structural changes and the broader engine/desktop/browser/rendering checks at the
+integration milestone. Packaging checks must inspect the wheel's modules/resources,
+not rely solely on editable imports. Known baseline failures must remain visible.
+
+Build outputs and caches are not source. Reuse the existing environments and build
+caches. Keep QA artifacts under `build/`, remove disposable outputs from your own
+runs after recording results, and never include installed applications, user
+settings, documents or recovery profiles in repository cleanup.
+
+Tool configuration references: [Ruff](https://docs.astral.sh/ruff/formatter/),
+[Prettier options](https://prettier.io/docs/options), and
+[ESLint configuration](https://eslint.org/docs/latest/use/configure/configuration-files).

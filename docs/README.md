@@ -20,7 +20,7 @@ Generated PDF versions are stored in:
 - [Release checklist](./RELEASE.md) — release gate, build, tag, and artifact workflow.
 - [Maintenance workflow](./MAINTENANCE.md) — routine local checks, guide builds, distribution builds, and patch hygiene.
 - [Engineering guide](./ENGINEERING.md) — module ownership, fixtures, behavioral testing, design-system rules and verification commands.
-- [گزارش بازبینی مهندسی](./ENGINEERING_REVIEW.fa.md) — implemented refactoring, validation evidence and review limits (November 2026).
+- [گزارش بازبینی مهندسی](./reviews/ENGINEERING_REVIEW.fa.md) — implemented refactoring, validation evidence and review limits (November 2026).
 - [Security policy](./SECURITY.md) — trust boundaries for Markdown, HTML, assets, Studio, Chromium, and PDF metadata.
 - [Native distribution](./DISTRIBUTION.md) — Windows/macOS/Linux package contracts and clean-machine release boundary.
 - [Desktop update readiness](./UPDATES.md) — signed updater metadata, key handling, and activation gates.
@@ -31,6 +31,13 @@ Generated PDF versions are stored in:
   - [Frozen runtime](./architecture/ADR-003-frozen-runtime.md)
   - [Service and UI module boundaries](./architecture/ADR-005-service-and-ui-module-boundaries.md)
   - [Sidecar protocol v1](./architecture/SIDECAR-PROTOCOL-v1.md)
+
+## Historical reviews
+
+Dated editor, design, and engineering findings live in [reviews/](./reviews/).
+They describe the state examined at the time; current ownership and development
+rules live in [ENGINEERING.md](./ENGINEERING.md). Historical PASS results do not
+replace fresh regression checks.
 
 ## Rule of thumb
 

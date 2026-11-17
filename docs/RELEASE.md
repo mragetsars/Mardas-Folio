@@ -21,7 +21,7 @@ Then update the documentation:
 - Update guide front matter and the version-history section in `docs/guides/GUIDE.en.md` and `docs/guides/GUIDE.fa.md`.
 - Update `docs/CHANGELOG.md` with the release date and a concise summary.
 
-`tests/test_desktop_app.py` and `tests/test_documentation_integrity.py` hold the
+`tests/desktop/test_desktop_app.py` and `tests/tooling/test_documentation_integrity.py` hold the
 declared versions against `__version__`, so a partial bump fails the suite.
 
 Then rebuild the desktop frontend:
@@ -43,7 +43,7 @@ Run the local checks before tagging. The check helper keeps pytest isolated from
 ./scripts/check.sh
 ./scripts/check_critical_coverage.sh
 ./scripts/security_audit.sh
-python -m pytest -q tests/test_project_config.py tests/test_book_mode.py tests/test_cross_references.py tests/test_citations.py tests/test_studio_project_workspace.py
+python -m pytest -q tests/engine/test_project_config.py tests/engine/test_book_mode.py tests/engine/test_cross_references.py tests/engine/test_citations.py tests/engine/test_studio_project_workspace.py
 ```
 
 For a full release verification, use the consolidated release gate:

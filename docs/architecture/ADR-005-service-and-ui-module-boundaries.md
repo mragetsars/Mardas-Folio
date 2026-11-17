@@ -46,5 +46,5 @@ fixtures with teardown instead of success-path cleanup at the end of each test.
   when their responsibilities are changed, with the same compatibility discipline.
 
 Implementation and testing rules are in [Engineering](../ENGINEERING.md).
-The [engineering review](../ENGINEERING_REVIEW.fa.md) records validation evidence
+The [engineering review](../reviews/ENGINEERING_REVIEW.fa.md) records validation evidence
 and the remaining boundaries for future work.

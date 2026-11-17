@@ -39,7 +39,7 @@ announce a published or signed release.
 - Added browser-backed checks for per-document history, caret/scroll restoration, tab keyboard focus and metadata preservation in both languages and themes. These run in desktop CI alongside the existing UI checks.
 - Exercised delayed native grants while typing, opening multiple files, closing tabs and returning Home. Visual QA now configures language and theme before onboarding, edits through the actual editor, and uses valid TeX in its PDF feature fixture.
 - Extended the core type gate to Studio, workspace discovery and export workers. Browser Studio has 84 responsive/theme/project cases; desktop has 40 responsive combinations and 32 visual snapshots.
-- The project-wide review and acceptance list are recorded in `docs/PROJECT_REVIEW.fa.md`. Native installation and signed update acceptance still require evidence from their target-platform release jobs.
+- The project-wide review and acceptance list are recorded in `docs/reviews/PROJECT_REVIEW.fa.md`. Native installation and signed update acceptance still require evidence from their target-platform release jobs.
 
 ## 2.0.3 - 2026-08-18
 

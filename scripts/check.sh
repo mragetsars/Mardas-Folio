@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 python -m ruff check .
+python -m ruff format --check src scripts tests
 bash scripts/check_types.sh
 
 if [[ "${MARDAS_ALLOW_PYTEST_PLUGINS:-0}" != "1" ]]; then

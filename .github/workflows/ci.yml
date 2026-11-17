@@ -52,7 +52,9 @@ jobs:
 
       - name: Run Ruff
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
-        run: python -m ruff check .
+        run: |
+          python -m ruff check .
+          python -m ruff format --check src scripts tests
 
       - name: Run scoped type checks
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
@@ -337,7 +339,10 @@ jobs:
       # The core-tests matrix skips this suite because it never installs the
       # editor's dependencies; this is the job that actually runs it.
       - name: Run desktop interface suite
-        run: npm --prefix apps/desktop test
+        run: |
+          npm --prefix apps/desktop run lint
+          npm --prefix apps/desktop run format:check
+          npm --prefix apps/desktop test
 
       - name: Verify real updater signatures
         run: |

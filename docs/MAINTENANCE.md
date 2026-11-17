@@ -38,7 +38,7 @@ Run the default quality gate before creating a patch or tag:
 ```bash
 ./scripts/check.sh
 ./scripts/check_critical_coverage.sh
-python -m pytest -q tests/test_project_config.py tests/test_book_mode.py tests/test_cross_references.py
+python -m pytest -q tests/engine/test_project_config.py tests/engine/test_book_mode.py tests/engine/test_cross_references.py
 ```
 
 The script runs Ruff, the scoped Pyright contract, and pytest from the repository root. `check_critical_coverage.sh` separately measures line and branch coverage across publication quality, PDF navigation, protocol, application and workspace operations, and the extracted file, request and layout services. It disables third-party pytest plugin autoload by default so local virtualenv plugins cannot change release-gate behavior; set `MARDAS_ALLOW_PYTEST_PLUGINS=1` only when intentionally debugging pytest plugins. To include real Chromium render smoke tests, including PDF metadata and outline inspection, enable the optional environment flag:
@@ -58,7 +58,7 @@ MARDAS_RENDER_SMOKE=1 MARDAS_TIMEOUT_MS=600000 MARDAS_RENDER_SMOKE_TIMEOUT=420 .
 Changes to the book manifest, chapter assembly, ID namespacing, shared asset resolution, or cross-chapter links require the focused suite:
 
 ```bash
-python -m pytest -q tests/test_book_mode.py tests/test_pdf_toc_destinations.py
+python -m pytest -q tests/engine/test_book_mode.py tests/engine/test_pdf_toc_destinations.py
 ```
 
 Before release, create a representative book with at least two chapters, duplicate heading text, a shared project-root image, and a link from one chapter to a heading in another. Verify the combined HTML contains no absolute machine paths and inspect the PDF TOC, outline, page breaks, named destinations, and link annotations. The consolidated release gate also builds the starter Book Mode project from the cleanly installed wheel.
@@ -68,7 +68,7 @@ Before release, create a representative book with at least two chapters, duplica
 Changes to semantic labels, caption normalization, reference localization, generated lists, Book Mode assembly, or PDF destination writing require the focused suite:
 
 ```bash
-python -m pytest -q tests/test_cross_references.py tests/test_book_mode.py tests/test_pdf_toc_destinations.py
+python -m pytest -q tests/engine/test_cross_references.py tests/engine/test_book_mode.py tests/engine/test_pdf_toc_destinations.py
 ```
 
 Before release, render a representative English/Persian book containing a labeled figure, table, display equation, and code listing. Verify global and chapter-scoped numbering, a reference that crosses chapter boundaries, duplicate/unresolved diagnostics, all requested generated lists, and the corresponding `xref-*` named destinations and link annotations in the PDF. Official guide builds also enable all four reference lists as live renderer samples.
@@ -79,11 +79,11 @@ When changing `src/mardas_folio/citations.py`, bibliography configuration, or Bo
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
-  tests/test_citations.py \
-  tests/test_book_mode.py \
-  tests/test_project_config.py \
-  tests/test_security_boundaries.py \
-  tests/test_documentation_integrity.py
+  tests/engine/test_citations.py \
+  tests/engine/test_book_mode.py \
+  tests/engine/test_project_config.py \
+  tests/engine/test_security_boundaries.py \
+  tests/tooling/test_documentation_integrity.py
 ```
 
 Also rebuild both guides. They load `docs/guides/GUIDE.references.bib` as a live offline source and must produce author-year disambiguation, narrative/grouped citation links, one generated bibliography, and stable `/bib-*` PDF destinations. No release check may require DOI lookup or network metadata retrieval.
@@ -94,10 +94,10 @@ Changes to `src/mardas_folio/workspace.py`, project API routes, Project Explorer
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
-  tests/test_studio_project_workspace.py \
-  tests/test_gui_assets.py \
-  tests/test_studio_sidebar_layout.py \
-  tests/test_visual_qa_scripts.py
+  tests/engine/test_studio_project_workspace.py \
+  tests/engine/test_gui_assets.py \
+  tests/engine/test_studio_sidebar_layout.py \
+  tests/tooling/test_visual_qa_scripts.py
 ```
 
 Run both the ordinary Studio browser audit and the project-aware audit against a representative Book Mode project:
@@ -132,12 +132,12 @@ For targeted reliability checks:
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
-  tests/test_performance_reliability.py \
-  tests/test_studio_export_jobs.py \
-  tests/test_performance_benchmark.py
+  tests/engine/test_performance_reliability.py \
+  tests/engine/test_studio_export_jobs.py \
+  tests/tooling/test_performance_benchmark.py
 
 MARDAS_RENDER_SMOKE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
-  python -m pytest -q tests/test_performance_reliability.py
+  python -m pytest -q tests/engine/test_performance_reliability.py
 ```
 
 Verify that Studio returns `429 export_queue_full` when the bounded queue is exhausted, queued cancellation prevents work from starting, running cancellation is reported as cooperative, completed PDFs are streamed from disk, and an idle worker closes its reusable browser after the configured timeout.
@@ -288,10 +288,10 @@ Changes to Markdown semantics, captions, tables, images, link processing, langua
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
-  tests/test_accessibility_audit.py \
-  tests/test_pdf_accessibility_audit.py \
-  tests/test_markdown.py \
-  tests/test_pdf_output.py
+  tests/tooling/test_accessibility_audit.py \
+  tests/tooling/test_pdf_accessibility_audit.py \
+  tests/engine/test_markdown.py \
+  tests/engine/test_pdf_output.py
 
 folio audit-accessibility docs/guides/GUIDE.en.md --format json --fail-on error
 folio audit-accessibility docs/guides/GUIDE.fa.md --format json --fail-on error
@@ -311,7 +311,7 @@ npm --prefix apps/desktop run check:editor
 python scripts/build_desktop_frontend.py
 python scripts/verify_desktop_frontend.py apps/desktop/dist
 node --test apps/desktop/tests/*.test.mjs
-python -m pytest -q tests/test_desktop_app.py
+python -m pytest -q tests/desktop/test_desktop_app.py
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 ```
 
@@ -326,7 +326,7 @@ Native desktop changes require the target-platform builder and verifier:
 ```bash
 python scripts/build_native_desktop.py --help
 python scripts/verify_native_desktop.py --help
-python -m pytest -q tests/test_native_desktop.py tests/test_release_provenance.py
+python -m pytest -q tests/desktop/test_native_desktop.py tests/tooling/test_release_provenance.py
 ```
 
 The standalone sidecar runtime must be built on the same operating system as the native package. The commands above are required checks, not evidence that a particular Windows/macOS/Linux job has run. Linux release CI intentionally uses Ubuntu 22.04 as the compatibility baseline. Windows Setup embeds the WebView2 offline installer, while the portable ZIP expects a system WebView2 runtime. Signing and notarization evidence must come from the credentialed target-platform release run.
@@ -334,7 +334,7 @@ The standalone sidecar runtime must be built on the same operating system as the
 Support-bundle changes additionally require:
 
 ```bash
-python -m pytest -q tests/test_support_bundle.py tests/test_sidecar_protocol.py
+python -m pytest -q tests/engine/test_support_bundle.py tests/engine/test_sidecar_protocol.py
 ```
 
 Do not add document paths, document contents, home paths, environment variables, tokens, or credentials to the support archive.
@@ -344,7 +344,7 @@ Do not add document paths, document contents, home paths, environment variables,
 When updater signing keys are unavailable, update support is readiness-only. Validate the static manifest tool independently:
 
 ```bash
-python -m pytest -q tests/test_update_manifest.py
+python -m pytest -q tests/tooling/test_update_manifest.py
 python scripts/generate_update_manifest.py --help
 ```
 
