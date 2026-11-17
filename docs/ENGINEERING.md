@@ -20,7 +20,7 @@ boundary over introducing a new framework or duplicating behavior.
 | `apps/desktop/src-tauri/src/` | Native dialogs, process lifecycle, local file grants and updater; no publishing reimplementation |
 | `frontend/js/core/` | Shared models, analysis, request/state policies; no feature/UI/native-command imports |
 | `frontend/js/adapters/` | Native commands, RPC payloads and storage access |
-| `frontend/js/features/` | Documents/tabs/persistence, book chapter editing, export, settings/updater and workspace panes |
+| `frontend/js/features/` | Documents/tabs/persistence, book creation/chapters/operations, export, settings/updater and workspace panes |
 | `frontend/js/ui/` | Shared DOM components, focus, keyboard interactions and notifications with injected callbacks |
 | `frontend/js/preview/` | Safe document content, sanitization, page layout, online-image controls and math |
 | `frontend/js/main.mjs` | Composition, cross-feature coordination and remaining project/book workflows; new independent behavior belongs with its feature |
@@ -88,7 +88,11 @@ the existing application state where workflows share ownership. They must not im
 `main.mjs`. Core policies remain reusable; optional locale storage in `core/i18n.mjs`
 is the existing persistence boundary, not permission to put native commands in core.
 Use the native/storage adapters for environment access and inject native actions
-into shared UI components.
+into shared UI components. Book creation owns its modal request lifetime;
+book operations own save preparation, the exclusive task guard, cancellation
+handoff, validation, review and output. They receive document saving and project
+application as callbacks. Keep task factories lazy: claiming the guard must precede
+any picker, confirmation or save.
 
 Preserve CLI names, Python compatibility imports, JSON-RPC schemas, Tauri commands,
 storage keys/recovery payloads, installation identifiers and emitted `md2pdf-*`

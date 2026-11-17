@@ -1,6 +1,8 @@
 import { createDocumentPersistence } from "./features/documents/persistence.mjs";
 import { createDocumentTabs } from "./features/documents/tabs.mjs";
 import { createBookChapters } from "./features/books/chapters.mjs";
+import { createBookOperations } from "./features/books/operations.mjs";
+import { createBookCreation } from "./features/books/creation.mjs";
 import { createExportController } from "./features/export/controller.mjs";
 import { createPreviewSanitizer } from "./preview/sanitize.mjs";
 import { createNotifications } from "./ui/notifications.mjs";
@@ -71,11 +73,8 @@ import { authoringShortcutKey } from "./core/keyboard-shortcuts.mjs";
 import { createWorkspaceToolbar } from "./features/workspace/workspace-toolbar.mjs";
 import { compactDocumentLocation } from "./core/path-display.mjs";
 import { createConfirmationQueue } from "./core/confirmation-queue.mjs";
-import { prepareBookFiles } from "./core/book-preparation.mjs";
 import { createSingleFlight } from "./core/single-flight.mjs";
-import { beginCancellationHandoff } from "./core/task-handoff.mjs";
 import { diagnosticLines, inlineDiagnosticsForDocument } from "./core/diagnostics.mjs";
-import { bookTaskBlocked, claimBookTask } from "./core/book-task-state.mjs";
 import {
   DOCUMENT_ZOOM_MIN,
   DOCUMENT_ZOOM_MAX,
@@ -103,12 +102,6 @@ import {
   startProjectSearch,
 } from "./adapters/project-api.mjs";
 import { resetProjectSession } from "./core/project-lifecycle.mjs";
-import {
-  createBookProject,
-  startBookExport,
-  startBookPreview,
-  startBookValidation,
-} from "./adapters/book-api.mjs";
 import {
   importDocumentAsset,
   listDocumentAssets,
@@ -161,7 +154,6 @@ const state = {
   activeBookCompletion: null,
   bookCancellationHandoff: null,
   bookRequestSequence: 0,
-  bookProjectCreateSequence: 0,
   chapterModalMode: null,
   chapterModalPath: null,
   previewSyncing: false,
@@ -297,6 +289,58 @@ const { openChapterModal, closeChapterModal, bookProject, submitChapterModal, bo
     toast,
     errorText,
   });
+const {
+  setBookOperationStatus,
+  syncBookOperationControls,
+  cancelActiveBookOperation,
+  invalidateBookTaskForProjectChange,
+  renderBookOutputResult,
+  openBookOutput,
+  validateActiveBook,
+  previewActiveBook,
+  exportActiveBook,
+} = createBookOperations({
+  state,
+  query: $,
+  queryAll: $$,
+  getModalManager: () => modalManager,
+  bookProject,
+  currentProjectContext,
+  projectContextIsCurrent,
+  applyProjectPayload,
+  askConfirmation,
+  saveDocument: (model) =>
+    saveCoordinator.save(model, () => persistDocumentModel(model, { refreshProjectOnSave: false })),
+  refreshAuthoring: () => updateAuthoringMode(activeDocument()),
+  renderProblems: () => renderProblems(activeDocument()),
+  activateSidebar,
+  safePreviewHtml: (...args) => safePreviewHtml(...args),
+  requestId,
+  setTruncatableText,
+  t,
+  toast,
+  errorText,
+  errorPayload,
+});
+const {
+  folderNameFromTitle,
+  openNewBookModal,
+  closeNewBookModal,
+  chooseBookParent,
+  submitNewBookProject,
+} = createBookCreation({
+  state,
+  query: $,
+  getModalManager: () => modalManager,
+  invalidateBookTaskForProjectChange,
+  applyProjectPayload,
+  showView,
+  activateSidebar,
+  openProjectRelativeFile,
+  t,
+  toast,
+  errorText,
+});
 const {
   setExportStatus,
   renderExportStatus,
@@ -2845,173 +2889,6 @@ function attachProjectMembership(model, project = state.project) {
   model.projectSha256 = String(model.revision || "").match(/:([a-f0-9]{64})$/i)?.[1] || "";
 }
 
-function folderNameFromTitle(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLocaleLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-  return normalized || "mardas-book";
-}
-
-function openNewBookModal() {
-  const titleInput = $("#book-project-title-input");
-  const folderInput = $("#book-project-folder-input");
-  titleInput.value = "";
-  folderInput.value = "";
-  folderInput.dataset.userEdited = "";
-  $("#book-project-parent-input").value = "";
-  $("#book-project-language").value = state.locale === "fa" ? "fa-IR" : "en-US";
-  $("#book-project-direction").value = state.locale === "fa" ? "rtl" : "ltr";
-  modalManager.open($("#book-project-modal"), {
-    initialFocus: "#book-project-title-input",
-    onClose: () => {
-      state.bookProjectCreateSequence += 1;
-      $("#book-project-form").reset();
-      folderInput.dataset.userEdited = "";
-    },
-  });
-}
-
-function closeNewBookModal() {
-  modalManager.close($("#book-project-modal"));
-}
-
-async function chooseBookParent() {
-  try {
-    const path = await invoke("pick_project_directory");
-    if (path) $("#book-project-parent-input").value = path;
-  } catch (error) {
-    toast(errorText(error), "error");
-  }
-}
-
-async function submitNewBookProject(event) {
-  event.preventDefault();
-  const title = $("#book-project-title-input").value.trim();
-  const folderName = $("#book-project-folder-input").value.trim() || folderNameFromTitle(title);
-  const parentPath = $("#book-project-parent-input").value.trim();
-  if (!title || !parentPath) {
-    toast(t("chooseProjectLocation"), "warning");
-    return;
-  }
-  const submit = event.submitter || $("#book-project-form button[type='submit']");
-  submit.disabled = true;
-  const sequence = ++state.bookProjectCreateSequence;
-  const expectedProjectPath = state.project?.path || null;
-  const expectedProjectGeneration = state.projectGeneration;
-  const handoff = invalidateBookTaskForProjectChange();
-  try {
-    await handoff;
-    if (
-      sequence !== state.bookProjectCreateSequence ||
-      state.projectGeneration !== expectedProjectGeneration ||
-      pathKey(state.project?.path) !== pathKey(expectedProjectPath)
-    )
-      return;
-    const project = await createBookProject({
-      parentPath,
-      folderName,
-      title,
-      language: $("#book-project-language").value,
-      direction: $("#book-project-direction").value,
-    });
-    if (
-      sequence !== state.bookProjectCreateSequence ||
-      state.projectGeneration !== expectedProjectGeneration ||
-      pathKey(state.project?.path) !== pathKey(expectedProjectPath)
-    )
-      return;
-    applyProjectPayload(project);
-    closeNewBookModal();
-    showView("workspace");
-    activateSidebar("book");
-    const first = project.book?.chapters?.[0]?.path;
-    if (first) await openProjectRelativeFile(first);
-    toast(t("bookCreated"), "success");
-  } catch (error) {
-    if (sequence === state.bookProjectCreateSequence) toast(errorText(error), "error");
-  } finally {
-    submit.disabled = false;
-  }
-}
-
-function setBookOperationStatus(message = "", { kind = "info", running = false } = {}) {
-  const container = $("#book-operation-status");
-  const text = $("#book-operation-message");
-  const cancel = $("#book-cancel-operation");
-  if (!container || !text || !cancel) return;
-  container.classList.toggle("hidden", !message);
-  container.dataset.kind = kind;
-  text.textContent = message;
-  cancel.classList.toggle("hidden", !running);
-  syncBookOperationControls();
-}
-
-function syncBookOperationControls() {
-  const locked = bookTaskBlocked(state);
-  const tools = $("#book-tools");
-  if (locked) tools?.setAttribute("aria-busy", "true");
-  else tools?.removeAttribute("aria-busy");
-  for (const control of $$(
-    "#book-add-chapter, #book-validate, #book-preview, #book-export, #book-chapter-list button",
-  )) {
-    if (locked) {
-      if (!("bookDisabledBeforeLock" in control.dataset)) {
-        control.dataset.bookDisabledBeforeLock = String(control.disabled);
-      }
-      control.disabled = true;
-    } else if ("bookDisabledBeforeLock" in control.dataset) {
-      control.disabled = control.dataset.bookDisabledBeforeLock === "true";
-      delete control.dataset.bookDisabledBeforeLock;
-    }
-  }
-  $$("#book-chapter-list .book-chapter-row").forEach((row) => {
-    row.draggable = !locked;
-  });
-}
-
-async function cancelActiveBookOperation() {
-  const requestId = state.activeBookRequestId;
-  if (!requestId) return;
-  try {
-    await cancelSidecarRequest(requestId);
-    setBookOperationStatus(t("searchCancelled"), { kind: "warning" });
-  } catch (error) {
-    toast(errorText(error), "error");
-  }
-}
-
-function invalidateBookTaskForProjectChange() {
-  const requestId = state.activeBookRequestId;
-  const completion = state.activeBookCompletion;
-  state.bookRequestSequence += 1;
-  state.bookPreparing = false;
-  updateAuthoringMode(activeDocument());
-  state.activeBookRequestId = null;
-  state.activeBookCompletion = null;
-  setBookOperationStatus("");
-  if (!requestId && !completion) {
-    syncBookOperationControls();
-    return state.bookCancellationHandoff || Promise.resolve(true);
-  }
-  const handoff = beginCancellationHandoff({
-    completion,
-    cancel: requestId ? () => cancelSidecarRequest(requestId) : null,
-  });
-  let trackedHandoff;
-  trackedHandoff = handoff.finally(() => {
-    if (state.bookCancellationHandoff === trackedHandoff) {
-      state.bookCancellationHandoff = null;
-    }
-    syncBookOperationControls();
-  });
-  state.bookCancellationHandoff = trackedHandoff;
-  syncBookOperationControls();
-  return trackedHandoff;
-}
-
 function clearProjectState() {
   const bookHandoff = invalidateBookTaskForProjectChange();
   const searchHandoff = cancelActiveProjectSearch({ announce: false });
@@ -3039,151 +2916,6 @@ function closeActiveProject() {
   $("#sidebar-open-project")?.focus({ preventScroll: true });
   toast(`${t("projectClosed")}: ${projectName}`, "success");
   return cleanup;
-}
-
-async function runBookTask(
-  startTask,
-  { successMessage = "", onSuccess = null, showProblems = false, beforePrepare = null } = {},
-) {
-  const projectPath = state.project?.path;
-  const projectIdentity = pathKey(projectPath);
-  let projectContext = currentProjectContext();
-  // Claim before any picker, confirmation or save can yield to another click.
-  const task = claimBookTask(state, () => ({
-    requestId: null,
-    promise: Promise.resolve().then(async () => {
-      const isCurrent = () =>
-        sequence === state.bookRequestSequence && pathKey(state.project?.path) === projectIdentity;
-      if (!projectIdentity || !isCurrent()) return null;
-      if (beforePrepare && !(await beforePrepare())) return null;
-      const prepared = await prepareBookFiles({
-        projectPath,
-        getDocuments: () => state.documents,
-        isDirty: documentDirty,
-        isCurrent,
-        confirm: () =>
-          askConfirmation({
-            title: t("bookSaveChangesTitle"),
-            message: t("bookSaveChangesHelp"),
-            confirmLabel: t("bookSaveAndContinue"),
-          }),
-        save: (model) =>
-          saveCoordinator.save(model, () =>
-            persistDocumentModel(model, { refreshProjectOnSave: false }),
-          ),
-      });
-      if (!prepared || !isCurrent()) return null;
-      // mardas.toml can change chapter order or bibliography settings. Refresh
-      // once after every open project input has reached disk.
-      const refreshed = await refreshProject(projectPath);
-      if (!isCurrent()) return null;
-      applyProjectPayload(refreshed);
-      projectContext = currentProjectContext();
-      const started = startTask();
-      state.activeBookRequestId = started.requestId || null;
-      setBookOperationStatus(t("bookOperationRunning"), { running: true });
-      state.bookPreparing = false;
-      updateAuthoringMode(activeDocument());
-      return started.promise;
-    }),
-  }));
-  if (!task) {
-    toast(t("bookOperationAlreadyRunning"), "warning");
-    syncBookOperationControls();
-    return null;
-  }
-  const sequence = ++state.bookRequestSequence;
-  const taskPromise = task.promise;
-  state.bookPreparing = true;
-  updateAuthoringMode(activeDocument());
-  setBookOperationStatus(t("bookOperationRunning"));
-  try {
-    const result = await taskPromise;
-    if (!result) {
-      if (sequence === state.bookRequestSequence) setBookOperationStatus("");
-      return null;
-    }
-    if (sequence !== state.bookRequestSequence || !projectContextIsCurrent(projectContext)) {
-      return null;
-    }
-    if (result?.project?.path && pathKey(result.project.path) !== projectContext.projectIdentity) {
-      return null;
-    }
-    if (result?.project) applyProjectPayload(result.project);
-    if (showProblems) {
-      state.projectDiagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : [];
-      renderProblems(activeDocument());
-      activateSidebar("problems");
-      const hasWarnings = state.projectDiagnostics.some((item) => item.severity === "warning");
-      const message =
-        result.ok === false
-          ? t("bookInvalid")
-          : hasWarnings
-            ? t("bookValidWithWarnings")
-            : t("bookValid");
-      const kind = result.ok === false ? "error" : hasWarnings ? "warning" : "success";
-      setBookOperationStatus(message, { kind });
-      toast(message, kind);
-      return result;
-    }
-    if (typeof onSuccess === "function") await onSuccess(result);
-    setBookOperationStatus(successMessage || t("bookValid"), { kind: "success" });
-    if (successMessage) toast(successMessage, "success");
-    if (showProblems) activateSidebar("problems");
-    return result;
-  } catch (error) {
-    if (sequence !== state.bookRequestSequence || !projectContextIsCurrent(projectContext)) {
-      return null;
-    }
-    const payload = errorPayload(error);
-    const applicationCode =
-      payload?.application_code || payload?.data?.application_code || payload?.code;
-    if (applicationCode === "MARDAS-JOB-CANCELLED") {
-      setBookOperationStatus(t("searchCancelled"), { kind: "warning" });
-      return null;
-    }
-    const diagnostics =
-      payload?.details?.diagnostics ||
-      payload?.data?.details?.diagnostics ||
-      payload?.diagnostics ||
-      [];
-    if (diagnostics.length) {
-      state.projectDiagnostics = diagnostics;
-      renderProblems(activeDocument());
-      activateSidebar("problems");
-    }
-    setBookOperationStatus(errorText(error), { kind: "error" });
-    toast(errorText(error), "error");
-    return null;
-  } finally {
-    if (sequence === state.bookRequestSequence) {
-      state.bookPreparing = false;
-      updateAuthoringMode(activeDocument());
-      state.activeBookRequestId = null;
-      state.activeBookCompletion = null;
-      $("#book-cancel-operation")?.classList.add("hidden");
-    }
-    syncBookOperationControls();
-  }
-}
-
-function renderBookOutputResult() {
-  const container = $("#book-output-result");
-  const path = state.bookOutputPath;
-  if (!container) return;
-  container.classList.toggle("hidden", !path);
-  if (!path) return;
-  setTruncatableText($("#book-output-result-name"), basename(path));
-  setTruncatableText($("#book-output-result-path"), path);
-}
-
-async function openBookOutput(reveal = false) {
-  if (!state.bookOutputPath) return;
-  try {
-    await invoke(reveal ? "reveal_path" : "open_path", { path: state.bookOutputPath });
-  } catch (error) {
-    toast(errorText(error), "error");
-  }
 }
 
 function renderBookWorkspace() {
@@ -3215,88 +2947,6 @@ function renderBookWorkspace() {
   );
   renderBookOutputResult();
   syncBookOperationControls();
-}
-
-async function validateActiveBook() {
-  if (!state.project?.path || !bookProject()) return;
-  await runBookTask(() => startBookValidation(state.project.path), {
-    successMessage: t("bookValid"),
-    showProblems: true,
-  });
-}
-
-function renderFullBookPreview(html) {
-  const parsed = new DOMParser().parseFromString(String(html || ""), "text/html");
-  const content = (parsed.querySelector(".md2pdf-article") || parsed.body).cloneNode(true);
-  // This is a review of the saved chapters, not the publication layout. Keep
-  // the ordered contents/references while leaving cover and watermark in PDF.
-  content
-    .querySelectorAll(":scope > .md2pdf-cover, :scope > .md2pdf-watermark")
-    .forEach((element) => element.remove());
-  const dialog = $("#book-review-modal");
-  const container = $("#book-review-document");
-  const token = requestId("book-review");
-  container.dataset.reviewToken = token;
-  container.dir =
-    parsed.body.getAttribute("dir") || parsed.documentElement.getAttribute("dir") || "auto";
-  container.lang = parsed.documentElement.lang || "";
-  container.replaceChildren();
-  // Full renderer styles target html/body and must never escape into the desktop
-  // shell. Whole-book review does not replace the active chapter's comparison
-  // pane or change its editing mode.
-  container.append(safePreviewHtml(content.innerHTML, "book-review-"));
-  $("#book-review-project").textContent =
-    bookProject()?.title || state.project?.name || t("bookProject");
-  $("#close-book-review").onclick = () => modalManager.close(dialog);
-  $("#book-review-done").onclick = () => modalManager.close(dialog);
-  modalManager.open(dialog, {
-    initialFocus: "#close-book-review",
-    returnFocus: $("#book-preview"),
-    onClose: () => {
-      container.replaceChildren();
-      delete container.dataset.reviewToken;
-    },
-  });
-  void typesetPreviewMath(container, {
-    isCurrent: () => container.dataset.reviewToken === token && modalManager.isOpen(dialog),
-    errorLabel: t("previewMathFailed"),
-  });
-}
-
-async function previewActiveBook() {
-  if (!state.project?.path || !bookProject()) return;
-  await runBookTask(() => startBookPreview(state.project.path), {
-    successMessage: t("bookPreviewReady"),
-    onSuccess: (result) => renderFullBookPreview(result.html),
-  });
-}
-
-async function exportActiveBook() {
-  const project = state.project;
-  const book = bookProject();
-  if (!project?.path || !book) return;
-  let outputPath;
-  await runBookTask(
-    () =>
-      startBookExport({
-        projectPath: project.path,
-        outputPath,
-      }),
-    {
-      beforePrepare: async () => {
-        outputPath = await invoke("pick_pdf_output", {
-          suggested_path: `${project.path}/${book.output || "dist/book.pdf"}`,
-        });
-        return Boolean(outputPath);
-      },
-      successMessage: t("bookExported"),
-      onSuccess: (result) => {
-        state.outputResult = result;
-        state.bookOutputPath = result?.output_path || outputPath;
-        renderBookOutputResult();
-      },
-    },
-  );
 }
 
 function bibliographyEntryAuthors(entry) {

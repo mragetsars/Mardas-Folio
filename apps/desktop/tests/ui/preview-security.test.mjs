@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const main = readFileSync(new URL("../../frontend/js/main.mjs", import.meta.url), "utf8");
+const bookOperations = readFileSync(
+  new URL("../../frontend/js/features/books/operations.mjs", import.meta.url),
+  "utf8",
+);
 const sanitizerSource = readFileSync(
   new URL("../../frontend/js/preview/sanitize.mjs", import.meta.url),
   "utf8",
@@ -13,9 +17,9 @@ const tauri = JSON.parse(
 );
 
 test("full-book preview sanitizes body content without injecting renderer head styles", () => {
-  const start = main.indexOf("function renderFullBookPreview");
-  const end = main.indexOf("async function previewActiveBook", start);
-  const implementation = main.slice(start, end);
+  const start = bookOperations.indexOf("function renderFullBookPreview");
+  const end = bookOperations.indexOf("async function previewActiveBook", start);
+  const implementation = bookOperations.slice(start, end);
   assert.match(
     implementation,
     /safePreviewHtml\((?:parsed\.body|content)\.innerHTML, "book-review-"\)/,

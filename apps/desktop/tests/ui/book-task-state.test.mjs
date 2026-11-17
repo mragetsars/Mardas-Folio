@@ -50,8 +50,11 @@ test("project cancellation handoff blocks a new book request factory", () => {
   assert.equal(starts, 0);
 });
 
-test("main creates sidecar tasks lazily behind the exclusive guard", () => {
-  const main = readFileSync(new URL("../../frontend/js/main.mjs", import.meta.url), "utf8");
+test("book operations create sidecar tasks lazily behind the exclusive guard", () => {
+  const main = readFileSync(
+    new URL("../../frontend/js/features/books/operations.mjs", import.meta.url),
+    "utf8",
+  );
   assert.doesNotMatch(main, /runBookTask\(\s*startBook/);
   for (const factory of ["startBookValidation", "startBookPreview", "startBookExport"]) {
     assert.match(main, new RegExp(`runBookTask\\(\\s*\\(\\)\\s*=>\\s*${factory}`));
