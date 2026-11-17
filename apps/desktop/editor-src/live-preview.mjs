@@ -184,7 +184,6 @@ function lineDirection(text) {
   return HAS_STRONG_CHARACTER.test(text) ? autoDirection : neutralDirection;
 }
 const codeLine = Decoration.line({ class: "cm-code-line" });
-const quoteLine = Decoration.line({ class: "cm-quote-line" });
 
 /** How many `>` markers open a line, which is the quotation's nesting depth. */
 const QUOTE_DEPTH = /^(?:\s*>)+/;

@@ -157,7 +157,8 @@ test("book and export workflows expose durable result and active-chapter afforda
   assert.match(index, /id="book-output-result"/);
   assert.match(index, /id="book-current-chapter"/);
   assert.match(main, /state\.bookOutputPath = result\?\.output_path \|\| outputPath/);
-  assert.match(main, /aria-current", "page"/);
+  const chapters = readFileSync(new URL("../frontend/js/features/books/chapters.mjs", import.meta.url), "utf8");
+  assert.match(chapters, /aria-current", "page"/);
   assert.match(workspaceStyles, /\.book-chapter-row\.active \{/);
 });
 

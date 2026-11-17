@@ -427,7 +427,7 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
         assert separator.get("aria-valuenow")
 
     assert "readWorkspaceLayout" in main
-    assert "writeWorkspaceLayout" in main
+    assert "writeWorkspaceLayout" in (DESKTOP / "frontend/js/features/workspace/panes.mjs").read_text(encoding="utf-8")
     assert "beginPaneResize" in main
     assert "resizePaneWithKeyboard" in main
     panes = (DESKTOP / "frontend/js/features/workspace/panes.mjs").read_text(encoding="utf-8")
@@ -625,7 +625,7 @@ def test_export_status_badge_does_not_rely_on_colour_alone() -> None:
     only its hue, so "PDF was not created" and "PDF created successfully" were
     the same picture to anyone who does not separate red from green.
     """
-    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    main = (DESKTOP / "frontend" / "js" / "features" / "export" / "controller.mjs").read_text(encoding="utf-8")
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="status-symbol"' in index
     assert "STATUS_SYMBOLS" in main
@@ -781,6 +781,10 @@ def test_authoring_dom_ids_are_unique_and_controller_targets_exist() -> None:
     controllers = main + "\n".join(
         path.read_text(encoding="utf-8")
         for path in (
+            DESKTOP / "frontend/js/features/documents/persistence.mjs",
+            DESKTOP / "frontend/js/features/documents/tabs.mjs",
+            DESKTOP / "frontend/js/features/books/chapters.mjs",
+            DESKTOP / "frontend/js/features/export/controller.mjs",
             DESKTOP / "frontend/js/features/settings/controller.mjs",
             DESKTOP / "frontend/js/features/settings/updater.mjs",
             DESKTOP / "frontend/js/features/workspace/panes.mjs",

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const main = readFileSync(new URL("../frontend/js/main.mjs", import.meta.url), "utf8");
+const sanitizerSource = readFileSync(new URL("../frontend/js/preview/sanitize.mjs", import.meta.url), "utf8");
 const index = readFileSync(new URL("../frontend/index.html", import.meta.url), "utf8");
 const tauri = JSON.parse(readFileSync(
   new URL("../src-tauri/tauri.conf.json", import.meta.url),
@@ -18,9 +19,9 @@ test("full-book preview sanitizes body content without injecting renderer head s
   assert.doesNotMatch(implementation, /setViewMode|#preview-document/);
   assert.doesNotMatch(implementation, /parsed\.head|querySelectorAll\(["']style|createElement\(["']style/);
 
-  const sanitizerStart = main.indexOf("function safePreviewHtml");
-  const sanitizerEnd = main.indexOf("function renderPreviewMessage", sanitizerStart);
-  const sanitizer = main.slice(sanitizerStart, sanitizerEnd);
+  const sanitizerStart = sanitizerSource.indexOf("function safePreviewHtml");
+  const sanitizerEnd = sanitizerSource.length;
+  const sanitizer = sanitizerSource.slice(sanitizerStart, sanitizerEnd);
   assert.match(sanitizer, /script,style,iframe,object,embed/);
 });
 
@@ -41,17 +42,17 @@ test("CSP permits runtime editor CSS without weakening script execution", () => 
   assert.match(meta, /script-src 'self';/);
   assert.doesNotMatch(meta, /script-src[^;]*unsafe-inline/);
   assert.doesNotMatch(meta, /frame-ancestors/);
-  assert.match(main, /script,style,iframe,object,embed/);
-  assert.match(main, /"style",/);
+  assert.match(sanitizerSource, /script,style,iframe,object,embed/);
+  assert.match(sanitizerSource, /"style",/);
 });
 
 test("prefixing preview ids also prefixes what points at them", () => {
   // A Mermaid arrowhead is a `<marker id=…>` referenced by
   // `marker-end="url(#…)"`. Rewriting the id without the reference left every
   // diagram in the preview without arrows.
-  const start = main.indexOf("function safePreviewHtml");
-  const end = main.indexOf("function renderPreviewMessage", start);
-  const sanitizer = main.slice(start, end);
+  const start = sanitizerSource.indexOf("function safePreviewHtml");
+  const end = sanitizerSource.length;
+  const sanitizer = sanitizerSource.slice(start, end);
   assert.match(sanitizer, /const localReference =/);
   assert.match(sanitizer, /idMap\.get\(id\)/);
   assert.match(sanitizer, /removeAttribute\("href"\);[\s\S]*?continue;/);

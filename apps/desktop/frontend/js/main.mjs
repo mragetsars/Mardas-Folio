@@ -1,9 +1,14 @@
+import { createDocumentPersistence } from "./features/documents/persistence.mjs";
+import { createDocumentTabs } from "./features/documents/tabs.mjs";
+import { createBookChapters } from "./features/books/chapters.mjs";
+import { createExportController } from "./features/export/controller.mjs";
+import { createPreviewSanitizer } from "./preview/sanitize.mjs";
 import { createNotifications } from "./ui/notifications.mjs";
 import { createUpdater } from "./features/settings/updater.mjs";
 import { createSettingsController } from "./features/settings/controller.mjs";
 import { createCommandPalette } from "./ui/command-palette.mjs";
 import { createWorkspacePanes } from "./features/workspace/panes.mjs";
-import { basename, buildDocumentParams, defaultOutputPath, validateExportSelection } from "./features/export/export-request.mjs";
+import { basename, defaultOutputPath, validateExportSelection } from "./features/export/export-request.mjs";
 import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
 import { onboardingIntentPresentation, onboardingPrimaryActionKey, normalizeOnboardingIntent } from "./core/onboarding.mjs";
 import { PRESETS, presetById } from "./features/export/presets.mjs";
@@ -11,23 +16,8 @@ import { createExportOptionsPanel } from "./features/export/export-options-panel
 import { spriteIcon } from "./ui/icons.mjs";
 import { addRecent, readRecents, writeRecents } from "./features/documents/recents.mjs";
 import { invoke, listen } from "./adapters/tauri.mjs";
-import {
-  createDocument,
-  closeDocument,
-  documentDirty,
-  findDocumentByPath,
-  findSavePathCollision,
-  markDocumentSaved,
-  pathKey,
-  updateDocumentContent,
-} from "./core/documents.mjs";
-import {
-  readRecoveries,
-  recoveryForPath,
-  recoveryKey,
-  removeRecovery,
-  saveRecovery,
-} from "./features/documents/recovery.mjs";
+import { createDocument, documentDirty, findDocumentByPath, markDocumentSaved, pathKey, updateDocumentContent } from "./core/documents.mjs";
+import { readRecoveries, recoveryForPath, removeRecovery, saveRecovery } from "./features/documents/recovery.mjs";
 import { readSession, writeSession } from "./features/documents/session.mjs";
 import {
   bodyStartOffset,
@@ -73,48 +63,17 @@ import {
   writePreferences,
 } from "./features/settings/preferences.mjs";
 import { templateContent, templateList } from "./core/templates.mjs";
-import {
-  readWorkspaceLayout,
-  writeWorkspaceLayout,
-} from "./features/workspace/workspace-layout.mjs";
+import { readWorkspaceLayout } from "./features/workspace/workspace-layout.mjs";
 import { documentNavigationEntries } from "./core/document-navigation.mjs";
 import { createNavigationPicker } from "./ui/navigation-picker.mjs";
 import { fitToolbarGroups } from "./core/toolbar-overflow.mjs";
 import { createModalManager, focusableElements } from "./ui/modal-manager.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
 import { typesetPreviewMath } from "./preview/math.mjs";
-import {
-  bibliographyIndex,
-  cancelSidecarRequest,
-  openProject,
-  readProjectFile,
-  refreshProject,
-  saveProjectFile,
-  startProjectSearch,
-} from "./adapters/project-api.mjs";
+import { bibliographyIndex, cancelSidecarRequest, openProject, readProjectFile, refreshProject, startProjectSearch } from "./adapters/project-api.mjs";
 import { resetProjectSession } from "./core/project-lifecycle.mjs";
-import {
-  addBookChapter,
-  createBookProject,
-  duplicateBookChapter,
-  removeBookChapter,
-  reorderBookChapters,
-  startBookExport,
-  startBookPreview,
-  startBookValidation,
-} from "./adapters/book-api.mjs";
-import {
-  importDocumentAsset,
-  listDocumentAssets,
-  previewDocumentPage,
-  previewDocumentText,
-  readDocument,
-  readTextDocument,
-  resolveMarkdownLink,
-  saveDocument,
-  saveTextDocument,
-  validateDocumentText,
-} from "./adapters/authoring-api.mjs";
+import { createBookProject, startBookExport, startBookPreview, startBookValidation } from "./adapters/book-api.mjs";
+import { importDocumentAsset, listDocumentAssets, previewDocumentPage, previewDocumentText, readDocument, readTextDocument, resolveMarkdownLink, validateDocumentText } from "./adapters/authoring-api.mjs";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -198,12 +157,34 @@ const { updateUi, initializeUpdater, checkUpdates, installAvailableUpdate } = cr
 const { openSettings, closeSettings, submitSettings, resetSettings } = createSettingsController({
   state, query: $, getModalManager: () => modalManager, applyInterfacePreferences, setLocale, t, toast,
 });
-const { renderCommandPalette, openCommandPalette, closeCommandPalette, commandKeydown, resetCommandSelection } = createCommandPalette({
+const { renderCommandPalette, openCommandPalette, commandKeydown, resetCommandSelection } = createCommandPalette({
   query: $, queryAll: $$, getModalManager: () => modalManager, commandDefinitions, t, toast, errorText,
 });
 const { applyWorkspaceLayout, applyNavigatorContext, activateNavigator, isCompactDrawer, workspacePaneOpen, setWorkspacePaneOpen, toggleWorkspacePane, resetWorkspacePaneSizes, closeCompactDrawer, beginPaneResize, resizePaneWithKeyboard } = createWorkspacePanes({
   state, query: $, queryAll: $$, compactSidePanes, activeDocument, isMarkdownModel, focusDocument,
 });
+
+const { saveActiveDocument, persistDocumentModel, requestCloseDocument, scheduleRecovery } = createDocumentPersistence({
+ state, query: $, getEditor: () => editorAdapter, activeDocument, isMarkdownModel, saveCoordinator,
+ activateDocument, activateStartTab, focusDocument, saveRecent, persistSession, renderWorkspace,
+ renderDocumentTabs: () => renderDocumentTabs(), refreshActiveProject, setSaveState,
+ askConfirmation, t, toast, errorText, errorPayload,
+});
+const { renderDocumentTabs, revealActiveTab, renderFileNavigator } = createDocumentTabs({
+ state, query: $, activeDocument, activateDocument, activateStartTab, closeStartTab,
+ requestCloseDocument, closeCompactDrawer, setTruncatableText, t,
+});
+const { openChapterModal, closeChapterModal, bookProject, submitChapterModal, bookChapterRow } = createBookChapters({
+ state, query: $, getModalManager: () => modalManager, activeDocument, currentProjectContext,
+ projectContextIsCurrent, applyProjectPayload, openProjectRelativeFile, askConfirmation,
+ setTruncatableText, t, toast, errorText,
+});
+const { setExportStatus, renderExportStatus, invalidateExportStatus, setExportProgress, syncExportControls, validateExportDocument, exportDocument, cancelExport, openResult, updateExportMessage } = createExportController({
+ state, query: $, t, toast, errorText, errorPayload, requestId, exportSelectionValid,
+ exportOverrides, hideExportResult, showExportResult, saveRecent, releaseEngineForJob,
+ refreshPreviewIfDirty: () => { if (exportPreviewDirty) schedulePdfPreview(0); },
+});
+const { safePreviewHtml } = createPreviewSanitizer({ t });
 
 function currentEditor() {
   return editorAdapter || $("#markdown-editor");
@@ -748,90 +729,6 @@ function errorText(error) {
 // Start Center and Quick Export
 // ---------------------------------------------------------------------------
 /** What the export badge draws, per state. */
-const STATUS_SYMBOLS = {
-  idle: "file",
-  notice: "info",
-  working: "refresh",
-  success: "check",
-  warning: "alert",
-  error: "alert",
-};
-
-let exportFeedback = { kind: "idle" };
-let exportActionFocus = null;
-
-function setExportStatus(kind, titleKey, details = {}) {
-  exportFeedback = { kind, titleKey, ...details };
-  renderExportStatus();
-}
-
-function renderExportStatus() {
-  const { kind, titleKey, messageKey, message, diagnostics = [] } = exportFeedback;
-  const title = titleKey ? t(titleKey) : "";
-  const copy = message ?? (messageKey ? t(messageKey) : "");
-  $("#export-feedback").dataset.state = kind;
-  $("#status-symbol").replaceChildren(...(kind === "idle" ? [] : [spriteIcon(STATUS_SYMBOLS[kind])]));
-  $("#status-title").textContent = title;
-  $("#status-message").textContent = copy;
-  $("#status-message").title = copy;
-  $("#export-show-details").hidden = kind !== "error" && diagnostics.length === 0;
-  $("#export-details-message").textContent = [title, copy].filter(Boolean).join(" — ");
-  const container = $("#diagnostics");
-  container.replaceChildren();
-  container.hidden = diagnostics.length === 0;
-  for (const diagnostic of diagnostics) {
-    const item = document.createElement("li");
-    item.dataset.severity = diagnostic.severity || "info";
-    item.dir = "auto";
-    const location = diagnostic.line ? ` · ${diagnostic.line}:${diagnostic.column || 1}` : "";
-    item.textContent = `${diagnostic.code || ""}${location} — ${diagnostic.message || ""}`;
-    container.append(item);
-  }
-}
-
-function invalidateExportStatus() {
-  if (exportFeedback.kind === "idle") return;
-  hideExportResult();
-  setExportStatus("idle");
-}
-
-function setExportProgress(percent) {
-  $("#progress-bar").value = percent;
-  $("#progress-label").textContent = `${percent}%`;
-}
-
-function syncExportControls() {
-  const busy = Boolean(state.activeRequestId);
-  $("#export-back").disabled = busy;
-  $("#export-inspector-controls").disabled = busy;
-  $("#export-form").setAttribute("aria-busy", String(busy));
-  $("#preview-choose-source").disabled = busy;
-  $("#choose-output").disabled = busy || !state.sourcePath;
-  $("#validate-button").disabled = busy || !state.sourcePath || !state.outputPath;
-  $("#export-button").disabled = $("#validate-button").disabled;
-}
-
-function working(enabled, mode = "render") {
-  const cancel = $("#cancel-button");
-  const focused = document.activeElement;
-  if (enabled) exportActionFocus = focused === $("#validate-button") || focused === $("#export-button") ? focused : null;
-  syncExportControls();
-  cancel.disabled = false;
-  cancel.hidden = !enabled;
-  $("#progress-wrap").hidden = !enabled;
-  if (enabled) {
-    setExportProgress(0);
-    setExportStatus("working", mode === "validate" ? "validatingTitle" : "renderingTitle", {
-      messageKey: mode === "validate" ? "validatingMessage" : "renderingMessage",
-    });
-    if (exportActionFocus) cancel.focus({ preventScroll: true });
-  } else {
-    if (focused === cancel || focused === document.body) exportActionFocus?.focus({ preventScroll: true });
-    exportActionFocus = null;
-    if (exportPreviewDirty) schedulePdfPreview(0);
-  }
-}
-
 const exportOptions = createExportOptionsPanel({
   root: $("#export-view"),
   t,
@@ -1378,229 +1275,11 @@ function exportSelectionValid() {
   return false;
 }
 
-function markExportCancelled() {
-  setExportStatus("notice", null, { messageKey: "operationCancelled" });
-}
-
-function exportErrorCode(payload) {
-  return payload?.application_code || payload?.data?.application_code || payload?.code;
-}
-
-async function validateExportDocument() {
-  if (state.activeRequestId || !exportSelectionValid()) return;
-  const id = requestId("validate");
-  const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, options: exportOverrides() });
-  state.activeRequestId = id;
-  state.cancelledExportRequestId = null;
-  hideExportResult();
-  working(true, "validate");
-  try {
-    await releaseEngineForJob();
-    if (state.cancelledExportRequestId === id) {
-      markExportCancelled();
-      return;
-    }
-    const result = await invoke("sidecar_request", { request_id: id, method: "validate.document", params });
-    const diagnostics = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
-    if (!result?.ok) setExportStatus("error", "invalidTitle", { messageKey: "invalidMessage", diagnostics });
-    else if (diagnostics.some((item) => item.severity === "warning")) {
-      setExportStatus("warning", "exportCheckedWithWarnings", { messageKey: "exportCheckedWithWarningsHelp", diagnostics });
-    } else setExportStatus("success", "validTitle", { diagnostics });
-  } catch (error) {
-    const payload = errorPayload(error);
-    if (exportErrorCode(payload) === "MARDAS-JOB-CANCELLED") {
-      markExportCancelled();
-    } else {
-      setExportStatus("error", "exportCheckFailed", { message: errorText(error) });
-    }
-  } finally {
-    state.activeRequestId = null;
-    working(false);
-  }
-}
-
-async function exportDocument(event) {
-  event?.preventDefault();
-  if (state.activeRequestId || !exportSelectionValid()) return;
-  const id = requestId("render");
-  const params = buildDocumentParams({ sourcePath: state.sourcePath, outputPath: state.outputPath, options: exportOverrides() });
-  params.create_only = true;
-  state.activeRequestId = id;
-  state.cancelledExportRequestId = null;
-  hideExportResult();
-  working(true);
-  let focusOutput = false;
-  try {
-    await releaseEngineForJob();
-    if (state.cancelledExportRequestId === id) {
-      markExportCancelled();
-      return;
-    }
-    const inspection = await invoke("sidecar_request", {
-      request_id: requestId("output-check"),
-      method: "publication.inspect_output",
-      params: { output_path: params.output_path },
-    });
-    if (state.cancelledExportRequestId === id) {
-      markExportCancelled();
-      return;
-    }
-    if (inspection?.exists) {
-      setExportStatus("error", "errorTitle", { messageKey: "outputExistsChooseNew" });
-      focusOutput = true;
-      return;
-    }
-    const result = await invoke("sidecar_request", { request_id: id, method: "render.document", params });
-    state.outputResult = result;
-    const resultPath = result.output_path || state.outputPath;
-    setExportStatus("success", "successTitle");
-    showExportResult(resultPath);
-    saveRecent(state.sourcePath);
-  } catch (error) {
-    const payload = errorPayload(error);
-    const code = exportErrorCode(payload);
-    if (code === "MARDAS-JOB-CANCELLED") {
-      markExportCancelled();
-    } else if (code === "MARDAS-OUTPUT-EXISTS") {
-      setExportStatus("error", "errorTitle", { messageKey: "outputExistsChooseNew" });
-      focusOutput = true;
-    } else {
-      const diagnostics = Array.isArray(payload?.details?.diagnostics) ? payload.details.diagnostics : [];
-      setExportStatus("error", "errorTitle", { message: errorText(error), diagnostics });
-    }
-  } finally {
-    state.activeRequestId = null;
-    working(false);
-    if (focusOutput) $("#choose-output").focus();
-  }
-}
-
-async function cancelExport() {
-  const id = state.activeRequestId;
-  if (!id || state.cancelledExportRequestId === id) return;
-  const runningStatus = exportFeedback;
-  state.cancelledExportRequestId = id;
-  $("#cancel-button").disabled = true;
-  setExportStatus("working", null, { messageKey: "cancellingOperation" });
-  try {
-    await invoke("sidecar_cancel", { request_id: id });
-  } catch (error) {
-    if (state.activeRequestId === id) {
-      state.cancelledExportRequestId = null;
-      $("#cancel-button").disabled = false;
-      exportFeedback = runningStatus;
-      renderExportStatus();
-      toast(errorText(error), "error");
-    }
-  }
-}
-
-async function openResult(reveal) {
-  const path = state.outputResult?.output_path || state.outputPath;
-  if (!path) return;
-  try {
-    await invoke(reveal ? "reveal_path" : "open_path", { path });
-  } catch (error) {
-    toast(errorText(error), "error");
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Authoring workspace
 // ---------------------------------------------------------------------------
 function persistSession() {
   writeSession(state.documents, activeDocument(), state.project?.path ?? null);
-}
-
-function orderedTabs() {
-  const tabs = [...state.documents, ...state.startTabs];
-  const byId = new Map(tabs.map((tab) => [tab.id, tab]));
-  state.tabOrder = state.tabOrder.filter((id) => byId.has(id));
-  for (const tab of tabs) if (!state.tabOrder.includes(tab.id)) state.tabOrder.push(tab.id);
-  return state.tabOrder.map((id) => byId.get(id));
-}
-
-function tabElement(model) {
-  const isStart = Boolean(model.isStart);
-  const isActive = isStart ? model.id === state.activeStartTabId : model.id === state.activeDocumentId;
-  const tabs = orderedTabs();
-  const tab = window.document.createElement("div");
-  tab.className = `document-tab${isActive ? " active" : ""}${!isStart && documentDirty(model) ? " dirty" : ""}`;
-  tab.dataset.documentId = model.id;
-  tab.innerHTML = `<button class="tab-activate" type="button" role="tab"><i class="dirty-dot"></i><span class="tab-name"></span></button><button class="tab-close" type="button" aria-label="${t("close")}"></button>`;
-  tab.querySelector(".tab-close").append(spriteIcon("close"));
-  setTruncatableText(tab.querySelector(".tab-name"), isStart ? t("newTab") : model.title);
-  const activate = tab.querySelector(".tab-activate");
-  activate.tabIndex = isActive ? 0 : -1;
-  activate.setAttribute("aria-selected", String(isActive));
-  const select = (target, focus = "editor") => target.isStart ? activateStartTab(target.id, focus) : activateDocument(target.id, { focus });
-  activate.addEventListener("click", () => select(model));
-  activate.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      select(model);
-      return;
-    }
-    const index = tabs.findIndex((item) => item.id === model.id);
-    let target = null;
-    const rtl = document.documentElement.dir === "rtl";
-    if (event.key === (rtl ? "ArrowRight" : "ArrowLeft") || event.key === "ArrowUp") target = tabs[(index - 1 + tabs.length) % tabs.length];
-    if (event.key === (rtl ? "ArrowLeft" : "ArrowRight") || event.key === "ArrowDown") target = tabs[(index + 1) % tabs.length];
-    if (event.key === "Home") target = tabs[0];
-    if (event.key === "End") target = tabs.at(-1);
-    if (!target) return;
-    event.preventDefault();
-    void select(target, "tab");
-  });
-  tab.querySelector(".tab-close").addEventListener("click", (event) => {
-    event.stopPropagation();
-    if (isStart) closeStartTab(model.id);
-    else void requestCloseDocument(model.id);
-  });
-  return tab;
-}
-
-function renderDocumentTabs() {
-  const container = $("#document-tabs");
-  if (!container) return;
-  container.replaceChildren(...orderedTabs().map(tabElement));
-  renderFileNavigator();
-}
-
-function revealActiveTab() {
-  const strip = $("#document-tabs");
-  const active = strip?.querySelector(".document-tab.active");
-  if (!active || !strip.clientWidth) return;
-  const bounds = strip.getBoundingClientRect();
-  const tab = active.getBoundingClientRect();
-  if (tab.left < bounds.left) strip.scrollBy({ left: tab.left - bounds.left });
-  else if (tab.right > bounds.right) strip.scrollBy({ left: tab.right - bounds.right });
-}
-
-function renderFileNavigator() {
-  const list = $("#open-document-list");
-  if (!list) return;
-  list.replaceChildren();
-  for (const model of state.documents) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `navigator-document${model.id === state.activeDocumentId ? " active" : ""}${documentDirty(model) ? " dirty" : ""}`;
-    button.dataset.documentId = model.id;
-    button.setAttribute("aria-current", model.id === state.activeDocumentId ? "page" : "false");
-    button.innerHTML = '<i aria-hidden="true"></i><span><strong></strong><small dir="auto"></small></span>';
-    button.querySelector("i").append(spriteIcon("file"));
-    button.querySelector("strong").textContent = model.title;
-    button.querySelector("small").textContent = model.path
-      ? compactDocumentLocation(model.path, { projectPath: model.projectPath }) : t("unsavedDocument");
-    button.querySelector("small").title = model.path || t("unsavedDocument");
-    button.title = `${model.title}\n${model.path || t("unsavedDocument")}${documentDirty(model) ? `\n${t("unsaved")}` : ""}`;
-    button.setAttribute("aria-label", button.title);
-    button.addEventListener("click", async () => {
-      await activateDocument(model.id);
-      closeCompactDrawer("files");
-    });
-    list.append(button);
-  }
 }
 
 function setSaveState(kind) {
@@ -2571,34 +2250,6 @@ async function submitNewBookProject(event) {
   }
 }
 
-function openChapterModal(mode, chapter = null) {
-  state.chapterModalMode = mode;
-  state.chapterModalPath = chapter?.path || null;
-  const duplicate = mode === "duplicate";
-  $("#chapter-modal-title").textContent = t(duplicate ? "duplicateChapter" : "addChapter");
-  $("#chapter-modal-description").textContent = t("addChapterHelp");
-  $("#chapter-title-input").value = duplicate
-    ? `${chapter?.title || chapter?.path || t("chapterTitle")} ${state.locale === "fa" ? "کپی" : "Copy"}`
-    : "";
-  modalManager.open($("#chapter-modal"), {
-    initialFocus: "#chapter-title-input",
-    onClose: () => {
-      state.chapterModalMode = null;
-      state.chapterModalPath = null;
-    },
-  });
-}
-
-function closeChapterModal() {
-  state.chapterModalMode = null;
-  state.chapterModalPath = null;
-  modalManager.close($("#chapter-modal"));
-}
-
-function bookProject() {
-  return state.project?.book || null;
-}
-
 function setBookOperationStatus(message = "", { kind = "info", running = false } = {}) {
   const container = $("#book-operation-status");
   const text = $("#book-operation-message");
@@ -2821,164 +2472,6 @@ async function runBookTask(startTask, {
   }
 }
 
-async function submitChapterModal(event) {
-  event.preventDefault();
-  const project = state.project;
-  const title = $("#chapter-title-input").value.trim();
-  if (!project?.path || !project.config_sha256 || !title) return;
-  const projectContext = currentProjectContext();
-  const mode = state.chapterModalMode;
-  const submit = event.submitter || $("#chapter-form button[type='submit']");
-  submit.disabled = true;
-  try {
-    const result = mode === "duplicate"
-      ? await duplicateBookChapter({
-          projectPath: project.path,
-          relativePath: state.chapterModalPath,
-          title,
-          expectedConfigSha256: project.config_sha256,
-        })
-      : await addBookChapter({
-          projectPath: project.path,
-          title,
-          expectedConfigSha256: project.config_sha256,
-        });
-    if (!projectContextIsCurrent(projectContext)) return;
-    applyProjectPayload(result);
-    closeChapterModal();
-    const created = result.created_chapter?.path;
-    if (created) await openProjectRelativeFile(created);
-    toast(t(mode === "duplicate" ? "chapterDuplicated" : "chapterAdded"), "success");
-  } catch (error) {
-    if (projectContextIsCurrent(projectContext)) toast(errorText(error), "error");
-  } finally {
-    submit.disabled = false;
-  }
-}
-
-async function saveBookOrder(orderedPaths) {
-  const project = state.project;
-  if (!project?.path || !project.config_sha256) return;
-  const projectContext = currentProjectContext();
-  try {
-    const result = await reorderBookChapters({
-      projectPath: project.path,
-      orderedPaths,
-      expectedConfigSha256: project.config_sha256,
-    });
-    if (!projectContextIsCurrent(projectContext)) return;
-    applyProjectPayload(result);
-    toast(t("chapterOrderSaved"), "success");
-  } catch (error) {
-    if (projectContextIsCurrent(projectContext)) toast(errorText(error), "error");
-  }
-}
-
-async function moveBookChapter(path, delta) {
-  const chapters = [...(bookProject()?.chapters || [])];
-  const index = chapters.findIndex((chapter) => chapter.path === path);
-  const target = index + delta;
-  if (index < 0 || target < 0 || target >= chapters.length) return;
-  const [chapter] = chapters.splice(index, 1);
-  chapters.splice(target, 0, chapter);
-  await saveBookOrder(chapters.map((item) => item.path));
-}
-
-async function removeChapterFromBook(chapter) {
-  const project = state.project;
-  if (!project?.path || !project.config_sha256) return;
-  const projectContext = currentProjectContext();
-  const confirmed = await askConfirmation({
-    title: t("removeFromBook"),
-    message: t("confirmRemoveChapter"),
-    confirmLabel: t("removeFromBook"),
-    danger: true,
-  });
-  if (!confirmed || !projectContextIsCurrent(projectContext)) return;
-  try {
-    const result = await removeBookChapter({
-      projectPath: project.path,
-      relativePath: chapter.path,
-      expectedConfigSha256: project.config_sha256,
-    });
-    if (!projectContextIsCurrent(projectContext)) return;
-    applyProjectPayload(result);
-    toast(t("chapterRemoved"), "success");
-  } catch (error) {
-    if (projectContextIsCurrent(projectContext)) toast(errorText(error), "error");
-  }
-}
-
-function bookChapterRow(chapter, index, chapters) {
-  const row = document.createElement("div");
-  const activeRelativePath = activeDocument()?.projectRelativePath || null;
-  const active = activeRelativePath === chapter.path;
-  row.className = `book-chapter-row${active ? " active" : ""}`;
-  row.draggable = true;
-  row.dataset.path = chapter.path;
-  row.innerHTML = `
-    <span class="book-chapter-handle" aria-hidden="true"></span>
-    <button class="book-chapter-main" type="button"><strong></strong><small></small></button>
-    <span class="book-chapter-actions">
-      <button type="button" data-action="up"></button>
-      <button type="button" data-action="down"></button>
-      <button type="button" data-action="duplicate"></button>
-      <button class="danger" type="button" data-action="remove"></button>
-    </span>`;
-  row.querySelector(".book-chapter-handle").append(spriteIcon("grip"));
-  for (const [action, symbol] of Object.entries({
-    up: "chevron-up", down: "chevron-down", duplicate: "duplicate", remove: "close",
-  })) {
-    row.querySelector(`[data-action="${action}"]`).append(spriteIcon(symbol));
-  }
-  const chapterLabel = `${index + 1}. ${chapter.title || chapter.path}`;
-  setTruncatableText(row.querySelector("strong"), chapterLabel);
-  setTruncatableText(row.querySelector("small"), chapter.path);
-  const main = row.querySelector(".book-chapter-main");
-  main.setAttribute("aria-label", `${t("openBookChapter")}: ${chapterLabel}`);
-  if (active) main.setAttribute("aria-current", "page");
-  main.addEventListener("click", () => openProjectRelativeFile(chapter.path));
-  const actions = {
-    up: [t("moveChapterUp"), () => moveBookChapter(chapter.path, -1)],
-    down: [t("moveChapterDown"), () => moveBookChapter(chapter.path, 1)],
-    duplicate: [t("duplicateChapter"), () => openChapterModal("duplicate", chapter)],
-    remove: [t("removeFromBook"), () => removeChapterFromBook(chapter)],
-  };
-  for (const [action, [label, handler]] of Object.entries(actions)) {
-    const button = row.querySelector(`[data-action="${action}"]`);
-    button.title = label;
-    button.setAttribute("aria-label", `${label}: ${chapterLabel}`);
-    button.addEventListener("click", handler);
-  }
-  row.querySelector('[data-action="up"]').disabled = index === 0;
-  row.querySelector('[data-action="down"]').disabled = index === chapters.length - 1;
-  row.addEventListener("dragstart", (event) => {
-    row.classList.add("dragging");
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", chapter.path);
-  });
-  row.addEventListener("dragend", () => row.classList.remove("dragging"));
-  row.addEventListener("dragover", (event) => {
-    event.preventDefault();
-    row.classList.add("drag-over");
-  });
-  row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
-  row.addEventListener("drop", (event) => {
-    event.preventDefault();
-    row.classList.remove("drag-over");
-    const sourcePath = event.dataTransfer.getData("text/plain");
-    if (!sourcePath || sourcePath === chapter.path) return;
-    const paths = chapters.map((item) => item.path);
-    const sourceIndex = paths.indexOf(sourcePath);
-    const targetIndex = paths.indexOf(chapter.path);
-    if (sourceIndex < 0 || targetIndex < 0) return;
-    paths.splice(sourceIndex, 1);
-    paths.splice(targetIndex, 0, sourcePath);
-    saveBookOrder(paths);
-  });
-  return row;
-}
-
 function renderBookOutputResult() {
   const container = $("#book-output-result");
   const path = state.bookOutputPath;
@@ -3189,151 +2682,6 @@ function resolveRecovery(restore) {
   if (next) showRecovery(next.model, next.recovery);
 }
 
-async function saveActiveDocument({ saveAs = false, force = false } = {}) {
-  if (editorAdapter?.commitPendingDrafts?.() === false) return false;
-  const model = activeDocument();
-  if (!model) return false;
-  return saveCoordinator.save(
-    model,
-    () => persistDocumentModel(model, { saveAs, force }),
-    { alwaysRun: saveAs },
-  );
-}
-
-async function persistDocumentModel(model, { saveAs = false, force = false, refreshProjectOnSave = true } = {}) {
-  if (!state.documents.includes(model)) return false;
-  if (model.readOnly && !saveAs) {
-    toast(t("readOnlyDocument"), "error");
-    return false;
-  }
-  let path = model.path;
-  if (!path || saveAs) {
-    try {
-      const picker = isMarkdownModel(model) ? "pick_markdown_output" : "pick_text_output";
-      path = await invoke(picker, {
-        suggested_path: model.path || `${model.title.replace(/\s+/g, "-")}.md`,
-      });
-    } catch (error) {
-      if (activeDocument()?.id === model.id) toast(errorText(error), "error");
-      return false;
-    }
-    if (!path) return false;
-  }
-  const collision = findSavePathCollision(state.documents, model, path);
-  if (collision) {
-    activateDocument(collision.id);
-    toast(t("saveAsPathAlreadyOpen"), "error");
-    return false;
-  }
-  if (activeDocument()?.id === model.id) setSaveState("saving");
-  const contentSnapshot = model.content;
-  const isProjectSave = !saveAs && Boolean(model.projectPath && model.projectRelativePath);
-  try {
-    const previousRecoveryKey = recoveryKey(model);
-    let result;
-    if (isProjectSave) {
-      result = await saveProjectFile({
-        projectPath: model.projectPath,
-        relativePath: model.projectRelativePath,
-        content: contentSnapshot,
-        expectedSha256: model.projectSha256,
-      });
-      model.projectSha256 = result.sha256;
-      markDocumentSaved(model, {
-        path: result.absolute_path || model.path,
-        revision: result.revision,
-        read_only: result.read_only,
-      }, contentSnapshot);
-    } else {
-      const saveStandalone = isMarkdownModel(model) ? saveDocument : saveTextDocument;
-      result = await saveStandalone({
-        path,
-        content: contentSnapshot,
-        expectedRevision: pathKey(path) === pathKey(model.path) ? model.revision : null,
-        force,
-      });
-      markDocumentSaved(model, result, contentSnapshot);
-      if (saveAs && model.projectPath) {
-        delete model.projectPath;
-        delete model.projectRelativePath;
-        delete model.projectSha256;
-      }
-    }
-    removeRecovery(previousRecoveryKey);
-    if (documentDirty(model)) saveRecovery(model);
-    else {
-      removeRecovery(model);
-      cancelRecoveryTimer(model);
-    }
-    saveRecent(model.path);
-    persistSession();
-    if (activeDocument()?.id === model.id) {
-      renderWorkspace();
-      toast(t("documentSaved"), "success");
-    } else {
-      renderDocumentTabs();
-    }
-    if (refreshProjectOnSave && isProjectSave && model.projectRelativePath === "mardas.toml") {
-      void refreshActiveProject();
-    }
-    return true;
-  } catch (error) {
-    const payload = errorPayload(error);
-    const applicationCode = payload?.application_code || payload?.data?.application_code || payload?.code;
-    const conflict = applicationCode === "MARDAS-DOCUMENT-CONFLICT"
-      || applicationCode === "MARDAS-PROJECT-FILE-CHANGED"
-      || applicationCode === "project_file_changed";
-    if (conflict) {
-      if (activeDocument()?.id === model.id) setSaveState("dirty");
-      if (isProjectSave) {
-        if (activeDocument()?.id === model.id) toast(t("projectFileConflict"), "error");
-        return false;
-      }
-      const overwrite = await askConfirmation({
-        title: t("externalChange"),
-        message: t("documentConflict"),
-        confirmLabel: t("forceSave"),
-        danger: true,
-      });
-      if (overwrite) return persistDocumentModel(model, { saveAs: false, force: true, refreshProjectOnSave });
-      return false;
-    }
-    if (activeDocument()?.id === model.id) {
-      setSaveState("dirty");
-      toast(errorText(error), "error");
-    }
-    return false;
-  }
-}
-
-async function requestCloseDocument(id) {
-  const model = state.documents.find((document) => document.id === id);
-  if (!model) return;
-  state.documentActivationSequence += 1;
-  const hasUnsavedWork = model.persisted ? documentDirty(model) : model.content !== "";
-  if (hasUnsavedWork) {
-    const discard = await askConfirmation({
-      title: model.title,
-      message: t("closeUnsavedHelp"),
-      confirmLabel: t("closeWithoutSaving"),
-      danger: true,
-    });
-    if (!discard) return;
-  }
-  if (!state.documents.includes(model)) return;
-  cancelRecoveryTimer(model);
-  removeRecovery(model);
-  const result = closeDocument(state.documents, id);
-  const wasActive = state.activeDocumentId === id;
-  state.documents = result.documents;
-  if (wasActive) state.activeDocumentId = null;
-  persistSession();
-  renderWorkspace();
-  if (wasActive && result.nextId) await activateDocument(result.nextId);
-  else if (wasActive && state.startTabs.length) activateStartTab(state.startTabs.at(-1).id);
-  else if (!state.documents.length) focusDocument();
-}
-
 function onEditorInput() {
   const model = activeDocument();
   if (!model) return;
@@ -3353,32 +2701,6 @@ function onEditorInput() {
   updateEditorMetrics();
   scheduleRecovery();
   schedulePreview();
-}
-
-function cancelRecoveryTimer(model) {
-  if (!model?.id) return;
-  const timer = state.recoveryTimers.get(model.id);
-  if (timer !== undefined) clearTimeout(timer);
-  state.recoveryTimers.delete(model.id);
-}
-
-function scheduleRecovery(model = activeDocument()) {
-  if (!model) return;
-  cancelRecoveryTimer(model);
-  const timer = setTimeout(() => {
-    state.recoveryTimers.delete(model.id);
-    if (!state.documents.includes(model) || !documentDirty(model)) return;
-    const result = saveRecovery(model);
-    if (activeDocument()?.id === model.id) {
-      $("#recovery-status").textContent = result.ok ? t("recoverySaved") : result.reason === "too_large" ? t("recoveryTooLarge") : "";
-      setTimeout(() => {
-        if ($("#recovery-status") && activeDocument()?.id === model.id) {
-          $("#recovery-status").textContent = "";
-        }
-      }, 2500);
-    }
-  }, 700);
-  state.recoveryTimers.set(model.id, timer);
 }
 
 function renderContentStatus() {
@@ -3422,146 +2744,6 @@ function previewOptions() {
   // The engine already applies project configuration and the buffer's front matter.
   // Keeping request overrides sparse preserves that documented precedence.
   return {};
-}
-
-function isRelativeMarkdownDocumentHref(value) {
-  const path = String(value || "").split(/[?#]/, 1)[0];
-  try {
-    return /\.(?:md|markdown)$/i.test(decodeURIComponent(path));
-  } catch {
-    return false;
-  }
-}
-
-function safePreviewHtml(value, prefix = "preview-") {
-  const template = document.createElement("template");
-  template.innerHTML = String(value || "");
-  template.content
-    .querySelectorAll("script,style,iframe,object,embed,meta,base,link,form,button,select,option,textarea")
-    .forEach((element) => element.remove());
-  const idMap = new Map();
-  // Rendered headings and notes share the page with the application shell.
-  // Reserve shell IDs so a heading named "Document" cannot shadow the
-  // reading-document or preview-document containers.
-  const reservedIds = new Set(
-    [...document.querySelectorAll("[id]")]
-      .filter((element) => !element.closest(".document-content") || element.matches(".document-content"))
-      .map((element) => element.id),
-  );
-  template.content.querySelectorAll("[id]").forEach((element) => {
-    const original = element.id;
-    let prefixed = `${prefix}${original}`;
-    while (reservedIds.has(prefixed)) prefixed = `${prefix}content-${prefixed.slice(prefix.length)}`;
-    reservedIds.add(prefixed);
-    if (!idMap.has(original)) idMap.set(original, prefixed);
-    element.dataset.previewSourceId = original;
-    element.id = prefixed;
-  });
-  template.content.querySelectorAll("*").forEach((element) => {
-    const reservedClasses = new Set(["active", "hidden", "modal", "toast", "view", "sidebar-panel", "source-active"]);
-    for (const className of [...element.classList]) {
-      if (reservedClasses.has(className)) element.classList.remove(className);
-    }
-    if (element.matches("a.md2pdf-local-link-blocked")) {
-      const href = element.getAttribute("data-md2pdf-source") || "";
-      element.removeAttribute("data-md2pdf-source");
-      if (isRelativeMarkdownDocumentHref(href)) {
-        element.dataset.mardasMarkdownHref = href;
-        element.setAttribute("role", "link");
-        element.setAttribute("tabindex", "0");
-        element.removeAttribute("aria-disabled");
-        element.setAttribute("title", t("openLinkedMarkdown"));
-        element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("openLinkedMarkdown")}`);
-      } else {
-        element.setAttribute("aria-disabled", "true");
-        element.setAttribute("title", t("previewLinkUnavailable"));
-        element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("previewLinkUnavailable")}`);
-      }
-    }
-    for (const attribute of [...element.attributes]) {
-      const name = attribute.name.toLowerCase();
-      if (
-        name.startsWith("on")
-        || [
-          "action",
-          "autofocus",
-          "background",
-          "contenteditable",
-          "data",
-          "download",
-          "draggable",
-          "formaction",
-          "ping",
-          "poster",
-          "srcdoc",
-          "srcset",
-          "style",
-          "target",
-          "xlink:href",
-        ].includes(name)
-      ) {
-        element.removeAttribute(attribute.name);
-        continue;
-      }
-      if (name === "href") {
-        if (attribute.value.startsWith("#")) {
-          let target = attribute.value.slice(1);
-          try { target = decodeURIComponent(target); } catch { /* Keep malformed fragments inert. */ }
-          element.setAttribute("href", `#${idMap.get(target) || `${prefix}${target}`}`);
-        } else {
-          element.removeAttribute("href");
-          element.setAttribute("aria-disabled", "true");
-          element.setAttribute("title", t("previewLinkUnavailable"));
-          element.setAttribute("aria-label", `${element.textContent.trim()} — ${t("previewLinkUnavailable")}`);
-          continue;
-        }
-      }
-      if (name === "src" && !/^\s*data:image\//i.test(attribute.value)) {
-        element.removeAttribute(attribute.name);
-        continue;
-      }
-      if (["for", "aria-labelledby", "aria-describedby"].includes(name)) {
-        const rewritten = attribute.value
-          .split(/\s+/)
-          .map((id) => idMap.get(id) || `${prefix}${id}`)
-          .join(" ");
-        element.setAttribute(attribute.name, rewritten);
-      }
-      // Prefixing ids also has to prefix what points at them. A Mermaid
-      // arrowhead is a `<marker id=…>` referenced by `marker-end="url(#…)"`,
-      // so rewriting one without the other left every diagram without arrows.
-      if (["marker-start", "marker-mid", "marker-end", "clip-path", "mask", "fill", "stroke", "filter"].includes(name)
-        && /url\s*\(/i.test(attribute.value)) {
-        const localReference = /url\(\s*["']?#([^\s)"']+)["']?\s*\)/g;
-        if (/url\s*\(/i.test(attribute.value.replace(localReference, ""))) {
-          element.removeAttribute(attribute.name);
-          continue;
-        }
-        element.setAttribute(
-          attribute.name,
-          attribute.value.replace(
-            localReference,
-            (whole, id) => `url(#${idMap.get(id) || `${prefix}${id}`})`,
-          ),
-        );
-      }
-    }
-    if (element instanceof HTMLInputElement) {
-      if (element.type !== "checkbox") {
-        element.remove();
-      } else {
-        element.disabled = true;
-        element.tabIndex = -1;
-      }
-    }
-    if (element.classList.contains("md2pdf-mermaid-svg")) {
-      const viewBox = (element.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
-      if (viewBox.length === 4 && viewBox.every(Number.isFinite) && viewBox[2] > 0) {
-        element.setAttribute("width", String(Math.min(viewBox[2], 960)));
-      }
-    }
-  });
-  return template.content;
 }
 
 function renderPreviewMessage(title, detail = "") {
@@ -5215,9 +4397,7 @@ async function boot() {
       if (params.request_id !== state.activeRequestId) return;
       setExportProgress(percent);
       if (params.message && !state.cancelledExportRequestId) {
-        exportFeedback.message = params.message;
-        $("#status-message").textContent = params.message;
-        $("#status-message").title = params.message;
+        updateExportMessage(params.message);
       }
     });
     await listen("desktop-update-progress", (event) => {

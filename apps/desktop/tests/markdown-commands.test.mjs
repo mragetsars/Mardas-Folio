@@ -191,7 +191,6 @@ test("the editor does not open a second search panel", () => {
     "utf8",
   );
   assert.match(editor, /APPLICATION_OWNED_KEYS/);
-  const block = editor.split("const APPLICATION_OWNED_KEYS = [", 1)[1] ?? "";
   const claimed = [...editor.matchAll(/key:\s*"(Mod-[fh])"/g)].map((m) => m[1]);
   assert.deepEqual(claimed.sort(), ["Mod-f", "Mod-h"]);
   assert.match(editor, /documentLanguage\.of\(markdownExtensions\)/);

@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 
 import { OPTION_FIELDS } from "../frontend/js/features/export/render-options.mjs";
 import { createTranslator } from "../frontend/js/core/i18n.mjs";

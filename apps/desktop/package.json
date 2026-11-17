@@ -19,6 +19,9 @@
     "codemirror": "6.0.2"
   },
   "devDependencies": {
-    "esbuild": "0.28.1"
+    "esbuild": "0.28.1",
+    "eslint": "10.15.0",
+    "globals": "16.5.0",
+    "prettier": "3.10.1"
   }
 }
