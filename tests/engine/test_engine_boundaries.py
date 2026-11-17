@@ -117,7 +117,10 @@ def test_configuration_does_not_load_document_parsers_or_browser_runtime(module)
     [
         ("markup", {"markdown", "renderer", "workspace", "application", "sidecar"}),
         ("publishing", {"renderer", "workspace", "application", "sidecar"}),
-        ("projects", {"workspace", "project_commands", "cli", "application", "sidecar"}),
+        (
+            "projects",
+            {"workspace", "project_commands", "cli", "application", "sidecar", "renderer"},
+        ),
     ],
 )
 def test_implementation_packages_do_not_import_their_facades(package, forbidden):
@@ -130,7 +133,11 @@ def test_implementation_packages_do_not_import_their_facades(package, forbidden)
             if isinstance(node, ast.ImportFrom):
                 name = "." * node.level + (node.module or "")
                 module = resolve_name(name, f"mardas_folio.{package}") if node.level else name
-                assert module not in {f"mardas_folio.{name}" for name in forbidden}, path
+                targets = {module}
+                targets.update(f"{module}.{alias.name}" for alias in node.names)
+                assert not targets.intersection({f"mardas_folio.{name}" for name in forbidden}), (
+                    path
+                )
             elif isinstance(node, ast.Import):
                 for alias in node.names:
                     assert alias.name not in {f"mardas_folio.{name}" for name in forbidden}, path

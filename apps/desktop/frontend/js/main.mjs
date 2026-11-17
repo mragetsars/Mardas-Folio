@@ -11,11 +11,8 @@ import { createSettingsController } from "./features/settings/controller.mjs";
 import { createCommandPalette } from "./ui/command-palette.mjs";
 import { createWorkspacePanes } from "./features/workspace/panes.mjs";
 import { createProjectWorkspace } from "./features/workspace/project.mjs";
-import {
-  basename,
-  defaultOutputPath,
-  validateExportSelection,
-} from "./features/export/export-request.mjs";
+import { basename } from "./core/path-names.mjs";
+import { defaultOutputPath, validateExportSelection } from "./features/export/export-request.mjs";
 import { createTranslator, readLocalePreference, writeLocalePreference } from "./core/i18n.mjs";
 import {
   onboardingIntentPresentation,

@@ -24,6 +24,27 @@ export default [
     languageOptions: { globals: globals.node },
   },
   {
+    files: [
+      "frontend/js/features/**/*.mjs",
+      "frontend/js/adapters/**/*.mjs",
+      "frontend/js/preview/**/*.mjs",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/main.mjs"],
+              message:
+                "Implementation modules receive cross-feature actions through callbacks, never main.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["frontend/js/core/**/*.mjs"],
     rules: {
       "no-restricted-imports": [

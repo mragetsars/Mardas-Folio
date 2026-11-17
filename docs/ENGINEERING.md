@@ -81,8 +81,10 @@ Add semantic transformations to `markup/` and call them in the existing pipeline
 order. Add publication behavior to the corresponding `publishing/` owner.
 Project I/O and mutations belong in `projects/`; CLI commands call those services.
 Implementation packages must not import their legacy facade or transport entrypoint;
-the architecture tests enforce that direction.
+the architecture tests enforce that direction. Shared cancellation types/errors come
+from `render_contracts`, not the renderer facade.
 
+ESLint rejects imports of `main.mjs` from implementation modules.
 Feature controllers take explicit callbacks for cross-feature actions and receive
 the existing application state where workflows share ownership. They must not import
 `main.mjs`. Core policies remain reusable; optional locale storage in `core/i18n.mjs`

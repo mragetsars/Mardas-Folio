@@ -35,6 +35,17 @@ DESKTOP = ROOT / "apps" / "desktop"
 TAURI = DESKTOP / "src-tauri"
 
 
+@pytest.fixture(scope="module")
+def authored_frontend_sources() -> dict[str, str]:
+    """Keep fixed UI/security contracts effective when controllers move."""
+    root = DESKTOP / "frontend" / "js"
+    return {
+        path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
+        for path in sorted(root.rglob("*.mjs"))
+        if "vendor" not in path.relative_to(root).parts
+    }
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -237,9 +248,10 @@ def test_native_shell_uses_stdio_sidecar_and_single_instance_first() -> None:
     assert "127.0.0.1" not in combined
 
 
-def test_frontend_is_modular_and_workflow_focused() -> None:
+def test_frontend_is_modular_and_workflow_focused(authored_frontend_sources) -> None:
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
-    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
+    main = authored_frontend_sources["main.mjs"]
+    project = authored_frontend_sources["features/workspace/project.mjs"]
     assert 'id="workspace-empty"' in index
     assert 'id="start-view"' not in index
     assert 'id="export-view"' in index
@@ -298,8 +310,8 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
     assert "sidecar_cancel" in main
     assert "desktop-open-files" in main
     assert "cancelActiveProjectSearch" in main
-    assert 'button.textContent = t("cancelSearch")' in main
-    assert 't("searchResultsLimited")' in main
+    assert 'button.textContent = t("cancelSearch")' in project
+    assert 't("searchResultsLimited")' in project
     for method in (
         "document.read",
         "document.save",
@@ -345,6 +357,9 @@ def test_frontend_is_modular_and_workflow_focused() -> None:
         "adapters/book-api.mjs",
         "features/settings/preferences.mjs",
         "features/workspace/workspace-layout.mjs",
+        "features/workspace/project.mjs",
+        "features/books/creation.mjs",
+        "features/books/operations.mjs",
         "core/i18n.mjs",
         "core/templates.mjs",
         "core/command-palette.mjs",
@@ -568,7 +583,7 @@ def test_every_control_is_drawn_with_the_icon_set_the_app_ships() -> None:
             assert not _pictographs(body), f"{label} still writes the glyph {body!r}"
 
 
-def test_the_application_asks_its_own_questions() -> None:
+def test_the_application_asks_its_own_questions(authored_frontend_sources) -> None:
     """No native `confirm` on a decision that can destroy work.
 
     Overwriting a file that changed on disk, closing a document with unsaved
@@ -582,7 +597,7 @@ def test_the_application_asks_its_own_questions() -> None:
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
 
     # The comment explaining why may name them; the code may not call them.
-    code = re.sub(r"/\*[\s\S]*?\*/", "", main)
+    code = re.sub(r"/\*[\s\S]*?\*/", "", "\n".join(authored_frontend_sources.values()))
     code = re.sub(r"//[^\n]*", "", code)
     for banned in ("globalThis.confirm", "window.confirm", "globalThis.alert", "window.alert"):
         assert banned not in code, f"{banned} is still used"
@@ -777,28 +792,16 @@ def test_node_frontend_contracts() -> None:
     subprocess.run([node, "--test", *tests], cwd=ROOT, check=True)
 
 
-def test_authoring_dom_ids_are_unique_and_controller_targets_exist() -> None:
+def test_authoring_dom_ids_are_unique_and_controller_targets_exist(
+    authored_frontend_sources,
+) -> None:
     import re
 
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
-    main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
     soup = BeautifulSoup(index, "html.parser")
     ids = [element["id"] for element in soup.find_all(id=True)]
     assert len(ids) == len(set(ids))
-    controllers = main + "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in (
-            DESKTOP / "frontend/js/features/documents/persistence.mjs",
-            DESKTOP / "frontend/js/features/documents/tabs.mjs",
-            DESKTOP / "frontend/js/features/books/chapters.mjs",
-            DESKTOP / "frontend/js/features/export/controller.mjs",
-            DESKTOP / "frontend/js/features/settings/controller.mjs",
-            DESKTOP / "frontend/js/features/settings/updater.mjs",
-            DESKTOP / "frontend/js/features/workspace/panes.mjs",
-            DESKTOP / "frontend/js/ui/command-palette.mjs",
-            DESKTOP / "frontend/js/ui/notifications.mjs",
-        )
-    )
+    controllers = "\n".join(authored_frontend_sources.values())
     controller_ids = set(re.findall(r'\$\("#([A-Za-z0-9_-]+)"\)', controllers))
     assert controller_ids <= set(ids)
 

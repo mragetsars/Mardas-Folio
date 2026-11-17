@@ -8,7 +8,7 @@ from typing import Iterable
 
 from ..citations import MAX_BIBLIOGRAPHY_ENTRIES, load_bibliography
 from ..diagnostics import Diagnostic, has_errors
-from ..renderer import CancellationCallback
+from ..render_contracts import CancellationCallback
 from .discovery import _contains_path, _safe_workspace_file
 from .files import (
     _read_bytes,

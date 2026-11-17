@@ -11,6 +11,7 @@ from ..book import BookManifest, BookRenderBundle, load_book_manifest, render_bo
 from ..config import LoadedProjectConfig
 from ..diagnostics import Diagnostic, has_errors
 from ..markdown import MarkdownInputError, render_markdown_file
+from ..render_contracts import RenderCancelledError
 
 
 def _input_diagnostics(path: Path, *, required_file: bool) -> list[Diagnostic]:
@@ -196,8 +197,6 @@ def _book_validation(
     chapter_count = max(1, len(manifest.chapters))
     for chapter in manifest.chapters:
         if cancelled and cancelled():
-            from ..renderer import RenderCancelledError
-
             raise RenderCancelledError("PDF rendering was cancelled.")
         if progress:
             progress(

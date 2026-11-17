@@ -173,11 +173,14 @@ test("workspace chrome distinguishes the active tab and command search", () => {
 
 test("book and export workflows expose durable result and active-chapter affordances", () => {
   const index = readFileSync(new URL("../../frontend/index.html", import.meta.url), "utf8");
-  const main = readFileSync(new URL("../../frontend/js/main.mjs", import.meta.url), "utf8");
+  const operations = readFileSync(
+    new URL("../../frontend/js/features/books/operations.mjs", import.meta.url),
+    "utf8",
+  );
   assert.match(index, /id="export-result"/);
   assert.match(index, /id="book-output-result"/);
   assert.match(index, /id="book-current-chapter"/);
-  assert.match(main, /state\.bookOutputPath = result\?\.output_path \|\| outputPath/);
+  assert.match(operations, /state\.bookOutputPath = result\?\.output_path \|\| outputPath/);
   const chapters = readFileSync(
     new URL("../../frontend/js/features/books/chapters.mjs", import.meta.url),
     "utf8",
