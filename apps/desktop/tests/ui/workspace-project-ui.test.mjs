@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const index = readFileSync(new URL("../../frontend/index.html", import.meta.url), "utf8");
+const projectWorkspace = readFileSync(
+  new URL("../../frontend/js/features/workspace/project.mjs", import.meta.url),
+  "utf8",
+);
 const main = readFileSync(new URL("../../frontend/js/main.mjs", import.meta.url), "utf8");
 
 test("an open project exposes one close action with an explicit keep-open-tabs contract", () => {
@@ -28,7 +32,7 @@ test("book projects expose one project-level close action in the Project inspect
   assert.notEqual(projectFileSection, "");
   assert.doesNotMatch(projectFileSection, /id="close-project"/);
   assert.doesNotMatch(index, /id="book-close-project"/);
-  assert.match(main, /\$\("#close-project"\)\.hidden = !project/);
+  assert.match(projectWorkspace, /\$\("#close-project"\)\.hidden = !project/);
   assert.doesNotMatch(main, /book-close-project/);
 });
 

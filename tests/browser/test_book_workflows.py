@@ -35,6 +35,13 @@ globalThis.__TAURI__ = {
         absolute_path: project.path + "/one.md", path: "one.md", kind: "markdown",
         content: "# فصل One\\n\\nEnglish and فارسی\\n", revision: "r1", sha256: "first"
       };
+      case "project.search":
+        if (globalThis.holdSearch) {
+          await new Promise(resolve => {globalThis.finishSearch = resolve;});
+          globalThis.holdSearch = false;
+        }
+        return {matches: [{path: "one.md", line: 3, column: 1, preview: args.params.query}],
+          truncated: true, truncated_lines: 1, regex_line_limit: 2000};
       case "book.preview": return {html: '<html lang="fa" dir="rtl"><head><style>body{display:none}</style></head><body dir="rtl"><article class="md2pdf-article"><section class="md2pdf-cover">COVER_ONLY</section><div class="md2pdf-watermark">WATERMARK_ONLY</div><a href="#one">فهرست</a><h1 id="one">فصل One</h1><p>Book review متن</p><script>window.previewExecuted=true</script></article></body></html>'};
       case "bibliography.index": return {entries: [], diagnostics: []};
       case "document.assets": return {assets: []};
@@ -146,3 +153,44 @@ def test_dismissed_creation_does_not_activate_a_late_project(book_page):
     page.locator("#workflow-book").click()
     expect(page.locator("#book-project-title-input")).to_have_value("")
     expect(page.locator("#book-project-folder-input")).to_have_value("")
+
+
+def test_project_search_cancellation_rejects_late_results_and_keeps_navigation(book_page):
+    page, _ = book_page
+    fill_book_form(page)
+    page.locator("#book-project-form button[type=submit]").click()
+    expect(page.locator("#markdown-editor")).to_have_value("# فصل One\\n\\nEnglish and فارسی\\n")
+    if not page.locator("#author-sidebar").is_visible():
+        page.locator("#workspace-layout-button").click()
+        page.locator("#workspace-toggle-sidebar").click()
+        page.keyboard.press("Escape")
+    page.locator('[data-sidebar="project"]').click()
+    page.evaluate("globalThis.holdSearch = true")
+    page.locator("#project-search-query").fill("OLD_RESULT")
+    page.locator("#run-project-search").click()
+    page.wait_for_function("typeof finishSearch === 'function'")
+    expect(page.locator("#run-project-search")).to_have_attribute("data-state", "running")
+    page.locator("#run-project-search").click()
+    expect(page.locator("#run-project-search")).to_have_attribute("data-state", "idle")
+    assert page.evaluate("calls.filter(call => call.command === 'sidecar_cancel').length") == 1
+    page.locator("#project-search-query").fill("English فارسی")
+    page.locator("#project-search-regex").check()
+    page.locator("#project-search-case").check()
+    page.locator("#run-project-search").click()
+    page.evaluate("finishSearch()")
+    results = page.locator("#project-search-results")
+    expect(results.locator(".match-preview")).to_have_text("English فارسی")
+    expect(results).not_to_contain_text("OLD_RESULT")
+    expect(results.locator(".search-limit-notice")).to_have_count(2)
+    expect(page.locator("#run-project-search")).to_have_attribute("data-state", "idle")
+    request = page.evaluate("calls.filter(call => call.method === 'project.search').at(-1).params")
+    assert request == {
+        "project_path": "/fixtures/book",
+        "query": "English فارسی",
+        "regex": True,
+        "case_sensitive": True,
+        "max_results": 200,
+    }
+    results.locator("button").click()
+    expect(page.locator("#markdown-editor")).to_have_value("# فصل One\\n\\nEnglish and فارسی\\n")
+    expect(page.locator(".cm-content")).to_be_focused()

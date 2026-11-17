@@ -1,3 +1,5 @@
+import { pathKey } from "./documents.mjs";
+
 /**
  * Detach a project workspace without closing or rewriting any open documents.
  *
@@ -29,4 +31,33 @@ export function resetProjectSession(state) {
   }
 
   return project;
+}
+
+export function attachProjectMembership(model, project) {
+  delete model.projectPath;
+  delete model.projectRelativePath;
+  delete model.projectSha256;
+  if (!model.path || !project?.path) return;
+  const root = String(project.path).replace(/[\\/]+$/, "");
+  const file = (project.files || []).find(
+    (item) => pathKey(`${root}/${item.path}`) === pathKey(model.path),
+  );
+  if (!file) return;
+  model.projectPath = project.path;
+  model.projectRelativePath = file.path;
+  // The standalone revision hashes the bytes originally read. Keep that
+  // revision even when the user has edited the buffer or the disk has changed.
+  model.projectSha256 = String(model.revision || "").match(/:([a-f0-9]{64})$/i)?.[1] || "";
+}
+
+/** Attach the loaded snapshot without replacing any document buffer or revision. */
+export function applyProjectSession(state, project) {
+  state.project = project;
+  for (const model of state.documents) attachProjectMembership(model, project);
+  state.projectGeneration += 1;
+  state.bibliographySequence += 1;
+  state.assetSequence += 1;
+  state.validationSequence += 1;
+  state.previewSequence += 1;
+  state.projectDiagnostics = Array.isArray(project.diagnostics) ? project.diagnostics : [];
 }

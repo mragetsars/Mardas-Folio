@@ -10,6 +10,7 @@ import { createUpdater } from "./features/settings/updater.mjs";
 import { createSettingsController } from "./features/settings/controller.mjs";
 import { createCommandPalette } from "./ui/command-palette.mjs";
 import { createWorkspacePanes } from "./features/workspace/panes.mjs";
+import { createProjectWorkspace } from "./features/workspace/project.mjs";
 import {
   basename,
   defaultOutputPath,
@@ -93,15 +94,12 @@ import { fitToolbarGroups } from "./core/toolbar-overflow.mjs";
 import { createModalManager, focusableElements } from "./ui/modal-manager.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
 import { typesetPreviewMath } from "./preview/math.mjs";
+import { bibliographyIndex, readProjectFile } from "./adapters/project-api.mjs";
 import {
-  bibliographyIndex,
-  cancelSidecarRequest,
-  openProject,
-  readProjectFile,
-  refreshProject,
-  startProjectSearch,
-} from "./adapters/project-api.mjs";
-import { resetProjectSession } from "./core/project-lifecycle.mjs";
+  resetProjectSession,
+  applyProjectSession,
+  attachProjectMembership,
+} from "./core/project-lifecycle.mjs";
 import {
   importDocumentAsset,
   listDocumentAssets,
@@ -236,6 +234,31 @@ const {
   activeDocument,
   isMarkdownModel,
   focusDocument,
+});
+
+const {
+  chooseProjectDirectory,
+  loadProject,
+  refreshActiveProject,
+  renderProjectWorkspace,
+  cancelActiveProjectSearch,
+  runProjectSearch,
+} = createProjectWorkspace({
+  state,
+  query: $,
+  activeDocument,
+  openProjectRelativeFile,
+  invalidateBookTaskForProjectChange: () => invalidateBookTaskForProjectChange(),
+  applyProjectPayload,
+  renderFileNavigator: () => renderFileNavigator(),
+  showView,
+  activateSidebar,
+  closeCompactDrawer,
+  setTruncatableText,
+  t,
+  toast,
+  errorText,
+  errorPayload,
 });
 
 const { saveActiveDocument, persistDocumentModel, requestCloseDocument, scheduleRecovery } =
@@ -2513,7 +2536,7 @@ async function openAuthoringPaths(paths) {
           readOnly: result.read_only,
           kind: result.kind || (isMarkdownPath(result.path) ? "markdown" : "text"),
         });
-      attachProjectMembership(model);
+      attachProjectMembership(model, state.project);
       if (!duplicate) state.documents.push(model);
       await allowDocumentImages(model);
       if (state.documents.includes(model)) {
@@ -2554,120 +2577,6 @@ async function chooseAuthoringFiles() {
     await openAuthoringPaths(paths || []);
   } catch (error) {
     toast(errorText(error), "error");
-  }
-}
-
-async function chooseProjectDirectory() {
-  try {
-    const path = await invoke("pick_project_directory");
-    if (!path) return;
-    await loadProject(path);
-  } catch (error) {
-    toast(errorText(error), "error");
-  }
-}
-
-async function loadProject(path, { announce = true, openFirstChapter = true } = {}) {
-  const previousProjectPath = state.project?.path || null;
-  const activationSequence = ++state.documentActivationSequence;
-  const handoff =
-    pathKey(path) !== pathKey(state.project?.path)
-      ? invalidateBookTaskForProjectChange()
-      : Promise.resolve(true);
-  const sequence = ++state.projectRequestSequence;
-  await cancelActiveProjectSearch({ announce: false });
-  await handoff;
-  if (sequence !== state.projectRequestSequence) return null;
-  const payload = await openProject(path);
-  if (sequence !== state.projectRequestSequence) return null;
-  applyProjectPayload(payload);
-  state.bibliographyEntries = [];
-  if (activationSequence !== state.documentActivationSequence) return payload;
-  showView("workspace");
-  activateSidebar("project");
-  if (announce) toast(t("projectOpened"), "success");
-  const firstChapter = payload.book?.chapters?.[0]?.path;
-  const switchedProject =
-    pathKey(previousProjectPath) !== pathKey(payload.project?.path || payload.path);
-  if (openFirstChapter && firstChapter && (!activeDocument() || switchedProject)) {
-    await openProjectRelativeFile(firstChapter);
-  }
-  return payload;
-}
-
-async function refreshActiveProject() {
-  if (!state.project?.path) {
-    await chooseProjectDirectory();
-    return;
-  }
-  try {
-    const projectPath = state.project.path;
-    const sequence = ++state.projectRequestSequence;
-    await cancelActiveProjectSearch({ announce: false });
-    const payload = await refreshProject(projectPath);
-    if (sequence !== state.projectRequestSequence || state.project?.path !== projectPath) return;
-    applyProjectPayload(payload);
-    toast(t("projectRefreshed"), "success");
-  } catch (error) {
-    toast(errorText(error), "error");
-  }
-}
-
-function renderProjectWorkspace() {
-  renderFileNavigator();
-  const empty = $("#project-empty");
-  const tools = $("#project-tools");
-  const list = $("#project-file-tree");
-  const section = $("#navigator-project-section");
-  const defaults = $("#project-open-settings");
-  if (!empty || !tools || !list || !section) return;
-  const project = state.project;
-  $("#refresh-project").hidden = !project;
-  $("#close-project").hidden = !project;
-  empty.classList.toggle("hidden", Boolean(project));
-  tools.classList.toggle("hidden", !project);
-  section.classList.toggle("hidden", !project);
-  list.replaceChildren();
-  if (defaults) {
-    defaults.disabled = !project?.config;
-    defaults.onclick = project?.config ? () => openProjectRelativeFile(project.config) : null;
-  }
-  if (!project) {
-    setTruncatableText($("#navigator-project-name"), "");
-    $("#project-search-results")?.replaceChildren();
-    return;
-  }
-  setTruncatableText($("#navigator-project-name"), project.name || t("projectWorkspace"));
-  setTruncatableText($("#project-name"), project.name || t("projectWorkspace"));
-  setTruncatableText($("#project-path"), project.path || "");
-  const files = Array.isArray(project.files) ? project.files : [];
-  for (const file of files) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "tool-item navigator-project-file";
-    button.dataset.kind = file.kind || "text";
-    button.dataset.projectPath = file.path;
-    button.innerHTML = `<span></span>`;
-    button.querySelector("span").textContent = file.chapter_title
-      ? `${file.chapter_title} — ${file.path}`
-      : file.path;
-    button.title = file.path;
-    button.dir = "auto";
-    const current = activeDocument();
-    const selected =
-      current?.projectPath === project.path && current?.projectRelativePath === file.path;
-    button.classList.toggle("active", selected);
-    button.setAttribute("aria-current", selected ? "page" : "false");
-    if (["markdown", "text", "config", "toml", "bibliography", "json"].includes(file.kind)) {
-      button.addEventListener("click", async () => {
-        await openProjectRelativeFile(file.path);
-        closeCompactDrawer("files");
-      });
-    } else {
-      button.disabled = true;
-      button.title = `${file.path}\n${t("unsupportedProjectFile")}`;
-    }
-    list.append(button);
   }
 }
 
@@ -2748,108 +2657,6 @@ async function openProjectRelativeFile(relativePath, { line = null, column = 1 }
   }
 }
 
-function renderProjectSearchResults(result) {
-  const list = $("#project-search-results");
-  list.replaceChildren();
-  const matches = Array.isArray(result?.matches) ? result.matches : [];
-  if (!matches.length) {
-    list.innerHTML = `<div class="tool-empty">${t("noSearchResults")}</div>`;
-  }
-  for (const match of matches) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "tool-item";
-    button.innerHTML = `<span class="match-location"></span><span class="match-preview"></span>`;
-    button.querySelector(".match-location").textContent =
-      `${match.path}:${match.line}:${match.column}`;
-    setTruncatableText(button.querySelector(".match-preview"), match.preview || "");
-    button.addEventListener("click", () =>
-      openProjectRelativeFile(match.path, { line: match.line, column: match.column }),
-    );
-    list.append(button);
-  }
-  if (result?.truncated) {
-    const notice = document.createElement("div");
-    notice.className = "tool-empty search-limit-notice";
-    notice.textContent = t("searchResultsLimited");
-    list.append(notice);
-  }
-  if (Number(result?.truncated_lines) > 0) {
-    const notice = document.createElement("div");
-    notice.className = "tool-empty search-limit-notice";
-    notice.textContent = `${t("regexLongLineLimit")} ${result.regex_line_limit || 2000} · ${t("regexLimitedLines")}: ${result.truncated_lines}. ${t("useLiteralSearch")}`;
-    list.append(notice);
-  }
-}
-
-function resetProjectSearchButton() {
-  const button = $("#run-project-search");
-  if (!button) return;
-  button.removeAttribute("aria-busy");
-  button.dataset.state = "idle";
-  button.textContent = t("find");
-}
-
-async function cancelActiveProjectSearch({ announce = true } = {}) {
-  const requestId = state.activeProjectSearchRequestId;
-  if (!requestId) return false;
-  state.activeProjectSearchRequestId = null;
-  state.projectSearchSequence += 1;
-  resetProjectSearchButton();
-  try {
-    await cancelSidecarRequest(requestId);
-  } catch {
-    // A request that already completed no longer needs cancellation.
-  }
-  if (announce) toast(t("searchCancelled"), "info");
-  return true;
-}
-
-async function runProjectSearch() {
-  if (state.activeProjectSearchRequestId) {
-    await cancelActiveProjectSearch();
-    return;
-  }
-
-  const project = state.project;
-  const query = $("#project-search-query").value.trim();
-  if (!project?.path || !query) {
-    renderProjectSearchResults({ matches: [] });
-    return;
-  }
-
-  const sequence = ++state.projectSearchSequence;
-  const task = startProjectSearch({
-    projectPath: project.path,
-    query,
-    regex: $("#project-search-regex").checked,
-    caseSensitive: $("#project-search-case").checked,
-    maxResults: 200,
-  });
-  state.activeProjectSearchRequestId = task.requestId;
-  const button = $("#run-project-search");
-  button.dataset.state = "running";
-  button.setAttribute("aria-busy", "true");
-  button.textContent = t("cancelSearch");
-  try {
-    const result = await task.promise;
-    if (sequence !== state.projectSearchSequence) return;
-    renderProjectSearchResults(result);
-  } catch (error) {
-    if (sequence !== state.projectSearchSequence) return;
-    const payload = errorPayload(error);
-    const applicationCode = payload?.application_code || payload?.data?.application_code;
-    if (applicationCode !== "MARDAS-JOB-CANCELLED") {
-      toast(errorText(error), "error");
-    }
-  } finally {
-    if (sequence === state.projectSearchSequence) {
-      state.activeProjectSearchRequestId = null;
-      resetProjectSearchButton();
-    }
-  }
-}
-
 function applyProjectPayload(payload) {
   const project = payload?.project || payload;
   if (!project?.path) return null;
@@ -2857,36 +2664,12 @@ function applyProjectPayload(payload) {
     invalidateBookTaskForProjectChange();
     state.bookOutputPath = null;
   }
-  state.project = project;
-  for (const model of state.documents) attachProjectMembership(model, project);
-  state.projectGeneration += 1;
-  state.bibliographySequence += 1;
-  state.assetSequence += 1;
-  state.validationSequence += 1;
-  state.previewSequence += 1;
-  state.projectDiagnostics = Array.isArray(project.diagnostics) ? project.diagnostics : [];
+  applyProjectSession(state, project);
   persistSession();
   renderProjectWorkspace();
   renderBookWorkspace();
   renderProblems(activeDocument());
   return project;
-}
-
-function attachProjectMembership(model, project = state.project) {
-  delete model.projectPath;
-  delete model.projectRelativePath;
-  delete model.projectSha256;
-  if (!model.path || !project?.path) return;
-  const root = String(project.path).replace(/[\\/]+$/, "");
-  const file = (project.files || []).find(
-    (item) => pathKey(`${root}/${item.path}`) === pathKey(model.path),
-  );
-  if (!file) return;
-  model.projectPath = project.path;
-  model.projectRelativePath = file.path;
-  // The standalone revision hashes the bytes originally read. Keep that
-  // revision even when the user has edited the buffer or the disk has changed.
-  model.projectSha256 = String(model.revision || "").match(/:([a-f0-9]{64})$/i)?.[1] || "";
 }
 
 function clearProjectState() {

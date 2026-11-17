@@ -18,12 +18,12 @@ boundary over introducing a new framework or duplicating behavior.
 | `render_contracts.py`, `page_geometry.py`, `print_layout.py` | Publication types, shared errors, physical page rules and static print CSS |
 | `application.py`, `sidecar.py`, `protocol.py` | Use cases and stable facades, bounded JSON-RPC, job lifecycle/cancellation and stdout discipline |
 | `apps/desktop/src-tauri/src/` | Native dialogs, process lifecycle, local file grants and updater; no publishing reimplementation |
-| `frontend/js/core/` | Shared models, analysis, request/state policies; no feature/UI/native-command imports |
+| `frontend/js/core/` | Shared models, analysis, project membership/lifecycle and request/state policies; no feature/UI/native-command imports |
 | `frontend/js/adapters/` | Native commands, RPC payloads and storage access |
-| `frontend/js/features/` | Documents/tabs/persistence, book creation/chapters/operations, export, settings/updater and workspace panes |
+| `frontend/js/features/` | Documents/tabs/persistence, book creation/chapters/operations, export, settings/updater and workspace panes/project navigation/search |
 | `frontend/js/ui/` | Shared DOM components, focus, keyboard interactions and notifications with injected callbacks |
 | `frontend/js/preview/` | Safe document content, sanitization, page layout, online-image controls and math |
-| `frontend/js/main.mjs` | Composition, cross-feature coordination and remaining project/book workflows; new independent behavior belongs with its feature |
+| `frontend/js/main.mjs` | Composition, document activation/editor/preview coordination and shared event binding; independent book/project workflows live in their features |
 | `editor-src/` | CodeMirror extensions; generated bundle in `frontend/js/vendor/` |
 | `scripts/`, `scripts/lib/` | Stable command entrypoints and reusable `audit/` / `build/` libraries |
 | `tests/engine/`, `tests/desktop/`, `tests/tooling/`, `tests/browser/` | Engine behavior, native/frontend contracts, developer tools and real-browser integration |
@@ -92,7 +92,11 @@ into shared UI components. Book creation owns its modal request lifetime;
 book operations own save preparation, the exclusive task guard, cancellation
 handoff, validation, review and output. They receive document saving and project
 application as callbacks. Keep task factories lazy: claiming the guard must precede
-any picker, confirmation or save.
+any picker, confirmation or save. Workspace project navigation/search owns its
+request generations and result UI. Project membership and session invalidation
+belong to `core/project-lifecycle.mjs`. Applying/clearing a project and opening a
+project file still coordinate document buffers, image grants, previews, focus and
+multiple features in `main.mjs`; keep that orchestration explicit.
 
 Preserve CLI names, Python compatibility imports, JSON-RPC schemas, Tauri commands,
 storage keys/recovery payloads, installation identifiers and emitted `md2pdf-*`
