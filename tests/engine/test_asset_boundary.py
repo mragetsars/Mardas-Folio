@@ -123,7 +123,7 @@ def test_windows_junction_root_and_nested_are_not_followed(tmp_path: Path) -> No
     imported = application.import_document_asset(document, source)
     assert imported["relative_path"] == "assets/image.png"
     assert (root / "assets" / "image.png").read_bytes() == b"new image"
-    assert not (junction / "image.png").exists()
+    assert not (junction / "nested" / "image.png").exists()
     assert not (outside / "image.png").exists()
 
 

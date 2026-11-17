@@ -14,7 +14,7 @@ def test_document_read_revision_describes_the_returned_content(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     path = tmp_path / "report.md"
-    path.write_text("# Original\n", encoding="utf-8")
+    path.write_bytes(b"# Original\n")
     read_snapshot = document_store._document_snapshot
 
     def replace_after_snapshot(source: Path):

@@ -1,2 +1,3 @@
 *.pdf binary
 *.png binary
+src/mardas_folio/assets/mathjax/tex-svg-full.js -text

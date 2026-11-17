@@ -426,7 +426,7 @@ def add_pdf_outline(writer: PdfWriter, outline_entries: list[LocatedOutlineEntry
             continue
         parent = parents.get(level - 1)
         fit = Fit.xyz(left=0, top=top, zoom=None) if top is not None else Fit.fit()
-        item = writer.add_outline_item(title, page_index, parent=parent, fit=fit)
+        item = writer.add_outline_item(title=title, page_number=page_index, parent=parent, fit=fit)
         parents[level] = item
         for child_level in [key for key in parents if key > level]:
             del parents[child_level]

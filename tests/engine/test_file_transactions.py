@@ -147,15 +147,15 @@ def test_concurrent_same_named_asset_imports_keep_both_contents(
         source.parent.mkdir()
         source.write_bytes(content)
     first_started, release_first, second_done = Event(), Event(), Event()
-    link = os.link
+    fsync = os.fsync
 
-    def pause_first(*args, **kwargs):
+    def pause_first(descriptor: int) -> None:
+        fsync(descriptor)
         if not first_started.is_set():
             first_started.set()
             assert release_first.wait(5)
-        return link(*args, **kwargs)
 
-    monkeypatch.setattr(os, "link", pause_first)
+    monkeypatch.setattr(os, "fsync", pause_first)
 
     def import_second():
         try:

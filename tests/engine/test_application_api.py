@@ -582,7 +582,7 @@ def test_unsaved_document_text_uses_source_relative_assets(tmp_path: Path) -> No
 
 def test_document_read_save_conflict_and_asset_import(tmp_path: Path) -> None:
     source = tmp_path / "doc.md"
-    source.write_text("# One\n", encoding="utf-8")
+    source.write_bytes(b"# One\n")
     opened = application.read_document(source)
     assert opened["content"] == "# One\n"
     assert opened["kind"] == "markdown"
