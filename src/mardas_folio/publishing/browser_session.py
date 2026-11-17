@@ -16,6 +16,94 @@ from ..runtime import resolved_chromium_path
 from .html_document import FooterContext, _footer_template
 from .quality import _enforce_quality_issue, _font_directory_manifest, _resolve_quality_options
 
+LOGGER = logging.getLogger("mardas_folio.renderer")
+_FONT_REPORT_SCRIPT = r"""
+(requiredFonts) => {
+  const normalize = value => String(value || '').replace(/["']/g, '').trim().toLowerCase();
+  const loadedFaces = Array.from(document.fonts || []).map(face => ({
+    family: String(face.family || '').replace(/["']/g, ''),
+    status: String(face.status || ''),
+    weight: String(face.weight || ''),
+    style: String(face.style || ''),
+  }));
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  const sample = 'mmmmmmmmmmlliWW00۱۲۳۴۵۶۷۸۹';
+  const width = font => {
+    context.font = `72px ${font}`;
+    return context.measureText(sample).width;
+  };
+  const fontAvailable = family => {
+    const target = normalize(family);
+    if (loadedFaces.some(face => normalize(face.family) === target && face.status === 'loaded')) {
+      return true;
+    }
+    return ['monospace', 'serif', 'sans-serif'].some(fallback => {
+      const baseline = width(fallback);
+      const candidate = width(`"${family}",${fallback}`);
+      return Math.abs(candidate - baseline) > 0.01;
+    });
+  };
+  const computed = selector => {
+    const node = document.querySelector(selector);
+    return node ? getComputedStyle(node).fontFamily : '';
+  };
+  const required = Array.from(requiredFonts || []);
+  const availability = Object.fromEntries(required.map(name => [name, fontAvailable(name)]));
+  return {
+    status: document.fonts ? document.fonts.status : 'unsupported',
+    required: availability,
+    missing: required.filter(name => !availability[name]),
+    computed: {
+      body: computed('body'),
+      article: computed('.md2pdf-article'),
+      persian: computed('[lang^="fa"], [dir="rtl"]'),
+      code: computed('code, pre'),
+    },
+    loaded_faces: loadedFaces,
+  };
+}
+"""
+_MATHJAX_REPORT_SCRIPT = r"""
+async () => {
+  const nodes = Array.from(document.querySelectorAll('.math'));
+  const report = {
+    detected: nodes.length,
+    rendered: 0,
+    unresolved: 0,
+    available: Boolean(window.MathJax && window.MathJax.typesetPromise),
+    errors: [],
+    unresolved_samples: [],
+    exception: '',
+  };
+  try {
+    if (window.MathJax && window.MathJax.startup && window.MathJax.startup.promise) {
+      await window.MathJax.startup.promise;
+    }
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      await window.MathJax.typesetPromise();
+    }
+  } catch (error) {
+    report.exception = String(error && (error.stack || error.message) || error);
+  }
+  for (const node of nodes) {
+    if (node.querySelector('mjx-container')) {
+      report.rendered += 1;
+    } else {
+      report.unresolved += 1;
+      if (report.unresolved_samples.length < 5) {
+        report.unresolved_samples.push(String(node.textContent || '').trim().slice(0, 160));
+      }
+    }
+  }
+  report.errors = Array.from(document.querySelectorAll('mjx-merror, [data-mjx-error]'))
+    .slice(0, 10)
+    .map(node => String(node.textContent || node.getAttribute('data-mjx-error') || '').trim().slice(0, 240));
+  return report;
+}
+"""
+
+
 
 def _validate_browser_fonts(page: Page, options: PdfOptions, *, artifact: Path) -> None:
     if not options.required_fonts and options.quality_report is None:
@@ -294,95 +382,3 @@ def _render_page(
     with RenderSession() as owned_session:
         with owned_session.page(options) as page:
             yield page, False
-
-
-LOGGER = logging.getLogger("mardas_folio.renderer")
-
-
-_FONT_REPORT_SCRIPT = r"""
-(requiredFonts) => {
-  const normalize = value => String(value || '').replace(/["']/g, '').trim().toLowerCase();
-  const loadedFaces = Array.from(document.fonts || []).map(face => ({
-    family: String(face.family || '').replace(/["']/g, ''),
-    status: String(face.status || ''),
-    weight: String(face.weight || ''),
-    style: String(face.style || ''),
-  }));
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  const sample = 'mmmmmmmmmmlliWW00۱۲۳۴۵۶۷۸۹';
-  const width = font => {
-    context.font = `72px ${font}`;
-    return context.measureText(sample).width;
-  };
-  const fontAvailable = family => {
-    const target = normalize(family);
-    if (loadedFaces.some(face => normalize(face.family) === target && face.status === 'loaded')) {
-      return true;
-    }
-    return ['monospace', 'serif', 'sans-serif'].some(fallback => {
-      const baseline = width(fallback);
-      const candidate = width(`"${family}",${fallback}`);
-      return Math.abs(candidate - baseline) > 0.01;
-    });
-  };
-  const computed = selector => {
-    const node = document.querySelector(selector);
-    return node ? getComputedStyle(node).fontFamily : '';
-  };
-  const required = Array.from(requiredFonts || []);
-  const availability = Object.fromEntries(required.map(name => [name, fontAvailable(name)]));
-  return {
-    status: document.fonts ? document.fonts.status : 'unsupported',
-    required: availability,
-    missing: required.filter(name => !availability[name]),
-    computed: {
-      body: computed('body'),
-      article: computed('.md2pdf-article'),
-      persian: computed('[lang^="fa"], [dir="rtl"]'),
-      code: computed('code, pre'),
-    },
-    loaded_faces: loadedFaces,
-  };
-}
-"""
-
-
-_MATHJAX_REPORT_SCRIPT = r"""
-async () => {
-  const nodes = Array.from(document.querySelectorAll('.math'));
-  const report = {
-    detected: nodes.length,
-    rendered: 0,
-    unresolved: 0,
-    available: Boolean(window.MathJax && window.MathJax.typesetPromise),
-    errors: [],
-    unresolved_samples: [],
-    exception: '',
-  };
-  try {
-    if (window.MathJax && window.MathJax.startup && window.MathJax.startup.promise) {
-      await window.MathJax.startup.promise;
-    }
-    if (window.MathJax && window.MathJax.typesetPromise) {
-      await window.MathJax.typesetPromise();
-    }
-  } catch (error) {
-    report.exception = String(error && (error.stack || error.message) || error);
-  }
-  for (const node of nodes) {
-    if (node.querySelector('mjx-container')) {
-      report.rendered += 1;
-    } else {
-      report.unresolved += 1;
-      if (report.unresolved_samples.length < 5) {
-        report.unresolved_samples.push(String(node.textContent || '').trim().slice(0, 160));
-      }
-    }
-  }
-  report.errors = Array.from(document.querySelectorAll('mjx-merror, [data-mjx-error]'))
-    .slice(0, 10)
-    .map(node => String(node.textContent || node.getAttribute('data-mjx-error') || '').trim().slice(0, 240));
-  return report;
-}
-"""

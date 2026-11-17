@@ -146,9 +146,9 @@ jobs:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
         run: |
           python -m pytest -q \
-            tests/test_pdf_toc_destinations.py \
-            tests/test_pdf_output.py \
-            tests/test_pdf_accessibility_audit.py
+            tests/engine/test_pdf_toc_destinations.py \
+            tests/engine/test_pdf_output.py \
+            tests/tooling/test_pdf_accessibility_audit.py
 
   platform-wheel-smoke:
     name: Wheel render smoke / ${{ matrix.os }}
@@ -343,7 +343,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y minisign
-          python -m pytest -q tests/test_signed_release.py tests/test_native_desktop.py
+          python -m pytest -q tests/tooling/test_signed_release.py tests/desktop/test_native_desktop.py
 
       - name: Build and verify offline frontend
         run: |
@@ -385,7 +385,7 @@ jobs:
       - name: Run desktop Python contracts
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
-        run: python -m pytest -q tests/test_desktop_app.py
+        run: python -m pytest -q tests/desktop/test_desktop_app.py
 
   windows-desktop-installer:
     name: Windows native desktop installer

@@ -1,4 +1,4 @@
-"""markup — code blocks implementation."""
+"""Fenced-code parsing, highlighting, and code-block HTML normalization."""
 from __future__ import annotations
 
 import html
@@ -10,6 +10,74 @@ from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import TextLexer, get_lexer_by_name
 from pygments.util import ClassNotFound
+
+HIGHLIGHT_TRAILING_NEWLINE_RE = re.compile(
+    r'(<span class="hll">.*?)(\r?\n)(</span>)',
+    re.DOTALL,
+)
+CODE_FENCE_BRACE_RE = re.compile(r"\{(?P<spec>[^}]*)\}")
+CODE_FENCE_KV_RE = re.compile(
+    r"(?P<key>[A-Za-z][\w-]*)\s*=\s*"
+    r"(?:(?P<quote>[\"'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s}]+))"
+)
+CODE_FENCE_ATTR_CLASS_RE = re.compile(r"(?<!\S)\.(?P<class>[A-Za-z_][\w.-]*)")
+CODE_FENCE_LABEL_RE = re.compile(
+    r"(?:^|[\s{])#(?P<label>(?:fig|tbl|eq|lst):[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?)(?=[\s}]|$)"
+)
+CODE_FENCE_LABEL_CANDIDATE_RE = re.compile(
+    r"(?:^|[\s{])#(?P<label>(?:fig|tbl|eq|lst):[^\s}]*)"
+)
+CODE_FENCE_LABEL_VALUE_RE = re.compile(
+    r"^(?:fig|tbl|eq|lst):[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$"
+)
+CODE_FENCE_TITLE_KEYS = {"title", "filename", "file", "caption", "name"}
+CODE_FENCE_HIGHLIGHT_KEYS = {
+    "hl_lines",
+    "hl-lines",
+    "highlight",
+    "line-highlight",
+    "lines",
+    "emphasize-lines",
+}
+CODE_FENCE_LINE_NUMBER_KEYS = {
+    "linenos",
+    "line-numbers",
+    "linenumbers",
+    "numbered",
+    "numberlines",
+    "lineNumbers",
+}
+CODE_FENCE_LINE_START_KEYS = {
+    "start",
+    "startline",
+    "start-line",
+    "line-start",
+    "linenostart",
+    "lineno-start",
+    "first-line",
+}
+CODE_FENCE_LINE_NUMBER_CLASSES = {
+    "linenos",
+    "line-numbers",
+    "linenumbers",
+    "numbered",
+    "numberlines",
+    "numberLines",
+}
+CODE_FENCE_LINE_NUMBER_KEY_SET = {item.lower() for item in CODE_FENCE_LINE_NUMBER_KEYS}
+CODE_FENCE_LINE_START_KEY_SET = {item.lower() for item in CODE_FENCE_LINE_START_KEYS}
+CODE_FENCE_LANGUAGE_ALIASES = {
+    "mmd": "mermaid",
+    "py": "python",
+    "js": "javascript",
+    "ts": "typescript",
+    "sh": "bash",
+    "shell": "bash",
+    "zsh": "bash",
+    "md": "markdown",
+    "yml": "yaml",
+}
+
 
 
 class CodeHtmlFormatter(HtmlFormatter):
@@ -33,10 +101,6 @@ class CodeHtmlFormatter(HtmlFormatter):
         )
 
 
-HIGHLIGHT_TRAILING_NEWLINE_RE = re.compile(
-    r'(<span class="hll">.*?)(\r?\n)(</span>)',
-    re.DOTALL,
-)
 
 
 def _normalize_highlight_line_breaks(highlighted_html: str) -> str:
@@ -52,94 +116,32 @@ def _normalize_highlight_line_breaks(highlighted_html: str) -> str:
     return HIGHLIGHT_TRAILING_NEWLINE_RE.sub(r"\1\3\2", highlighted_html)
 
 
-CODE_FENCE_BRACE_RE = re.compile(r"\{(?P<spec>[^}]*)\}")
 
 
-CODE_FENCE_KV_RE = re.compile(
-    r"(?P<key>[A-Za-z][\w-]*)\s*=\s*"
-    r"(?:(?P<quote>[\"'])(?P<quoted>.*?)(?P=quote)|(?P<bare>[^\s}]+))"
-)
 
 
-CODE_FENCE_ATTR_CLASS_RE = re.compile(r"(?<!\S)\.(?P<class>[A-Za-z_][\w.-]*)")
 
 
-CODE_FENCE_LABEL_RE = re.compile(
-    r"(?:^|[\s{])#(?P<label>(?:fig|tbl|eq|lst):[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?)(?=[\s}]|$)"
-)
 
 
-CODE_FENCE_LABEL_CANDIDATE_RE = re.compile(
-    r"(?:^|[\s{])#(?P<label>(?:fig|tbl|eq|lst):[^\s}]*)"
-)
 
 
-CODE_FENCE_LABEL_VALUE_RE = re.compile(
-    r"^(?:fig|tbl|eq|lst):[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$"
-)
 
 
-CODE_FENCE_TITLE_KEYS = {"title", "filename", "file", "caption", "name"}
 
 
-CODE_FENCE_HIGHLIGHT_KEYS = {
-    "hl_lines",
-    "hl-lines",
-    "highlight",
-    "line-highlight",
-    "lines",
-    "emphasize-lines",
-}
 
 
-CODE_FENCE_LINE_NUMBER_KEYS = {
-    "linenos",
-    "line-numbers",
-    "linenumbers",
-    "numbered",
-    "numberlines",
-    "lineNumbers",
-}
 
 
-CODE_FENCE_LINE_START_KEYS = {
-    "start",
-    "startline",
-    "start-line",
-    "line-start",
-    "linenostart",
-    "lineno-start",
-    "first-line",
-}
 
 
-CODE_FENCE_LINE_NUMBER_CLASSES = {
-    "linenos",
-    "line-numbers",
-    "linenumbers",
-    "numbered",
-    "numberlines",
-    "numberLines",
-}
 
 
-CODE_FENCE_LINE_NUMBER_KEY_SET = {item.lower() for item in CODE_FENCE_LINE_NUMBER_KEYS}
 
 
-CODE_FENCE_LINE_START_KEY_SET = {item.lower() for item in CODE_FENCE_LINE_START_KEYS}
 
 
-CODE_FENCE_LANGUAGE_ALIASES = {
-    "mmd": "mermaid",
-    "py": "python",
-    "js": "javascript",
-    "ts": "typescript",
-    "sh": "bash",
-    "shell": "bash",
-    "zsh": "bash",
-    "md": "markdown",
-    "yml": "yaml",
-}
 
 
 def _parse_line_highlights(spec: str | None) -> list[int]:

@@ -4,12 +4,12 @@ import os
 import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
+from tests._paths import ROOT
 
 import pytest
 from bs4 import BeautifulSoup
 
-FRONTEND = Path(__file__).resolve().parents[2] / "apps" / "desktop" / "frontend"
+FRONTEND = ROOT / "apps" / "desktop" / "frontend"
 
 
 @pytest.fixture(scope="session")

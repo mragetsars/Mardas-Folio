@@ -1,0 +1,279 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+import { GFM, parser } from "@lezer/markdown";
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { createBlockWidgetField } from "../../editor-src/live-widgets.mjs";
+import { frontmatter } from "../../editor-src/markdown-frontmatter.mjs";
+import {
+  EDITOR_MODES,
+  LINKS_WITH_TEXT,
+  editorModeExtension,
+  normalizeEditorMode,
+} from "../../editor-src/live-preview.mjs";
+import {
+  DEFAULT_PREFERENCES,
+  editorModeForView,
+  normalizePreferences,
+  previewVisibleForView,
+} from "../../frontend/js/features/settings/preferences.mjs";
+
+const source = readFileSync(new URL("../../editor-src/live-preview.mjs", import.meta.url), "utf8");
+
+test("live preview is the default and unknown modes fall back to it", () => {
+  assert.deepEqual([...EDITOR_MODES], ["live", "source"]);
+  assert.equal(normalizeEditorMode("live"), "live");
+  assert.equal(normalizeEditorMode("source"), "source");
+  for (const value of ["wysiwyg", "", null, undefined, 42, {}]) {
+    assert.equal(normalizeEditorMode(value), "live");
+  }
+});
+
+test("source mode renders the document verbatim but keeps bidi measurement", () => {
+  // Source adds document-gutter and per-line direction support while its
+  // source buffer remains verbatim, including syntax and neutral rows.
+  const live = editorModeExtension("live");
+  const source = editorModeExtension("source");
+  assert.ok(live.length > source.length, "live adds the presentation and authoring extensions");
+  const text = "---\ndir: rtl\n---\n# English and فارسی\n\n```js\nconst value=1;\n```";
+  const state = EditorState.create({ doc: text, extensions: source });
+  assert.equal(state.doc.toString(), text);
+  assert.ok(state.facet(EditorView.editorAttributes).some(attributes => attributes["data-source-direction"] === "rtl"));
+  assert.notDeepEqual(live, source);
+});
+
+test("both modes measure direction per line, not once for the editor", () => {
+  // Without this facet CodeMirror assumes a single direction for the whole
+  // editor while `dir="auto"` lets the browser lay each line out on its own.
+  // Every line of the opposite direction then has its selection drawn from a
+  // bidi model that does not describe it: measured against Chromium, a selected
+  // Persian sentence containing one Latin word was painted 231px wide over text
+  // occupying 307px. Live mode is where Persian gets written, so it is exactly
+  // the mode that must not be left out.
+  assert.match(source, /perLineTextDirection/);
+  const factory = source.slice(source.indexOf("export function editorModeExtension"));
+  assert.match(factory, /perLineDirection\]/, "live mode carries the facet");
+  assert.doesNotMatch(
+    factory,
+    /\[createBlockWidgetField\(resolveAsset\), livePreviewPlugin\]/,
+    "live mode must not drop back to the two-extension set that omitted direction",
+  );
+});
+
+test("live preview never edits the document", () => {
+  // The whole design rests on the buffer staying plain Markdown: recovery
+  // snapshots, conflict-safe saving and the publishing engine all read it
+  // directly. A dispatch with `changes` here would silently rewrite the user's
+  // file to match what is displayed.
+  assert.doesNotMatch(source, /changes\s*:/);
+  assert.doesNotMatch(source, /\.dispatch\(/);
+  assert.doesNotMatch(source, /replaceRange|insertText/);
+});
+
+test("list markers stay visible because they are content, not scaffolding", () => {
+  const hidden = source.slice(source.indexOf("const HIDDEN_MARKS"), source.indexOf("const hidden"));
+  for (const mark of ["HeaderMark", "EmphasisMark", "LinkMark", "URL", "QuoteMark"]) {
+    assert.ok(hidden.includes(mark), `${mark} should be hidden in live preview`);
+  }
+  assert.ok(!hidden.includes("ListMark"), "a bullet or number is content the reader expects");
+});
+
+test("hidden ranges are atomic so the caret cannot stall inside them", () => {
+  assert.match(source, /EditorView\.atomicRanges\.of/);
+});
+
+test("the caret's own prose line reveals its source syntax", () => {
+  assert.match(source, /activeLines/);
+  assert.match(source, /if \(active\.has\(state\.doc\.lineAt\(node\.from\)\.number\) && !stableCodeMarker\) return;/);
+});
+
+test("one view mode decides both the rendering and the preview pane", () => {
+  // Two independent toggles allowed states nobody wants, such as a rendered
+  // editor beside a rendered preview showing the same thing twice.
+  assert.equal(DEFAULT_PREFERENCES.viewMode, "write");
+  assert.equal(normalizePreferences({ viewMode: "split" }).viewMode, "source");
+  assert.equal(normalizePreferences({ viewMode: "split" }).sidePreview, true);
+  assert.equal(normalizePreferences({ viewMode: "nonsense" }).viewMode, "write");
+  assert.equal(normalizePreferences({}).viewMode, "write");
+
+  assert.equal(editorModeForView("write"), "live");
+  assert.equal(editorModeForView("source"), "source");
+  assert.equal(editorModeForView("split"), "source");
+
+  assert.equal(previewVisibleForView("write"), false);
+  assert.equal(previewVisibleForView("source"), false);
+  assert.equal(previewVisibleForView("split"), true);
+  assert.equal(previewVisibleForView("write", true), true);
+  assert.equal(previewVisibleForView("source", true), true);
+  assert.equal(previewVisibleForView("read", true), false);
+});
+
+test("block widgets come from a state field, never from a view plugin", () => {
+  // CodeMirror rejects block decorations supplied by plugins outright, and the
+  // symptom is an unrelated "No tile at position" during measurement.
+  const widgets = readFileSync(new URL("../../editor-src/live-widgets.mjs", import.meta.url), "utf8");
+  assert.match(widgets, /StateField\.define/);
+  assert.match(widgets, /EditorView\.decorations\.from/);
+  assert.match(widgets, /block: true/);
+  // The prose above mentions ViewPlugin deliberately; what must not exist is a
+  // plugin actually being declared or imported here.
+  assert.doesNotMatch(widgets, /ViewPlugin\.fromClass/);
+  assert.doesNotMatch(widgets, /import\s*\{[^}]*\bViewPlugin\b/);
+});
+
+test("line decorations never add box spacing that desynchronises the caret", () => {
+  // CodeMirror maps a click to a document position through its own height map,
+  // which is built from text layout. Margin sits outside the measured box and
+  // padding proved to desynchronise the map as well: every line below a spaced
+  // heading was offset, so the caret landed a line away from the click.
+  const css = readFileSync(new URL("../../frontend/styles/workspace.css", import.meta.url), "utf8");
+  const headingRules = [...css.matchAll(/\.cm-md-h(?:eading|\d)\s*\{([^}]*)\}/g)].map((m) => m[1]);
+  assert.ok(headingRules.length >= 3, "expected the heading line rules");
+  for (const rule of headingRules) {
+    assert.ok(!/margin/.test(rule), `heading line rule uses margin: ${rule.trim()}`);
+    assert.ok(!/padding-block|padding-top|padding-bottom/.test(rule),
+      `heading line rule uses vertical padding: ${rule.trim()}`);
+  }
+  assert.ok(headingRules.some((rule) => /line-height/.test(rule)),
+    "heading spacing should come from line-height");
+});
+
+test("a callout is drawn as the card the engine will publish", () => {
+  // `> [!WARNING]` becomes a coloured admonition in the PDF. Showing it as an
+  // ordinary quotation while it is written means the writer only discovers what
+  // they made after exporting.
+  assert.match(source, /CALLOUT_MARKER/);
+  assert.match(source, /cm-md-callout-\$\{kind\}/);
+  for (const kind of ["note", "tip", "important", "warning", "caution"]) {
+    assert.ok(source.includes(`"${kind}"`), `${kind} is not a recognised callout`);
+  }
+  // Only the marker is hidden, and only while the caret is elsewhere.
+  assert.match(source, /if \(!active\.has\(first\.number\)\)/);
+});
+
+test("front matter collapses to a summary until the caret asks for it", () => {
+  const widgets = readFileSync(
+    new URL("../../editor-src/live-widgets.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(widgets, /class FrontMatterWidget/);
+  assert.match(widgets, /node\.name === "Frontmatter" && !spansActiveLine/);
+  // The document is never rewritten to match what is drawn.
+  assert.doesNotMatch(widgets, /FrontMatterWidget[\s\S]{0,600}dispatch\(/);
+});
+
+test("only a link that shows other text may have its address hidden", () => {
+  // `URL` is in the hidden set because `[text](url)` and `![alt](src)` display
+  // something else in its place. An autolink and a bare URL are their own text:
+  // hiding those removed the address from the document altogether, so a
+  // paragraph ending "and an autolink <https://example.com>." rendered as
+  // "and an autolink ." with the link simply gone.
+  const parentOfUrl = (markdown) => {
+    let found = null;
+    parser.configure(GFM).parse(markdown).iterate({
+      enter: (node) => {
+        if (node.name === "URL" && found === null) found = node.node.parent?.name ?? null;
+      },
+    });
+    return found;
+  };
+
+  assert.equal(parentOfUrl("A [text](https://example.com) link."), "Link");
+  assert.equal(parentOfUrl("![alt](image.png)"), "Image");
+  assert.equal(parentOfUrl("An <https://example.com> autolink."), "Autolink");
+  assert.equal(parentOfUrl("A <someone@example.com> address."), "Autolink");
+  assert.equal(parentOfUrl("A bare https://example.com URL."), "Paragraph");
+
+  assert.ok(LINKS_WITH_TEXT.has("Link"));
+  assert.ok(LINKS_WITH_TEXT.has("Image"));
+  assert.ok(!LINKS_WITH_TEXT.has("Autolink"), "an autolink is its own text");
+  assert.ok(!LINKS_WITH_TEXT.has("Paragraph"), "a bare URL is its own text");
+});
+
+test("moving the caret inside one line does not rebuild the block widgets", () => {
+  // The field walks the document, because a state field has no viewport to
+  // narrow to. A selection only changes what it draws when it changes which
+  // lines are being edited, so rebuilding on every selection spent that walk to
+  // move the caret one character and produced the decorations it already had.
+  // Identity is the check: an untouched field returns the very same range set.
+  const field = createBlockWidgetField();
+  const doc = "# Title\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nMore prose here.\n";
+  let state = EditorState.create({
+    doc,
+    extensions: [markdown({ base: markdownLanguage, extensions: [frontmatter] }), field],
+  });
+  const initial = state.field(field);
+
+  const prose = state.doc.line(7);
+  state = state.update({ selection: { anchor: prose.from } }).state;
+  const afterMove = state.field(field);
+  assert.notEqual(afterMove, initial, "a move to another line rebuilds");
+
+  state = state.update({ selection: { anchor: prose.from + 3 } }).state;
+  assert.equal(state.field(field), afterMove, "a move within the same line changes nothing");
+  state = state.update({ selection: { anchor: prose.from + 7 } }).state;
+  assert.equal(state.field(field), afterMove, "and neither does the next one");
+
+  // `.state` is a lazy getter: without reading it the field never runs at all.
+  const edited = state.update({ changes: { from: 0, insert: "x" } }).state;
+  assert.notEqual(edited.field(field), afterMove, "an edit always rebuilds");
+});
+
+test("inline widgets are drawn over the viewport, not by the document-wide field", () => {
+  // The field must walk the whole buffer on every change. Images and task
+  // checkboxes replace inline text rather than a block, so nothing required
+  // them to be found that way — and looking for them forced the walk into
+  // every paragraph and list item in the document. Moving them to the
+  // viewport-scoped plugin left the field only blocks to find, which is what
+  // removed the size bound that used to switch live preview off entirely: a
+  // 281,000-character Persian document rendered nothing at all.
+  const widgets = readFileSync(new URL("../../editor-src/live-widgets.mjs", import.meta.url), "utf8");
+
+  assert.doesNotMatch(widgets, /MAX_SCANNED_CHARS/, "no document is too long to render");
+  assert.doesNotMatch(widgets, /node\.name === "Image"/, "images belong to the viewport layer");
+  assert.doesNotMatch(widgets, /node\.name === "TaskMarker"/, "so do task checkboxes");
+  // The field still finds every block, including one nested in a quotation.
+  for (const name of ["Document", "Blockquote", "BulletList", "OrderedList", "ListItem"]) {
+    assert.match(widgets, new RegExp(`BLOCK_CONTAINERS[\\s\\S]*"${name}"`));
+  }
+
+  assert.match(source, /node\.name === "Image"/);
+  assert.match(source, /node\.name === "TaskMarker"/);
+  assert.match(source, /state\.facet\(assetResolver\)/);
+  assert.match(source, /view\.visibleRanges/, "the plugin only looks at what is on screen");
+});
+
+test("a line with nothing strong in it takes the editor's direction, not left-to-right", () => {
+  // `dir="auto"` resolves from the first strong character and falls back to
+  // left-to-right when a line has none. A front matter fence, a horizontal
+  // rule and a table's `| --- | --- |` separator all have none, so in the
+  // mirrored workbench they sat hard against the opposite margin from every
+  // line they belong with. Those lines carry no `dir` at all now and inherit.
+  const source = readFileSync(
+    new URL("../../editor-src/live-preview.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /const neutralDirection = Decoration\.line\(\{ class: "cm-line-neutral" \}\)/);
+  assert.match(source, /HAS_STRONG_CHARACTER\.test\(text\) \? autoDirection : neutralDirection/);
+  // Asking the view for its direction is the version that did not work: the
+  // plugin builds before the first measurement, so every neutral line was
+  // decided against left-to-right and never revisited. The comment explaining
+  // that may name it; the code may not use it.
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  assert.doesNotMatch(code, /view\.textDirection/);
+});
+
+test("the content element carries no direction of its own", () => {
+  // Every line inside it declares one, so `dir="auto"` on the parent saw a run
+  // of isolated objects with no strong character among them and resolved to
+  // left-to-right — permanently, whatever the workbench was doing.
+  const source = readFileSync(
+    new URL("../../editor-src/codemirror-editor.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /"aria-label":[^}]*dir: "auto"/s);
+  assert.match(source, /view\.contentDOM\.removeAttribute\("dir"\)/);
+});

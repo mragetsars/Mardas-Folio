@@ -1,4 +1,4 @@
-"""projects — models implementation."""
+"""Workspace snapshots and shared project error contracts."""
 from __future__ import annotations
 
 from dataclasses import dataclass

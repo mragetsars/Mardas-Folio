@@ -1,4 +1,4 @@
-"""markup — math implementation."""
+"""Code-region protection and inline/display math transformation."""
 from __future__ import annotations
 
 import html
@@ -6,20 +6,22 @@ import re
 from typing import Any
 from markdown_it import MarkdownIt
 
-
 INLINE_MATH_RE = re.compile(r"(?<!\\)\$(?![\s$])(.+?)(?<!\\)\$(?!\d)")
-
-
 DISPLAY_MATH_FENCE_RE = re.compile(r"^\s*\$\$\s*$")
-
-
 FENCE_RE = re.compile(r"^\s*(```+|~~~+)")
-
-
 PROTECTED_CODE_TOKEN_PREFIX = "\ue000FOLIOCODE"  # nosec B105
-
-
 PROTECTED_CODE_TOKEN_SUFFIX = "\ue001"  # nosec B105
+
+
+
+
+
+
+
+
+
+
+
 
 
 def _replace_outside_inline_code(

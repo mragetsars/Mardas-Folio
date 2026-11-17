@@ -1,4 +1,4 @@
-"""markup — bidi implementation."""
+"""Language labels, text direction, numeral localization, and script isolation."""
 from __future__ import annotations
 
 import re
@@ -6,14 +6,40 @@ import unicodedata
 from typing import Any
 from bs4 import BeautifulSoup, NavigableString, Tag
 
-
 ARABIC_RANGES = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
-
-
 LATIN_RANGES = re.compile(r"[A-Za-z]")
-
-
 RTL_LANG_PREFIXES = ("ar", "fa", "he", "iw", "ku", "ps", "sd", "ug", "ur", "yi")
+ASCII_DIGIT_RE = re.compile(r"[0-9]")
+ARABIC_DIGIT_RE = re.compile(r"[\u0660-\u0669\u06F0-\u06F9]")
+PERSIAN_PUNCTUATION_RE = re.compile(r"[،؛؟]")
+ASCII_RTL_PUNCTUATION_RE = re.compile(r"[?,;](?=\s|$)")
+PERSIAN_DIGIT_TRANSLATION = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+LTR_ISOLATE_RUN_RE = re.compile(
+    r"(?<![\w@])"
+    r"(?P<run>"
+    r"(?:[A-Za-z][A-Za-z0-9]*(?:[._:/-][A-Za-z0-9]+)*"
+    r"|[0-9]+(?:[._:/-][A-Za-z0-9]+)+)"
+    r"(?:\s+(?:[A-Za-z][A-Za-z0-9]*(?:[._:/-][A-Za-z0-9]+)*"
+    r"|[0-9]+(?:[._:/-][A-Za-z0-9]+)+))*"
+    r")"
+    r"(?P<punct>[.,:;!?])?"
+)
+LTR_ISOLATE_SKIP_TAGS = {"a", "code", "kbd", "pre", "samp", "script", "style", "textarea"}
+LTR_ISOLATE_SKIP_CLASSES = {"math", "math-inline", "math-display", "mjx-container"}
+LTR_ISOLATE_CONTEXT_TAGS = {"p", "li", "td", "th", "caption", "figcaption", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6"}
+RTL_ISOLATE_RUN_RE = re.compile(
+    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]"
+    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9\u200c\u200d]*"
+    r"(?:[ \t]+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9]"
+    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9\u200c\u200d]*)*"
+)
+
+
+
+
+
+
+
 
 
 def normalize_language(value: Any, fallback: str = "auto") -> str:
@@ -128,48 +154,24 @@ def dominant_direction(text: str) -> str:
     return "auto"
 
 
-ASCII_DIGIT_RE = re.compile(r"[0-9]")
 
 
-ARABIC_DIGIT_RE = re.compile(r"[\u0660-\u0669\u06F0-\u06F9]")
 
 
-PERSIAN_PUNCTUATION_RE = re.compile(r"[،؛؟]")
 
 
-ASCII_RTL_PUNCTUATION_RE = re.compile(r"[?,;](?=\s|$)")
 
 
-PERSIAN_DIGIT_TRANSLATION = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 
 
-LTR_ISOLATE_RUN_RE = re.compile(
-    r"(?<![\w@])"
-    r"(?P<run>"
-    r"(?:[A-Za-z][A-Za-z0-9]*(?:[._:/-][A-Za-z0-9]+)*"
-    r"|[0-9]+(?:[._:/-][A-Za-z0-9]+)+)"
-    r"(?:\s+(?:[A-Za-z][A-Za-z0-9]*(?:[._:/-][A-Za-z0-9]+)*"
-    r"|[0-9]+(?:[._:/-][A-Za-z0-9]+)+))*"
-    r")"
-    r"(?P<punct>[.,:;!?])?"
-)
 
 
-LTR_ISOLATE_SKIP_TAGS = {"a", "code", "kbd", "pre", "samp", "script", "style", "textarea"}
 
 
-LTR_ISOLATE_SKIP_CLASSES = {"math", "math-inline", "math-display", "mjx-container"}
 
 
-LTR_ISOLATE_CONTEXT_TAGS = {"p", "li", "td", "th", "caption", "figcaption", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6"}
 
 
-RTL_ISOLATE_RUN_RE = re.compile(
-    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]"
-    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9\u200c\u200d]*"
-    r"(?:[ \t]+[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9]"
-    r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF0-9\u200c\u200d]*)*"
-)
 
 
 def strong_direction_counts(text: str) -> tuple[int, int]:

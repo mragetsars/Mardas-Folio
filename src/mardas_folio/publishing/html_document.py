@@ -21,6 +21,22 @@ from ..quality import MathJaxRenderError
 from ..render_contracts import DocumentAssetError, PdfOptions, validate_branding_mode
 from .quality import _enforce_quality_issue
 
+RTL_LANG_PREFIXES = ("ar", "fa", "he", "iw", "ku", "ps", "sd", "ug", "ur", "yi")
+MAX_EMBED_ASSET_BYTES = 20 * 1024 * 1024
+ALLOWED_EMBED_ASSET_MIME_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/bmp",
+    "image/avif",
+    "image/svg+xml",
+}
+PRODUCT_BRAND_NAME = "Mardas Folio"
+PRODUCT_BRAND_FOOTER = "Markdown to PDF Engine"
+_MATH_SPAN_RE = re.compile(r'<(?:span|div)[^>]*\bclass="[^"]*\bmath\b', re.IGNORECASE)
+
+
 
 def _layout_css(
     options: PdfOptions, *, cover_full_bleed: bool = False, document_direction: str = "rtl"
@@ -1099,29 +1115,3 @@ def _footer_template(
       </div>
     </div>
     """
-
-
-RTL_LANG_PREFIXES = ("ar", "fa", "he", "iw", "ku", "ps", "sd", "ug", "ur", "yi")
-
-
-MAX_EMBED_ASSET_BYTES = 20 * 1024 * 1024
-
-
-ALLOWED_EMBED_ASSET_MIME_TYPES = {
-    "image/png",
-    "image/jpeg",
-    "image/gif",
-    "image/webp",
-    "image/bmp",
-    "image/avif",
-    "image/svg+xml",
-}
-
-
-PRODUCT_BRAND_NAME = "Mardas Folio"
-
-
-PRODUCT_BRAND_FOOTER = "Markdown to PDF Engine"
-
-
-_MATH_SPAN_RE = re.compile(r'<(?:span|div)[^>]*\bclass="[^"]*\bmath\b', re.IGNORECASE)

@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
 """Exercise book preparation and scope in Chromium against the real Python engine."""
 from __future__ import annotations
-
 import argparse
 import json
 import re
 from pathlib import Path
-import sys
 import tempfile
-
 from playwright.sync_api import expect, sync_playwright
 from pypdf import PdfReader
-
 from lib.audit.desktop import DEFAULT_DIST, click_workspace_layout_control
+from lib.audit.engine import engine_server as engine_server
+
+
+
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
 
 
-from lib.audit.engine import engine_server as engine_server
 
 
 def run_audit(dist: Path, output: Path) -> dict:

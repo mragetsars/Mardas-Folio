@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
 import argparse
 import json
 from pathlib import Path
-
 from playwright.sync_api import sync_playwright
-
-ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DIST = ROOT / "apps" / "desktop" / "dist"
-DEFAULT_OUTPUT = ROOT / "build" / "desktop-ui-audit"
-
-
 from lib.audit.desktop import (
     QuietHandler as QuietHandler,
     serve as serve,
@@ -24,6 +16,14 @@ from lib.audit.desktop import (
     open_template as open_template,
     click_workspace_layout_control as click_workspace_layout_control,
 )
+
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_DIST = ROOT / "apps" / "desktop" / "dist"
+DEFAULT_OUTPUT = ROOT / "build" / "desktop-ui-audit"
+
+
 
 
 def run_audit(

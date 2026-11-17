@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-
 import argparse
 import json
 import os
@@ -8,13 +7,8 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Iterable
-
 from prepare_preview_mathjax import prepare_preview_mathjax
 from lib.build.paths import mark_output, validate_output
-
-ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SOURCE = ROOT / "apps" / "desktop" / "frontend"
-DEFAULT_OUTPUT = ROOT / "apps" / "desktop" / "dist"
 from lib.build.frontend import (
     MAX_FILES as MAX_FILES,
     MAX_FILE_BYTES as MAX_FILE_BYTES,
@@ -22,6 +16,12 @@ from lib.build.frontend import (
     project_version as project_version,
     sha256 as sha256,
 )
+
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SOURCE = ROOT / "apps" / "desktop" / "frontend"
+DEFAULT_OUTPUT = ROOT / "apps" / "desktop" / "dist"
 
 
 def source_files(source: Path) -> Iterable[Path]:

@@ -1,24 +1,26 @@
-"""markup — frontmatter implementation."""
+"""Bounded YAML front matter parsing and validation."""
 from __future__ import annotations
 
 import re
 from typing import Any
+
+FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*(?:\n|$)", re.DOTALL)
+MAX_FRONTMATTER_DEPTH = 16
+MAX_FRONTMATTER_NODES = 2048
+MAX_FRONTMATTER_SCALAR_CHARS = 256 * 1024
+
 try:
     import yaml
 except Exception:  # pragma: no cover - declared dependency
     yaml = None
 
 
-FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*(?:\n|$)", re.DOTALL)
 
 
-MAX_FRONTMATTER_DEPTH = 16
 
 
-MAX_FRONTMATTER_NODES = 2048
 
 
-MAX_FRONTMATTER_SCALAR_CHARS = 256 * 1024
 
 
 class MarkdownInputError(ValueError):

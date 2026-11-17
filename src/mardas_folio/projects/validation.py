@@ -1,4 +1,4 @@
-"""projects — validation implementation."""
+"""Document and book validation shared by CLI and project services."""
 from __future__ import annotations
 
 from pathlib import Path

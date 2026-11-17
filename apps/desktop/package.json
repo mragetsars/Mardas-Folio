@@ -6,7 +6,7 @@
   "scripts": {
     "build:editor": "node scripts/build-editor.mjs",
     "check:editor": "node scripts/build-editor.mjs --check",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node scripts/test.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "6.20.3",

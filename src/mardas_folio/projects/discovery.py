@@ -1,4 +1,4 @@
-"""projects — discovery implementation."""
+"""Bounded, cancellable workspace file discovery."""
 from __future__ import annotations
 
 import os
@@ -11,16 +11,9 @@ from ..render_contracts import CancellationCallback, RenderCancelledError
 from .paths import WORKSPACE_IGNORED_PARTS as WORKSPACE_IGNORED_PARTS
 from .models import ProjectWorkspace as ProjectWorkspace, WorkspaceError as WorkspaceError, WorkspaceFile as WorkspaceFile
 
-
 MAX_WORKSPACE_FILES = 2_000
-
-
 MAX_WORKSPACE_SCAN_ENTRIES = 20_000
-
-
 MAX_WORKSPACE_DEPTH = 32
-
-
 WORKSPACE_TEXT_SUFFIXES = frozenset(
     {
         ".md",
@@ -35,6 +28,15 @@ WORKSPACE_TEXT_SUFFIXES = frozenset(
         ".yml",
     }
 )
+
+
+
+
+
+
+
+
+
 
 
 def _contains_path(root: Path, candidate: Path) -> bool:
