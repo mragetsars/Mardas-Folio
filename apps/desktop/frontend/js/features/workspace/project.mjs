@@ -14,6 +14,7 @@ export function createProjectWorkspace({
   openProjectRelativeFile,
   invalidateBookTaskForProjectChange,
   applyProjectPayload,
+  onBookOpened = () => {},
   renderFileNavigator,
   showView,
   activateSidebar,
@@ -34,7 +35,10 @@ export function createProjectWorkspace({
     }
   }
 
-  async function loadProject(path, { announce = true, openFirstChapter = true } = {}) {
+  async function loadProject(
+    path,
+    { announce = true, openFirstChapter = true, requireBook = false } = {},
+  ) {
     const previousProjectPath = state.project?.path || null;
     const activationSequence = ++state.documentActivationSequence;
     const handoff =
@@ -47,13 +51,18 @@ export function createProjectWorkspace({
     if (sequence !== state.projectRequestSequence) return null;
     const payload = await openProject(path);
     if (sequence !== state.projectRequestSequence) return null;
+    const project = payload.project || payload;
+    const book = payload.book || project.book;
+    if (requireBook && !book) return null;
     applyProjectPayload(payload);
+    if (announce && book) await onBookOpened({ ...project, book });
+    if (sequence !== state.projectRequestSequence) return null;
     state.bibliographyEntries = [];
     if (activationSequence !== state.documentActivationSequence) return payload;
     showView("workspace");
     activateSidebar("project");
     if (announce) toast(t("projectOpened"), "success");
-    const firstChapter = payload.book?.chapters?.[0]?.path;
+    const firstChapter = book?.chapters?.[0]?.path;
     const switchedProject =
       pathKey(previousProjectPath) !== pathKey(payload.project?.path || payload.path);
     if (openFirstChapter && firstChapter && (!activeDocument() || switchedProject)) {

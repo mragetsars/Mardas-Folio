@@ -1549,3 +1549,9 @@ Before publishing an important PDF, check the following items:
 - [x] Footer numbering after the cover.
 - [ ] Final visual review in a PDF viewer.
 - [ ] Release checklist completed when publishing a tagged version: `docs/RELEASE.md`.
+
+## The desktop library
+
+Click the Mardas Folio mark to return to the library while keeping your editor tabs. Hover over **New document** or focus the plus and press the down arrow. Choose a book, document, note, résumé or article. A book opens the project creation form. Reports and articles start in Markdown, notes use plain text, and a résumé uses JSON. In an open résumé choose **Document actions → Résumé details** to edit its basic fields. Save writes those changes to its file.
+
+**Open files** adds existing documents. A Markdown file with `document_type: article` appears as an article. A résumé needs a JSON `basics` object with a recognized text field. Use **Edit appearance** on an item to choose its cover, attachment or paper. A custom shelf title changes the cover label. Edit the source to change the document title itself. Manual order supports the drag handle, arrow keys and one-position buttons for saved items. Remove from library and Undo operate on the shelf. If a source has moved, use **Locate source** after opening its shelf item. Choose Persian in Settings to switch the interface to RTL.

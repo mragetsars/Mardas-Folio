@@ -175,7 +175,17 @@ Cancellation is cooperative. The engine checks the cancellation flag between ren
 - `job.cancel`
 - `system.health`
 - `system.support_bundle`
+- `library.read`
+- `library.write`
 - `system.capabilities`
 - `system.shutdown`
 
 Unknown render options and unknown method parameters are rejected rather than ignored.
+
+## Desktop library index
+
+Clients discover `library.read` and `library.write` through `system.capabilities`. Both use the ordinary sidecar queue. Read returns `{"revision":0,"items":[]}` for a new profile. Write takes the last observed integer `expected_revision` and the complete ordered list of entries. Its result contains the new revision. A stale writer receives `MARDAS-LIBRARY-CONFLICT`. The desktop reloads the current snapshot, reapplies the operation by entry ID and retries once.
+
+Each entry has a stable ID, a source path, a type (`book`, `document`, `note`, `resume`, or `article`), a title and an appearance object. Optional author and excerpt are bounded to 110 characters. Appearance supports local JPEG thumbnails, up to 98,304 encoded characters per image. Limits are 1,500 entries and 4 MiB of UTF-8 JSON. A book points to its project directory. Windows drive and UNC paths compare case-insensitively. Changes to the index are transactional. Removing an entry updates the index only.
+
+The index is `library.sqlite3` under the current user's `Mardas Folio` application data directory. For an isolated shelf set `MARDAS_FOLIO_LIBRARY_DIR` before launching the process. WebView session, recovery and language preferences use their existing storage. Hiding an item's details controls its thumbnail and library search. The original path, custom appearance and user files remain accessible on the local machine.

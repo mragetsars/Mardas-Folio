@@ -109,6 +109,17 @@ fn pick_markdown_files() -> Vec<String> {
         .collect()
 }
 
+#[tauri::command]
+fn pick_library_files() -> Vec<String> {
+    rfd::FileDialog::new()
+        .add_filter("Documents", &["md", "markdown", "txt", "json"])
+        .pick_files()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect()
+}
+
 #[tauri::command(rename_all = "snake_case")]
 fn pick_markdown_output(suggested_path: Option<String>) -> Option<String> {
     let mut dialog = rfd::FileDialog::new().add_filter("Markdown", &["md", "markdown"]);
@@ -128,7 +139,14 @@ fn pick_markdown_output(suggested_path: Option<String>) -> Option<String> {
 
 #[tauri::command(rename_all = "snake_case")]
 fn pick_text_output(suggested_path: Option<String>) -> Option<String> {
-    let mut dialog = rfd::FileDialog::new().add_filter(
+    let mut dialog = rfd::FileDialog::new();
+    if suggested_path
+        .as_deref()
+        .is_some_and(|path| path.to_ascii_lowercase().ends_with(".json"))
+    {
+        dialog = dialog.add_filter("JSON", &["json"]);
+    }
+    dialog = dialog.add_filter(
         "Editable text",
         &["txt", "toml", "json", "yaml", "yml", "bib"],
     );
@@ -460,6 +478,7 @@ fn main() {
             take_launch_files,
             pick_markdown_file,
             pick_markdown_files,
+            pick_library_files,
             pick_markdown_output,
             pick_text_output,
             pick_project_directory,

@@ -25,8 +25,8 @@ const templates = {
     titleKey: "templateAcademic",
     descriptionKey: "templateAcademicHelp",
     content: {
-      fa: '---\ntitle: "مقاله"\nauthor: ""\nlang: fa\ndir: rtl\ntoc: true\ncitations: true\n---\n\n# چکیده\n\n## مقدمه\n\n## روش پژوهش\n\n## یافته‌ها\n\n## بحث\n\n## نتیجه‌گیری\n\n',
-      en: '---\ntitle: "Academic Paper"\nauthor: ""\nlang: en\ndir: ltr\ntoc: true\ncitations: true\n---\n\n# Abstract\n\n## Introduction\n\n## Methodology\n\n## Results\n\n## Discussion\n\n## Conclusion\n\n',
+      fa: '---\ntitle: "مقاله"\ndocument_type: article\njournal: ""\nyear: ""\nauthor: ""\nlang: fa\ndir: rtl\ntoc: true\ncitations: true\n---\n\n# چکیده\n\n## مقدمه\n\n## روش پژوهش\n\n## یافته‌ها\n\n## بحث\n\n## نتیجه‌گیری\n\n',
+      en: '---\ntitle: "Academic Paper"\ndocument_type: article\njournal: ""\nyear: ""\nauthor: ""\nlang: en\ndir: ltr\ntoc: true\ncitations: true\n---\n\n# Abstract\n\n## Introduction\n\n## Methodology\n\n## Results\n\n## Discussion\n\n## Conclusion\n\n',
     },
   },
   technical: {

@@ -8,6 +8,7 @@ export function createBookCreation({
   getModalManager,
   invalidateBookTaskForProjectChange,
   applyProjectPayload,
+  onBookOpened = () => {},
   showView,
   activateSidebar,
   openProjectRelativeFile,
@@ -96,6 +97,7 @@ export function createBookCreation({
       )
         return;
       applyProjectPayload(project);
+      await onBookOpened(project);
       closeNewBookModal();
       showView("workspace");
       activateSidebar("book");

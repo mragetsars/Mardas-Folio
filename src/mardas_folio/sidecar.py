@@ -36,6 +36,8 @@ from .renderer import RenderCancelledError
 
 LOGGER = logging.getLogger("mardas_folio.sidecar")
 _HEAVY_METHODS = {
+    "library.read",
+    "library.write",
     "system.support_bundle",
     "document.read",
     "document.read_text",

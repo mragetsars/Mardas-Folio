@@ -51,6 +51,7 @@ from .engine_errors import (
     EngineValidationError as EngineValidationError,
 )
 from .file_io import atomic_write_text as _atomic_write_text
+from .library import read_index, write_index
 from .markdown import (
     MarkdownInputError,
     MarkdownRenderResult,
@@ -561,6 +562,8 @@ class EngineService:
                 "system.shutdown",
                 "system.support_bundle",
                 "job.cancel",
+                "library.read",
+                "library.write",
                 "document.read",
                 "document.read_text",
                 "document.save",
@@ -608,6 +611,7 @@ class EngineService:
     ) -> dict[str, Any]:
         """Route each request to its use-case family; transport controls live in the sidecar."""
         handlers = {
+            "library": self._dispatch_library,
             "system": self._dispatch_system,
             "document": self._dispatch_documents,
             "project": self._dispatch_projects,
@@ -622,6 +626,22 @@ class EngineService:
         if handler is None:
             raise _unsupported_method(method)
         return handler(method, params, progress=progress, cancelled=cancelled)
+
+    def _dispatch_library(
+        self,
+        method: str,
+        params: Mapping[str, Any],
+        *,
+        progress: ProgressCallback | None = None,
+        cancelled: CancellationCallback | None = None,
+    ) -> dict[str, Any]:
+        if method == "library.read":
+            _validate_params(params, set())
+            return read_index()
+        if method == "library.write":
+            _validate_params(params, {"expected_revision", "items"})
+            return write_index(params.get("expected_revision"), params.get("items"))
+        raise _unsupported_method(method)
 
     def _dispatch_system(
         self,

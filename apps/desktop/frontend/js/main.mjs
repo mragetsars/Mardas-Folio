@@ -1,3 +1,6 @@
+import { createShelf } from "./features/library/shelf.mjs";
+import { describe, draftFor, resumeData } from "./features/library/catalog.mjs";
+import { editResume } from "./features/library/resume.mjs";
 import { createDocumentPersistence } from "./features/documents/persistence.mjs";
 import { createDocumentTabs } from "./features/documents/tabs.mjs";
 import { createBookChapters } from "./features/books/chapters.mjs";
@@ -91,7 +94,7 @@ import { fitToolbarGroups } from "./core/toolbar-overflow.mjs";
 import { createModalManager, focusableElements } from "./ui/modal-manager.mjs";
 import { createPageDeck } from "./preview/page-deck.mjs";
 import { typesetPreviewMath } from "./preview/math.mjs";
-import { bibliographyIndex, readProjectFile } from "./adapters/project-api.mjs";
+import { bibliographyIndex, openProject, readProjectFile } from "./adapters/project-api.mjs";
 import {
   resetProjectSession,
   applyProjectSession,
@@ -112,7 +115,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const compactSidePanes = matchMedia("(max-width: 1100px)");
 const state = {
-  locale: readLocalePreference(undefined, navigator.language),
+  locale: readLocalePreference(undefined, "en"),
   presetId: "general",
   sourcePath: "",
   outputPath: "",
@@ -247,6 +250,7 @@ const {
   openProjectRelativeFile,
   invalidateBookTaskForProjectChange: () => invalidateBookTaskForProjectChange(),
   applyProjectPayload,
+  onBookOpened: (payload) => library.rememberBook(payload.project || payload),
   renderFileNavigator: () => renderFileNavigator(),
   showView,
   activateSidebar,
@@ -270,6 +274,7 @@ const { saveActiveDocument, persistDocumentModel, requestCloseDocument, schedule
     activateStartTab,
     focusDocument,
     saveRecent,
+    onSaved: (model) => library.remember({ ...model, content: model.savedContent }),
     persistSession,
     renderWorkspace,
     renderDocumentTabs: () => renderDocumentTabs(),
@@ -354,6 +359,7 @@ const {
   getModalManager: () => modalManager,
   invalidateBookTaskForProjectChange,
   applyProjectPayload,
+  onBookOpened: (payload) => library.rememberBook(payload.project || payload),
   showView,
   activateSidebar,
   openProjectRelativeFile,
@@ -430,7 +436,7 @@ function contentViewVisible() {
 }
 
 function focusDocument() {
-  if (!activeDocument()) $("#workflow-new")?.focus({ preventScroll: true });
+  if (!activeDocument()) library.focusNew();
   else if (effectiveViewMode() === "read") $("#reading-document")?.focus({ preventScroll: true });
   else currentEditor().focus();
 }
@@ -502,6 +508,7 @@ function setLocale(value) {
   renderExportFiles();
   renderExportStatus();
   renderRecents();
+  library.translate();
   renderWorkspace();
   // The settings browser is built from translated strings, so it is rebuilt
   // rather than patched when the interface language changes.
@@ -791,19 +798,11 @@ function renderTemplateGallery() {
 }
 
 function createDocumentFromTemplate(templateId = "blank") {
-  if (state.preferences.viewMode === "read") updatePreference({ viewMode: "write" });
-  state.documentActivationSequence += 1;
   const metadata = templateList().find((item) => item.id === templateId) || templateList()[0];
   const model = createDocument({ content: templateContent(templateId, state.locale) });
   model.title = t(metadata.titleKey);
-  consumeStartTab(model.id);
-  state.documents.push(model);
-  state.activeDocumentId = model.id;
-  showView("workspace");
-  renderWorkspace();
-  scheduleRecovery();
-  schedulePreview(100);
-  currentEditor().focus();
+  model.libraryType = templateId === "academic" ? "article" : "document";
+  activateNewDraft(model);
   toast(t("templateCreated"), "success");
   return model;
 }
@@ -2316,7 +2315,11 @@ function setTruncatableText(element, value) {
 function renderWorkspace() {
   const model = activeDocument();
   if (model) state.activeStartTabId = null;
-  $("#workspace-empty-title").textContent = t(state.activeStartTabId ? "newTab" : "noDocumentOpen");
+  $("#workspace-empty-title").textContent = t("shelfTitle");
+  $("#shelf-resume-fields").hidden =
+    !model ||
+    (model.libraryType !== "resume" && (model.kind !== "json" || !resumeData(model.content)));
+  $("#shelf-resume-fields").disabled = !documentEditable();
   renderDocumentTabs();
   requestAnimationFrame(revealActiveTab);
   const editor = currentEditor();
@@ -2324,6 +2327,7 @@ function renderWorkspace() {
   renderProjectWorkspace();
   renderBookWorkspace();
   if (!model) {
+    library.render();
     closeFind({ restoreFocus: false });
     if (editor.setDocument) editor.setDocument(null, "");
     else editor.value = "";
@@ -2484,9 +2488,12 @@ function closeStartTab(id) {
 }
 
 function createUntitledDocument() {
+  return activateNewDraft(createDocument({ content: "" }));
+}
+
+function activateNewDraft(model) {
   state.documentActivationSequence += 1;
   if (state.preferences.viewMode === "read") updatePreference({ viewMode: "write" });
-  const model = createDocument({ content: "" });
   consumeStartTab(model.id);
   state.documents.push(model);
   state.activeDocumentId = model.id;
@@ -2495,9 +2502,10 @@ function createUntitledDocument() {
   scheduleRecovery();
   schedulePreview(120);
   currentEditor().focus();
+  return model;
 }
 
-async function openAuthoringPaths(paths) {
+async function openAuthoringPaths(paths, { catalogue = true } = {}) {
   const values = [...new Set((Array.isArray(paths) ? paths : [paths]).filter(Boolean))];
   if (!values.length) return;
   const sequence = ++state.documentActivationSequence;
@@ -2509,6 +2517,7 @@ async function openAuthoringPaths(paths) {
     if (existing) {
       await allowDocumentImages(existing);
       if (state.documents.includes(existing)) {
+        if (catalogue) await library.remember(existing);
         intendedDocument = existing;
         intendedWasNew = false;
       }
@@ -2533,6 +2542,7 @@ async function openAuthoringPaths(paths) {
           readOnly: result.read_only,
           kind: result.kind || (isMarkdownPath(result.path) ? "markdown" : "text"),
         });
+      model.libraryType ||= library.typeFor(model.path) || describe(model)?.type;
       attachProjectMembership(model, state.project);
       if (!duplicate) state.documents.push(model);
       await allowDocumentImages(model);
@@ -2540,6 +2550,7 @@ async function openAuthoringPaths(paths) {
         intendedDocument = model;
         intendedWasNew = !duplicate;
       }
+      if (catalogue) await library.remember(model);
       saveRecent(model.path);
       const recovery = recoveryForPath(model.path);
       if (
@@ -2566,6 +2577,7 @@ async function openAuthoringPaths(paths) {
   renderWorkspace();
   schedulePreview(120);
   refreshAssets();
+  return sequence === state.documentActivationSequence ? intendedDocument : null;
 }
 
 async function chooseAuthoringFiles() {
@@ -4140,6 +4152,39 @@ function bindEvents() {
   $("#close-view-guide").addEventListener("click", () =>
     modalManager.close($("#view-guide-modal")),
   );
+  $("#open-library").addEventListener("click", () => {
+    showView("workspace");
+    if (!activeDocument()) {
+      library.render();
+      library.focusNew();
+      return;
+    }
+    if (state.startTabs.length) activateStartTab(state.startTabs.at(-1).id);
+    else createStartTab();
+  });
+  $("#shelf-import").addEventListener("click", async () => {
+    try {
+      const paths = await invoke("pick_library_files");
+      if (paths?.length) await openAuthoringPaths(paths);
+    } catch (error) {
+      toast(errorText(error), "error");
+    }
+  });
+  $("#shelf-resume-fields").addEventListener("click", () => {
+    const model = activeDocument();
+    $("#document-actions-menu").open = false;
+    if (!model || !documentEditable()) return;
+    editResume(
+      model,
+      t,
+      (content) => {
+        if (activeDocument() !== model || !documentEditable()) return false;
+        applyEditorContent(content);
+        return true;
+      },
+      () => focusDocument(),
+    );
+  });
   $("#workflow-new").addEventListener("click", createUntitledDocument);
   $("#command-button").addEventListener("click", openCommandPalette);
   $("#help-button").addEventListener("click", openHelp);
@@ -4812,6 +4857,93 @@ function bindEvents() {
   window.visualViewport?.addEventListener("resize", scheduleToastPlacement);
 }
 
+const library = createShelf({
+  state,
+  t,
+  create(type) {
+    if (type === "book") {
+      openNewBookModal();
+      return;
+    }
+    const seed = draftFor(type, t);
+    const content =
+      type === "article"
+        ? templateContent("academic", state.locale)
+        : type === "document"
+          ? templateContent("report", state.locale)
+          : seed.content;
+    const model = createDocument({ kind: seed.kind, content });
+    model.title = seed.title;
+    model.libraryType = type;
+    activateNewDraft(model);
+  },
+  async open(item) {
+    if (!item.path) {
+      if (!state.documents.some((m) => m.id === item.id)) return false;
+      await activateDocument(item.id);
+      return true;
+    }
+    if (item.type === "book") {
+      const payload = await loadProject(item.path, { announce: false, requireBook: true });
+      return Boolean(payload?.book || payload?.project?.book);
+    }
+    const model = await openAuthoringPaths([item.path], { catalogue: false });
+    if (!model) return false;
+    model.libraryType = item.type;
+    await library.remember(model);
+    return true;
+  },
+  async locate(item, rows) {
+    const paths =
+      item.type === "book"
+        ? [await invoke("pick_project_directory")]
+        : await invoke("pick_library_files");
+    if (!paths?.length || !paths[0]) return null;
+    const path = paths[0];
+    if (
+      paths.length !== 1 ||
+      rows.some((r) => r.id !== item.id && pathKey(r.path) === pathKey(path))
+    ) {
+      toast(t("shelfInvalidLink"), "error");
+      return null;
+    }
+    try {
+      if (item.type === "book") {
+        const project = await openProject(path);
+        if (!project.book) throw new Error();
+        return {
+          path: project.path,
+          title: String(project.book.title || project.name).slice(0, 240),
+          detail: "",
+          author: "",
+        };
+      }
+      const ok =
+        item.type === "note"
+          ? /\.txt$/i.test(path)
+          : item.type === "resume"
+            ? /\.json$/i.test(path)
+            : isMarkdownPath(path);
+      if (!ok) throw new Error();
+      const result = await (isMarkdownPath(path) ? readDocument : readTextDocument)(path);
+      if (item.type === "resume" && !resumeData(result.content)) throw new Error();
+      const data = describe({ ...result, libraryType: item.type });
+      return { ...data, path: result.path };
+    } catch {
+      toast(t("shelfInvalidLink"), "error");
+      return null;
+    }
+  },
+  editDraft: (model) => {
+    if (!saveRecovery(model).ok) throw new Error("recovery");
+  },
+  discardDraft: requestCloseDocument,
+  errorCode: (error) => {
+    const data = errorPayload(error);
+    return data.application_code || data.data?.application_code || data.code;
+  },
+});
+
 async function boot() {
   modalManager = createModalManager(document);
   navigationPicker = createNavigationPicker({
@@ -4899,6 +5031,7 @@ async function boot() {
   renderAdvancedOptions();
   selectPreset("general");
   bindEvents();
+  void library.initialize(state.recents);
   renderAssets([]);
   renderProblems(null);
   renderCitations(null);
@@ -4948,7 +5081,7 @@ async function boot() {
         }
       }
       if (session.paths.length) {
-        const restoration = openAuthoringPaths(session.paths);
+        const restoration = openAuthoringPaths(session.paths, { catalogue: false });
         const activationSequence = state.documentActivationSequence;
         await restoration;
         const active = findDocumentByPath(state.documents, session.activePath);
@@ -4969,7 +5102,9 @@ async function boot() {
       ? recovery.key.slice("draft:".length)
       : null;
     if (recoveredId && state.documents.some((model) => model.id === recoveredId)) continue;
-    const model = createDocument({ content: recovery.content });
+    const model = createDocument({ content: recovery.content, kind: recovery.kind || "markdown" });
+    if (recovery.libraryType) model.libraryType = recovery.libraryType;
+    if (recovery.libraryAppearance) model.libraryAppearance = recovery.libraryAppearance;
     if (recoveredId) model.id = recoveredId;
     model.title = recovery.title || model.title;
     state.documents.push(model);

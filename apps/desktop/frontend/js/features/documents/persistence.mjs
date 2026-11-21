@@ -21,6 +21,7 @@ export function createDocumentPersistence({
   activateStartTab,
   focusDocument,
   saveRecent,
+  onSaved = () => {},
   persistSession,
   renderWorkspace,
   renderDocumentTabs,
@@ -55,13 +56,23 @@ export function createDocumentPersistence({
       try {
         const picker = isMarkdownModel(model) ? "pick_markdown_output" : "pick_text_output";
         path = await invoke(picker, {
-          suggested_path: model.path || `${model.title.replace(/\s+/g, "-")}.md`,
+          suggested_path:
+            model.path ||
+            model.title.replace(/\s+/g, "-") +
+              (model.kind === "json" ? ".json" : isMarkdownModel(model) ? ".md" : ".txt"),
         });
       } catch (error) {
         if (activeDocument()?.id === model.id) toast(errorText(error), "error");
         return false;
       }
       if (!path) return false;
+    }
+    if (
+      (model.libraryType === "resume" && !/\.json$/i.test(path)) ||
+      (model.libraryType === "note" && !/\.txt$/i.test(path))
+    ) {
+      toast(t("shelfExtension"), "error");
+      return false;
     }
     const collision = findSavePathCollision(state.documents, model, path);
     if (collision) {
@@ -114,6 +125,7 @@ export function createDocumentPersistence({
         cancelRecoveryTimer(model);
       }
       saveRecent(model.path);
+      await onSaved(model);
       persistSession();
       if (activeDocument()?.id === model.id) {
         renderWorkspace();
@@ -161,7 +173,9 @@ export function createDocumentPersistence({
     const model = state.documents.find((document) => document.id === id);
     if (!model) return;
     state.documentActivationSequence += 1;
-    const hasUnsavedWork = model.persisted ? documentDirty(model) : model.content !== "";
+    const hasUnsavedWork = model.persisted
+      ? documentDirty(model)
+      : model.content !== "" || Object.keys(model.libraryAppearance || {}).length > 0;
     if (hasUnsavedWork) {
       const discard = await askConfirmation({
         title: model.title,

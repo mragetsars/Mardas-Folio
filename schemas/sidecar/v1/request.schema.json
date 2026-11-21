@@ -29,6 +29,8 @@
         "system.health",
         "system.capabilities",
         "system.support_bundle",
+        "library.read",
+        "library.write",
         "system.shutdown",
         "job.cancel",
         "document.read",

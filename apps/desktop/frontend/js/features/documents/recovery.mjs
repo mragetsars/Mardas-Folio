@@ -1,3 +1,5 @@
+import { restoredAppearance } from "../library/appearance-options.mjs";
+import { validType } from "../library/catalog.mjs";
 import { pathIdentity } from "../../core/path-identity.mjs";
 import { optionalLocalStorage } from "../../adapters/storage.mjs";
 
@@ -18,6 +20,13 @@ function safeEntries(value) {
       path: typeof item.path === "string" ? item.path : null,
       title: typeof item.title === "string" && item.title ? item.title : "Untitled",
       content: item.content,
+      ...(["json", "text"].includes(item.kind) ? { kind: item.kind } : {}),
+      ...(validType(item.libraryType) && item.libraryType !== "book"
+        ? { libraryType: item.libraryType }
+        : {}),
+      ...(item.libraryAppearance
+        ? { libraryAppearance: restoredAppearance(item.libraryAppearance) }
+        : {}),
       revision: typeof item.revision === "string" ? item.revision : null,
       updatedAt: Number.isFinite(updatedAt) ? updatedAt : Date.now(),
     });
@@ -27,8 +36,11 @@ function safeEntries(value) {
   let total = 0;
   for (const item of sorted) {
     if (bounded.length >= MAX_RECOVERY_DOCUMENTS) break;
-    if (total + item.content.length > MAX_RECOVERY_TOTAL_CHARS) continue;
-    total += item.content.length;
+    const size =
+      item.content.length +
+      (item.libraryAppearance ? JSON.stringify(item.libraryAppearance).length : 0);
+    if (total + size > MAX_RECOVERY_TOTAL_CHARS) continue;
+    total += size;
     bounded.push(item);
   }
   return bounded;
@@ -72,6 +84,9 @@ export function saveRecovery(document, storage = undefined, now = Date.now()) {
       path: document.path,
       title: document.title,
       content: document.content,
+      kind: document.kind,
+      libraryType: document.libraryType,
+      libraryAppearance: document.libraryAppearance,
       revision: document.revision,
       updatedAt: now,
     },

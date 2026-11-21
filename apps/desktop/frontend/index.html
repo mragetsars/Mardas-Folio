@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="./styles/bidi-layout.css">
   <link rel="stylesheet" href="./styles/export-workflow.css">
   <link rel="stylesheet" href="./styles/settings.css">
+  <link rel="stylesheet" href="./styles/library.css">
 </head>
 <body data-view="workspace">
 <a class="skip-link" href="#app-main" data-i18n="skipToContent">رفتن به محتوای اصلی</a>
@@ -97,10 +98,10 @@
 </svg>
 <div class="shell">
   <header class="topbar">
-    <div class="brand">
+    <button class="brand" id="open-library" type="button" data-i18n-title="shelfTitle">
       <img src="./assets/workspace-mark.svg" alt="" width="38" height="38">
       <span><strong>Mardas Folio</strong><small id="app-version">__MARDAS_VERSION__</small></span>
-    </div>
+    </button>
       <div class="author-toolbar" data-i18n-aria-label="authoringToolbar" aria-label="نوار ابزار نویسندگی">
         <div class="toolbar-group workspace-navigation">
 
@@ -120,6 +121,7 @@
             <div class="document-actions-popover">
               <button id="workspace-new" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span data-i18n="newDocument">سند جدید</span><kbd>Ctrl N</kbd></button>
               <button id="workspace-open" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg><span data-i18n="openDocuments">باز کردن</span><kbd>Ctrl O</kbd></button>
+              <button id="shelf-resume-fields" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="#icon-metadata"></use></svg><span data-i18n="shelfResumeFields">Résumé details</span></button>
               <button id="workspace-save-as" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-save-as"></use></svg><span data-i18n="saveAs">ذخیره با نام</span><kbd>Ctrl Shift S</kbd></button>
               <span class="popover-divider" role="separator"></span>
               <button id="workspace-validate" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-quality"></use></svg><span data-i18n="checkDocument">بررسی سند</span></button>
@@ -322,11 +324,18 @@
         <section class="editor-pane">
           <section class="workspace-empty" id="workspace-empty" aria-labelledby="workspace-empty-title">
             <div class="workspace-empty-content">
-              <header>
-                <svg class="ui-icon workspace-empty-icon" aria-hidden="true"><use href="#icon-file"></use></svg>
-                <h1 id="workspace-empty-title" data-i18n="noDocumentOpen">سندی باز نیست</h1>
-                <p data-i18n="workspaceEmptyHelp">سند تازه بساز یا کار روی یک فایل را ادامه بده.</p>
+              <header class="library-toolbar">
+                <h1 id="workspace-empty-title" data-i18n="shelfTitle">Library</h1>
+                <div class="library-inline">
+                  <input id="shelf-search" type="search" aria-label="Search the library" data-i18n-placeholder="shelfSearch" data-i18n-aria-label="shelfSearch" dir="auto" autocomplete="off">
+                  <select id="shelf-filter" aria-label="Filter by type" data-i18n-aria-label="shelfFilter"></select>
+                  <select id="shelf-sort" aria-label="Sort by" data-i18n-aria-label="shelfSort"></select>
+                  <button type="button" class="library-action" id="shelf-import" data-i18n="shelfImport">Open files</button>
+                </div>
               </header>
+              <div class="library-shelf"><div class="library-grid" id="shelf-grid"></div></div>
+              <p id="shelf-no-results" data-i18n="shelfNoResults" hidden>No matching items</p>
+              <div id="shelf-status" class="library-notice" aria-live="polite"></div>
               <div class="workspace-empty-columns">
                 <div class="workspace-empty-actions">
                   <button class="workspace-action" id="workflow-new" type="button">
