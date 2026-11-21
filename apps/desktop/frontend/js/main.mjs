@@ -2760,11 +2760,15 @@ function onEditorInput(content = currentEditor().value) {
 
 function renderContentStatus() {
   const model = activeDocument();
-  const stale = Boolean(model?.preview && model.previewContentVersion !== model.contentVersion);
-  const label = stale ? t("contentPreviewStale") : "";
+  const needsRefresh = Boolean(
+    !state.preferences.autoPreview &&
+    model?.preview &&
+    model.previewContentVersion !== model.contentVersion,
+  );
+  const label = needsRefresh ? t("contentPreviewStale") : "";
   for (const status of $$("[data-content-status]")) {
     if (status.textContent !== label) status.textContent = label;
-    status.dataset.stale = String(stale);
+    status.dataset.stale = String(needsRefresh);
   }
 }
 
