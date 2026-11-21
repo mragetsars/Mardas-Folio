@@ -39,7 +39,12 @@ def _payload(root: Path, *, symlink: bool = False) -> Path:
     for name in ("en-US", "fa", "de", "ja", "en-GB"):
         (locales / f"{name}.pak").write_bytes(b"l" * 256)
     if symlink:
-        (root / "Current").symlink_to("chrome-headless-shell")
+        try:
+            (root / "Current").symlink_to("chrome-headless-shell")
+        except OSError as error:
+            if getattr(error, "winerror", None) != 1314:
+                raise
+            pytest.skip(f"Symbolic links are unavailable: {error}")
     return root
 
 
