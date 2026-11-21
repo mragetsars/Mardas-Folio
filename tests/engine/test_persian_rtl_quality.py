@@ -114,7 +114,7 @@ def test_mixed_prose_css_honors_base_direction_instead_of_plaintext_detection(tm
     options = PdfOptions(input_path=tmp_path / "mixed.md", output_path=tmp_path / "mixed.pdf")
     css, _classes = _layout_css(options, document_direction="ltr")
     for direction in ["ltr", "rtl"]:
-        selector = f'.md2pdf-article .md2pdf-mixed-prose[dir="{direction}"]'
+        selector = f'.md2pdf-article .md2pdf-mixed-prose:where([dir="{direction}"])'
         declaration = css.split(selector, 1)[1].split("}", 1)[0]
         assert f"direction: {direction};" in declaration
         assert "unicode-bidi: isolate;" in declaration
@@ -160,11 +160,13 @@ def test_chromium_mixed_prose_starts_on_its_correct_side(tmp_path: Path, directi
                         midpoint: (bounds.left + bounds.right) / 2,
                         direction: style.direction,
                         unicodeBidi: style.unicodeBidi,
+                        textAlign: style.textAlign,
                     };
                 }"""
             )
             assert metrics["direction"] == direction
             assert metrics["unicodeBidi"] == "isolate"
+            assert metrics["textAlign"] == options.paragraph_align
             if direction == "ltr":
                 assert metrics["leadingLeft"] < metrics["midpoint"]
             else:

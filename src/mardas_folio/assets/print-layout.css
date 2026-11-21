@@ -154,12 +154,12 @@
       body.md2pdf-dir-rtl .rtl-ascii-punctuation {
         direction: rtl;
       }
-      .md2pdf-article .md2pdf-mixed-prose[dir="ltr"] {
+      .md2pdf-article .md2pdf-mixed-prose:where([dir="ltr"]) {
         direction: ltr;
         text-align: start;
         unicode-bidi: isolate;
       }
-      .md2pdf-article .md2pdf-mixed-prose[dir="rtl"] {
+      .md2pdf-article .md2pdf-mixed-prose:where([dir="rtl"]) {
         direction: rtl;
         text-align: start;
         unicode-bidi: isolate;

@@ -28,7 +28,7 @@ def _body_lines(page: Any, size: float) -> list[dict[str, Any]]:
         spans_by_baseline,
         key=lambda key: -sum(len(span["text"].strip()) for span in spans_by_baseline[key]),
     ):
-        if all(abs(origin - baseline) > 3 for baseline in baselines):
+        if all(abs(origin - baseline) > 3.8 for baseline in baselines):
             baselines.append(origin)
     by_baseline: dict[float, list[dict[str, Any]]] = {origin: [] for origin in baselines}
     for origin, spans in spans_by_baseline.items():
@@ -173,6 +173,8 @@ def main() -> None:
             raise SystemExit("The English full lines did not align to the left margin")
         if result["paragraphs"]["fa"]["inner_right_spread_pt"] > 1.5:
             raise SystemExit("The Persian full lines did not align to the right margin")
+        if result["paragraphs"]["fa"]["inner_left_spread_pt"] > 3.5:
+            raise SystemExit("The Persian full lines did not align to the left margin")
 
 
 if __name__ == "__main__":
