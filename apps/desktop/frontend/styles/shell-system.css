@@ -237,26 +237,9 @@ body[data-view="workspace"] .document-toolbar .document-activity-controls {
   display: flex;
   flex-wrap: nowrap;
   flex: 0 0 auto;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
   order: 0;
-}
-.document-toolbar .view-modes {
-  border-radius: 6px;
-  gap: 0;
-  padding: 2px;
-  background: transparent;
-  flex-shrink: 0;
-}
-.document-toolbar .view-mode {
-  height: 28px;
-  min-height: 28px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-.document-toolbar .view-mode[aria-checked="true"] {
-  background: var(--ui-selected-bg);
-  color: var(--ui-selected-text);
 }
 body[data-view="workspace"] .document-toolbar #format-bar {
   display: none;
@@ -479,13 +462,58 @@ body[data-view="workspace"] .preview-pane {
   display: grid;
   grid-template-rows: 40px minmax(0, 1fr);
 }
-body[data-view="workspace"] .preview-pane > .content-view-header {
-  height: 40px;
-  min-height: 40px;
-  padding: 4px 10px;
-  flex-wrap: nowrap;
-  gap: 6px;
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+  padding-inline: var(--ui-space-3);
+  border-block-end: 1px solid var(--ui-border);
   background: var(--ui-panel-soft);
+}
+.preview-heading {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: var(--ui-space-2);
+  min-inline-size: 0;
+}
+.preview-heading > .ui-icon {
+  flex: none;
+  align-self: center;
+  color: var(--ui-muted);
+}
+.preview-heading h2 {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: var(--ui-text-sm);
+  font-weight: 650;
+  line-height: 1.35;
+}
+.preview-heading small {
+  min-inline-size: 0;
+  color: var(--ui-warning);
+  font-size: var(--ui-text-2xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.preview-header .preview-actions {
+  flex: none;
+}
+.preview-header .compact-toggle {
+  min-block-size: var(--control-h);
+  padding-inline: var(--ui-space-1);
+  border-radius: var(--ui-radius-sm);
+}
+.preview-header .compact-toggle:hover:not(:has(input:disabled)) {
+  background: var(--ui-control-hover);
+}
+.preview-header .icon-button {
+  inline-size: var(--control-h);
+  block-size: var(--control-h);
+  min-block-size: var(--control-h);
+  border-radius: var(--ui-radius-sm);
 }
 .content-view-header > div:first-child {
   display: flex;
@@ -844,10 +872,6 @@ body[data-view="workspace"] .editor-pane[data-view-mode="read"] .reading-toolbar
   body[data-view="workspace"] .document-toolbar {
     padding-inline: 4px;
     gap: 2px;
-  }
-  body[data-view="workspace"] .view-mode {
-    padding-inline: 6px;
-    font-size: var(--ui-text-2xs);
   }
 }
 html[data-focus-mode="true"] body[data-view="workspace"] .shell {

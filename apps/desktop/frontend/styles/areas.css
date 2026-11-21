@@ -215,29 +215,6 @@ html[data-focus-mode="true"] body[data-view="workspace"] #workspace-view.active 
 #workspace-layout-menu .layout-menu-item[aria-pressed="false"] .layout-check {
   visibility: hidden;
 }
-.document-toolbar .view-modes {
-  display: inline-grid;
-  grid-template-columns: repeat(2, minmax(60px, 1fr));
-  gap: 2px;
-  background: var(--ui-panel-muted);
-  padding: 3px;
-  border-radius: 7px;
-}
-.document-toolbar .view-modes .view-mode {
-  margin: 0;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  height: 28px;
-  padding: 3px 8px;
-  font-weight: 500;
-  width: 100%;
-}
-.document-toolbar .view-modes [aria-checked="true"] {
-  color: var(--ui-text);
-  background: var(--ui-page);
-  border-color: var(--ui-border);
-  box-shadow: 0 1px 2px #0002;
-}
 .json-document[hidden],
 .editor-surface.structured-buffer > :not(#json-document) {
   display: none !important;

@@ -43,6 +43,7 @@ export function createWorkspacePanes({
     $("#file-resizer")?.setAttribute("aria-valuenow", String(fitted.filesWidth));
     $("#file-navigator").inert = !layout.filesOpen;
     $("#author-sidebar").inert = !layout.sidebarOpen;
+    $("#preview-pane").inert = !layout.previewOpen;
     sidebarButton?.setAttribute("aria-pressed", String(layout.sidebarOpen));
     if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(fitted.sidebarWidth));
     if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(fitted.previewWidth));

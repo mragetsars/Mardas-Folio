@@ -199,3 +199,46 @@ def test_project_search_cancellation_rejects_late_results_and_keeps_navigation(b
     results.locator("button").click()
     expect(page.locator("#markdown-editor")).to_have_value("# فصل One\\n\\nEnglish and فارسی\\n")
     expect(page.locator(".cm-content")).to_be_focused()
+
+
+def test_workspace_controls_fit_one_row_and_open_preview_on_demand(book_page):
+    page, locale = book_page
+    fill_book_form(page)
+    page.locator("#book-project-form button[type=submit]").click()
+    editor = page.locator("#workspace-view")
+    expect(page.locator(".view-modes")).to_be_visible()
+    for name in ("files", "preview", "sidebar", "formatting"):
+        expect(editor).to_have_attribute(f"data-{name}-open", "false")
+    preview = page.locator("#preview-pane")
+    expect(preview).to_be_hidden()
+    page.locator("#workspace-layout-button").click()
+    page.locator("#workspace-toggle-preview").click()
+    page.keyboard.press("Escape")
+    expect(preview).to_be_visible()
+    expect(preview.get_by_role("heading", level=2)).to_have_text(
+        "پیش‌نمایش سند" if locale == "fa" else "Document preview"
+    )
+    expect(preview.locator("#preview-detail")).to_be_empty()
+    radios = page.locator(".view-modes button")
+    for width in (1440, 840, 700):
+        page.set_viewport_size({"width": width, "height": 760})
+        first, second = [button.bounding_box() for button in radios.all()]
+        assert first is not None and second is not None
+        assert abs(first["y"] - second["y"]) <= 0.5
+        assert abs(first["width"] - second["width"]) <= 0.5
+        assert (first["x"] > second["x"]) == (locale == "fa")
+        header = preview.locator(".preview-header").bounding_box()
+        live = preview.locator("label.toggle").bounding_box()
+        refresh = preview.locator("#refresh-preview").bounding_box()
+        assert header is not None and live is not None and refresh is not None
+        assert abs(live["y"] + live["height"] / 2 - refresh["y"] - refresh["height"] / 2) < 1
+        assert min(refresh["height"], refresh["width"]) >= 30
+        assert header["x"] <= live["x"] < header["x"] + header["width"]
+    radios.nth(1).press("ArrowLeft" if locale == "en" else "ArrowRight")
+    expect(radios.nth(0)).to_have_attribute("aria-checked", "true")
+    expect(radios.nth(0)).to_be_focused()
+    expect(preview).to_be_visible()
+    page.locator("#workspace-layout-button").click()
+    page.locator("#workspace-reset-layout").click()
+    expect(preview).to_be_hidden()
+    expect(editor).to_have_attribute("data-preview-open", "false")

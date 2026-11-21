@@ -292,7 +292,7 @@
               <div id="shelf-status" class="library-notice" aria-live="polite"></div>
             </div>
           </section>
-    <section class="view workspace-view" id="workspace-view" data-empty="true">
+    <section class="view workspace-view" id="workspace-view" data-empty="true" data-files-open="false" data-sidebar-open="false" data-preview-open="false" data-formatting-open="false">
 
             <div class="author-toolbar editor-header" data-i18n-aria-label="authoringToolbar" aria-label="نوار ابزار نویسندگی">
         <div class="toolbar-group workspace-navigation">
@@ -326,8 +326,8 @@
         <button type="button" class="button secondary" id="editor-open" data-i18n="shelfImport">Open files</button>
         <button type="button" class="button primary" id="editor-create" data-i18n="newDocument">New document</button>
       </section>
-      <div class="authoring-grid">
-        <aside class="file-navigator" id="file-navigator" data-i18n-aria-label="files" aria-label="فایل‌ها">
+      <div class="authoring-grid" data-files-open="false" data-sidebar-open="false" data-preview-open="false" data-formatting-open="false">
+        <aside class="file-navigator" id="file-navigator" inert data-i18n-aria-label="files" aria-label="فایل‌ها">
           <header class="navigator-heading"><strong class="visually-hidden" data-i18n="documentNavigation">ناوبری سند</strong>          <nav class="navigator-tabs" role="tablist" data-i18n-aria-label="documentNavigation" aria-label="ناوبری سند">
             <button id="navigator-tab-files" type="button" role="tab" aria-selected="true" aria-controls="navigator-panel-files" data-navigator-tab="files" data-i18n="files">فایل‌ها</button>
             <button id="navigator-tab-outline" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-outline" tabindex="-1" data-navigator-tab="outline" data-i18n="outline">ساختار</button>
@@ -409,7 +409,7 @@
         <div class="popover-menu workspace-view-menu hidden" id="workspace-view-menu" role="group" data-i18n-aria-label="workspacePanels" aria-label="پنل‌های محیط کار"></div>
         <section class="popover-menu workspace-layout-menu hidden" id="workspace-layout-menu" role="group" aria-labelledby="workspace-layout-title">
           <h2 id="workspace-layout-title" data-i18n="workspacePanels">پنل‌های محیط کار</h2>
-          <button class="toolbar-icon-button layout-menu-item" id="workspace-toggle-files" type="button" aria-controls="file-navigator" aria-pressed="true" aria-expanded="true" data-i18n-title="toggleFiles">
+          <button class="toolbar-icon-button layout-menu-item" id="workspace-toggle-files" type="button" aria-controls="file-navigator" aria-pressed="false" aria-expanded="false" data-i18n-title="toggleFiles">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-panel-left"></use></svg><span data-i18n="files">فایل‌ها</span><svg class="ui-icon layout-check" aria-hidden="true"><use href="#icon-check"></use></svg>
           </button>
           <button class="toolbar-icon-button layout-menu-item" id="workspace-toggle-preview" type="button" aria-controls="preview-pane" aria-pressed="false" aria-expanded="false" data-i18n-title="sidePreviewHelp">
@@ -419,7 +419,7 @@
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-panel-right"></use></svg><span data-i18n="documentTools">مشخصات و ابزارها</span><svg class="ui-icon layout-check" aria-hidden="true"><use href="#icon-check"></use></svg>
           </button>
           <div class="popover-divider" role="separator"></div>
-          <button class="toolbar-icon-button layout-menu-item" id="workspace-focus" type="button" data-i18n-title="focusModeHelp">
+          <button class="toolbar-icon-button layout-menu-item" id="workspace-focus" type="button" aria-pressed="false" data-i18n-title="focusModeHelp">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg><span data-i18n="focusMode">حالت تمرکز</span>
           </button>
           <button class="toolbar-icon-button layout-menu-item" id="workspace-reset-layout" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-layout"></use></svg><span data-i18n="resetLayoutOnly">Reset layout</span></button>
@@ -500,14 +500,29 @@
 
         <div class="pane-resizer preview-resizer" id="preview-resizer" role="separator" aria-orientation="vertical" aria-controls="preview-pane" aria-valuemin="340" aria-valuemax="760" aria-valuenow="500" aria-label="Preview width" data-i18n-aria-label="resizePreview" tabindex="0"></div>
 
-        <section class="preview-pane" id="preview-pane">
-          <header class="pane-header content-view-header" data-i18n-title="previewScope" title="صفحه‌بندی PDF در بخش خروجی بررسی می‌شود."><div><strong data-i18n="documentContentView">نمایش سند</strong><small id="preview-detail" data-content-status role="status"></small></div><div class="preview-actions"><label class="toggle compact-toggle"><input id="auto-preview" data-content-auto data-i18n-aria-label="liveUpdates" aria-label="به‌روزرسانی خودکار" type="checkbox" checked><i></i><span data-i18n="liveUpdates">به‌روزرسانی خودکار</span></label><button class="icon-button" id="refresh-preview" type="button" data-i18n-title="refreshContent" data-i18n-aria-label="refreshContent" title="به‌روزرسانی نمایش"><svg class="ui-icon" aria-hidden="true"><use href="#icon-refresh"></use></svg></button></div></header>
+        <section class="preview-pane" id="preview-pane" aria-labelledby="editor-preview-title" inert>
+          <header class="preview-header" data-i18n-title="previewScope" title="صفحه‌بندی PDF در بخش خروجی بررسی می‌شود.">
+            <div class="preview-heading">
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-preview"></use></svg>
+              <h2 id="editor-preview-title" data-i18n="editorPreviewTitle">پیش‌نمایش سند</h2>
+              <small id="preview-detail" data-content-status role="status"></small>
+            </div>
+            <div class="preview-actions">
+              <label class="toggle compact-toggle">
+                <input id="auto-preview" data-content-auto data-i18n-aria-label="liveUpdates" aria-label="به‌روزرسانی خودکار" type="checkbox" role="switch" checked>
+                <i aria-hidden="true"></i><span data-i18n="livePreviewShort">خودکار</span>
+              </label>
+              <button class="icon-button" id="refresh-preview" type="button" data-i18n-title="refreshEditorPreview" data-i18n-aria-label="refreshEditorPreview" title="تازه‌سازی پیش‌نمایش" aria-label="تازه‌سازی پیش‌نمایش">
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-refresh"></use></svg>
+              </button>
+            </div>
+          </header>
           <div class="preview-loading hidden" id="preview-loading" role="status" aria-live="polite"><i></i><span data-i18n="renderingPreview">در حال ساخت پیش‌نمایش</span></div>
           <article class="preview-document document-content" id="preview-document" dir="auto"><div class="empty-preview"><strong data-i18n="previewEmpty">برای مشاهده پیش‌نمایش، نوشتن را شروع کن.</strong></div></article>
         </section>
         <div class="pane-resizer sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-controls="author-sidebar" aria-valuemin="248" aria-valuemax="420" aria-valuenow="296" aria-label="Sidebar width" data-i18n-aria-label="resizeSidebar" tabindex="0"></div>
 
-        <aside class="author-sidebar" id="author-sidebar" data-i18n-aria-label="documentTools" aria-label="ابزارهای سند">
+        <aside class="author-sidebar" id="author-sidebar" inert data-i18n-aria-label="documentTools" aria-label="ابزارهای سند">
           <header class="inspector-heading"><strong class="visually-hidden" data-i18n="documentTools">ابزارهای سند</strong>          <nav class="sidebar-tabs" role="tablist" data-i18n-aria-label="documentTools" aria-label="ابزارهای سند" aria-orientation="horizontal">
             <button id="sidebar-tab-project" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-project" tabindex="-1" data-i18n-title="projectWorkspace" data-sidebar="project"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-folder"></use></svg></span><span class="sidebar-tab-label" data-i18n="projectWorkspace">پروژه</span></button>
             <button id="sidebar-tab-book" type="button" role="tab" aria-selected="false" aria-controls="sidebar-panel-book" tabindex="-1" data-i18n-title="bookProject" data-sidebar="book"><span class="sidebar-tab-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-book"></use></svg></span><span class="sidebar-tab-label" data-i18n="bookProject">کتاب</span></button>

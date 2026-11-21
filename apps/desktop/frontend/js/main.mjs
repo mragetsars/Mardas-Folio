@@ -2604,8 +2604,9 @@ function closeActiveProject() {
   // close should never feel like a hung command while that handoff completes.
   const cleanup = clearProjectState();
   showView("workspace");
-  activateSidebar("project");
-  $("#sidebar-open-project")?.focus({ preventScroll: true });
+  activateSidebar("project", { reveal: false });
+  if (workspacePaneOpen("sidebar")) $("#sidebar-open-project")?.focus({ preventScroll: true });
+  else focusDocument();
   toast(`${t("projectClosed")}: ${projectName}`, "success");
   return cleanup;
 }
@@ -2760,15 +2761,10 @@ function onEditorInput(content = currentEditor().value) {
 function renderContentStatus() {
   const model = activeDocument();
   const stale = Boolean(model?.preview && model.previewContentVersion !== model.contentVersion);
-  const label = stale
-    ? t("contentPreviewStale")
-    : !state.preferences.autoPreview
-      ? t("contentPreviewPaused")
-      : t("contentPreviewScope");
+  const label = stale ? t("contentPreviewStale") : "";
   for (const status of $$("[data-content-status]")) {
-    status.textContent = label;
+    if (status.textContent !== label) status.textContent = label;
     status.dataset.stale = String(stale);
-    status.title = t("previewScope");
   }
 }
 
@@ -3263,13 +3259,13 @@ function applySidebarContext() {
   return name;
 }
 
-function activateSidebar(name) {
+function activateSidebar(name, { reveal = true } = {}) {
   if (name === "outline") {
     activateNavigator("outline");
     return;
   }
-  if ($(`[data-sidebar="${name}"]`)?.disabled) return;
-  if (!workspacePaneOpen("sidebar")) {
+  if (reveal && $(`[data-sidebar="${name}"]`)?.disabled) return;
+  if (reveal && !workspacePaneOpen("sidebar")) {
     setWorkspacePaneOpen("sidebar", true);
     applyWorkspaceLayout({ persist: !isCompactDrawer("sidebar") });
   }

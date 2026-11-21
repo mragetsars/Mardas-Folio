@@ -100,7 +100,7 @@ export function createBookCreation({
       await onBookOpened(project);
       closeNewBookModal();
       showView("workspace");
-      activateSidebar("book");
+      activateSidebar("book", { reveal: false });
       const first = project.book?.chapters?.[0]?.path;
       if (first) await openProjectRelativeFile(first);
       toast(t("bookCreated"), "success");
