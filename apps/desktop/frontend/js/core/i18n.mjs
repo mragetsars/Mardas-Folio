@@ -1808,6 +1808,10 @@ Object.assign(en, {
   bookTypographyHelp:
     "Set body_font, body_size_pt, body_leading and paragraph_align in [appearance] of mardas.toml.",
   "opt.body_font": "Body font",
+  typographyEffective: "Effective value %s",
+  typographyOutput: "This PDF",
+  typographyProject: "Project defaults",
+  typographyDefault: "Theme defaults",
   "opt.body_size_pt": "Body size",
   "opt.body_leading": "Line height",
   "opt.paragraph_align": "Paragraph alignment",
@@ -1932,6 +1936,10 @@ Object.assign(fa, {
   bookTypographyHelp:
     "چهار گزینهٔ body_font، body_size_pt، body_leading و paragraph_align را در بخش [appearance] فایل mardas.toml تنظیم کنید.",
   "opt.body_font": "قلم متن",
+  typographyEffective: "مقدار مؤثر %s",
+  typographyOutput: "همین PDF",
+  typographyProject: "پیش‌فرض پروژه",
+  typographyDefault: "پیش‌فرض پوسته",
   "opt.body_size_pt": "اندازهٔ متن",
   "opt.body_leading": "فاصلهٔ سطرها",
   "opt.paragraph_align": "تراز بندها",

@@ -46,6 +46,7 @@ export function createExportOptionsPanel({
    */
   const advancedValues = new Map();
   const invalidValues = new Map();
+  let effectiveTypography = null;
 
   /** Which category the settings browser is showing. */
   let activeOptionGroup = OPTION_GROUPS[0].id;
@@ -60,6 +61,25 @@ export function createExportOptionsPanel({
   function choiceLabel(value) {
     const label = t(value);
     return label === value ? value : label;
+  }
+
+  function renderTypographyValue(readout) {
+    const row = readout.closest("[data-option-key]");
+    const entry = effectiveTypography?.[row.dataset.optionKey];
+    readout.hidden = !entry;
+    if (!entry) {
+      readout.textContent = "";
+      return;
+    }
+    const source =
+      { override: "typographyOutput", preset: "fromPreset" }[row.dataset.source] ||
+      (entry.from_project ? "typographyProject" : "typographyDefault");
+    const value =
+      typeof entry.value === "number"
+        ? new Intl.NumberFormat(documentRef.documentElement.lang).format(entry.value)
+        : choiceLabel(entry.value);
+    const unit = row.dataset.optionKey === "body_size_pt" ? " pt" : "";
+    readout.textContent = t("typographyEffective").replace("%s", value + unit) + " · " + t(source);
   }
 
   function optionControlIdentity(control) {
@@ -379,6 +399,13 @@ export function createExportOptionsPanel({
     }
 
     row.append(head, help, buildOptionControl(field));
+    if (group?.id === "typography") {
+      const readout = documentRef.createElement("small");
+      readout.className = "option-help";
+      readout.dataset.typographyValue = "";
+      row.append(readout);
+      renderTypographyValue(readout);
+    }
     if (group) row.dataset.group = group.id;
     return row;
   }
@@ -458,6 +485,7 @@ export function createExportOptionsPanel({
       reset.textContent = t("resetGroup");
       reset.addEventListener("click", () => {
         for (const field of group.fields) {
+          invalidValues.delete(field.key);
           const presetOptions = getPresetOptions();
           if (field.key in presetOptions) advancedValues.set(field.key, presetOptions[field.key]);
           else advancedValues.delete(field.key);
@@ -552,6 +580,12 @@ export function createExportOptionsPanel({
       renderAdvancedOptions();
     },
     reset,
+    setEffectiveTypography(typography) {
+      effectiveTypography = typography;
+      for (const readout of root.querySelectorAll("[data-typography-value]")) {
+        renderTypographyValue(readout);
+      }
+    },
     hasInvalidOptions: () => invalidValues.size > 0,
     overrides: () => collectRenderOptions(Object.fromEntries(advancedValues)),
     modifiedCount: () =>

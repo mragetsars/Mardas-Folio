@@ -204,3 +204,30 @@ def test_a_document_that_cannot_publish_fails_the_page_preview(tmp_path: Path) -
     )
     with pytest.raises(application.EngineValidationError):
         application.preview_page_document_text(options, "See [@missing-key].\n")
+
+
+def test_typography_payload_identifies_inherited_and_explicit_values(tmp_path: Path) -> None:
+    source = tmp_path / "doc.md"
+    source.write_text(DOCUMENT, encoding="utf-8")
+    (tmp_path / "mardas.toml").write_text(
+        'schema_version = 1\n[appearance]\nbody_size_pt = 13\nbody_font = "serif"\n',
+        encoding="utf-8",
+    )
+    service = EngineService()
+    options = {"body_size_pt": 14}
+    payload = service.dispatch(
+        "preview.document_page",
+        {"input_path": str(source), "content": DOCUMENT, "options": options},
+    )
+    assert payload["typography"] == {
+        "body_font": {"value": "serif", "from_project": True},
+        "body_size_pt": {"value": 14, "from_project": False},
+        "body_leading": {"value": 1.6, "from_project": False},
+        "paragraph_align": {"value": "justify", "from_project": False},
+    }
+
+    payload = service.dispatch(
+        "preview.document_page",
+        {"input_path": str(source), "content": DOCUMENT, "options": {}},
+    )
+    assert payload["typography"]["body_size_pt"] == {"value": 13, "from_project": True}

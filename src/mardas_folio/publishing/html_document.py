@@ -29,7 +29,12 @@ from ..markdown import MarkdownRenderResult
 from ..page_geometry import page_geometry
 from ..print_layout import layout_css as _build_layout_css
 from ..quality import MathJaxRenderError
-from ..render_contracts import DocumentAssetError, PdfOptions, validate_branding_mode
+from ..render_contracts import (
+    BODY_TYPOGRAPHY_FIELDS,
+    DocumentAssetError,
+    PdfOptions,
+    validate_branding_mode,
+)
 from .quality import _enforce_quality_issue
 
 RTL_LANG_PREFIXES = ("ar", "fa", "he", "iw", "ku", "ps", "sd", "ug", "ur", "yi")
@@ -232,6 +237,10 @@ def preview_page_payload(
         "lang": content.lang,
         "direction": content.document_direction,
         "page": page_geometry(options),
+        "typography": {
+            key: {"value": getattr(options, key), "from_project": key in options.project_typography}
+            for key in BODY_TYPOGRAPHY_FIELDS
+        },
         "css": {
             "fonts": content.font_faces_css,
             "pygments": content.pygments_css,

@@ -1284,7 +1284,7 @@ const exportOptions = createExportOptionsPanel({
     invalidateExportStatus();
     renderSummary();
     syncExportControls();
-    if (!exportOptions.hasInvalidOptions()) schedulePdfPreview();
+    schedulePdfPreview();
   },
   pickPath: (field) =>
     invoke(field.widget === "directory" ? "pick_project_directory" : "pick_document_asset"),
@@ -1407,11 +1407,17 @@ function retranslateExportPreview() {
 }
 
 function schedulePdfPreview(delay = 450) {
+  exportOptions.setEffectiveTypography(null);
   exportPreviewDirty = true;
   exportPreviewSequence += 1;
   if (exportPreviewTimer) clearTimeout(exportPreviewTimer);
   exportPreviewTimer = null;
-  if (state.activeRequestId || document.body.dataset.view !== "export") return;
+  if (
+    state.activeRequestId ||
+    exportOptions.hasInvalidOptions() ||
+    document.body.dataset.view !== "export"
+  )
+    return;
   if (state.sourcePath) setExportPreviewState("previewUpdating");
   exportPreviewTimer = setTimeout(() => {
     exportPreviewTimer = null;
@@ -1576,7 +1582,8 @@ async function drawExportPreview() {
     const result = engineSupports("preview.document_page")
       ? await previewDocumentPage(request)
       : pagePayloadFromBodyPreview(await previewDocumentText(request));
-    if (sequence !== exportPreviewSequence) return;
+    if (!exportPreviewIsCurrent(sequence)) return;
+    exportOptions.setEffectiveTypography(result?.typography);
     // Layout and MathJax run in the webview. They must not keep the engine
     // flight occupied when the user changes files or starts a PDF job.
     void paintExportPreview(deck, result, sequence);

@@ -10,7 +10,7 @@ from typing import Any, Callable, Mapping
 from .config import RENDER_OPTION_SPECS, ConfigValueError, LoadedProjectConfig, load_project_config
 from .diagnostics import has_errors
 from .engine_errors import EngineError, EngineValidationError
-from .render_contracts import PdfOptions
+from .render_contracts import BODY_TYPOGRAPHY_FIELDS, PdfOptions
 
 ProgressCallback = Callable[[str, float], None]
 CancellationCallback = Callable[[], bool]
@@ -26,6 +26,7 @@ OPTION_FIELDS = {
         "progress",
         "cancelled",
         "protected_inputs",
+        "project_typography",
         "output_create_only",
     }
 }
@@ -210,13 +211,18 @@ def pdf_options_from_request(
     assert target is not None
 
     merged = _config_option_values(config)
-    merged.update(_validate_option_values(dict(options or {})))
+    requested = _validate_option_values(dict(options or {}))
+    project_typography = frozenset(
+        key for key in BODY_TYPOGRAPHY_FIELDS if key in merged and key not in requested
+    )
+    merged.update(requested)
     normalized = _normalize_option_values(merged, base_dir=base_dir)
     return PdfOptions(
         input_path=source,
         output_path=target,
         progress=progress,
         cancelled=cancelled,
+        project_typography=project_typography,
         protected_inputs=(("project configuration", config.path),)
         if config.path is not None
         else (),

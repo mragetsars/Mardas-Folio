@@ -11,6 +11,7 @@ from .quality import RenderQualityLog
 ProgressCallback = Callable[[str, float], None]
 CancellationCallback = Callable[[], bool]
 BRANDING_MODES = ("off", "subtle", "full")
+BODY_TYPOGRAPHY_FIELDS = ("body_font", "body_size_pt", "body_leading", "paragraph_align")
 
 
 class DocumentAssetError(ValueError):
@@ -64,6 +65,7 @@ class PdfOptions:
     body_size_pt: float = 11.0
     body_leading: float = 1.6
     paragraph_align: str = "justify"
+    project_typography: frozenset[str] = frozenset()
     font_dir: Path | None = None
     chromium_path: str | None = None
     chromium_sandbox: str = "auto"
