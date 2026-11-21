@@ -24,8 +24,9 @@
   <link rel="stylesheet" href="./styles/export-workflow.css">
   <link rel="stylesheet" href="./styles/settings.css">
   <link rel="stylesheet" href="./styles/library.css">
+  <link rel="stylesheet" href="./styles/areas.css">
 </head>
-<body data-view="workspace">
+<body data-view="library">
 <a class="skip-link" href="#app-main" data-i18n="skipToContent">رفتن به محتوای اصلی</a>
 <svg class="ui-icon-sprite" id="mardas-ui-icons" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
   <symbol id="icon-home" viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.8l8.5 6.7v8.2a1.5 1.5 0 0 1-1.5 1.5h-4.8v-6.1H9.8v6.1H5a1.5 1.5 0 0 1-1.5-1.5z"/></symbol>
@@ -83,6 +84,7 @@
   <symbol id="icon-typewriter" viewBox="0 0 24 24"><rect x="3.6" y="4.8" width="16.8" height="14.4" rx="2"/><path d="M3.6 12h16.8"/></symbol>
   <symbol id="icon-focus" viewBox="0 0 24 24"><path d="M4.6 9V6.2a1.6 1.6 0 0 1 1.6-1.6H9M15 4.6h2.8a1.6 1.6 0 0 1 1.6 1.6V9M19.4 15v2.8a1.6 1.6 0 0 1-1.6 1.6H15M9 19.4H6.2a1.6 1.6 0 0 1-1.6-1.6V15"/></symbol>
   <symbol id="icon-duplicate" viewBox="0 0 24 24"><path d="M8.6 8.6h9.8a1.8 1.8 0 0 1 1.8 1.8v9.8H8.6z"/><path d="M15.4 8.6V5.6a1.8 1.8 0 0 0-1.8-1.8H5.6a1.8 1.8 0 0 0-1.8 1.8V14a1.8 1.8 0 0 0 1.8 1.8h3"/></symbol>
+  <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7"/></symbol>
   <symbol id="icon-grip" viewBox="0 0 24 24"><path d="M9.4 6.6h.1M9.4 12h.1M9.4 17.4h.1M14.6 6.6h.1M14.6 12h.1M14.6 17.4h.1"/></symbol>
   <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5.4 12.6 4.4 4.6 8.8-10.4"/></symbol>
   <symbol id="icon-insert" viewBox="0 0 24 24"><path d="M12 6.4v11.2M6.4 12h11.2"/><circle cx="12" cy="12" r="8.4"/></symbol>
@@ -102,37 +104,13 @@
       <img src="./assets/workspace-mark.svg" alt="" width="38" height="38">
       <span><strong>Mardas Folio</strong><small id="app-version">__MARDAS_VERSION__</small></span>
     </button>
-      <div class="author-toolbar" data-i18n-aria-label="authoringToolbar" aria-label="نوار ابزار نویسندگی">
-        <div class="toolbar-group workspace-navigation">
-
-          <button class="toolbar-icon-button layout-toggle" id="workspace-layout-button" type="button" aria-controls="workspace-layout-menu" aria-expanded="false" data-i18n-title="workspaceLayout" data-i18n-aria-label="workspaceLayout" aria-label="چیدمان"><svg class="ui-icon" aria-hidden="true"><use href="#icon-layout"></use></svg><span data-i18n="workspaceLayout">چیدمان</span></button>
-          <button class="quick-open-button" id="workspace-quick-open" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg><span data-i18n="quickOpen">رفتن به فایل</span><kbd>Ctrl P</kbd></button>
-        </div>
-        <div class="tab-bar">
-          <div class="document-tabs" id="document-tabs" role="tablist" data-i18n-aria-label="openDocuments" aria-label="باز کردن چند سند"></div>
-          <button class="toolbar-icon-button tab-new-document" id="tab-new-document" type="button" data-i18n-title="newTab" data-i18n-aria-label="newTab" title="تب جدید" aria-label="تب جدید"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg></button>
-        </div>
-        <div class="document-identity"><strong id="editor-title" data-i18n="untitled">بدون عنوان</strong><small id="editor-path" dir="auto"></small><span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span></div>
-        <div class="toolbar-group toolbar-publish-actions">
-          <button class="button secondary compact document-save-button" id="workspace-save" type="button" data-i18n-aria-label="save" aria-label="ذخیره"><svg class="ui-icon" aria-hidden="true"><use href="#icon-save"></use></svg><span data-i18n="save">ذخیره</span></button>
-          <button class="button secondary compact document-export-button" id="workspace-export" type="button" aria-haspopup="dialog" data-i18n-aria-label="commandExport" aria-label="خروجی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg><span data-i18n="commandExport">خروجی</span></button>
-          <details class="document-actions" id="document-actions-menu">
-            <summary class="toolbar-icon-button" data-i18n-title="documentActions" title="عملیات سند" data-i18n-aria-label="documentActions" aria-label="عملیات سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more"></use></svg></summary>
-            <div class="document-actions-popover">
-              <button id="workspace-new" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span data-i18n="newDocument">سند جدید</span><kbd>Ctrl N</kbd></button>
-              <button id="workspace-open" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg><span data-i18n="openDocuments">باز کردن</span><kbd>Ctrl O</kbd></button>
-              <button id="shelf-resume-fields" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="#icon-metadata"></use></svg><span data-i18n="shelfResumeFields">Résumé details</span></button>
-              <button id="workspace-save-as" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-save-as"></use></svg><span data-i18n="saveAs">ذخیره با نام</span><kbd>Ctrl Shift S</kbd></button>
-              <span class="popover-divider" role="separator"></span>
-              <button id="workspace-validate" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-quality"></use></svg><span data-i18n="checkDocument">بررسی سند</span></button>
-
-
-
-            </div>
-          </details>
-        </div>
-      </div>
+    <nav class="area-nav" data-i18n-aria-label="areas" aria-label="Workspaces">
+      <button type="button" data-area="library" data-i18n="shelfTitle" aria-current="page">Library</button>
+      <button type="button" data-area="workspace" data-i18n="editorArea">Editor</button>
+      <button type="button" data-area="export" data-i18n="publishArea">Publishing</button>
+    </nav>
     <div class="top-actions">
+          <button class="quick-open-button" id="workspace-quick-open" type="button" data-i18n-title="quickOpen" data-i18n-aria-label="quickOpen" aria-label="Go to file"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg><span data-i18n="quickOpen">رفتن به فایل</span><kbd>Ctrl P</kbd></button>
       <span class="engine" id="engine-state" data-state="checking" role="status" aria-live="polite"><i></i><span data-i18n="engineChecking">در حال بررسی موتور</span></span>
 <details class="app-utilities" id="app-utilities"><summary class="icon-button" data-i18n-title="appUtilities" data-i18n-aria-label="appUtilities" aria-label="ابزارهای بیشتر"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more"></use></svg></summary><div class="app-utilities-content">
       <button class="icon-button" id="command-button" type="button" data-i18n-title="commandPalette" title="فرمان‌ها" aria-label="فرمان‌ها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-command"></use></svg></button>
@@ -188,6 +166,7 @@
                 </div>
                 <p class="export-field-help" id="export-preset-help"></p>
               </div>
+              <button type="button" class="export-settings-entry" id="export-type-settings" aria-controls="export-settings"><svg class="ui-icon" aria-hidden="true"><use href="#icon-pencil"></use></svg><span class="export-settings-copy"><strong data-i18n="pdfTypography">Typography</strong><small data-i18n="pdfTypographyHelp"></small></span><svg class="ui-icon ui-icon-directional" aria-hidden="true"><use href="#icon-chevron-right"></use></svg></button>
               <button class="export-settings-entry" id="export-open-settings" type="button" aria-controls="export-settings" aria-expanded="false">
                 <span class="export-file-icon" aria-hidden="true"><svg class="ui-icon"><use href="#icon-settings"></use></svg></span>
                 <span class="export-settings-copy"><strong data-i18n="documentSettings">تنظیمات سند</strong><small data-i18n="exportCustomize">ظاهر، صفحه‌بندی، فهرست و گزینه‌های بیشتر</small></span>
@@ -297,10 +276,56 @@
       </div>
     </section>
 
-    <section class="view workspace-view active" id="workspace-view" data-empty="true">
+          <section class="view library-view active" id="library-view" aria-labelledby="workspace-empty-title">
+            <div class="shelf-content">
+              <header class="library-toolbar">
+                <h1 id="workspace-empty-title" data-i18n="shelfTitle">Library</h1><small class="shelf-count" id="shelf-count" aria-live="polite"></small>
+                <div class="library-inline">
+                  <label class="shelf-search-box"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg><input id="shelf-search" type="search" aria-label="Search the library" data-i18n-placeholder="shelfSearch" data-i18n-aria-label="shelfSearch" dir="auto" autocomplete="off"></label>
+                  <select id="shelf-filter" aria-label="Filter by type" data-i18n-aria-label="shelfFilter"></select>
+                  <select id="shelf-sort" aria-label="Sort by" data-i18n-aria-label="shelfSort"></select>
+                  <button type="button" class="library-action" id="shelf-import" data-i18n="shelfImport">Open files</button>
+                </div>
+              </header>
+              <div class="library-shelf"><div class="library-grid" id="shelf-grid"></div></div>
+              <div id="shelf-no-results" hidden><span data-i18n="shelfNoResults">No results</span> <button type="button" class="library-action" id="shelf-reset" data-i18n="clearFilters">Clear filters</button></div>
+              <div id="shelf-status" class="library-notice" aria-live="polite"></div>
+            </div>
+          </section>
+    <section class="view workspace-view" id="workspace-view" data-empty="true">
 
+            <div class="author-toolbar editor-header" data-i18n-aria-label="authoringToolbar" aria-label="نوار ابزار نویسندگی">
+        <div class="toolbar-group workspace-navigation">
 
+          <button class="toolbar-icon-button layout-toggle" id="workspace-layout-button" type="button" aria-controls="workspace-layout-menu" aria-expanded="false" data-i18n-title="workspaceLayout" data-i18n-aria-label="workspaceLayout" aria-label="چیدمان"><svg class="ui-icon" aria-hidden="true"><use href="#icon-layout"></use></svg><span data-i18n="workspaceLayout">چیدمان</span></button>
+        </div>
+        <div class="tab-bar">
+          <div class="document-tabs" id="document-tabs" role="tablist" data-i18n-aria-label="openDocuments" aria-label="باز کردن چند سند"></div>
+          <button class="toolbar-icon-button tab-new-document" id="tab-new-document" type="button" data-i18n-title="newDocument" data-i18n-aria-label="newDocument" title="تب جدید" aria-label="تب جدید"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg></button>
+        </div>
+        <div class="document-identity"><strong id="editor-title" data-i18n="untitled">بدون عنوان</strong><small id="editor-path" dir="auto"></small><span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span></div>
+        <div class="toolbar-group toolbar-publish-actions">
+          <button class="button secondary compact document-save-button" id="workspace-save" type="button" data-i18n-aria-label="save" aria-label="ذخیره"><svg class="ui-icon" aria-hidden="true"><use href="#icon-save"></use></svg><span data-i18n="save">ذخیره</span></button>
+          <button class="button secondary compact document-export-button" id="workspace-export" type="button" aria-haspopup="dialog" data-i18n-aria-label="commandExport" aria-label="خروجی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg><span data-i18n="commandExport">خروجی</span></button>
+          <details class="document-actions" id="document-actions-menu">
+            <summary class="toolbar-icon-button" data-i18n-title="documentActions" title="عملیات سند" data-i18n-aria-label="documentActions" aria-label="عملیات سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more"></use></svg></summary>
+            <div class="document-actions-popover">
+              <button id="workspace-new" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span data-i18n="newDocument">سند جدید</span><kbd>Ctrl N</kbd></button>
+              <button id="workspace-open" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg><span data-i18n="openDocuments">باز کردن</span><kbd>Ctrl O</kbd></button>
+              <button id="shelf-resume-fields" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="#icon-metadata"></use></svg><span data-i18n="shelfResumeFields">Résumé details</span></button>
+              <button id="workspace-save-as" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-save-as"></use></svg><span data-i18n="saveAs">ذخیره با نام</span><kbd>Ctrl Shift S</kbd></button>
+              <span class="popover-divider" role="separator"></span>
+              <button id="workspace-validate" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-quality"></use></svg><span data-i18n="checkDocument">بررسی سند</span></button>
 
+            </div>
+          </details>
+        </div>
+      </div>
+      <section class="editor-empty" id="editor-empty" aria-labelledby="editor-empty-title">
+        <h1 id="editor-empty-title" data-i18n="editorArea">Editor</h1>
+        <button type="button" class="button secondary" id="editor-open" data-i18n="shelfImport">Open files</button>
+        <button type="button" class="button primary" id="editor-create" data-i18n="newDocument">New document</button>
+      </section>
       <div class="authoring-grid">
         <aside class="file-navigator" id="file-navigator" data-i18n-aria-label="files" aria-label="فایل‌ها">
           <header class="navigator-heading"><strong class="visually-hidden" data-i18n="documentNavigation">ناوبری سند</strong>          <nav class="navigator-tabs" role="tablist" data-i18n-aria-label="documentNavigation" aria-label="ناوبری سند">
@@ -322,60 +347,11 @@
         </aside>
         <div class="pane-resizer file-resizer" id="file-resizer" role="separator" aria-orientation="vertical" aria-controls="file-navigator" aria-valuemin="208" aria-valuemax="360" aria-valuenow="248" data-i18n-aria-label="resizeFiles" aria-label="عرض فایل‌ها" tabindex="0"></div>
         <section class="editor-pane">
-          <section class="workspace-empty" id="workspace-empty" aria-labelledby="workspace-empty-title">
-            <div class="workspace-empty-content">
-              <header class="library-toolbar">
-                <h1 id="workspace-empty-title" data-i18n="shelfTitle">Library</h1>
-                <div class="library-inline">
-                  <input id="shelf-search" type="search" aria-label="Search the library" data-i18n-placeholder="shelfSearch" data-i18n-aria-label="shelfSearch" dir="auto" autocomplete="off">
-                  <select id="shelf-filter" aria-label="Filter by type" data-i18n-aria-label="shelfFilter"></select>
-                  <select id="shelf-sort" aria-label="Sort by" data-i18n-aria-label="shelfSort"></select>
-                  <button type="button" class="library-action" id="shelf-import" data-i18n="shelfImport">Open files</button>
-                </div>
-              </header>
-              <div class="library-shelf"><div class="library-grid" id="shelf-grid"></div></div>
-              <p id="shelf-no-results" data-i18n="shelfNoResults" hidden>No matching items</p>
-              <div id="shelf-status" class="library-notice" aria-live="polite"></div>
-              <div class="workspace-empty-columns">
-                <div class="workspace-empty-actions">
-                  <button class="workspace-action" id="workflow-new" type="button">
-                    <svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span data-i18n="newDocument">سند جدید</span><kbd>Ctrl N</kbd>
-                  </button>
-                  <button class="workspace-action" id="workflow-open" type="button">
-                    <svg class="ui-icon" aria-hidden="true"><use href="#icon-file"></use></svg><span data-i18n="openMarkdown">باز کردن Markdown</span><kbd>Ctrl O</kbd>
-                  </button>
-                  <button class="workspace-action" id="workflow-project" type="button">
-                    <svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg><span data-i18n="openProject">باز کردن پروژه</span>
-                  </button>
-                  <button class="workspace-action" id="workflow-book" type="button">
-                    <svg class="ui-icon" aria-hidden="true"><use href="#icon-book"></use></svg><span data-i18n="newBookProject">پروژهٔ کتاب جدید</span>
-                  </button>
-                  <button class="workspace-action" id="workflow-quick" type="button" aria-haspopup="dialog">
-                    <svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg><span data-i18n="exportFile">خروجی از فایل</span>
-                  </button>
-                </div>
-                <section class="workspace-empty-recent" aria-labelledby="workspace-recent-title">
-                  <header>
-                    <h2 id="workspace-recent-title" data-i18n="recentDocuments">سندهای اخیر</h2>
-                    <button class="text-button" id="clear-recents" type="button" data-i18n="clear" hidden>پاک‌کردن</button>
-                  </header>
-                  <div id="recent-list" class="recent-list"></div>
-                  <p id="recent-empty" data-i18n="noRecent">هنوز سندی باز نشده است.</p>
-                </section>
-              </div>
-              <details class="workspace-empty-templates">
-                <summary data-i18n="startFromTemplate">از یک قالب آماده شروع کن</summary>
-                <div class="template-grid" id="template-grid"></div>
-              </details>
-            </div>
-          </section>
-
         <div class="document-toolbar">
           <div class="document-activity-controls">
           <div class="view-modes" role="radiogroup" data-i18n-aria-label="viewMode" aria-label="حالت نمایش">
             <button type="button" class="view-mode" data-view-mode="write" role="radio" aria-checked="true" data-i18n="viewWrite" data-i18n-title="writeModeHelp" title="نوشتن با نمایش قالب‌بندی در همان متن">نوشتن</button>
             <button type="button" class="view-mode" data-view-mode="source" role="radio" aria-checked="false" data-i18n="viewSource" data-i18n-title="sourceModeHelp" title="ویرایش مستقیم Markdown">سورس</button>
-            <button type="button" class="view-mode" data-view-mode="read" role="radio" aria-checked="false" data-i18n="viewRead" data-i18n-title="readModeHelp" title="مرور سند بدون تغییر متن">خواندن</button>
           </div>
             <button type="button" class="toolbar-icon-button" id="document-mode-help" aria-haspopup="dialog" data-i18n-title="viewGuide" data-i18n-aria-label="viewGuide" title="راهنمای نماها"><svg class="ui-icon" aria-hidden="true"><use href="#icon-help"></use></svg></button>
           </div>
@@ -446,6 +422,7 @@
           <button class="toolbar-icon-button layout-menu-item" id="workspace-focus" type="button" data-i18n-title="focusModeHelp">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-focus"></use></svg><span data-i18n="focusMode">حالت تمرکز</span>
           </button>
+          <button class="toolbar-icon-button layout-menu-item" id="workspace-reset-layout" type="button"><svg class="ui-icon" aria-hidden="true"><use href="#icon-layout"></use></svg><span data-i18n="resetLayoutOnly">Reset layout</span></button>
           <button class="toolbar-icon-button layout-menu-item" id="workspace-reset-panel-sizes" type="button" data-i18n-title="resetWorkspacePaneSizesHelp">
             <svg class="ui-icon" aria-hidden="true"><use href="#icon-refresh"></use></svg><span data-i18n="resetWorkspacePaneSizes">بازنشانی اندازهٔ پنل‌ها</span>
           </button>
@@ -510,7 +487,7 @@
               <button type="button" id="replace-all" data-i18n="replaceAll">جایگزینی همه</button>
             </div>
           </div>
-          <div class="editor-surface">
+          <div class="editor-surface"><section id="json-document" class="json-document" hidden data-i18n-aria-label="jsonFields" aria-label="Document fields"></section>
             <div class="line-gutter" id="line-gutter" aria-hidden="true">1</div>
             <textarea id="markdown-editor" spellcheck="true" wrap="off" data-i18n-aria-label="markdownEditor" aria-label="ویرایشگر Markdown"></textarea>
           </div>
@@ -583,6 +560,7 @@
                 <div class="book-actions-primary"><button class="button primary compact" id="book-add-chapter" type="button" data-i18n="addChapter">افزودن فصل</button><button class="button secondary compact" id="book-export" type="button" aria-haspopup="dialog" data-i18n="exportBook">خروجی کتاب</button></div>
                 <div class="book-actions-secondary"><button class="button secondary compact" id="book-validate" type="button" data-i18n="validateBook">بررسی کتاب</button><button class="button secondary compact" id="book-preview" type="button" data-i18n="previewBook">پیش‌نمایش کامل</button></div>
               </div>
+              <button class="text-button" id="book-typography-settings" type="button" data-i18n="bookTypographySettings" data-i18n-title="bookTypographyHelp">Book typography in project defaults</button>
               <div class="book-operation-status hidden" id="book-operation-status" role="status"><span id="book-operation-message"></span><button class="text-button hidden" id="book-cancel-operation" type="button" data-i18n="cancel">انصراف</button></div>
               <div class="book-output-result hidden" id="book-output-result">
                 <span data-i18n="lastBookOutput">آخرین خروجی</span><strong id="book-output-result-name"></strong><small id="book-output-result-path"></small>
@@ -810,7 +788,6 @@
     <div class="help-grid">
       <section><h3 data-i18n="viewWrite">نوشتن</h3><p data-i18n="writeActivityHelp"></p></section>
       <section><h3 data-i18n="viewSource">سورس</h3><p data-i18n="sourceActivityHelp"></p></section>
-      <section><h3 data-i18n="viewRead">خواندن</h3><p data-i18n="readActivityHelp"></p></section>
       <section><h3 data-i18n="sidePreview">پیش‌نمایش کنار متن</h3><p data-i18n="sideActivityHelp"></p></section>
       <section><h3 data-i18n="exportPdf">ساخت PDF</h3><p data-i18n="pdfActivityHelp"></p></section>
     </div>

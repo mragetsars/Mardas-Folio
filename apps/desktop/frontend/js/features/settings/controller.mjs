@@ -11,21 +11,22 @@ export function createSettingsController({
   toast,
 }) {
   const settingsPanel = createSettingsPanel($("#settings-form"));
-  function fillSettingsForm() {
-    $("#setting-theme").value = state.preferences.theme;
-    $("#setting-accent").value = state.preferences.accent;
+  let resetPending = false;
+  function fillSettingsForm(preferences = state.preferences) {
+    $("#setting-theme").value = preferences.theme;
+    $("#setting-accent").value = preferences.accent;
     const zoomSetting = $("#setting-document-zoom");
-    if (zoomSetting) zoomSetting.value = String(state.preferences.documentZoom);
-    $("#setting-motion").value = state.preferences.reducedMotion;
-    $("#setting-auto-preview").checked = state.preferences.autoPreview;
-    $("#setting-typewriter").checked = state.preferences.typewriter;
-    if ($("#setting-writing-width"))
-      $("#setting-writing-width").value = state.preferences.writingWidth;
+    if (zoomSetting) zoomSetting.value = String(preferences.documentZoom);
+    $("#setting-motion").value = preferences.reducedMotion;
+    $("#setting-auto-preview").checked = preferences.autoPreview;
+    $("#setting-typewriter").checked = preferences.typewriter;
+    if ($("#setting-writing-width")) $("#setting-writing-width").value = preferences.writingWidth;
     $("#setting-locale").value = state.locale;
     settingsPanel.updateAccentPreview();
   }
 
   function openSettings(section = "settings-appearance") {
+    resetPending = false;
     fillSettingsForm();
     settingsPanel.showSection(section);
     getModalManager().open($("#settings-modal"), { initialFocus: "#settings-search" });
@@ -38,7 +39,8 @@ export function createSettingsController({
   function submitSettings(event) {
     event.preventDefault();
     state.preferences = writePreferences({
-      ...state.preferences,
+      ...(resetPending ? DEFAULT_PREFERENCES : state.preferences),
+      onboardingComplete: state.preferences.onboardingComplete,
       theme: $("#setting-theme").value,
       accent: $("#setting-accent").value,
       documentZoom: Number($("#setting-document-zoom").value),
@@ -54,14 +56,9 @@ export function createSettingsController({
   }
 
   function resetSettings() {
-    state.preferences = writePreferences({
-      ...DEFAULT_PREFERENCES,
-      onboardingComplete: state.preferences.onboardingComplete,
-    });
-    applyInterfacePreferences();
-    fillSettingsForm();
+    resetPending = true;
+    fillSettingsForm(DEFAULT_PREFERENCES);
     settingsPanel.showSection();
-    toast(t("settingsReset"), "success");
   }
   return { openSettings, closeSettings, submitSettings, resetSettings };
 }

@@ -918,6 +918,8 @@ def compose_document(
     style_css = _style_css(appearance)
     appearance_css = palette_css(appearance.palette, appearance.mode, appearance.style)
     font_faces = _font_faces(options.font_dir, embed=embed_fonts)
+    if not font_faces and options.body_font == "vazirmatn":
+        font_faces = _font_faces(_asset_path("fonts"), embed=True)
     metadata = result.metadata
     title = options.title or _stringify_metadata_value(metadata.get("title")) or result.title
     author = (

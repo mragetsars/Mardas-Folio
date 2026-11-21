@@ -11,6 +11,7 @@ export function createExportController({
   errorPayload,
   requestId,
   exportSelectionValid,
+  hasInvalidOptions = () => false,
   exportOverrides,
   hideExportResult,
   showExportResult,
@@ -79,7 +80,8 @@ export function createExportController({
     $("#export-form").setAttribute("aria-busy", String(busy));
     $("#preview-choose-source").disabled = busy;
     $("#choose-output").disabled = busy || !state.sourcePath;
-    $("#validate-button").disabled = busy || !state.sourcePath || !state.outputPath;
+    $("#validate-button").disabled =
+      busy || !state.sourcePath || !state.outputPath || hasInvalidOptions();
     $("#export-button").disabled = $("#validate-button").disabled;
   }
 

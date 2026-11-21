@@ -60,6 +60,10 @@ class PdfOptions:
     margin_top: str = "18mm"
     margin_bottom: str = "20mm"
     margin_x: str = "16mm"
+    body_font: str = "theme"
+    body_size_pt: float = 11.0
+    body_leading: float = 1.6
+    paragraph_align: str = "justify"
     font_dir: Path | None = None
     chromium_path: str | None = None
     chromium_sandbox: str = "auto"

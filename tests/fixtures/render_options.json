@@ -261,6 +261,24 @@
     "watermark_width": {
       "choices": [],
       "nullable": false
+    },
+    "body_font": {
+      "choices": [
+        "theme",
+        "sans",
+        "serif",
+        "vazirmatn"
+      ]
+    },
+    "body_size_pt": {},
+    "body_leading": {},
+    "paragraph_align": {
+      "choices": [
+        "justify",
+        "start",
+        "center",
+        "end"
+      ]
     }
   }
 }

@@ -8,10 +8,6 @@ const workspaceStyles = readFileSync(
   new URL("../../frontend/styles/workspace.css", import.meta.url),
   "utf8",
 );
-const shellStyles = readFileSync(
-  new URL("../../frontend/styles/shell-system.css", import.meta.url),
-  "utf8",
-);
 const settingsStyles = readFileSync(new URL("styles/settings.css", frontend), "utf8");
 const designTokens = readFileSync(new URL("design/tokens.css", frontend), "utf8");
 const components = readFileSync(new URL("design/components.css", frontend), "utf8");
@@ -145,11 +141,16 @@ test("the trial accent fills are available alongside the monochrome default", ()
   }
 });
 
-test("recent documents keep the title and location separate from their icon", () => {
-  const main = readFileSync(new URL("../../frontend/js/main.mjs", import.meta.url), "utf8");
-  assert.match(main, /class="recent-copy"/);
-  assert.match(main, /class="recent-icon"/);
-  assert.match(shellStyles, /\.workspace-empty \.recent-copy strong \{/);
+test("Go to file keeps recent titles and locations distinct in the global picker", () => {
+  const html = readFileSync(new URL("../../frontend/index.html", import.meta.url), "utf8");
+  const picker = readFileSync(
+    new URL("../../frontend/js/ui/navigation-picker.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(html.slice(0, html.indexOf('<main id="app-main"')), /id="workspace-quick-open"/);
+  assert.doesNotMatch(html, /id="recent-list"/);
+  assert.match(picker, /createElement\("strong"\)/);
+  assert.match(picker, /createElement\("small"\)/);
 });
 
 test("settings scrolling and preview anchors are deliberately constrained", () => {

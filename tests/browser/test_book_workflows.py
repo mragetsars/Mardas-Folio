@@ -77,8 +77,13 @@ def book_page(component_browser, frontend_url, request):
         context.close()
 
 
+def open_book_form(page):
+    page.locator("#shelf-add").press("ArrowDown")
+    page.get_by_role("menuitem").filter(has=page.locator('.library-mini[data-type="book"]')).click()
+
+
 def fill_book_form(page):
-    page.locator("#workflow-book").click()
+    open_book_form(page)
     expect(page.locator("#book-project-title-input")).to_be_focused()
     page.locator("#book-project-title-input").fill("کتاب Sample")
     expect(page.locator("#book-project-folder-input")).to_have_value("کتاب-sample")
@@ -150,7 +155,7 @@ def test_dismissed_creation_does_not_activate_a_late_project(book_page):
     expect(page.locator("#book-project-form button[type=submit]")).to_be_enabled()
     expect(page.locator("#navigator-project-section")).to_be_hidden()
     assert page.evaluate("calls.some(call => call.method === 'project.read')") is False
-    page.locator("#workflow-book").click()
+    open_book_form(page)
     expect(page.locator("#book-project-title-input")).to_have_value("")
     expect(page.locator("#book-project-folder-input")).to_have_value("")
 

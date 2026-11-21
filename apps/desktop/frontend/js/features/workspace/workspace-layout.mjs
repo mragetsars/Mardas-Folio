@@ -3,11 +3,11 @@ import { optionalLocalStorage } from "../../adapters/storage.mjs";
 export const WORKSPACE_LAYOUT_STORAGE_KEY = "mardas.desktop.workspace-layout.v2";
 
 export const DEFAULT_WORKSPACE_LAYOUT = Object.freeze({
-  filesOpen: true,
+  filesOpen: false,
   filesWidth: 248,
   sidebarOpen: false,
   previewOpen: false,
-  formattingOpen: true,
+  formattingOpen: false,
   navigatorTab: "files",
   sidebarWidth: 296,
   previewWidth: 500,

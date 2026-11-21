@@ -53,7 +53,9 @@ function svg(view, paths) {
 }
 function clip(rear) {
   const n = part(rear ? "clip-back" : "clip-front");
-  const path = rear ? "M8 18V8a5 5 0 0 1 10 0v19" : "M18 8v22a8 8 0 0 1-16 0V9a4 4 0 0 1 8 0v18";
+  const path = rear
+    ? "M4 24V9a6 6 0 0 1 12 0v9"
+    : "M4 9v20a6 6 0 0 0 12 0V9a4 4 0 0 0-8 0v18a2 2 0 0 0 4 0V13";
   n.append(
     svg("0 0 20 40", [
       [path, "#555e61", "3"],
@@ -61,6 +63,16 @@ function clip(rear) {
     ]),
   );
   return n;
+}
+function binding(wire) {
+  const strip = part("binding");
+  if (wire) for (let i = 0; i < 11; i++) strip.append(element("i"));
+  return strip;
+}
+function rules() {
+  const body = part("rules");
+  for (let i = 0; i < 7; i++) body.append(element("i"));
+  return body;
 }
 function textPart(name, value) {
   const n = part(name, value);
@@ -113,7 +125,7 @@ export function shelfObject(item, t) {
     copy.append(title);
     if (item.type === "article") {
       copy.append(detail, textPart("byline", masked ? "" : item.author));
-      front.append(art, copy, part("binding"));
+      front.append(art, copy, binding(a.binding === "wire"));
     } else {
       copy.append(iconMark(masked ? { mark: "auto" } : a, a.variant === "full"));
       front.append(art, copy, part("skin"), part("hinge"));
@@ -123,7 +135,7 @@ export function shelfObject(item, t) {
   } else if (item.type === "document") {
     if (a.fastener === "clip") shell.append(clip(true));
     shell.append(part("leaf layer-three"), part("leaf layer-two"));
-    front.append(iconMark(masked ? { mark: "triangle" } : a, false), title, detail, part("rules"));
+    front.append(iconMark(masked ? { mark: "triangle" } : a, false), title, detail, rules());
     shell.append(front, a.fastener === "clip" ? clip(false) : part("fastener"));
   } else if (item.type === "note") {
     front.append(title, detail);
@@ -132,7 +144,7 @@ export function shelfObject(item, t) {
     const photo = part("portrait");
     if (pic) photo.append(pic);
     else photo.append(part("avatar"));
-    front.append(photo, title, detail, part("rules"));
+    front.append(photo, title, detail, rules());
     shell.append(front);
   }
   return shell;

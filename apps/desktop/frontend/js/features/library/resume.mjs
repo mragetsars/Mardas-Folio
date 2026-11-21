@@ -1,17 +1,11 @@
+import { updateResumeFields } from "../documents/json-source.mjs";
+import { enableDialogBackdrop } from "../../ui/dialog-backdrop.mjs";
 import { resumeData } from "./catalog.mjs";
 import { element } from "./objects.mjs";
 
 const fields = ["name", "label", "email", "summary"];
 export function updateBasics(source, values) {
-  const data = resumeData(source);
-  if (!data) return null;
-  let changed = false;
-  for (const key of fields) {
-    if (typeof values[key] !== "string" || (data.basics[key] ?? "") === values[key]) continue;
-    data.basics[key] = values[key];
-    changed = true;
-  }
-  return changed ? JSON.stringify(data, null, 2) + "\n" : source;
+  return resumeData(source) ? updateResumeFields(source, values) : null;
 }
 export function editResume(model, t, apply, restore) {
   const source = model.content;
@@ -66,5 +60,6 @@ export function editResume(model, t, apply, restore) {
     }
     dialog.close();
   });
+  enableDialogBackdrop(dialog);
   dialog.showModal();
 }

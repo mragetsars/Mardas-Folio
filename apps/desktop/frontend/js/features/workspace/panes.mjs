@@ -46,6 +46,12 @@ export function createWorkspacePanes({
     sidebarButton?.setAttribute("aria-pressed", String(layout.sidebarOpen));
     if (sidebarResizer) sidebarResizer.setAttribute("aria-valuenow", String(fitted.sidebarWidth));
     if (previewResizer) previewResizer.setAttribute("aria-valuenow", String(fitted.previewWidth));
+    for (const [id, open] of [
+      ["files", layout.filesOpen],
+      ["sidebar", layout.sidebarOpen],
+      ["preview", layout.previewOpen],
+    ])
+      $("#workspace-toggle-" + id)?.setAttribute("aria-expanded", String(open));
     applyNavigatorContext();
   }
 

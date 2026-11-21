@@ -6,7 +6,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   theme: "system",
   accent: "monochrome",
   contentScale: "comfortable",
-  writingWidth: "full",
+  writingWidth: "readable",
   documentZoom: 100,
   writingDensity: "comfortable",
   writingFont: "document",
@@ -65,11 +65,10 @@ export function nextDocumentZoom(value, direction) {
 }
 const MOTION = new Set(["system", "reduce", "full"]);
 /**
- * Write formats the editable Markdown in place, Source exposes its syntax,
- * Read is noneditable. Side preview is a separate layout choice for either
- * editing representation. Legacy Split preferences migrate to Source + preview.
+ * Document and Source edit the same file. Side preview is independent.
+ * Legacy Read becomes Document. Legacy Split becomes Source with preview.
  */
-const VIEW_MODES = new Set(["write", "source", "read", "split"]);
+const VIEW_MODES = new Set(["write", "source"]);
 
 function booleanValue(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
@@ -82,12 +81,12 @@ export function normalizePreferences(value = {}) {
     contentScale: SCALES.has(value?.contentScale)
       ? value.contentScale
       : DEFAULT_PREFERENCES.contentScale,
-    // "comfortable" was the old implicit narrow default. Full width gives
-    // existing installations the same new canvas as fresh ones; the optional
-    // readable column has its own value so a new explicit choice is retained.
-    writingWidth: WRITING_WIDTHS.has(value?.writingWidth)
-      ? value.writingWidth
-      : DEFAULT_PREFERENCES.writingWidth,
+    writingWidth:
+      value?.writingWidth === "comfortable"
+        ? "full"
+        : WRITING_WIDTHS.has(value?.writingWidth)
+          ? value.writingWidth
+          : DEFAULT_PREFERENCES.writingWidth,
     documentZoom: normalizeDocumentZoom(
       value?.documentZoom,
       LEGACY_ZOOM[value?.contentScale] || DEFAULT_PREFERENCES.documentZoom,

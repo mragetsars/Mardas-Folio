@@ -271,6 +271,17 @@ CONFIG_FIELDS: tuple[ConfigField, ...] = (
     ConfigField("output", "cover", "no_cover", _boolean, invert=True),
     ConfigField("output", "header_footer", "no_header_footer", _boolean, invert=True),
     ConfigField("output", "mathjax", "no_mathjax", _boolean, invert=True),
+    ConfigField(
+        "appearance", "body_font", "body_font", _choice(["theme", "sans", "serif", "vazirmatn"])
+    ),
+    ConfigField("appearance", "body_size_pt", "body_size_pt", _number(7, 30)),
+    ConfigField("appearance", "body_leading", "body_leading", _number(1, 2.5)),
+    ConfigField(
+        "appearance",
+        "paragraph_align",
+        "paragraph_align",
+        _choice(["justify", "start", "center", "end"]),
+    ),
     ConfigField("appearance", "style", "style", _choice(list(STYLES))),
     ConfigField("appearance", "palette", "palette", _choice(list(PALETTES_ORDER))),
     ConfigField("appearance", "mode", "mode", _choice(list(MODES))),
@@ -427,6 +438,11 @@ margin_bottom = "20mm"
 margin_x = "16mm"
 
 [appearance]
+# Body text size in typographic points and line height as a multiplier.
+# body_size_pt = 11
+# body_leading = 1.6
+# body_font = "theme"
+# paragraph_align = "justify"
 style = "modern"
 palette = "blue"
 mode = "light"

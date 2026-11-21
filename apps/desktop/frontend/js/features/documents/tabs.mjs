@@ -7,15 +7,13 @@ export function createDocumentTabs({
   query: $,
   activeDocument,
   activateDocument,
-  activateStartTab,
-  closeStartTab,
   requestCloseDocument,
   closeCompactDrawer,
   setTruncatableText,
   t,
 }) {
   function orderedTabs() {
-    const tabs = [...state.documents, ...state.startTabs];
+    const tabs = state.documents;
     const byId = new Map(tabs.map((tab) => [tab.id, tab]));
     state.tabOrder = state.tabOrder.filter((id) => byId.has(id));
     for (const tab of tabs) if (!state.tabOrder.includes(tab.id)) state.tabOrder.push(tab.id);
@@ -23,22 +21,18 @@ export function createDocumentTabs({
   }
 
   function tabElement(model) {
-    const isStart = Boolean(model.isStart);
-    const isActive = isStart
-      ? model.id === state.activeStartTabId
-      : model.id === state.activeDocumentId;
+    const isActive = model.id === state.activeDocumentId;
     const tabs = orderedTabs();
     const tab = window.document.createElement("div");
-    tab.className = `document-tab${isActive ? " active" : ""}${!isStart && documentDirty(model) ? " dirty" : ""}`;
+    tab.className = `document-tab${isActive ? " active" : ""}${documentDirty(model) ? " dirty" : ""}`;
     tab.dataset.documentId = model.id;
     tab.innerHTML = `<button class="tab-activate" type="button" role="tab"><i class="dirty-dot"></i><span class="tab-name"></span></button><button class="tab-close" type="button" aria-label="${t("close")}"></button>`;
     tab.querySelector(".tab-close").append(spriteIcon("close"));
-    setTruncatableText(tab.querySelector(".tab-name"), isStart ? t("newTab") : model.title);
+    setTruncatableText(tab.querySelector(".tab-name"), model.title);
     const activate = tab.querySelector(".tab-activate");
     activate.tabIndex = isActive ? 0 : -1;
     activate.setAttribute("aria-selected", String(isActive));
-    const select = (target, focus = "editor") =>
-      target.isStart ? activateStartTab(target.id, focus) : activateDocument(target.id, { focus });
+    const select = (target, focus = "editor") => activateDocument(target.id, { focus });
     activate.addEventListener("click", () => select(model));
     activate.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -61,8 +55,7 @@ export function createDocumentTabs({
     });
     tab.querySelector(".tab-close").addEventListener("click", (event) => {
       event.stopPropagation();
-      if (isStart) closeStartTab(model.id);
-      else void requestCloseDocument(model.id);
+      void requestCloseDocument(model.id);
     });
     return tab;
   }

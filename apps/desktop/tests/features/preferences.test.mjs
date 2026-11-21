@@ -82,7 +82,7 @@ test("accent settings migrate, validate and survive a restart", () => {
 });
 
 test("existing narrow defaults migrate to a full canvas while explicit new widths persist", () => {
-  assert.equal(normalizePreferences().writingWidth, "full");
+  assert.equal(normalizePreferences().writingWidth, "readable");
   assert.equal(normalizePreferences({ writingWidth: "comfortable" }).writingWidth, "full");
   for (const writingWidth of ["full", "readable", "wide"]) {
     const store = storage();
@@ -151,13 +151,13 @@ test("legacy Split migrates to editable Source with an independent side preview"
 
 test("side preview is a remembered layout choice for either editing representation", () => {
   const store = storage();
-  for (const viewMode of ["write", "source", "read", "write"]) {
+  for (const viewMode of ["write", "source", "write"]) {
     const current = writePreferences(
       { ...readPreferences(store), viewMode, sidePreview: true },
       store,
     );
     assert.equal(current.sidePreview, true);
-    assert.equal(previewVisibleForView(current.viewMode, current.sidePreview), viewMode !== "read");
+    assert.equal(previewVisibleForView(current.viewMode, current.sidePreview), true);
     assert.equal(editorModeForView(current.viewMode), viewMode === "write" ? "live" : "source");
   }
   assert.equal(
@@ -165,6 +165,7 @@ test("side preview is a remembered layout choice for either editing representati
     false,
   );
   assert.equal(readPreferences(store).viewMode, "source");
+  assert.equal(normalizePreferences({ viewMode: "read" }).viewMode, "write");
   for (const sidePreview of [null, "true", 1, {}]) {
     assert.equal(normalizePreferences({ viewMode: "write", sidePreview }).sidePreview, false);
   }

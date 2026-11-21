@@ -53,9 +53,12 @@ test("academic manuscripts travel with type metadata and independent excerpts", 
     author: "",
   });
 });
-test("unrelated JSON is ignored and resume form preserves unedited keys", () => {
+test("ordinary JSON has a document card and the resume form preserves unedited keys", () => {
   assert.equal(resumeData('{"basics":{"version":42}}'), null);
-  assert.equal(describe({ path: "/other.json", kind: "json", content: '{"other":true}' }), null);
+  assert.equal(
+    describe({ path: "/other.json", kind: "json", content: '{"other":true}' }).type,
+    "document",
+  );
   const source = JSON.stringify({
     basics: { name: "Sara", custom: 42 },
     work: [{ name: "Studio" }],

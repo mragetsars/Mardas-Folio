@@ -1,3 +1,5 @@
+import { spriteIcon } from "../../ui/icons.mjs";
+import { captureDrafts, orderedShelf, promoteDraft } from "./draft-order.mjs";
 import { basename } from "../../core/path-names.mjs";
 import { pathIdentity } from "../../core/path-identity.mjs";
 import { readLibrary, writeLibrary } from "../../adapters/library-api.mjs";
@@ -30,7 +32,7 @@ export function createShelf({
   const filter = document.getElementById("shelf-filter"),
     sort = document.getElementById("shelf-sort"),
     notice = document.getElementById("shelf-status");
-  const menu = createTypeMenu({ t, create, boundary: document.getElementById("workspace-empty") });
+  const menu = createTypeMenu({ t, create, boundary: document.getElementById("library-view") });
   const catalogue = createCatalogue({
     read: readLibrary,
     write: async (rev, items) => {
@@ -41,6 +43,39 @@ export function createShelf({
       }
     },
     changed: render,
+  });
+  const pinKey = "mardas.desktop.shelf-draft-order.v1";
+  let pins = [];
+  try {
+    const stored = JSON.parse(localStorage.getItem(pinKey) || "[]");
+    if (Array.isArray(stored)) pins = stored.filter((p) => typeof p?.id === "string");
+  } catch {
+    /* Local settings can be unavailable in a restricted profile. */
+  }
+  function rememberPins(next) {
+    pins = next;
+    try {
+      localStorage.setItem(pinKey, JSON.stringify(pins));
+    } catch {
+      /* Keep this session usable. */
+    }
+  }
+  let orderMenu = null;
+  function closeOrderMenu() {
+    if (!orderMenu) return;
+    orderMenu.previousElementSibling?.setAttribute("aria-expanded", "false");
+    orderMenu.remove();
+    orderMenu = null;
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (orderMenu && !orderMenu.parentNode?.contains(e.target)) closeOrderMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && orderMenu) {
+      const trigger = orderMenu.previousElementSibling;
+      closeOrderMenu();
+      trigger?.focus();
+    }
   });
   let visible = [],
     moving = null,
@@ -80,19 +115,33 @@ export function createShelf({
   }
   function remember(model) {
     if (!model?.path) return;
+    let promoted = null;
     return guard(
-      catalogue.change((items) => {
-        const existing = items.find((i) => pathIdentity(i.path) === pathIdentity(model.path));
-        // A chapter is represented by its project unless explicitly catalogued on its own.
-        if (
-          model.projectPath &&
-          !existing &&
-          state.project?.book?.chapters?.some((c) => c.path === model.projectRelativePath)
-        )
-          return items;
-        const entry = record(model, existing);
-        return entry ? upsert(items, entry) : items;
-      }),
+      catalogue
+        .change((items) => {
+          const existing = items.find((i) => pathIdentity(i.path) === pathIdentity(model.path));
+          // A chapter is represented by its project unless explicitly catalogued on its own.
+          if (
+            model.projectPath &&
+            !existing &&
+            state.project?.book?.chapters?.some((c) => c.path === model.projectRelativePath)
+          )
+            return items;
+          const entry = record(model, existing);
+          if (!entry) return items;
+          if (!existing && pins.some((p) => p.id === entry.id)) {
+            promoted = promoteDraft(items, entry, pins);
+            return promoted.rows;
+          }
+          promoted = null;
+          return upsert(items, entry);
+        })
+        .then(() => {
+          if (promoted) {
+            rememberPins(promoted.pins);
+            render();
+          }
+        }),
     );
   }
   function rememberBook(project) {
@@ -128,7 +177,7 @@ export function createShelf({
       .filter((m) => !m.path)
       .map((m) => record(m))
       .filter(Boolean);
-    return [...saved, ...drafts];
+    return orderedShelf(saved, drafts, pins);
   }
   function displayName(item) {
     return item.appearance.privacy === "hidden"
@@ -142,7 +191,8 @@ export function createShelf({
       ?.focus({ preventScroll: true });
   }
   function actionIcon(symbol, label, run) {
-    const b = element("button", "", symbol);
+    const b = element("button");
+    b.append(spriteIcon(symbol));
     b.type = "button";
     b.title = label;
     b.setAttribute("aria-label", label);
@@ -251,8 +301,23 @@ export function createShelf({
   }
   async function move(id, target) {
     if (sort.value !== "manual" || id === target) return;
-    const ids = visible.filter((i) => i.path).map((i) => i.id);
-    await catalogue.change((items) => moveVisible(items, id, target, ids));
+    const ids = visible.map((i) => i.id);
+    let newPins = pins;
+    await catalogue.change((items) => {
+      const drafts = state.documents
+        .filter((m) => !m.path)
+        .map((m) => record(m))
+        .filter(Boolean);
+      const ordered = orderedShelf(items, drafts, pins);
+      const next = moveVisible(ordered, id, target, ids);
+      const savedIds = new Set(items.map((i) => i.id));
+      newPins = captureDrafts(next, savedIds);
+      const persisted = next.filter((i) => savedIds.has(i.id));
+      return persisted.every((item, i) => items[i] === item) ? items : persisted;
+    });
+    rememberPins(newPins);
+    render();
+    say("shelfMoveDone");
     focus(id);
   }
   function tile(item) {
@@ -266,8 +331,10 @@ export function createShelf({
     button.append(shelfObject(item, t));
     button.addEventListener("click", () => void openItem(item));
     const tools = element("div", "library-tools");
+    tools.setAttribute("role", "group");
+    tools.setAttribute("aria-label", displayName(item));
     tools.append(
-      actionIcon("✎", t("shelfAppearance"), () =>
+      actionIcon("pencil", t("shelfAppearance"), () =>
         editAppearance(
           item,
           t,
@@ -276,10 +343,38 @@ export function createShelf({
         ),
       ),
     );
-    if (item.path && sort.value === "manual") {
-      const pos = visible.filter((i) => i.path).findIndex((i) => i.id === item.id);
-      const neighbours = visible.filter((i) => i.path);
-      const grip = actionIcon("⠿", t("shelfGrip"), () => {});
+    if (sort.value === "manual") {
+      const pos = visible.findIndex((i) => i.id === item.id);
+      const neighbours = visible;
+      let suppressClick = false;
+      const grip = actionIcon("grip", t("shelfGrip"), () => {
+        if (suppressClick) {
+          suppressClick = false;
+          return;
+        }
+        const wasOpen = orderMenu?.previousElementSibling === grip;
+        closeOrderMenu();
+        if (wasOpen) return;
+        orderMenu = element("div", "library-order-menu");
+        for (const [delta, key] of [
+          [-1, "shelfEarlier"],
+          [1, "shelfLater"],
+        ]) {
+          const option = element("button", "", t(key));
+          option.type = "button";
+          const target = neighbours[pos + delta];
+          option.disabled = !target;
+          option.onclick = () => {
+            closeOrderMenu();
+            if (target) void guard(move(item.id, target.id));
+          };
+          orderMenu.append(option);
+        }
+        grip.after(orderMenu);
+        grip.setAttribute("aria-expanded", "true");
+        orderMenu.querySelector("button:not(:disabled)")?.focus();
+      });
+      grip.setAttribute("aria-expanded", "false");
       grip.className = "library-grip";
       grip.addEventListener("pointerdown", (e) => {
         if (e.button !== 0 || moving) return;
@@ -290,9 +385,11 @@ export function createShelf({
           y: e.clientY,
           target: null,
           dragging: false,
+          preventClick: () => {
+            suppressClick = true;
+          },
         };
         grip.setPointerCapture?.(e.pointerId);
-        e.preventDefault();
       });
       grip.addEventListener("keydown", (e) => {
         const rtl = document.documentElement.dir === "rtl";
@@ -309,32 +406,48 @@ export function createShelf({
         }
       });
       tools.append(grip);
-      const prev = actionIcon(
-        "−1",
-        t("shelfEarlier"),
-        () => void guard(move(item.id, neighbours[pos - 1].id)),
-      );
-      const next = actionIcon(
-        "+1",
-        t("shelfLater"),
-        () => void guard(move(item.id, neighbours[pos + 1].id)),
-      );
-      prev.disabled = pos <= 0;
-      next.disabled = pos >= neighbours.length - 1;
-      tools.append(prev, next);
+    } else {
+      const hint = actionIcon("grip", t("shelfManualHelp"), () => {});
+      hint.disabled = true;
+      tools.append(hint);
     }
     tools.append(
       actionIcon(
-        "×",
+        "trash",
         t(item.path ? "shelfRemove" : "shelfDiscard"),
         () => void guard(remove(item)),
       ),
     );
+    tools.lastElementChild.dataset.tool = "remove";
     node.append(button, tools);
+    if (item.type === "note") {
+      const more = actionIcon("more", displayName(item) + " · " + t("documentActions"), () => {
+        const open = node.dataset.actions !== "true";
+        node.dataset.actions = String(open);
+        more.setAttribute("aria-expanded", String(open));
+        if (open) tools.querySelector("button")?.focus();
+      });
+      more.className = "library-note-menu";
+      more.setAttribute("aria-expanded", "false");
+      function hideTools() {
+        node.dataset.actions = "false";
+        more.setAttribute("aria-expanded", "false");
+      }
+      node.addEventListener("focusout", (e) => {
+        if (!node.contains(e.relatedTarget)) hideTools();
+      });
+      node.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && node.dataset.actions === "true" && !orderMenu) {
+          hideTools();
+          more.focus();
+        }
+      });
+      node.append(more);
+    }
     return node;
   }
   function render() {
-    if (state.activeDocumentId) return;
+    if (document.body.dataset.view !== "library") return;
     visible = listing().filter(
       (i) =>
         (!filter.value || i.type === filter.value) &&
@@ -355,6 +468,10 @@ export function createShelf({
     const key = JSON.stringify([state.locale, sort.value, filter.value, search.value, visible]);
     if (key === currentKey) return;
     currentKey = key;
+    closeOrderMenu();
+    document.getElementById("shelf-count").textContent = new Intl.NumberFormat(state.locale).format(
+      visible.length,
+    );
     const focused = document.activeElement?.closest(".library-item")?.dataset.id;
     menu.close();
     grid.replaceChildren();
@@ -394,16 +511,21 @@ export function createShelf({
     const p = moving;
     moving = null;
     grid.querySelector(".is-target")?.classList.remove("is-target");
+    grid.querySelector(".is-dragging")?.classList.remove("is-dragging");
+    if (p?.dragging) p.preventClick();
     if (commit && p?.dragging && p.target) void guard(move(p.id, p.target));
   }
   document.addEventListener("pointermove", (e) => {
     if (e.pointerId !== moving?.pointer) return;
     moving.dragging ||= Math.hypot(e.clientX - moving.x, e.clientY - moving.y) > 6;
     if (!moving.dragging) return;
+    [...grid.querySelectorAll(".library-item")]
+      .find((n) => n.dataset.id === moving.id)
+      ?.classList.add("is-dragging");
     const target = document.elementFromPoint(e.clientX, e.clientY)?.closest(".library-item");
     grid.querySelector(".is-target")?.classList.remove("is-target");
     moving.target =
-      target && grid.contains(target) && visible.find((i) => i.id === target.dataset.id)?.path
+      target && grid.contains(target) && visible.some((i) => i.id === target.dataset.id)
         ? target.dataset.id
         : null;
     if (moving.target && moving.target !== moving.id) target.classList.add("is-target");
@@ -418,6 +540,11 @@ export function createShelf({
     if (e.key === "Escape" && moving) stopDrag(false);
   });
   window.addEventListener("blur", () => stopDrag(false));
+  document.getElementById("shelf-reset").addEventListener("click", () => {
+    search.value = filter.value = "";
+    render();
+    search.focus();
+  });
   search.addEventListener("input", render);
   filter.addEventListener("change", render);
   sort.addEventListener("change", render);
@@ -466,6 +593,10 @@ export function createShelf({
     rememberBook,
     typeFor: (path) =>
       catalogue.items.find((row) => pathIdentity(row.path) === pathIdentity(path))?.type,
+    openNew: () => {
+      menu.trigger.focus();
+      if (menu.trigger.getAttribute("aria-expanded") !== "true") menu.trigger.click();
+    },
     focusNew: () => menu.trigger.focus(),
     items: () => catalogue.items,
   };

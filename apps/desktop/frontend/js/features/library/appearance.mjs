@@ -1,3 +1,4 @@
+import { enableDialogBackdrop } from "../../ui/dialog-backdrop.mjs";
 import { defaults, element } from "./objects.mjs";
 import { choices } from "./appearance-options.mjs";
 const fields = {
@@ -171,5 +172,6 @@ export function editAppearance(item, t, save, restore) {
   form.append(title, body, error, actions);
   dialog.append(form);
   document.body.append(dialog);
+  enableDialogBackdrop(dialog, () => !saving);
   dialog.showModal();
 }

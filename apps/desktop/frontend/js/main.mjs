@@ -1,3 +1,5 @@
+import { DEFAULT_WORKSPACE_LAYOUT as cleanLayout } from "./features/workspace/workspace-layout.mjs";
+import { createJsonView } from "./features/documents/json-view.mjs";
 import { createShelf } from "./features/library/shelf.mjs";
 import { describe, draftFor, resumeData } from "./features/library/catalog.mjs";
 import { editResume } from "./features/library/resume.mjs";
@@ -24,7 +26,6 @@ import {
 } from "./core/onboarding.mjs";
 import { PRESETS, presetById } from "./features/export/presets.mjs";
 import { createExportOptionsPanel } from "./features/export/export-options-panel.mjs";
-import { spriteIcon } from "./ui/icons.mjs";
 import { addRecent, readRecents, writeRecents } from "./features/documents/recents.mjs";
 import { invoke, listen } from "./adapters/tauri.mjs";
 import {
@@ -72,7 +73,6 @@ import { createOutlineNavigator } from "./ui/outline-navigator.mjs";
 import { createDocumentMetrics } from "./core/document-metrics.mjs";
 import { authoringShortcutKey } from "./core/keyboard-shortcuts.mjs";
 import { createWorkspaceToolbar } from "./features/workspace/workspace-toolbar.mjs";
-import { compactDocumentLocation } from "./core/path-display.mjs";
 import { createConfirmationQueue } from "./core/confirmation-queue.mjs";
 import { createSingleFlight } from "./core/single-flight.mjs";
 import { diagnosticLines, inlineDiagnosticsForDocument } from "./core/diagnostics.mjs";
@@ -126,8 +126,6 @@ const state = {
   recents: readRecents(),
   documents: [],
   activeDocumentId: null,
-  startTabs: [],
-  activeStartTabId: null,
   tabOrder: [],
   documentActivationSequence: 0,
   previewTimer: null,
@@ -183,6 +181,13 @@ const askConfirmation = createConfirmationQueue(presentConfirmation);
 const translator = createTranslator(state.locale);
 const t = (key) => translator.t(key);
 
+const jsonView = createJsonView($("#json-document"), {
+  t,
+  current: activeDocument,
+  editable: documentEditable,
+  apply: applyEditorContent,
+  sourceMode: () => setViewMode("source"),
+});
 const { toast } = createNotifications({ query: $ });
 const { updateUi, initializeUpdater, checkUpdates, installAvailableUpdate } = createUpdater({
   state,
@@ -271,7 +276,6 @@ const { saveActiveDocument, persistDocumentModel, requestCloseDocument, schedule
     isMarkdownModel,
     saveCoordinator,
     activateDocument,
-    activateStartTab,
     focusDocument,
     saveRecent,
     onSaved: (model) => library.remember({ ...model, content: model.savedContent }),
@@ -291,8 +295,6 @@ const { renderDocumentTabs, revealActiveTab, renderFileNavigator } = createDocum
   query: $,
   activeDocument,
   activateDocument,
-  activateStartTab,
-  closeStartTab,
   requestCloseDocument,
   closeCompactDrawer,
   setTruncatableText,
@@ -387,6 +389,7 @@ const {
   errorPayload,
   requestId,
   exportSelectionValid,
+  hasInvalidOptions: () => exportOptions.hasInvalidOptions(),
   exportOverrides,
   hideExportResult,
   showExportResult,
@@ -421,23 +424,23 @@ function documentEditable() {
   );
 }
 
-function effectiveViewMode() {
-  return activeDocument() && !isMarkdownModel(activeDocument())
-    ? "source"
-    : state.preferences.viewMode;
+function supportsDocumentView(model) {
+  return Boolean(model && (isMarkdownModel(model) || ["text", "txt", "json"].includes(model.kind)));
 }
-
+function effectiveViewMode() {
+  return supportsDocumentView(activeDocument()) ? state.preferences.viewMode : "source";
+}
 function contentViewVisible() {
-  return (
-    effectiveViewMode() === "read" ||
-    (isMarkdownModel(activeDocument()) &&
-      previewVisibleForView(effectiveViewMode(), state.preferences.sidePreview))
+  return Boolean(
+    activeDocument() && isMarkdownModel(activeDocument()) && state.preferences.sidePreview,
   );
 }
 
 function focusDocument() {
-  if (!activeDocument()) library.focusNew();
-  else if (effectiveViewMode() === "read") $("#reading-document")?.focus({ preventScroll: true });
+  if (document.body.dataset.view === "library") library.focusNew();
+  else if (!activeDocument()) $("#editor-create").focus();
+  else if (!$("#json-document").hidden)
+    $("#json-document").querySelector("input,button,summary")?.focus();
   else currentEditor().focus();
 }
 
@@ -507,28 +510,35 @@ function setLocale(value) {
   renderPresets();
   renderExportFiles();
   renderExportStatus();
-  renderRecents();
   library.translate();
   renderWorkspace();
   // The settings browser is built from translated strings, so it is rebuilt
   // rather than patched when the interface language changes.
   renderAdvancedOptions();
   renderSummary();
-  renderTemplateGallery();
   retranslateExportPreview();
   if (modalManager?.isOpen($("#command-modal"))) renderCommandPalette();
 }
 
+let exportReturnArea = "library";
 function showView(name) {
   toggleWorkspaceLayoutMenu(false);
   if (name !== "export" && document.body.dataset.view === "export") void releaseEngineForJob();
   // Leaving the workspace is a newer intent than any pending file activation.
   if (name !== "workspace") state.documentActivationSequence += 1;
+  const previous = document.body.dataset.view;
+  if (name === "export" && previous !== "export") exportReturnArea = previous || "library";
+  for (const button of $$(".area-nav [data-area]")) {
+    if (button.dataset.area === name) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  }
+  $("#document-actions-menu").open = false;
   $$(".view").forEach((element) => element.classList.remove("active"));
   $(`#${name}-view`)?.classList.add("active");
   document.body.dataset.view = name;
   if (name !== "workspace" && state.preferences.focusMode) updatePreference({ focusMode: false });
   if (name === "workspace") applyWorkspaceLayout();
+  if (name === "library") library.render();
   $("#app-main")?.focus({ preventScroll: true });
   syncExportToastPlacement();
 }
@@ -628,7 +638,7 @@ function applyViewMode() {
   const mode = effectiveViewMode();
   const model = activeDocument();
   const markdown = Boolean(model && isMarkdownModel(model));
-  editorAdapter?.setMode?.(editorModeForView(mode));
+  editorAdapter?.setMode?.(markdown ? editorModeForView(mode) : "source");
   editorAdapter?.setReadOnly?.(
     !model ||
       model.readOnly ||
@@ -648,7 +658,8 @@ function applyViewMode() {
     button.setAttribute("aria-checked", String(selected));
     button.tabIndex = selected ? 0 : -1;
     button.classList.toggle("selected", selected);
-    button.disabled = !model || (!markdown && button.dataset.viewMode !== "source");
+    button.disabled =
+      !model || (!supportsDocumentView(model) && button.dataset.viewMode !== "source");
   }
   const sidePreview = $("#workspace-toggle-preview");
   if (sidePreview) {
@@ -659,7 +670,15 @@ function applyViewMode() {
   const surface = $(".editor-pane");
   if (surface) surface.dataset.viewMode = mode;
   if ($("#reading-surface")) $("#reading-surface").hidden = mode !== "read";
-  if ($(".editor-surface")) $(".editor-surface").inert = !model || mode === "read";
+  const structured = mode === "write" && model?.kind === "json";
+  $("#json-document").hidden = !structured;
+  if (structured) jsonView.render(model, state.locale);
+  $(".editor-surface").inert = !model;
+  $(".editor-surface").classList.toggle("structured-buffer", structured);
+  $(".editor-surface").classList.toggle(
+    "text-document",
+    mode === "write" && Boolean(model) && !markdown && !structured,
+  );
   $("#workspace-view")?.setAttribute("data-view-mode", mode);
   updateAuthoringMode(model);
   if (markdown) loadFrontMatterForm(model);
@@ -667,34 +686,12 @@ function applyViewMode() {
 }
 
 function setViewMode(mode) {
-  const previousMode = effectiveViewMode();
-  if (activeDocument() && !isMarkdownModel(activeDocument()) && mode !== "source") return;
-  if (mode === previousMode) return;
-  const previousLine = previousMode === "read" ? readingSourceLine() : null;
-  if (mode === "read" && previousMode !== "read" && activeDocument()) {
-    pendingReadingLine = {
-      id: activeDocument().id,
-      line: editorAdapter?.firstVisibleLine?.() || 1,
-    };
-  }
-  // Keep command-palette/deep-link compatibility with the old combined mode.
-  if (mode === "split") {
-    updatePreference({ viewMode: "source", sidePreview: true });
-    schedulePreview(120, { entering: true });
-    editorAdapter?.focus?.();
-    return;
-  }
-  if (mode === "read" && activeDocument() && !isMarkdownModel(activeDocument())) mode = "source";
-  if (state.preferences.viewMode === "read" && readingDocumentId) {
-    readingScroll.set(readingDocumentId, $("#reading-document")?.scrollTop || 0);
-  }
+  if (!activeDocument() || !["write", "source"].includes(mode)) return;
+  if (mode === "write" && !supportsDocumentView(activeDocument())) return;
+  if (mode === effectiveViewMode() || editorAdapter?.commitPendingDrafts?.() === false) return;
   updatePreference({ viewMode: mode });
-  if (mode === "read") renderReading(activeDocument());
-  else if (previousLine !== null)
-    requestAnimationFrame(() => editorAdapter?.scrollToLine?.(previousLine));
   if (contentViewVisible()) schedulePreview(120, { entering: true });
-  if (mode === "read") $("#reading-document")?.focus({ preventScroll: true });
-  else editorAdapter?.focus?.();
+  focusDocument();
 }
 
 function toggleSidePreview({ keepFocus = false } = {}) {
@@ -777,24 +774,6 @@ function changeDocumentZoom(direction) {
     documentZoom:
       direction === 0 ? 100 : nextDocumentZoom(state.preferences.documentZoom, direction),
   });
-}
-
-function renderTemplateGallery() {
-  const container = $("#template-grid");
-  if (!container) return;
-  container.replaceChildren();
-  for (const template of templateList()) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "template-card";
-    button.dataset.templateId = template.id;
-    button.innerHTML = "<i></i><span><strong></strong><small></small></span>";
-    button.querySelector("i").replaceChildren(spriteIcon(template.symbol));
-    button.querySelector("strong").textContent = t(template.titleKey);
-    button.querySelector("small").textContent = t(template.descriptionKey);
-    button.addEventListener("click", () => createDocumentFromTemplate(template.id));
-    container.append(button);
-  }
 }
 
 function createDocumentFromTemplate(templateId = "blank") {
@@ -898,9 +877,9 @@ function onboardingBack() {
 }
 
 function commandDefinitions() {
-  const hasDocument = Boolean(activeDocument());
+  const hasDocument = document.body.dataset.view === "workspace" && Boolean(activeDocument());
   const canRender = hasDocument && isMarkdownModel(activeDocument());
-  const canEdit = documentEditable() && isMarkdownModel(activeDocument());
+  const canEdit = hasDocument && documentEditable() && isMarkdownModel(activeDocument());
   return [
     ...[
       ["bold", "bold", "pencil"],
@@ -1167,7 +1146,7 @@ function commandDefinitions() {
       label: t("viewWrite"),
       keywords: "write live formatted wysiwyg نوشتن",
       priority: 42,
-      enabled: canRender,
+      enabled: hasDocument && supportsDocumentView(activeDocument()),
       run: () => setViewMode("write"),
     },
     {
@@ -1178,15 +1157,6 @@ function commandDefinitions() {
       priority: 41,
       enabled: hasDocument,
       run: () => setViewMode("source"),
-    },
-    {
-      id: "view-read",
-      symbol: "book",
-      label: t("viewRead"),
-      keywords: "reading readonly خواندن مطالعه",
-      priority: 41,
-      enabled: canRender,
-      run: () => setViewMode("read"),
     },
     {
       id: "view-split",
@@ -1313,7 +1283,8 @@ const exportOptions = createExportOptionsPanel({
   onChange() {
     invalidateExportStatus();
     renderSummary();
-    schedulePdfPreview();
+    syncExportControls();
+    if (!exportOptions.hasInvalidOptions()) schedulePdfPreview();
   },
   pickPath: (field) =>
     invoke(field.widget === "directory" ? "pick_project_directory" : "pick_document_asset"),
@@ -1687,6 +1658,13 @@ function renderSummary() {
   count.textContent = changed ? `${changed} ${t("changedCount")}` : "";
   const rows = [
     [t("pageSize"), options.page_size ?? t("inherit")],
+    [
+      t("pdfTypography"),
+      options.body_size_pt !== undefined
+        ? new Intl.NumberFormat(state.locale).format(options.body_size_pt) + " pt"
+        : t("inherit"),
+    ],
+    [t("opt.paragraph_align"), options.paragraph_align ? t(options.paragraph_align) : t("inherit")],
     [t("toc"), options.toc === undefined ? t("inherit") : t(options.toc ? "enabled" : "disabled")],
     [
       t("quality"),
@@ -1709,31 +1687,9 @@ function renderSummary() {
   );
 }
 
-function renderRecents() {
-  const list = $("#recent-list");
-  if (!list) return;
-  list.replaceChildren();
-  $("#recent-empty").hidden = state.recents.length > 0;
-  $("#clear-recents").hidden = state.recents.length === 0;
-  for (const recent of state.recents) {
-    const button = document.createElement("button");
-    button.className = "recent-item";
-    button.type = "button";
-    button.innerHTML = `<span class="recent-icon" aria-hidden="true"></span><span class="recent-copy"><strong></strong><small></small></span>`;
-    button.querySelector(".recent-icon").append(spriteIcon("file"));
-    setTruncatableText(button.querySelector("strong"), basename(recent.path));
-    setTruncatableText(button.querySelector("small"), compactDocumentLocation(recent.path));
-    button.querySelector("small").title = recent.path;
-    button.title = recent.path;
-    button.addEventListener("click", () => openAuthoringPaths([recent.path]));
-    list.append(button);
-  }
-}
-
 function saveRecent(path) {
   if (!path) return;
   state.recents = writeRecents(addRecent(state.recents, path));
-  renderRecents();
 }
 
 function hideExportResult() {
@@ -1872,6 +1828,7 @@ async function chooseExportOutput() {
 }
 
 function exportSelectionValid() {
+  if (exportOptions.hasInvalidOptions()) return false;
   const errors = validateExportSelection({
     sourcePath: state.sourcePath,
     outputPath: state.outputPath,
@@ -2314,7 +2271,7 @@ function setTruncatableText(element, value) {
 
 function renderWorkspace() {
   const model = activeDocument();
-  if (model) state.activeStartTabId = null;
+  library.render();
   $("#workspace-empty-title").textContent = t("shelfTitle");
   $("#shelf-resume-fields").hidden =
     !model ||
@@ -2327,7 +2284,6 @@ function renderWorkspace() {
   renderProjectWorkspace();
   renderBookWorkspace();
   if (!model) {
-    library.render();
     closeFind({ restoreFocus: false });
     if (editor.setDocument) editor.setDocument(null, "");
     else editor.value = "";
@@ -2346,12 +2302,14 @@ function renderWorkspace() {
   updateAuthoringMode(model);
   // The adapter owns each document's undo history, selection and scroll.
   // Initial selection is applied only when the adapter sees this ID first.
+  const editorContent =
+    model.kind === "json" ? model.content.replace(/\r\n?/g, "\n") : model.content;
   if (editor.setDocument)
-    editor.setDocument(model.id, model.content, {
+    editor.setDocument(model.id, editorContent, {
       initialSelection: bodyStartOffset(model.content),
       kind: isMarkdownModel(model) ? "markdown" : "text",
     });
-  else if (editor.value !== model.content) editor.value = model.content;
+  else if (editor.value !== editorContent) editor.value = editorContent;
   if (!$("#find-bar").classList.contains("hidden")) updateFindMatches();
   else editorAdapter?.setSearchMatches?.();
   setTruncatableText($("#editor-title"), model.title);
@@ -2411,80 +2369,21 @@ async function activateDocument(id, { focus = "editor" } = {}) {
   await allowDocumentImages(model);
   if (sequence !== state.documentActivationSequence || !state.documents.includes(model)) return;
   state.activeDocumentId = id;
-  state.activeStartTabId = null;
+  if (focus !== "background") showView("workspace");
   state.validationSequence += 1;
   state.assetSequence += 1;
   state.bibliographySequence += 1;
   persistSession();
   renderWorkspace();
+  if (focus === "background") return;
   if (focus === "tab") {
     const tab = $$(".document-tab").find((element) => element.dataset.documentId === id);
     tab?.querySelector(".tab-activate")?.focus();
-  } else if (effectiveViewMode() === "read") $("#reading-document")?.focus({ preventScroll: true });
+  } else if (!$("#json-document").hidden)
+    $("#json-document").querySelector("input,button,summary")?.focus();
   else currentEditor().focus();
   schedulePreview(80, { entering: true });
   if (model.path) refreshAssets();
-}
-
-function consumeStartTab(replacementId, { moveExisting = false } = {}) {
-  if (!state.activeStartTabId) return;
-  const startId = state.activeStartTabId;
-  if (replacementId && (moveExisting || !state.tabOrder.includes(replacementId))) {
-    state.tabOrder = state.tabOrder
-      .filter((id) => id !== replacementId)
-      .map((id) => (id === startId ? replacementId : id));
-  } else {
-    state.tabOrder = state.tabOrder.filter((id) => id !== startId);
-  }
-  state.startTabs = state.startTabs.filter((tab) => tab.id !== state.activeStartTabId);
-  state.activeStartTabId = null;
-}
-
-function activateStartTab(id, focus = "editor") {
-  if (!state.startTabs.some((tab) => tab.id === id)) return;
-  if (activeDocument() && editorAdapter?.commitPendingDrafts?.() === false) return;
-  state.documentActivationSequence += 1;
-  state.activeDocumentId = null;
-  state.activeStartTabId = id;
-  persistSession();
-  renderWorkspace();
-  if (focus === "tab") {
-    $$(".document-tab")
-      .find((tab) => tab.dataset.documentId === id)
-      ?.querySelector(".tab-activate")
-      ?.focus();
-  } else focusDocument();
-}
-
-function createStartTab() {
-  if (activeDocument() && editorAdapter?.commitPendingDrafts?.() === false) return;
-  const tab = {
-    id:
-      globalThis.crypto?.randomUUID?.() ??
-      `start-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    isStart: true,
-  };
-  state.startTabs.push(tab);
-  state.tabOrder.push(tab.id);
-  activateStartTab(tab.id);
-}
-
-function closeStartTab(id) {
-  const wasActive = state.activeStartTabId === id;
-  if (wasActive) state.documentActivationSequence += 1;
-  state.startTabs = state.startTabs.filter((tab) => tab.id !== id);
-  if (!wasActive) {
-    renderDocumentTabs();
-  } else if (state.startTabs.length) {
-    activateStartTab(state.startTabs.at(-1).id);
-  } else if (state.documents.length) {
-    state.activeStartTabId = null;
-    void activateDocument(state.documents.at(-1).id);
-  } else {
-    state.activeStartTabId = null;
-    renderWorkspace();
-    focusDocument();
-  }
 }
 
 function createUntitledDocument() {
@@ -2493,15 +2392,13 @@ function createUntitledDocument() {
 
 function activateNewDraft(model) {
   state.documentActivationSequence += 1;
-  if (state.preferences.viewMode === "read") updatePreference({ viewMode: "write" });
-  consumeStartTab(model.id);
   state.documents.push(model);
   state.activeDocumentId = model.id;
   showView("workspace");
   renderWorkspace();
   scheduleRecovery();
   schedulePreview(120);
-  currentEditor().focus();
+  focusDocument();
   return model;
 }
 
@@ -2510,8 +2407,6 @@ async function openAuthoringPaths(paths, { catalogue = true } = {}) {
   if (!values.length) return;
   const sequence = ++state.documentActivationSequence;
   let intendedDocument = null;
-  let intendedWasNew = false;
-  showView("workspace");
   for (const path of values) {
     const existing = findDocumentByPath(state.documents, path);
     if (existing) {
@@ -2519,7 +2414,6 @@ async function openAuthoringPaths(paths, { catalogue = true } = {}) {
       if (state.documents.includes(existing)) {
         if (catalogue) await library.remember(existing);
         intendedDocument = existing;
-        intendedWasNew = false;
       }
       continue;
     }
@@ -2548,7 +2442,6 @@ async function openAuthoringPaths(paths, { catalogue = true } = {}) {
       await allowDocumentImages(model);
       if (state.documents.includes(model)) {
         intendedDocument = model;
-        intendedWasNew = !duplicate;
       }
       if (catalogue) await library.remember(model);
       saveRecent(model.path);
@@ -2567,8 +2460,8 @@ async function openAuthoringPaths(paths, { catalogue = true } = {}) {
   // Keep the owner of the visible buffer unchanged throughout every file read
   // and scope grant, including when several files are opened together.
   if (sequence === state.documentActivationSequence && state.documents.includes(intendedDocument)) {
-    consumeStartTab(intendedDocument.id, { moveExisting: intendedWasNew });
     state.activeDocumentId = intendedDocument.id;
+    showView("workspace");
     state.validationSequence += 1;
     state.assetSequence += 1;
     state.bibliographySequence += 1;
@@ -2836,10 +2729,10 @@ function resolveRecovery(restore) {
   if (next) showRecovery(next.model, next.recovery);
 }
 
-function onEditorInput() {
+function onEditorInput(content = currentEditor().value) {
   const model = activeDocument();
   if (!model) return;
-  updateDocumentContent(model, currentEditor().value);
+  updateDocumentContent(model, content);
   scheduleDocumentImages(model);
   if (!$("#find-bar").classList.contains("hidden")) updateFindMatches();
   state.validationSequence += 1;
@@ -3337,9 +3230,17 @@ function applySidebarContext() {
   const documentOnly = ["outline", "frontmatter", "assets", "citations"];
   const model = activeDocument();
   let name = state.activeSidebar;
-  if (!model && (documentOnly.includes(name) || name === "problems")) name = "project";
-  else if (!isMarkdownModel(model) && documentOnly.includes(name))
-    name = state.project ? "project" : "problems";
+  const independent = Boolean(
+    model && state.project && pathKey(model.projectPath) !== pathKey(activeProjectPath()),
+  );
+  for (const tab of $$("#sidebar-tab-book, #sidebar-tab-project")) tab.disabled = independent;
+  if (independent && ["book", "project"].includes(name)) {
+    name = isMarkdownModel(model) ? "frontmatter" : "problems";
+  } else if (!model && (documentOnly.includes(name) || name === "problems")) {
+    name = "project";
+  } else if (!isMarkdownModel(model) && documentOnly.includes(name)) {
+    name = state.project && !independent ? "project" : "problems";
+  }
   for (const button of $$("[data-sidebar]")) {
     const active = button.dataset.sidebar === name;
     button.classList.toggle("active", active);
@@ -3524,7 +3425,7 @@ function applyEditorContent(content) {
   const cursor = Math.min(editor.selectionStart, content.length);
   editor.value = content;
   editor.setSelectionRange(cursor, cursor);
-  onEditorInput();
+  onEditorInput(content);
 }
 
 function insertAtCursor(value) {
@@ -4145,6 +4046,14 @@ function bindEvents() {
   $("#workspace-toggle-preview").addEventListener("click", () =>
     toggleSidePreview({ keepFocus: true }),
   );
+  $("#workspace-reset-layout").addEventListener("click", () => {
+    state.compactDrawer = null;
+    state.workspaceLayout = { ...cleanLayout };
+    updatePreference({ sidePreview: false, focusMode: false });
+    applyWorkspaceLayout({ persist: true });
+    toggleWorkspaceLayoutMenu(false);
+    $("#workspace-layout-button").focus();
+  });
   $("#workspace-reset-panel-sizes").addEventListener("click", resetWorkspacePaneSizes);
   $("#document-mode-help").addEventListener("click", () =>
     modalManager.open($("#view-guide-modal")),
@@ -4152,16 +4061,55 @@ function bindEvents() {
   $("#close-view-guide").addEventListener("click", () =>
     modalManager.close($("#view-guide-modal")),
   );
-  $("#open-library").addEventListener("click", () => {
-    showView("workspace");
-    if (!activeDocument()) {
-      library.render();
-      library.focusNew();
+  function navigateArea(name) {
+    if (name === document.body.dataset.view) return;
+    if (editorAdapter?.commitPendingDrafts?.() === false) return;
+    if (name === "export" && !state.sourcePath && !state.activeRequestId) {
+      openExportSource("");
       return;
     }
-    if (state.startTabs.length) activateStartTab(state.startTabs.at(-1).id);
-    else createStartTab();
-  });
+    showView(name);
+    if (name === "workspace") {
+      renderWorkspace();
+      focusDocument();
+    }
+    if (name === "export" && state.sourcePath) schedulePdfPreview(0);
+  }
+  $("#open-library").addEventListener("click", () => navigateArea("library"));
+  for (const button of $$(".area-nav [data-area]"))
+    button.addEventListener("click", () => navigateArea(button.dataset.area));
+  $("#editor-open").addEventListener("click", () => $("#shelf-import").click());
+  function chooseNewType() {
+    navigateArea("library");
+    if (document.body.dataset.view === "library") library.openNew();
+  }
+  $("#editor-create").addEventListener("click", chooseNewType);
+  // The active document is retained while browsing the shelf. Shortcuts on the
+  // shelf must never operate on a background editor.
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (
+        document.body.dataset.view === "workspace" ||
+        (!event.metaKey && !event.ctrlKey) ||
+        event.altKey ||
+        modalManager?.hasOpenModal() ||
+        document.querySelector("dialog[open]")
+      )
+        return;
+      const key = event.key.toLowerCase(),
+        shelf = document.body.dataset.view === "library";
+      if (key === "s" || (shelf && !event.shiftKey && ["n", "o", "f", "p"].includes(key))) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (key === "n") chooseNewType();
+        if (key === "o") $("#shelf-import").click();
+        if (key === "f") $("#shelf-search").focus();
+        if (key === "p") $("#workspace-quick-open").click();
+      }
+    },
+    true,
+  );
   $("#shelf-import").addEventListener("click", async () => {
     try {
       const paths = await invoke("pick_library_files");
@@ -4185,7 +4133,6 @@ function bindEvents() {
       () => focusDocument(),
     );
   });
-  $("#workflow-new").addEventListener("click", createUntitledDocument);
   $("#command-button").addEventListener("click", openCommandPalette);
   $("#help-button").addEventListener("click", openHelp);
   $("#settings-button").addEventListener("click", () => openSettings());
@@ -4211,6 +4158,11 @@ function bindEvents() {
   }
   $("#reset-advanced").addEventListener("click", resetAdvancedOptions);
   $("#export-preset").addEventListener("change", (event) => selectPreset(event.target.value));
+  $("#export-type-settings").addEventListener("click", () => {
+    setExportSettingsOpen(true, { focus: false });
+    exportOptions.showGroup("typography");
+    document.getElementById("adv-body-font")?.focus();
+  });
   $("#export-open-settings").addEventListener("click", () => setExportSettingsOpen(true));
   $("#export-close-settings").addEventListener("click", () => setExportSettingsOpen(false));
   for (const button of $$("[data-export-pane]")) {
@@ -4228,14 +4180,9 @@ function bindEvents() {
   $("#preview-prev-page").addEventListener("click", () => movePreviewPage(-1));
   $("#preview-next-page").addEventListener("click", () => movePreviewPage(1));
   $("#export-preview-retry").addEventListener("click", () => schedulePdfPreview(0));
-  $("#workflow-quick").addEventListener("click", openFileExport);
-  $("#workflow-open").addEventListener("click", chooseAuthoringFiles);
-  $("#workflow-project").addEventListener("click", chooseProjectDirectory);
-  $("#workflow-book").addEventListener("click", openNewBookModal);
   $("#export-back").addEventListener("click", () => {
-    showView("workspace");
-    if (activeDocument()) focusDocument();
-    else $("#workspace-export").focus({ preventScroll: true });
+    navigateArea(exportReturnArea);
+    if (exportReturnArea === "library") library.focusNew();
   });
   $("#close-export-format").addEventListener("click", () =>
     modalManager.close($("#export-format-modal")),
@@ -4256,10 +4203,6 @@ function bindEvents() {
   );
   $("#open-pdf").addEventListener("click", () => openResult(false));
   $("#reveal-pdf").addEventListener("click", () => openResult(true));
-  $("#clear-recents").addEventListener("click", () => {
-    state.recents = writeRecents([]);
-    renderRecents();
-  });
 
   $("#workspace-toggle-files")?.addEventListener("click", () =>
     toggleWorkspacePane("files", { keepFocus: true }),
@@ -4356,7 +4299,7 @@ function bindEvents() {
   );
   $("#workspace-quick-open")?.addEventListener("click", () => navigationPicker.open("files"));
   $("#navigator-new")?.addEventListener("click", createUntitledDocument);
-  $("#tab-new-document")?.addEventListener("click", createStartTab);
+  $("#tab-new-document")?.addEventListener("click", chooseNewType);
   $("#navigator-open")?.addEventListener("click", chooseAuthoringFiles);
   $("#navigator-open-project")?.addEventListener("click", chooseProjectDirectory);
   $("#navigator-close")?.addEventListener("click", () => toggleWorkspacePane("files"));
@@ -4432,6 +4375,9 @@ function bindEvents() {
   $("#sidebar-new-book").addEventListener("click", openNewBookModal);
   $("#book-add-chapter").addEventListener("click", () => openChapterModal("add"));
   $("#book-validate").addEventListener("click", validateActiveBook);
+  $("#book-typography-settings").addEventListener("click", () =>
+    $("#project-open-settings").click(),
+  );
   $("#book-preview").addEventListener("click", previewActiveBook);
   $("#book-export").addEventListener("click", () => {
     const context = currentProjectContext();

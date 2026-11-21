@@ -68,7 +68,9 @@ mardas_folio = [
   "assets/*.png",
   "assets/*.svg",
   "assets/*.html",
-  "assets/mathjax/*"
+  "assets/mathjax/*",
+  "assets/fonts/*.ttf",
+  "assets/fonts/*.txt"
 ]
 
 [tool.ruff]

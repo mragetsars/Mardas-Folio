@@ -252,11 +252,11 @@ def test_frontend_is_modular_and_workflow_focused(authored_frontend_sources) -> 
     index = (DESKTOP / "frontend" / "index.html").read_text(encoding="utf-8")
     main = authored_frontend_sources["main.mjs"]
     project = authored_frontend_sources["features/workspace/project.mjs"]
-    assert 'id="workspace-empty"' in index
+    assert 'id="library-view"' in index
     assert 'id="start-view"' not in index
     assert 'id="export-view"' in index
     assert 'id="workspace-view"' in index
-    assert 'id="recent-list"' in index
+    assert 'id="recent-list"' not in index
     assert 'id="export-preset"' in index
     assert 'id="validate-button"' in index
     for element_id in (
@@ -286,7 +286,7 @@ def test_frontend_is_modular_and_workflow_focused(authored_frontend_sources) -> 
         "book-reveal-output",
         "book-current-chapter",
         "export-result",
-        "template-grid",
+        "library-view",
         "onboarding-modal",
         "settings-modal",
         "help-modal",
@@ -410,10 +410,9 @@ def test_native_workspace_has_explicit_layout_controls_and_accessible_panes() ->
     assert sidebar_toggle.get("aria-pressed") == "false"
     assert sidebar_toggle.get("aria-controls")
 
-    # Editing representation and reading are activities. Side preview is an
-    # independent layout choice and must not masquerade as a fourth activity.
+    # Document and Source own editing. The side preview is a layout choice.
     modes = soup.select("[data-view-mode]")
-    assert [button.get("data-view-mode") for button in modes] == ["write", "source", "read"]
+    assert [button.get("data-view-mode") for button in modes] == ["write", "source"]
     assert all(button.get("role") == "radio" for button in modes)
     assert sum(button.get("aria-checked") == "true" for button in modes) == 1
     group = soup.select_one(".view-modes")
@@ -869,7 +868,7 @@ def test_desktop_ux_is_offline_and_exposes_guided_entry_points() -> None:
     main = (DESKTOP / "frontend" / "js" / "main.mjs").read_text(encoding="utf-8")
     styles = (DESKTOP / "frontend" / "styles/base.css").read_text(encoding="utf-8")
     tokens = (DESKTOP / "frontend" / "design" / "tokens.css").read_text(encoding="utf-8")
-    assert 'id="template-grid"' in index
+    assert 'id="template-grid"' not in index
     assert 'id="settings-search"' in index
     assert 'id="restart-onboarding"' in index
     assert 'id="command-button"' in index

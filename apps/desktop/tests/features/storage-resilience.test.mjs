@@ -47,7 +47,7 @@ test("optional browser state survives a throwing localStorage getter", () => {
     assert.deepEqual(writeSession([], null), { paths: [], activePath: null, projectPath: null });
 
     assert.equal(readWorkspaceLayout().sidebarOpen, false);
-    assert.equal(readWorkspaceLayout().filesOpen, true);
+    assert.equal(readWorkspaceLayout().filesOpen, false);
     assert.equal(writeWorkspaceLayout({ sidebarOpen: false }).sidebarOpen, false);
 
     assert.deepEqual(readRecoveries(), []);

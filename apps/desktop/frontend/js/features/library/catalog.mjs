@@ -53,8 +53,10 @@ export function describe(model, stored) {
         : "document"
       : ext === "txt"
         ? "note"
-        : ext === "json" && resumeData(model.content)
-          ? "resume"
+        : ext === "json"
+          ? resumeData(model.content)
+            ? "resume"
+            : "document"
           : null);
   if (!validType(type)) return null;
   let title = "",
@@ -65,6 +67,11 @@ export function describe(model, stored) {
     const basics = resumeData(model.content)?.basics || {};
     title = short(basics.name);
     detail = short(basics.label, 110);
+  } else if (model.kind === "json") {
+    title =
+      String(model.path || model.title || "JSON")
+        .split(/[\\/]/)
+        .at(-1) || "JSON";
   } else if (type === "note") {
     const lines = sample
       .split(/\r?\n/)

@@ -18,7 +18,6 @@ export function createDocumentPersistence({
   isMarkdownModel,
   saveCoordinator,
   activateDocument,
-  activateStartTab,
   focusDocument,
   saveRecent,
   onSaved = () => {},
@@ -194,8 +193,10 @@ export function createDocumentPersistence({
     if (wasActive) state.activeDocumentId = null;
     persistSession();
     renderWorkspace();
-    if (wasActive && result.nextId) await activateDocument(result.nextId);
-    else if (wasActive && state.startTabs.length) activateStartTab(state.startTabs.at(-1).id);
+    if (wasActive && result.nextId)
+      await activateDocument(result.nextId, {
+        focus: globalThis.document?.body?.dataset.view === "library" ? "background" : "editor",
+      });
     else if (!state.documents.length) focusDocument();
   }
 

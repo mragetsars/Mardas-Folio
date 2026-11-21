@@ -45,6 +45,7 @@ export function createExportOptionsPanel({
    * so opening it cannot overwrite what mardas.toml already configured.
    */
   const advancedValues = new Map();
+  const invalidValues = new Map();
 
   /** Which category the settings browser is showing. */
   let activeOptionGroup = OPTION_GROUPS[0].id;
@@ -79,6 +80,7 @@ export function createExportOptionsPanel({
     const controls = row ? [...row.querySelectorAll("input, select, textarea, button")] : [];
     const focusIndex = controls.indexOf(active);
     const focusIdentity = focusIndex >= 0 ? optionControlIdentity(active) : "";
+    invalidValues.delete(key);
     if (value === undefined) advancedValues.delete(key);
     else advancedValues.set(key, value);
     renderOptionCategories();
@@ -228,6 +230,13 @@ export function createExportOptionsPanel({
     problem.className = "option-problem";
     problem.id = `${control.id}-problem`;
     control.setAttribute("aria-describedby", problem.id);
+    const invalid = invalidValues.get(field.key);
+    if (invalid) {
+      control.value = invalid.raw;
+      control.setAttribute("aria-invalid", "true");
+      problem.textContent = t(invalid.reason);
+      wrapper.classList.add("has-problem");
+    }
 
     let committing = false;
     const commit = () => {
@@ -236,13 +245,16 @@ export function createExportOptionsPanel({
       committing = true;
       try {
         const raw = control.value.trim();
-        const complaint = raw ? validateOptionValue(field.key, raw) : null;
+        const complaint = control.validity.badInput
+          ? "invalidNumber"
+          : validateOptionValue(field.key, raw);
         problem.textContent = complaint ? t(complaint) : "";
         control.setAttribute("aria-invalid", String(Boolean(complaint)));
         wrapper.classList.toggle("has-problem", Boolean(complaint));
         // An invalid value is kept in the control so it can be corrected, but it is
         // never sent to the engine, which would only fail the render later.
         if (complaint) {
+          invalidValues.set(field.key, { raw, reason: complaint });
           advancedValues.delete(field.key);
           renderOptionCategories();
           onChange();
@@ -522,6 +534,7 @@ export function createExportOptionsPanel({
 
   function reset() {
     if (lifecycle.signal.aborted) return;
+    invalidValues.clear();
     advancedValues.clear();
     for (const [key, value] of Object.entries(getPresetOptions())) {
       if (key in OPTION_FIELDS) advancedValues.set(key, value);
@@ -532,7 +545,14 @@ export function createExportOptionsPanel({
 
   return {
     render: renderAdvancedOptions,
+    showGroup(group) {
+      activeOptionGroup = group;
+      optionSearchQuery = "";
+      $("#option-search").value = "";
+      renderAdvancedOptions();
+    },
     reset,
+    hasInvalidOptions: () => invalidValues.size > 0,
     overrides: () => collectRenderOptions(Object.fromEntries(advancedValues)),
     modifiedCount: () =>
       modifiedKeys(Object.fromEntries(advancedValues), getPresetOptions()).length,

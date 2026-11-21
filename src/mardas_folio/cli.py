@@ -160,6 +160,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Document shell direction. Defaults to project config, front matter, then auto-detection.",
     )
+    parser.add_argument(
+        "--body-font", choices=("theme", "sans", "serif", "vazirmatn"), default="theme"
+    )
+    parser.add_argument(
+        "--body-size-pt", type=float, default=11, help="Body text size in points, 7–30"
+    )
+    parser.add_argument(
+        "--body-leading", type=float, default=1.6, help="Body line height multiplier, 1–2.5"
+    )
+    parser.add_argument(
+        "--paragraph-align", choices=("justify", "start", "center", "end"), default="justify"
+    )
     parser.add_argument("--margin-top", default="18mm", help="Top CSS page margin")
     parser.add_argument("--margin-bottom", default="20mm", help="Bottom CSS page margin")
     parser.add_argument("--margin-x", default="16mm", help="Left/right CSS page margin")
@@ -519,6 +531,8 @@ def _validate_asset_arguments(parser: argparse.ArgumentParser, args: argparse.Na
         parser.error(f"Watermark image must be a regular file: {args.watermark_image}")
     if args.font_dir and not Path(args.font_dir).is_dir():
         parser.error(f"Font directory must be a directory: {args.font_dir}")
+    if not 7 <= args.body_size_pt <= 30 or not 1 <= args.body_leading <= 2.5:
+        parser.error("Body size must be 7–30 pt and line height must be 1–2.5")
     if not 0 <= args.watermark_opacity <= 1:
         parser.error("--watermark-opacity must be between 0 and 1")
 
@@ -579,6 +593,10 @@ def _conversion_main(argv: list[str]) -> int:
         margin_top=args.margin_top,
         margin_bottom=args.margin_bottom,
         margin_x=args.margin_x,
+        body_font=args.body_font,
+        body_size_pt=args.body_size_pt,
+        body_leading=args.body_leading,
+        paragraph_align=args.paragraph_align,
         font_dir=args.font_dir,
         chromium_path=args.chromium_path,
         chromium_sandbox=args.chromium_sandbox,

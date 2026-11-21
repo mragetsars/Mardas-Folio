@@ -102,9 +102,32 @@ export function createModalManager(documentRef = globalThis.document) {
     return modal;
   }
 
+  let origin = null,
+    end = null,
+    pointerId = null;
+  function down(e) {
+    origin = e.button === 0 && openStack.at(-1) === e.target ? e.target : null;
+    pointerId = e.pointerId;
+    end = null;
+  }
+  function up(e) {
+    end = e.pointerId === pointerId && e.target === origin ? origin : null;
+  }
+  function cancelPointer() {
+    origin = end = null;
+  }
+  function click(e) {
+    const modal = openStack.at(-1);
+    const outside = modal && modal === e.target && modal === origin && modal === end;
+    cancelPointer();
+    if (!outside || optionsByModal.get(modal)?.escape === false) return;
+    e.preventDefault();
+    close(modal, { reason: "backdrop" });
+    modal.dispatchEvent?.(new CustomEvent("mardas-modal-close", { bubbles: false }));
+  }
   function handleKeydown(event) {
     const modal = openStack.at(-1);
-    if (!modal) return false;
+    if (!modal || documentRef?.querySelector?.("dialog:modal")) return false;
     if (event.key === "Escape") {
       if (optionsByModal.get(modal)?.escape === false) return false;
       event.preventDefault();
@@ -132,6 +155,13 @@ export function createModalManager(documentRef = globalThis.document) {
     return true;
   }
 
+  for (const [type, handler] of [
+    ["pointerdown", down],
+    ["pointerup", up],
+    ["pointercancel", cancelPointer],
+    ["click", click],
+  ])
+    documentRef?.addEventListener?.(type, handler, true);
   documentRef?.addEventListener?.("keydown", handleKeydown, true);
 
   return {
@@ -142,6 +172,13 @@ export function createModalManager(documentRef = globalThis.document) {
     hasOpenModal: () => openStack.length > 0,
     destroy() {
       documentRef?.removeEventListener?.("keydown", handleKeydown, true);
+      for (const [type, handler] of [
+        ["pointerdown", down],
+        ["pointerup", up],
+        ["pointercancel", cancelPointer],
+        ["click", click],
+      ])
+        documentRef?.removeEventListener?.(type, handler, true);
       openStack.splice(0);
       updateBackground();
     },
