@@ -484,7 +484,6 @@ def run_surface_case(
             )
             page.screenshot(path=str(output / f"{key}-read-{feature}.png"))
         page.locator("#workspace-export").click()
-        page.locator("#export-format-pdf").click()
         if page.locator("#export-show-preview").is_visible():
             page.locator("#export-show-preview").click()
         wait_math(

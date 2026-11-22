@@ -365,14 +365,14 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
                             "#preview-document .code-block:not(.code-block--numbered) .document-code-copy"
                         ).first
                     ).to_have_text("Copy failed" if locale == "en" else "کپی نشد")
-                    expect(numbered.locator(".document-code-copy")).to_have_text(
-                        "Copy code" if locale == "en" else "کپی کد"
+                    expect(numbered.locator(".document-code-copy")).to_have_attribute(
+                        "title", "Copy code" if locale == "en" else "کپی کد"
                     )
                     expect(
                         page.locator(
                             "#preview-document .code-block:not(.code-block--numbered) .document-code-copy"
                         ).first
-                    ).to_have_text("Copy code" if locale == "en" else "کپی کد")
+                    ).to_have_attribute("title", "Copy code" if locale == "en" else "کپی کد")
                     expect(page.locator("#markdown-editor")).to_have_value(SAMPLE)
                     scenario["checks"].append(
                         "copy preserves numbered code without line numbers; errors are visible and source remains unchanged"

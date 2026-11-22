@@ -361,7 +361,7 @@ def run(
         if theme != "light" or locale != "en":
             open_settings(page)
             page.wait_for_timeout(200)
-            page.locator("#setting-theme").select_option(theme)
+            page.locator(f'#setting-theme label:has(input[value="{theme}"])').click()
             if locale != "en":
                 select_settings_section(page, "language")
                 page.locator("#setting-locale").select_option(locale)

@@ -250,7 +250,7 @@ def run_audit(
         tab_count = page.locator(".document-tab").count()
         page.keyboard.press("Control+N")
         checks["modal_shortcuts_blocked"] = page.locator(".document-tab").count() == tab_count
-        page.locator("#setting-theme").select_option("dark")
+        page.locator('#setting-theme label:has(input[value="dark"])').click()
         select_settings_section(page, "accessibility")
         page.locator("#setting-motion").select_option("reduce")
         page.locator("#settings-form button[type='submit']").click()

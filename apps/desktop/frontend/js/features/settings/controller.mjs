@@ -10,10 +10,12 @@ export function createSettingsController({
   t,
   toast,
 }) {
-  const settingsPanel = createSettingsPanel($("#settings-form"));
+  const form = $("#settings-form");
+  const theme = form.elements.namedItem("theme");
+  const settingsPanel = createSettingsPanel(form);
   let resetPending = false;
   function fillSettingsForm(preferences = state.preferences) {
-    $("#setting-theme").value = preferences.theme;
+    theme.value = preferences.theme;
     $("#setting-accent").value = preferences.accent;
     const zoomSetting = $("#setting-document-zoom");
     if (zoomSetting) zoomSetting.value = String(preferences.documentZoom);
@@ -41,7 +43,7 @@ export function createSettingsController({
     state.preferences = writePreferences({
       ...(resetPending ? DEFAULT_PREFERENCES : state.preferences),
       onboardingComplete: state.preferences.onboardingComplete,
-      theme: $("#setting-theme").value,
+      theme: theme.value,
       accent: $("#setting-accent").value,
       documentZoom: Number($("#setting-document-zoom").value),
       writingWidth: $("#setting-writing-width")?.value || "full",

@@ -89,7 +89,10 @@ export function createJsonView(host, { t, current, editable, apply, sourceMode }
         body = node("div");
       branch.dataset.path = path;
       body.className = "json-branch";
-      summary.append(node("small", new Intl.NumberFormat(locale).format(value.children.length)));
+      summary.append(
+        node("small", new Intl.NumberFormat(locale).format(value.children.length)),
+        spriteIcon("chevron-down"),
+      );
       branch.append(summary, body);
       let loaded = false;
       function load() {
@@ -134,20 +137,33 @@ export function createJsonView(host, { t, current, editable, apply, sourceMode }
       if (!matches.length) tree.append(node("p", t("shelfNoResults")));
     }
     function edit(value, label, path) {
-      const dialog = node("dialog"),
-        form = node("form"),
-        title = node("label", label);
+      const dialog = node("dialog");
+      const form = node("form");
+      const boolean = value.type === "boolean";
+      const title = node(boolean ? "fieldset" : "label");
       dialog.className = "library-form";
       dialog.setAttribute("aria-label", label);
-      const input = node(
-        value.type === "string" ? "textarea" : value.type === "boolean" ? "select" : "input",
-      );
-      if (value.type === "boolean")
-        for (const raw of ["true", "false"])
-          input.append(new Option(t(raw === "true" ? "on" : "off"), raw));
-      input.value = valueOf(value);
-      input.dir = "auto";
-      title.append(input);
+      let input;
+      if (boolean) {
+        title.className = "json-radio-group";
+        title.append(node("legend", label));
+        for (const raw of ["true", "false"]) {
+          const option = node("label");
+          const radio = node("input");
+          radio.type = "radio";
+          radio.name = "json-boolean";
+          radio.value = raw;
+          radio.checked = valueOf(value) === raw;
+          if (radio.checked) input = radio;
+          option.append(radio, node("span", t(raw === "true" ? "on" : "off")));
+          title.append(option);
+        }
+      } else {
+        input = node(value.type === "string" ? "textarea" : "input");
+        input.value = valueOf(value);
+        input.dir = "auto";
+        title.append(label, input);
+      }
       const error = node("p"),
         actions = node("div");
       error.setAttribute("role", "alert");
@@ -177,7 +193,8 @@ export function createJsonView(host, { t, current, editable, apply, sourceMode }
           return;
         }
         try {
-          const raw = value.type === "string" ? JSON.stringify(input.value) : input.value.trim();
+          const selected = boolean ? form.elements.namedItem("json-boolean").value : input.value;
+          const raw = value.type === "string" ? JSON.stringify(selected) : selected.trim();
           const next = replaceScalar(source, value, raw);
           if (next !== source) apply(next);
           render(model, locale);

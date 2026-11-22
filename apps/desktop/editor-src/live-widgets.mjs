@@ -28,6 +28,7 @@
 import { Facet, RangeSetBuilder, StateField } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { onlineImageControl } from "../frontend/js/preview/online-images.mjs";
+import { spriteIcon } from "../frontend/js/ui/icons.mjs";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import { appendTableInline } from "./table-inline.mjs";
@@ -613,13 +614,14 @@ export class TaskWidget extends WidgetType {
  * into it, brings the YAML straight back for editing.
  */
 class FrontMatterWidget extends WidgetType {
-  constructor(markup) {
+  constructor(markup, from) {
     super();
     this.markup = markup;
+    this.from = from;
   }
 
   eq(other) {
-    return other.markup === this.markup;
+    return other.markup === this.markup && other.from === this.from;
   }
 
   /** Collapsed to one summary row whatever the metadata's length. */
@@ -642,17 +644,22 @@ class FrontMatterWidget extends WidgetType {
     return entries;
   }
 
-  toDOM() {
+  toDOM(view) {
     // Two elements, because the spacing around the chip has to be inside the
     // box CodeMirror measures and the chip has a border of its own.
     const block = document.createElement("div");
     block.className = "cm-md-frontmatter-block";
-    const wrapper = document.createElement("div");
+    const wrapper = document.createElement("button");
+    wrapper.type = "button";
+    wrapper.addEventListener("click", () => {
+      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
+      view.focus();
+    });
     wrapper.className = "cm-md-frontmatter";
     block.append(wrapper);
     const label = document.createElement("span");
     label.className = "cm-md-frontmatter-label";
-    label.textContent = "metadata";
+    label.textContent = document.documentElement.lang.startsWith("fa") ? "مشخصات سند" : "Metadata";
     wrapper.append(label);
     for (const entry of this.summary()) {
       const chip = document.createElement("span");
@@ -665,8 +672,105 @@ class FrontMatterWidget extends WidgetType {
   }
 
   ignoreEvent() {
-    // Let the click through so the caret lands inside and the YAML returns.
-    return false;
+    return true;
+  }
+}
+
+const DISCLOSURE_TAGS = new Set([
+  "DETAILS",
+  "SUMMARY",
+  "P",
+  "DIV",
+  "SPAN",
+  "UL",
+  "OL",
+  "LI",
+  "PRE",
+  "CODE",
+  "BR",
+  "BLOCKQUOTE",
+  "S",
+  "EM",
+  "I",
+  "STRONG",
+  "B",
+  "MARK",
+  "SUB",
+  "SUP",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+]);
+
+function disclosureContent(markup) {
+  if (
+    typeof document === "undefined" ||
+    !/^<details(?:\s[^>]*)?>[\s\S]*<\/details>\s*$/i.test(markup)
+  )
+    return null;
+  const template = document.createElement("template");
+  template.innerHTML = markup;
+  const details = template.content.firstElementChild;
+  if (
+    details?.tagName !== "DETAILS" ||
+    details.nextElementSibling ||
+    details.firstElementChild?.tagName !== "SUMMARY"
+  )
+    return null;
+  // Keep HTML outside this inert, local disclosure subset editable as source.
+  for (const element of template.content.querySelectorAll("*")) {
+    if (!DISCLOSURE_TAGS.has(element.tagName)) return null;
+    for (const name of element.getAttributeNames()) {
+      if (name === "open" && element.tagName === "DETAILS") continue;
+      if (name === "lang") continue;
+      if (name === "dir" && /^(ltr|rtl|auto)$/i.test(element.dir)) continue;
+      return null;
+    }
+  }
+  return details;
+}
+
+class DisclosureWidget extends WidgetType {
+  constructor(markup, details, from, readOnly) {
+    super();
+    this.markup = markup;
+    this.details = details;
+    this.from = from;
+    this.readOnly = readOnly;
+  }
+  eq(other) {
+    return (
+      other.markup === this.markup && other.from === this.from && other.readOnly === this.readOnly
+    );
+  }
+  toDOM(view) {
+    const group = document.createElement("div");
+    group.className = "cm-document-disclosure";
+    const details = this.details.cloneNode(true);
+    details.addEventListener("toggle", () => view.requestMeasure());
+    group.append(details);
+    if (!this.readOnly) {
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "icon-button cm-disclosure-edit";
+      edit.title = document.documentElement.lang.startsWith("fa")
+        ? "ویرایش متن بخش"
+        : "Edit disclosure source";
+      edit.setAttribute("aria-label", edit.title);
+      edit.append(spriteIcon("pencil"));
+      edit.addEventListener("click", () => {
+        view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
+        view.focus();
+      });
+      group.append(edit);
+    }
+    return group;
+  }
+  ignoreEvent() {
+    return true;
   }
 }
 
@@ -721,10 +825,25 @@ function buildBlockDecorations(state) {
           node.from,
           node.to,
           Decoration.replace({
-            widget: new FrontMatterWidget(state.doc.sliceString(node.from, node.to)),
+            widget: new FrontMatterWidget(state.doc.sliceString(node.from, node.to), node.from),
             block: true,
           }),
         ]);
+        return false;
+      }
+      if (node.name === "HTMLBlock" && !spansActiveLine(state, active, node)) {
+        const markup = state.doc.sliceString(node.from, node.to);
+        const details = disclosureContent(markup);
+        if (details) {
+          items.push([
+            node.from,
+            node.to,
+            Decoration.replace({
+              widget: new DisclosureWidget(markup, details, node.from, state.readOnly),
+              block: true,
+            }),
+          ]);
+        }
         return false;
       }
       if (node.name === "Table" && !spansActiveLine(state, active, node)) {

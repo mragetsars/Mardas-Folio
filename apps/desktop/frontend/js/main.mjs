@@ -11,6 +11,7 @@ import { createBookCreation } from "./features/books/creation.mjs";
 import { createExportController } from "./features/export/controller.mjs";
 import { createPreviewSanitizer } from "./preview/sanitize.mjs";
 import { createNotifications } from "./ui/notifications.mjs";
+import { spriteIcon } from "./ui/icons.mjs";
 import { createUpdater } from "./features/settings/updater.mjs";
 import { createSettingsController } from "./features/settings/controller.mjs";
 import { createCommandPalette } from "./ui/command-palette.mjs";
@@ -101,6 +102,7 @@ import {
   attachProjectMembership,
 } from "./core/project-lifecycle.mjs";
 import {
+  exportDocumentHtml,
   importDocumentAsset,
   listDocumentAssets,
   previewDocumentPage,
@@ -108,6 +110,7 @@ import {
   readDocument,
   readTextDocument,
   resolveMarkdownLink,
+  saveDocument,
   validateDocumentText,
 } from "./adapters/authoring-api.mjs";
 
@@ -523,6 +526,7 @@ function setLocale(value) {
 let exportReturnArea = "library";
 function showView(name) {
   toggleWorkspaceLayoutMenu(false);
+  toggleWorkspaceExportMenu(false);
   if (name !== "export" && document.body.dataset.view === "export") void releaseEngineForJob();
   // Leaving the workspace is a newer intent than any pending file activation.
   if (name !== "workspace") state.documentActivationSequence += 1;
@@ -1741,20 +1745,61 @@ function openFileExport() {
   openExportFormat(() => openExportSource(""));
 }
 
-function openWorkspaceExport() {
+async function openWorkspaceExport(format = "pdf") {
+  if (editorAdapter?.commitPendingDrafts?.() === false) return;
   const model = activeDocument();
   const intent = state.documentActivationSequence;
-  openExportFormat(
-    () => {
-      if (!model || !isMarkdownModel(model)) return openExportSource("");
-      if (intent !== state.documentActivationSequence || activeDocument()?.id !== model.id) {
-        toast(t("exportDocumentChanged"), "warning");
-        return;
-      }
-      return exportActiveDocument();
-    },
-    { returnFocus: $("#workspace-export") },
-  );
+  const current = () =>
+    intent === state.documentActivationSequence && activeDocument()?.id === model?.id;
+  if (!model || !isMarkdownModel(model)) {
+    if (format === "pdf") openExportSource("");
+    return;
+  }
+  try {
+    if (format === "markdown") {
+      const content = model.content;
+      const base = (model.path || model.title || t("untitled")).replace(/\.(md|markdown)$/i, "");
+      const output = await invoke("pick_markdown_output", { suggested_path: base + "-copy.md" });
+      if (!output || !current()) return;
+      const result = await saveDocument({ path: output, content });
+      toast(t("exportFileSaved") + " · " + basename(result.path), "success");
+      return;
+    }
+    if (format !== "pdf" && format !== "html") return;
+    const source = await readyDocumentForExport(model, current);
+    if (!source) return;
+    if (format === "pdf") {
+      openExportSource(source);
+      return;
+    }
+    const output = await invoke("pick_html_output", {
+      suggested_path: defaultOutputPath(source).replace(/\.pdf$/i, ".html"),
+    });
+    if (!output || !current()) return;
+    if (documentDirty(model) || model.path !== source) {
+      toast(t("exportNeedsCurrentSave"));
+      return;
+    }
+    const result = await exportDocumentHtml(source, output);
+    toast(t("exportFileSaved") + " · " + basename(result.output_path), "success");
+  } catch (error) {
+    toast(errorText(error), "error");
+  }
+}
+
+function toggleWorkspaceExportMenu(force) {
+  const menu = $("#workspace-export-menu");
+  if (force !== false) {
+    const markdown = isMarkdownModel(activeDocument());
+    for (const option of menu.querySelectorAll(
+      '[data-export-format]:not([data-export-format="pdf"])',
+    )) {
+      option.disabled =
+        !markdown ||
+        (option.dataset.exportFormat === "html" && !engineSupports("preview.document"));
+    }
+  }
+  togglePopoverMenu("#workspace-export-menu", "#workspace-export-formats", force);
 }
 
 function renderExportFiles() {
@@ -3883,6 +3928,18 @@ function openEditorContextMenu(event) {
     },
   ];
 
+  const icons = {
+    copy: "duplicate",
+    copyHtml: "source",
+    copyPlain: "file",
+    paste: "insert",
+    image: "image",
+    citation: "citation",
+    table: "table",
+    validate: "quality",
+    export: "export",
+    reveal: "folder",
+  };
   const menu = $("#editor-context-menu");
   if (!menu) return;
   menu.replaceChildren();
@@ -3900,7 +3957,10 @@ function openEditorContextMenu(event) {
     button.className = "context-menu-item";
     button.dataset.contextAction = item.key;
     button.setAttribute("role", "menuitem");
-    button.textContent = item.label;
+    const label = document.createElement("span");
+    label.textContent = item.label;
+    button.tabIndex = -1;
+    button.append(spriteIcon(icons[item.key]), label);
     button.disabled = !item.enabled;
     button.addEventListener("click", () => {
       closeEditorContextMenu();
@@ -3913,9 +3973,15 @@ function openEditorContextMenu(event) {
 
   // A menu that runs off the window is a menu with items nobody can reach.
   const box = menu.getBoundingClientRect();
-  const left = Math.min(event.clientX, window.innerWidth - box.width - 8);
-  const top = Math.min(event.clientY, window.innerHeight - box.height - 8);
-  menu.style.left = `${Math.max(8, left)}px`;
+  const rtl = document.documentElement.dir === "rtl";
+  const start = rtl ? event.clientX - box.width : event.clientX;
+  const alternate = rtl ? event.clientX : event.clientX - box.width;
+  const left = start < 8 || start + box.width > window.innerWidth - 8 ? alternate : start;
+  const top =
+    event.clientY + box.height > window.innerHeight - 8
+      ? event.clientY - box.height
+      : event.clientY;
+  menu.style.left = `${Math.max(8, Math.min(left, window.innerWidth - box.width - 8))}px`;
   menu.style.top = `${Math.max(8, top)}px`;
   menu.querySelector("button:not([disabled])")?.focus();
 }
@@ -3950,20 +4016,14 @@ function applyFrontMatter(event) {
   schedulePreview(80);
 }
 
-async function exportActiveDocument() {
-  const model = activeDocument();
-  if (!model || !isMarkdownModel(model)) return;
-  const intent = state.documentActivationSequence;
-  if (!model.path || documentDirty(model)) {
-    const saved = await saveActiveDocument();
-    if (!saved) return;
-  }
-  if (intent !== state.documentActivationSequence || activeDocument()?.id !== model.id) return;
+async function readyDocumentForExport(model, current) {
+  if ((!model.path || documentDirty(model)) && !(await saveActiveDocument())) return null;
+  if (!current()) return null;
   if (documentDirty(model)) {
     toast(t("exportNeedsCurrentSave"));
-    return;
+    return null;
   }
-  openExportSource(model.path);
+  return model.path;
 }
 
 // ---------------------------------------------------------------------------
@@ -4389,13 +4449,50 @@ function bindEvents() {
     applyWorkspaceLayout();
     requestAnimationFrame(revealActiveTab);
     if (!layoutMenu.classList.contains("hidden")) positionToolbarPopover(layoutMenu, layoutTrigger);
+    if (!$("#workspace-export-menu").classList.contains("hidden"))
+      positionToolbarPopover($("#workspace-export-menu"), $("#workspace-export-formats"));
   });
   $("#workspace-new").addEventListener("click", createUntitledDocument);
   $("#workspace-open").addEventListener("click", chooseAuthoringFiles);
   $("#workspace-save").addEventListener("click", () => saveActiveDocument());
   $("#workspace-save-as").addEventListener("click", () => saveActiveDocument({ saveAs: true }));
   $("#workspace-validate").addEventListener("click", validateActiveDocument);
-  $("#workspace-export").addEventListener("click", openWorkspaceExport);
+  $("#workspace-export").addEventListener("click", () => void openWorkspaceExport());
+  const exportTrigger = $("#workspace-export-formats");
+  const exportMenu = $("#workspace-export-menu");
+  exportTrigger.addEventListener("click", () => toggleWorkspaceExportMenu());
+  exportTrigger.addEventListener("keydown", (event) => {
+    if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
+    event.preventDefault();
+    toggleWorkspaceExportMenu(true);
+    if (event.key === "ArrowUp") [...exportMenu.querySelectorAll("button:enabled")].at(-1)?.focus();
+  });
+  exportMenu.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-export-format]");
+    if (!item || item.disabled) return;
+    toggleWorkspaceExportMenu(false);
+    exportTrigger.focus({ preventScroll: true });
+    void openWorkspaceExport(item.dataset.exportFormat);
+  });
+  exportMenu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" || event.key === "Tab") {
+      if (event.key === "Escape") event.preventDefault();
+      toggleWorkspaceExportMenu(false);
+      exportTrigger.focus({ preventScroll: true });
+      return;
+    }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const items = [...exportMenu.querySelectorAll("button:enabled")];
+    const from = items.indexOf(document.activeElement);
+    const to =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : (from + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items[to]?.focus();
+  });
   $("#workspace-import-asset").addEventListener("click", importAsset);
   $("#workspace-toggle-sidebar").addEventListener("click", () =>
     toggleWorkspacePane("sidebar", { keepFocus: true }),
@@ -4630,6 +4727,8 @@ function bindEvents() {
       toggleFormatOverflowMenu(false);
     }
     if (!target?.closest("#editor-context-menu")) closeEditorContextMenu();
+    if (!target?.closest("#workspace-export-menu, #workspace-export-formats"))
+      toggleWorkspaceExportMenu(false);
   });
   const sidebarButtons = $$("[data-sidebar]");
   sidebarButtons.forEach((button) => {

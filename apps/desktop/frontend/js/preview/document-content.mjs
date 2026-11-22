@@ -1,4 +1,5 @@
 import { onlineImageControl } from "./online-images.mjs";
+import { createCopyButton } from "../ui/copy-button.mjs";
 
 /** One content renderer for reading, side preview and whole-book review. */
 export function mountDocumentContent(
@@ -45,23 +46,20 @@ export function mountDocumentContent(
     const code = figure.querySelector("td.code pre") || figure.querySelector("pre");
     const caption = figure.querySelector("figcaption");
     if (!code || !caption) continue;
-    const copy = document.createElement("button");
-    copy.type = "button";
-    copy.className = "document-code-copy";
-    copy.textContent = codeLabels.copy;
-    copy.setAttribute("aria-live", "polite");
-    copy.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(code.textContent || "");
-        copy.textContent = codeLabels.copied;
-      } catch {
-        copy.textContent = codeLabels.failed;
-      }
-      setTimeout(() => {
-        if (copy.isConnected) copy.textContent = codeLabels.copy;
-      }, 1800);
-    });
-    caption.append(copy);
+    caption.append(
+      createCopyButton(document, {
+        read: () => code.textContent,
+        labels: codeLabels,
+        className: "document-code-copy",
+      }),
+    );
+  }
+  for (const table of fragment.querySelectorAll("table")) {
+    if (table.closest(".code-block, .codehilite, .highlight")) continue;
+    const wrapper = document.createElement("div");
+    wrapper.className = "document-table-scroll";
+    table.replaceWith(wrapper);
+    wrapper.append(table);
   }
   for (const heading of fragment.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
     if (!heading.hasAttribute("dir")) heading.dir = "auto";

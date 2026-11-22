@@ -85,7 +85,7 @@ test("headings are distinguished by weight and size rather than decoration", () 
   assert.equal(headings.length, 3);
   for (const rule of headings) {
     assert.ok(Number(rule.fontWeight) >= 600, "headings carry weight");
-    assert.match(String(rule.fontSize), /em$/, "headings carry a relative size");
+    assert.match(String(rule.fontSize), /em\)?$/, "headings carry a relative size");
   }
 });
 

@@ -2,6 +2,7 @@
 import { EditorSelection, Transaction } from "@codemirror/state";
 import { isolateHistory } from "@codemirror/commands";
 import { WidgetType } from "@codemirror/view";
+import { createCopyButton } from "../frontend/js/ui/copy-button.mjs";
 
 const TEXT = {
   en: {
@@ -9,7 +10,7 @@ const TEXT = {
     language: "Code language",
     plain: "Plain text",
     edit: "Edit code",
-    copy: "Copy",
+    copy: "Copy code",
     copied: "Copied",
     failed: "Copy failed",
   },
@@ -18,7 +19,7 @@ const TEXT = {
     language: "زبان کد",
     plain: "متن ساده",
     edit: "ویرایش کد",
-    copy: "کپی",
+    copy: "کپی کد",
     copied: "کپی شد",
     failed: "کپی نشد",
   },
@@ -238,22 +239,10 @@ export class CodeBlockHeaderWidget extends WidgetType {
       view.dispatch(transaction);
       view.focus();
     });
-    const copy = document.createElement("button");
-    copy.type = "button";
-    copy.className = "cm-code-copy";
-    copy.textContent = labels.copy;
-    copy.setAttribute("aria-live", "polite");
-    copy.addEventListener("click", async () => {
-      if (!currentSpec(view, spec)) return;
-      try {
-        await navigator.clipboard.writeText(codeBodyText(view.state, spec));
-        copy.textContent = labels.copied;
-      } catch {
-        copy.textContent = labels.failed;
-      }
-      setTimeout(() => {
-        if (copy.isConnected) copy.textContent = labels.copy;
-      }, 1800);
+    const copy = createCopyButton(document, {
+      read: () => (currentSpec(view, spec) ? codeBodyText(view.state, spec) : null),
+      labels,
+      className: "cm-code-copy",
     });
     actions.append(edit, copy);
     root.append(language, actions);

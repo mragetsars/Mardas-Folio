@@ -47,6 +47,10 @@ export function validateDocumentText({ path, content, options = {} }) {
   });
 }
 
+export function exportDocumentHtml(inputPath, outputPath) {
+  return sidecar("preview.document", { input_path: inputPath, output_path: outputPath });
+}
+
 export function previewDocumentText({ path, content, options = {}, requestId: id } = {}) {
   return sidecar(
     "preview.document_text",

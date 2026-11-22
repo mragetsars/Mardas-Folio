@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="./styles/settings.css">
   <link rel="stylesheet" href="./styles/library.css">
   <link rel="stylesheet" href="./styles/areas.css">
+  <link rel="stylesheet" href="./styles/document-geist.css">
 </head>
 <body data-view="library">
 <a class="skip-link" href="#app-main" data-i18n="skipToContent">رفتن به محتوای اصلی</a>
@@ -40,6 +41,9 @@
   <symbol id="icon-citation" viewBox="0 0 24 24"><path d="M6.2 7.2h4v4.2H8c0 2.2-.8 3.7-2.5 4.8M14 7.2h4v4.2h-2.2c0 2.2-.8 3.7-2.5 4.8"/></symbol>
   <symbol id="icon-alert" viewBox="0 0 24 24"><path d="M12 3.5 21 20H3z"/><path d="M12 9v5M12 17.3v.2"/></symbol>
   <symbol id="icon-source" viewBox="0 0 24 24"><path d="m9 7-4.5 5L9 17M15 7l4.5 5L15 17"/></symbol>
+  <symbol id="icon-system-theme" viewBox="0 0 24 24"><rect x="4" y="3.5" width="16" height="13" rx="2"/><path d="M12 17v3M8 20h8"/></symbol>
+  <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2m0 15v2M2.5 12h2m15 0h2M5.3 5.3l1.4 1.4m10.6 10.6 1.4 1.4m0-13.4-1.4 1.4M6.7 17.3l-1.4 1.4"/></symbol>
+  <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M19.4 15.2a8.2 8.2 0 1 1-9.8-10 7.9 7.9 0 0 0 9.8 10zM18 3v5m-2.5-2.5h5"/></symbol>
   <symbol id="icon-appearance" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M12 3.8v16.4a8.2 8.2 0 0 0 0-16.4Z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="icon-page" viewBox="0 0 24 24"><rect x="4.5" y="3" width="15" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h5" stroke-dasharray="0.1 3.4"/></symbol>
   <symbol id="icon-contents" viewBox="0 0 24 24"><path d="M5 6.5h.1M5 12h.1M5 17.5h.1M9.5 6.5h9.5M9.5 12h9.5M9.5 17.5h6"/></symbol>
@@ -318,7 +322,10 @@
         <div class="document-identity"><strong id="editor-title" data-i18n="untitled">بدون عنوان</strong><small id="editor-path" dir="auto"></small><span id="save-state" data-state="saved" data-i18n="saved">ذخیره‌شده</span></div>
         <div class="toolbar-group toolbar-publish-actions">
           <button class="button secondary compact document-save-button" id="workspace-save" type="button" data-i18n-aria-label="save" aria-label="ذخیره"><svg class="ui-icon" aria-hidden="true"><use href="#icon-save"></use></svg><span data-i18n="save">ذخیره</span></button>
-          <button class="button secondary compact document-export-button" id="workspace-export" type="button" aria-haspopup="dialog" data-i18n-aria-label="commandExport" aria-label="خروجی"><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg><span data-i18n="commandExport">خروجی</span></button>
+          <div class="export-split" role="group" data-i18n-aria-label="commandExport" aria-label="Export">
+            <button class="button secondary document-export-button" id="workspace-export" type="button" data-i18n-title="exportAsPdf" data-i18n-aria-label="exportAsPdf" aria-label="Export as PDF"><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg><span data-i18n="exportAsPdf">خروجی PDF</span></button>
+            <button class="button secondary export-split-trigger" id="workspace-export-formats" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="workspace-export-menu" data-i18n-title="exportFormats" data-i18n-aria-label="exportFormats" aria-label="More export formats"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
+          </div>
           <details class="document-actions" id="document-actions-menu">
             <summary class="toolbar-icon-button" data-i18n-title="documentActions" title="عملیات سند" data-i18n-aria-label="documentActions" aria-label="عملیات سند"><svg class="ui-icon" aria-hidden="true"><use href="#icon-more"></use></svg></summary>
             <div class="document-actions-popover">
@@ -689,12 +696,12 @@
         <section class="settings-section" id="settings-appearance" aria-labelledby="settings-appearance-title">
           <h3 id="settings-appearance-title" data-i18n="appearance">ظاهر</h3>
           <div class="settings-row" data-settings-terms="theme system light dark تم پوسته روشن تیره">
-            <label class="settings-label" for="setting-theme" data-i18n="interfaceTheme">پوستهٔ برنامه</label>
-            <select class="settings-control" id="setting-theme">
-              <option value="system" data-i18n="followSystem">مطابق سیستم</option>
-              <option value="light" data-i18n="lightTheme">روشن</option>
-              <option value="dark" data-i18n="darkTheme">تیره</option>
-            </select>
+            <span class="settings-label" id="setting-theme-label" data-i18n="interfaceTheme">پوستهٔ برنامه</span>
+            <div class="settings-control theme-switcher" id="setting-theme" role="radiogroup" aria-labelledby="setting-theme-label">
+              <label data-i18n-title="followSystem"><input class="sr-only" type="radio" name="theme" value="system" data-i18n-aria-label="followSystem" aria-label="System" checked><span><svg class="ui-icon" aria-hidden="true"><use href="#icon-system-theme"></use></svg></span></label>
+              <label data-i18n-title="lightTheme"><input class="sr-only" type="radio" name="theme" value="light" data-i18n-aria-label="lightTheme" aria-label="Light"><span><svg class="ui-icon" aria-hidden="true"><use href="#icon-sun"></use></svg></span></label>
+              <label data-i18n-title="darkTheme"><input class="sr-only" type="radio" name="theme" value="dark" data-i18n-aria-label="darkTheme" aria-label="Dark"><span><svg class="ui-icon" aria-hidden="true"><use href="#icon-moon"></use></svg></span></label>
+            </div>
           </div>
           <div class="settings-row" data-settings-terms="accent color colour monochrome purple آبی بنفش رنگ تاکیدی سیاه سفید">
             <label class="settings-label" for="setting-accent" data-i18n="interfaceAccent">رنگ تأکیدی رابط</label>
@@ -932,6 +939,11 @@
 </div>
 <div class="modal hidden" id="confirm-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="confirm-title" aria-describedby="confirm-message"><div class="modal-card confirm-card"><h2 id="confirm-title"></h2><p id="confirm-message"></p><div class="modal-actions"><button class="button secondary" id="confirm-cancel" type="button" data-i18n="cancel">انصراف</button><button class="button primary" id="confirm-accept" type="button" data-i18n="confirm">تأیید</button></div></div></div>
 <div class="modal hidden" id="recovery-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="recovery-title"><div class="modal-card"><h2 id="recovery-title" data-i18n="recoveryFound">نسخه بازیابی‌شده پیدا شد</h2><p id="recovery-message"></p><div class="modal-actions"><button class="button danger" id="discard-recovery" type="button" data-i18n="discardRecovery">نادیده‌گرفتن</button><button class="button primary" id="restore-recovery" type="button" data-i18n="restoreRecovery">بازیابی</button></div></div></div>
+<div class="popover-menu context-menu export-split-menu hidden" id="workspace-export-menu" role="menu" aria-labelledby="workspace-export-formats">
+  <button type="button" class="context-menu-item" role="menuitem" data-export-format="pdf" tabindex="-1"><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg><span data-i18n="exportAsPdf">خروجی PDF</span></button>
+  <button type="button" class="context-menu-item" role="menuitem" data-export-format="html" tabindex="-1"><svg class="ui-icon" aria-hidden="true"><use href="#icon-source"></use></svg><span data-i18n="exportAsHtml">خروجی HTML</span></button>
+  <button type="button" class="context-menu-item" role="menuitem" data-export-format="markdown" tabindex="-1"><svg class="ui-icon" aria-hidden="true"><use href="#icon-file"></use></svg><span data-i18n="exportAsMarkdown">خروجی Markdown</span></button>
+</div>
 <div class="context-menu hidden" id="editor-context-menu" role="menu" aria-hidden="true" data-i18n-aria-label="documentActions" aria-label="عملیات سند"></div>
 <div class="toasts" id="toast-region" aria-live="polite" aria-atomic="false"></div>
 <script type="module" src="./js/main.mjs"></script>

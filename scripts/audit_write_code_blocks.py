@@ -21,9 +21,9 @@ SAMPLE = (
 )
 BODY = 'const text = "فارسی";\nconsole.log(text);\n'
 HTML = """<!doctype html><html lang="__LANG__" dir="__DIR__" data-theme="__THEME__"><head><meta charset="utf-8">
-<link rel="stylesheet" href="/styles/base.css"><link rel="stylesheet" href="/styles/workspace.css">
+<link rel="stylesheet" href="/design/tokens.css"><link rel="stylesheet" href="/styles/base.css"><link rel="stylesheet" href="/styles/workspace.css">
 <link rel="stylesheet" href="/styles/authoring.css"><link rel="stylesheet" href="/styles/writer-workspace.css">
-<link rel="stylesheet" href="/styles/interaction-details.css"><link rel="stylesheet" href="/styles/code-blocks.css"></head>
+<link rel="stylesheet" href="/styles/interaction-details.css"><link rel="stylesheet" href="/styles/code-blocks.css"><link rel="stylesheet" href="/styles/document-geist.css"></head>
 <body data-view="workspace"><div class="editor-pane" style="display:block;height:1000px;width:100%">
 <textarea id="source"></textarea></div><script type="module">
 import {createCodeMirrorEditorAdapter} from '/js/vendor/codemirror-editor.bundle.mjs';

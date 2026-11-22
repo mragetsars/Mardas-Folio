@@ -51,12 +51,37 @@ const monoFont = `var(--app-mono, ${EDITOR_FONT_FAMILY})`;
  */
 export const mardasHighlightStyle = HighlightStyle.define([
   // Markdown structure.
-  { tag: tags.heading1, color: token("heading", "#111111"), fontWeight: "700", fontSize: "1.6em" },
-  { tag: tags.heading2, color: token("heading", "#111111"), fontWeight: "700", fontSize: "1.3em" },
-  { tag: tags.heading3, color: token("heading", "#111111"), fontWeight: "650", fontSize: "1.15em" },
+  {
+    tag: tags.heading1,
+    color: token("heading", "#111111"),
+    fontWeight: "700",
+    fontSize: "var(--document-h1, 1.6em)",
+  },
+  {
+    tag: tags.heading2,
+    color: token("heading", "#111111"),
+    fontWeight: "700",
+    fontSize: "var(--document-h2, 1.3em)",
+  },
+  {
+    tag: tags.heading3,
+    color: token("heading", "#111111"),
+    fontWeight: "650",
+    fontSize: "var(--document-h3, 1.15em)",
+  },
   { tag: tags.heading4, color: token("heading", "#111111"), fontWeight: "650" },
-  { tag: tags.heading5, color: token("heading", "#111111"), fontWeight: "650", fontSize: ".9em" },
-  { tag: tags.heading6, color: token("heading", "#111111"), fontWeight: "650", fontSize: ".85em" },
+  {
+    tag: tags.heading5,
+    color: token("heading", "#111111"),
+    fontWeight: "650",
+    fontSize: "var(--document-h5, .9em)",
+  },
+  {
+    tag: tags.heading6,
+    color: token("heading", "#111111"),
+    fontWeight: "650",
+    fontSize: "var(--document-h6, .85em)",
+  },
   { tag: tags.heading, color: token("heading", "#111111"), fontWeight: "650" },
   { tag: tags.strong, color: token("strong", "#000000"), fontWeight: "700" },
   { tag: tags.emphasis, color: token("emphasis", "#111111"), fontStyle: "italic" },

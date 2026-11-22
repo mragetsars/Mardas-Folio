@@ -120,9 +120,10 @@ fn pick_library_files() -> Vec<String> {
         .collect()
 }
 
-#[tauri::command(rename_all = "snake_case")]
-fn pick_markdown_output(suggested_path: Option<String>) -> Option<String> {
-    let mut dialog = rfd::FileDialog::new().add_filter("Markdown", &["md", "markdown"]);
+fn pick_document_output(
+    mut dialog: rfd::FileDialog,
+    suggested_path: Option<String>,
+) -> Option<String> {
     if let Some(suggested) = suggested_path.filter(|value| !value.trim().is_empty()) {
         let path = PathBuf::from(suggested);
         if let Some(parent) = path.parent().filter(|candidate| candidate.is_dir()) {
@@ -135,6 +136,22 @@ fn pick_markdown_output(suggested_path: Option<String>) -> Option<String> {
     dialog
         .save_file()
         .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+fn pick_markdown_output(suggested_path: Option<String>) -> Option<String> {
+    pick_document_output(
+        rfd::FileDialog::new().add_filter("Markdown", &["md", "markdown"]),
+        suggested_path,
+    )
+}
+
+#[tauri::command(rename_all = "snake_case")]
+fn pick_html_output(suggested_path: Option<String>) -> Option<String> {
+    pick_document_output(
+        rfd::FileDialog::new().add_filter("HTML", &["html", "htm"]),
+        suggested_path,
+    )
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -480,6 +497,7 @@ fn main() {
             pick_markdown_files,
             pick_library_files,
             pick_markdown_output,
+            pick_html_output,
             pick_text_output,
             pick_project_directory,
             pick_document_asset,

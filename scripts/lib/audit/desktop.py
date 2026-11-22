@@ -108,14 +108,14 @@ def run_workspace_command(page: Any, command_id: str) -> None:
 
 
 def open_workspace_export(page: Any, selector: str | None = "#workspace-export") -> None:
-    """Open the output format chooser through its normal Workspace entry."""
+    """Open PDF publishing through a normal Workspace entry."""
     if page.locator("#exit-focus-mode").is_visible():
         page.locator("#exit-focus-mode").click()
     if selector is None:
         run_workspace_command(page, "export-file")
+        page.locator("#export-format-pdf").click()
     else:
         page.locator(selector).click()
-    page.locator("#export-format-pdf").click()
 
 
 def open_template(page: Any, template_id: str) -> None:

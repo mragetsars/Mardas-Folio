@@ -497,7 +497,6 @@ def run_export_navigation(page: Any) -> list[str]:
     expect(mirror(page)).to_have_value(before)
     page.evaluate("globalThis.__auditSaveHeld = true")
     page.locator("#workspace-export").click()
-    page.locator("#export-format-pdf").click()
     page.wait_for_function("() => globalThis.__auditSaveResolvers.length > 0")
     navigator_item(page, 1).click()
     selected_b = mirror(page).input_value()
@@ -512,7 +511,6 @@ def run_export_navigation(page: Any) -> list[str]:
     page.keyboard.insert_text("SAVE_STARTED")
     page.evaluate("globalThis.__auditSaveHeld = true")
     page.locator("#workspace-export").click()
-    page.locator("#export-format-pdf").click()
     page.wait_for_function("() => globalThis.__auditSaveResolvers.length > 0")
     editor(page).focus()
     page.keyboard.press("Control+End")
@@ -525,7 +523,6 @@ def run_export_navigation(page: Any) -> list[str]:
     # A fresh save completes normally; publication returns to the current
     # reading surface and does not transfer focus to its hidden source editor.
     page.locator("#workspace-export").click()
-    page.locator("#export-format-pdf").click()
     expect(page.locator("#export-view")).to_be_visible()
     expect(page.locator("#source-path")).to_have_value(FIXTURE_A)
     page.locator("#export-back").click()
@@ -534,7 +531,6 @@ def run_export_navigation(page: Any) -> list[str]:
     mode(page, "read")
     expect(page.locator("#reading-document")).to_contain_text("_CHANGED_WHILE_SAVING")
     page.locator("#workspace-export").click()
-    page.locator("#export-format-pdf").click()
     expect(page.locator("#export-view")).to_be_visible()
     page.locator("#export-back").click()
     expect(page.locator("#reading-surface")).to_be_visible()

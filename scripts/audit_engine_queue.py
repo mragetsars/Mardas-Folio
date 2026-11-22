@@ -9,7 +9,7 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-from lib.audit.desktop import DEFAULT_DIST, INIT_SCRIPT, serve
+from lib.audit.desktop import DEFAULT_DIST, INIT_SCRIPT, run_workspace_command, serve
 
 FIXTURE = r"""
 localStorage.setItem('mardas.desktop.locale', 'en');
@@ -87,15 +87,8 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         page.add_init_script(INIT_SCRIPT)
         page.add_init_script(FIXTURE)
         page.goto(url, wait_until="networkidle")
-        page.locator("#workspace-export").click()
-        expect(page.locator("#export-format-modal")).to_be_visible()
-        expect(page.locator("#export-format-pdf")).to_be_focused()
-        expect(page.locator("#export-format-modal button:disabled")).to_have_count(2)
-        page.keyboard.press("Escape")
-        expect(page.locator("#export-format-modal")).to_be_hidden()
-        expect(page.locator("#workspace-export")).to_be_focused()
-        page.locator("#workspace-export").click()
-        page.locator("#export-format-pdf").click()
+        page.locator('.area-nav [data-area="workspace"]').click()
+        run_workspace_command(page, "export")
         expect(page.locator("#export-view")).to_be_visible()
         expect(page.locator("#source-path")).to_have_value("")
         expect(page.locator("#choose-source")).to_be_focused()
@@ -109,10 +102,13 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         expect(preset).to_be_focused()
         expect(page.locator("#export-preset-help")).to_contain_text("Strict checks")
         page.locator("#export-back").click()
-        expect(page.locator("#workspace-empty")).to_be_visible()
-        checks.append("format choice and cancellation work in the workspace with no document")
+        expect(page.locator("#editor-empty")).to_be_visible()
+        checks.append("PDF setup works in the workspace with no document")
 
-        page.locator("#workflow-new").click()
+        page.locator("#editor-create").click()
+        page.get_by_role("menuitem", name="Document", exact=True).click()
+        page.locator("#open-library").click()
+        page.locator(".library-open").first.click()
         editor = page.locator(".cm-content")
         mirror = page.locator("#markdown-editor")
         editor.click()
@@ -133,7 +129,6 @@ def run_audit(dist: Path, output: Path) -> dict[str, object]:
         checks.append("save and open wait safely behind slow preview; latest document activates")
 
         page.locator("#workspace-export").click()
-        page.locator("#export-format-pdf").click()
         expect(page.locator("#export-view")).to_be_visible()
         page.evaluate("globalThis.__outputExists = true")
         page.locator("#export-button").click()

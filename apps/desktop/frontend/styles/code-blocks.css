@@ -13,12 +13,6 @@
   white-space: pre-wrap;
   tab-size: 4;
 }
-.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line:first-of-type,
-.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line:last-of-type {
-  border-block: 0;
-  border-radius: 0;
-  padding-block: 0;
-}
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-open {
   padding: 6px 12px;
   border-top: 1px solid var(--ui-border);

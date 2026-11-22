@@ -2105,3 +2105,19 @@ Object.assign(fa, {
   svvisible: "نمایش مشخصات",
   svhidden: "پنهان‌کردن مشخصات",
 });
+
+Object.assign(fa, {
+  exportAsPdf: "خروجی PDF",
+  exportFormats: "فرمت‌های دیگر خروجی",
+  exportAsHtml: "خروجی HTML",
+  exportAsMarkdown: "خروجی Markdown",
+  exportFileSaved: "خروجی ذخیره شد",
+});
+
+Object.assign(en, {
+  exportAsPdf: "Export as PDF",
+  exportFormats: "More export formats",
+  exportAsHtml: "Export as HTML",
+  exportAsMarkdown: "Export as Markdown",
+  exportFileSaved: "Export saved",
+});

@@ -343,7 +343,7 @@ def _open_workspace(page: Any) -> None:
 def _apply(page: Any, theme: str, locale: str) -> None:
     page.locator("#settings-button").click()
     page.wait_for_timeout(200)
-    page.locator("#setting-theme").select_option(theme)
+    page.locator(f'#setting-theme label:has(input[value="{theme}"])').click()
     if locale != "en":
         select_settings_section(page, "language")
         page.locator("#setting-locale").select_option(locale)
