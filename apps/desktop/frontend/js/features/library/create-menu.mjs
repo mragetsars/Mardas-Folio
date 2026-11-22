@@ -1,145 +1,254 @@
 import { TYPES } from "./catalog.mjs";
-import { element } from "./objects.mjs";
+import { element, libraryIcon } from "./objects.mjs";
+
+const icons = {
+  book: "book",
+  document: "metadata",
+  note: "note",
+  resume: "resume",
+  article: "article",
+};
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 export function createTypeMenu({ t, create, boundary }) {
   const host = element("div", "library-deck");
-  const trigger = element("button", "library-add", "+");
+  const trigger = element("button", "library-add");
+  const stack = element("span", "library-add-stack");
+  const label = element("strong", "library-add-label");
+  const hint = element("small", "library-add-hint");
+  const plus = element("span", "library-deck-plus");
+  plus.append(libraryIcon("plus"));
   trigger.id = "shelf-add";
   trigger.type = "button";
-  trigger.setAttribute("aria-haspopup", "menu");
-  const label = element("span", "library-add-label");
-  const menu = element("div");
+  stack.setAttribute("aria-hidden", "true");
+  trigger.append(stack, label, hint);
+  host.append(trigger);
+  const triggers = [trigger, document.getElementById("shelf-add-top")].filter(Boolean);
+  const menu = element("div", "library-type-deck");
   menu.id = "shelf-type-list";
   menu.setAttribute("role", "menu");
-  trigger.setAttribute("aria-controls", menu.id);
-  let open = false,
-    pinned = false;
-  const buttons = TYPES.map((type, i) => {
-    const b = element("button", "library-choice");
-    b.type = "button";
-    b.setAttribute("role", "menuitem");
-    b.style.setProperty("--rest", [-14, -7, 0, 6, 12][i] + "deg");
-    b.style.setProperty("--offset", [-6, -3, 0, 2, 5][i] + "px");
+  for (const button of triggers) {
+    button.setAttribute("aria-haspopup", "menu");
+    button.setAttribute("aria-controls", menu.id);
+  }
+  let anchor = trigger;
+  let foldTimer;
+  let open = false;
+  let pinned = false;
+  let area;
+  let closeTimer;
+  const buttons = TYPES.map((type) => {
+    const button = element("button", "library-choice");
+    button.type = "button";
+    button.tabIndex = -1;
+    button.setAttribute("role", "menuitem");
+    const face = element("span", "library-deck-face");
     const icon = element("span", "library-mini");
     icon.dataset.type = type;
+    icon.append(libraryIcon(icons[type]));
     icon.setAttribute("aria-hidden", "true");
-    b.append(icon, element("span"));
-    b.addEventListener("click", () => {
+    const text = element("span", "library-choice-label");
+    face.append(icon, text);
+    button.append(face);
+    button.addEventListener("click", () => {
       close(true);
       create(type);
     });
-    menu.append(b);
-    return b;
+    return button;
   });
-  host.append(menu, trigger, label);
+  buttons.at(-1).append(plus);
+  menu.append(...buttons);
+  document.body.append(menu);
+
   function layout() {
-    if (!open || !host.isConnected) return;
-    const box = host.getBoundingClientRect(),
-      edge = boundary.getBoundingClientRect();
-    const left = Math.max(0, edge.left) + 5,
-      right = Math.min(window.innerWidth, edge.right) - 5;
-    const top = Math.max(0, edge.top) + 5,
-      bottom = Math.min(window.innerHeight, edge.bottom) - 5;
-    const span = Math.min(230, right - left, bottom - top),
-      card = Math.min(60, Math.max(26, span * 0.255));
-    const radius = Math.max(0, (span - card - 6) / 2),
-      x = box.left + box.width / 2,
-      y = box.top + box.height / 2;
-    const cx = Math.max(left + span / 2, Math.min(right - span / 2, x)) - x;
-    const cy = Math.max(top + span / 2, Math.min(bottom - span / 2, y)) - y;
+    const box = (anchor === trigger ? stack : anchor).getBoundingClientRect();
+    const edge = boundary.getBoundingClientRect();
+    const width = document.documentElement.clientWidth;
+    const height = window.innerHeight;
+    if (
+      !box.width ||
+      box.bottom <= Math.max(0, edge.top) ||
+      box.top >= Math.min(height, edge.bottom)
+    ) {
+      if (open) close(false);
+      menu.hidden = true;
+      return false;
+    }
+    menu.hidden = false;
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+    const radius = 101;
+    const clearance = 48;
+    const padding = 8;
+    const scale = clamp(
+      (Math.min(width, height) - 2 * padding) / (2 * (radius + clearance)),
+      0.01,
+      1,
+    );
     const rtl = document.documentElement.dir === "rtl";
-    for (const [key, v] of Object.entries({ cx, cy, span, card }))
-      host.style.setProperty("--" + key, v + "px");
-    buttons.forEach((b, i) => {
-      const angle = ((i * 72 - 90) * Math.PI) / 180;
-      b.style.setProperty("--dx", cx + Math.cos(angle) * radius * (rtl ? -1 : 1) + "px");
-      b.style.setProperty("--dy", cy + Math.sin(angle) * radius + "px");
+    const offsets = TYPES.map((_, index) => {
+      const angle = ((index * 72 - 90) * Math.PI) / 180;
+      return {
+        x: Math.cos(angle) * radius * scale * (rtl ? -1 : 1),
+        y: Math.sin(angle) * radius * scale,
+      };
     });
+    const margin = clearance * scale + padding;
+    const minX = Math.min(...offsets.map((p) => p.x)) - margin;
+    const maxX = Math.max(...offsets.map((p) => p.x)) + margin;
+    const minY = Math.min(...offsets.map((p) => p.y)) - margin;
+    const maxY = Math.max(...offsets.map((p) => p.y)) + margin;
+    const centerX = clamp(x, -minX, width - maxX);
+    const centerY = clamp(y, -minY, height - maxY);
+    menu.style.setProperty("--orbit-scale", scale);
+    buttons.forEach((button, index) => {
+      const point = offsets[index];
+      button.style.setProperty("--orbit-x", centerX - x + point.x + "px");
+      button.style.setProperty("--orbit-y", centerY - y + point.y + "px");
+    });
+    area = {
+      left: Math.min(x - 45, centerX + minX),
+      right: Math.max(x + 45, centerX + maxX),
+      top: Math.min(y - 35, centerY + minY),
+      bottom: Math.max(y + 35, centerY + maxY),
+    };
+    return true;
   }
-  function show(focus = false) {
+  function show(button, focus = false) {
+    clearTimeout(closeTimer);
+    clearTimeout(foldTimer);
+    closeTimer = undefined;
+    const moved = anchor !== button;
+    anchor = button;
+    if (!layout()) return;
+    if (moved) {
+      menu.dataset.pose = "stack";
+      menu.setAttribute("data-snap", "");
+      menu.getBoundingClientRect();
+      menu.removeAttribute("data-snap");
+    }
     open = true;
-    host.dataset.open = "true";
+    menu.dataset.pose = "fan";
     menu.inert = false;
     menu.removeAttribute("aria-hidden");
-    trigger.setAttribute("aria-expanded", "true");
-    layout();
-    if (focus) buttons[0].focus();
+    for (const control of triggers)
+      control.setAttribute("aria-expanded", String(control === anchor));
+    if (focus) buttons[0].focus({ preventScroll: true });
   }
   function close(focus = false) {
-    if (focus) trigger.focus({ preventScroll: true });
+    clearTimeout(closeTimer);
+    closeTimer = undefined;
+    if (focus) anchor.focus({ preventScroll: true });
     open = false;
     pinned = false;
-    host.dataset.open = "false";
+    menu.dataset.pose = "stack";
     menu.inert = true;
     menu.setAttribute("aria-hidden", "true");
-    trigger.setAttribute("aria-expanded", "false");
+    for (const control of triggers) control.setAttribute("aria-expanded", "false");
+    if (anchor !== trigger) {
+      clearTimeout(foldTimer);
+      foldTimer = setTimeout(() => {
+        anchor = trigger;
+        layout();
+      }, 320);
+    }
   }
-  menu.addEventListener("keydown", (e) => {
-    const i = buttons.indexOf(document.activeElement);
-    let pos;
-    if (e.key === "Escape") {
-      e.preventDefault();
+  menu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" || event.key === "Tab") {
+      if (event.key === "Escape") event.preventDefault();
       close(true);
       return;
     }
-    if (e.key === "Tab") {
-      close(true);
-      return;
-    }
+    const index = buttons.indexOf(document.activeElement);
     const rtl = document.documentElement.dir === "rtl";
     const step = { ArrowDown: 1, ArrowUp: -1, ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1 }[
-      e.key
+      event.key
     ];
-    if (step) pos = (i + step + buttons.length) % buttons.length;
-    else if (e.key === "Home") pos = 0;
-    else if (e.key === "End") pos = buttons.length - 1;
-    if (pos !== undefined) {
-      e.preventDefault();
-      buttons[pos].focus();
-    }
+    const position = step
+      ? (index + step + buttons.length) % buttons.length
+      : { Home: 0, End: buttons.length - 1 }[event.key];
+    if (position === undefined) return;
+    event.preventDefault();
+    buttons[position].focus({ preventScroll: true });
   });
-  host.addEventListener("pointerover", (e) => {
-    if (e.pointerType !== "touch" && (trigger.contains(e.target) || open)) show();
-  });
-  host.addEventListener("pointerleave", () => {
-    if (!pinned && !menu.contains(document.activeElement)) close();
-  });
-  trigger.addEventListener("click", (e) => {
-    if (pinned) {
-      close();
+  for (const button of triggers) {
+    button.addEventListener("pointerenter", (event) => {
+      if (event.pointerType !== "touch" && !pinned && (!open || anchor !== button)) show(button);
+    });
+    button.addEventListener("click", (event) => {
+      if (pinned && anchor === button) return close();
+      pinned = event.detail === 0 || event.pointerType !== "mouse";
+      show(button, event.detail === 0);
+    });
+    button.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && open) {
+        event.preventDefault();
+        close(true);
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        pinned = true;
+        show(button, true);
+      }
+    });
+  }
+  for (const node of [...triggers, menu])
+    node.addEventListener("focusout", (event) => {
+      if (
+        event.relatedTarget &&
+        !triggers.some((button) => button.contains(event.relatedTarget)) &&
+        !menu.contains(event.relatedTarget)
+      )
+        close();
+    });
+  document.addEventListener("pointermove", (event) => {
+    if (!open || pinned || menu.contains(document.activeElement) || event.pointerType === "touch")
       return;
-    }
-    pinned = true;
-    show(e.detail === 0);
+    const inside =
+      event.clientX >= area.left &&
+      event.clientX <= area.right &&
+      event.clientY >= area.top &&
+      event.clientY <= area.bottom;
+    if (inside) {
+      clearTimeout(closeTimer);
+      closeTimer = undefined;
+    } else if (closeTimer === undefined) closeTimer = setTimeout(close, 130);
   });
-  trigger.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      close(true);
-    }
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      pinned = true;
-      show(true);
-    }
-  });
-  host.addEventListener("focusout", (e) => {
-    if (e.relatedTarget && !host.contains(e.relatedTarget)) close();
-  });
-  document.addEventListener("pointerdown", (e) => {
-    if (open && !host.contains(e.target)) close();
+  document.addEventListener("pointerdown", (event) => {
+    if (
+      open &&
+      !triggers.some((button) => button.contains(event.target)) &&
+      !menu.contains(event.target)
+    )
+      close();
   });
   boundary.addEventListener("scroll", layout, { passive: true });
   window.addEventListener("resize", layout);
   function translate() {
     label.textContent = t("shelfNew");
+    hint.textContent = t("shelfPickType");
     trigger.setAttribute("aria-label", label.textContent);
     menu.setAttribute("aria-label", label.textContent);
-    buttons.forEach((b, i) => {
-      b.lastChild.textContent = t("shelf" + TYPES[i]);
+    buttons.forEach((button, index) => {
+      button.querySelector(".library-choice-label").textContent = t("shelf" + TYPES[index]);
     });
   }
+  menu.hidden = true;
   translate();
   close();
-  return { host, trigger, translate, close, layout };
+  return {
+    host,
+    trigger,
+    translate,
+    close,
+    layout,
+    open() {
+      const button = triggers.at(-1);
+      button.focus();
+      pinned = true;
+      show(button, true);
+    },
+  };
 }

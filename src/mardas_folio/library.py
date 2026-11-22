@@ -16,15 +16,22 @@ from .engine_errors import EngineError
 MAX_ITEMS = 1500
 MAX_INDEX_BYTES = 4 * 1024 * 1024
 THUMB = re.compile(r"data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}")
+HAND_FONT = re.compile(r"data:font/(?:woff2?|ttf|otf);base64,[A-Za-z0-9+/]+={0,2}")
+PREVIEW_FIELDS = {"author": 110, "detail": 110, "organization": 110, "summary": 240, "skills": 180}
 TYPES = {"book", "document", "note", "resume", "article"}
 CHOICES = {
     "variant": {"full", "band"},
     "texture": {"smooth", "linen", "paper", "leather", "twill"},
-    "pattern": {"plain", "fold", "wave", "orbit"},
+    "pattern": {"plain", "fold", "wave", "orbit", "terrain"},
     "privacy": {"hidden", "visible"},
-    "mark": {"auto", "duo", "triangle", "none"},
+    "mark": {"auto", "duo", "triangle", "brand", "spark", "leaf", "orbit", "none"},
     "fastener": {"staple", "clip", "binder"},
     "material": {"sticky", "kraft", "cotton"},
+    "sheets": {str(count) for count in range(2, 13)},
+    "ruling": {"auto", "plain", "lined", "grid", "dot"},
+    "tape": {"auto", "none", "masking", "washi"},
+    "pictureSource": {"preset", "uploaded"},
+    "logoSource": {"preset", "uploaded"},
     "binding": {"strip", "wire"},
     "avatar": {"neutral", "woman", "man"},
 }
@@ -62,11 +69,15 @@ def _appearance(value: Any) -> None:
     for key, option in value.items():
         if not isinstance(option, str):
             raise invalid()
-        if key == "color" and re.fullmatch(r"#[0-9a-fA-F]{6}", option):
+        if key in {"color", "kraftColor", "stickyColor", "cottonColor"} and re.fullmatch(
+            r"#[0-9a-fA-F]{6}", option
+        ):
             continue
         if key in {"picture", "logo"} and len(option) <= 98304 and THUMB.fullmatch(option):
             continue
-        if key == "label" and _bounded(option, 180):
+        if key == "handFont" and len(option) <= 262144 and HAND_FONT.fullmatch(option):
+            continue
+        if key in {"label", "chart", "letterhead"} and _bounded(option, 180):
             continue
         if option not in CHOICES.get(key, set()):
             raise invalid()
@@ -82,7 +93,7 @@ def _payload(items: Any) -> str:
         if (
             not isinstance(row, dict)
             or not required <= row.keys()
-            or row.keys() - required - {"detail", "author"}
+            or row.keys() - required - PREVIEW_FIELDS.keys()
         ):
             raise invalid()
         if not _bounded(row["id"], 100, required=True) or row["id"] in ids:
@@ -96,7 +107,7 @@ def _payload(items: Any) -> str:
             path = path.lower()
         if path in paths:
             raise invalid()
-        if any(not _bounded(row.get(field, ""), 110) for field in ("detail", "author")):
+        if any(not _bounded(row.get(field, ""), limit) for field, limit in PREVIEW_FIELDS.items()):
             raise invalid()
         ids.add(row["id"])
         paths.add(path)

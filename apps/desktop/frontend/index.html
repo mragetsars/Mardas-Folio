@@ -278,16 +278,24 @@
 
           <section class="view library-view active" id="library-view" aria-labelledby="workspace-empty-title">
             <div class="shelf-content">
-              <header class="library-toolbar">
-                <h1 id="workspace-empty-title" data-i18n="shelfTitle">Library</h1><small class="shelf-count" id="shelf-count" aria-live="polite"></small>
-                <div class="library-inline">
-                  <label class="shelf-search-box"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg><input id="shelf-search" type="search" aria-label="Search the library" data-i18n-placeholder="shelfSearch" data-i18n-aria-label="shelfSearch" dir="auto" autocomplete="off"></label>
-                  <select id="shelf-filter" aria-label="Filter by type" data-i18n-aria-label="shelfFilter"></select>
-                  <select id="shelf-sort" aria-label="Sort by" data-i18n-aria-label="shelfSort"></select>
-                  <button type="button" class="library-action" id="shelf-import" data-i18n="shelfImport">Open files</button>
+              <header class="library-heading">
+                <div>
+                  <h1 id="workspace-empty-title" data-i18n="shelfTitle">Library</h1>
+                  <p data-i18n="shelfHint">Select a document to open it. Drag to rearrange the library.</p>
+                </div>
+                <div class="library-heading-actions">
+                  <button type="button" class="library-action" id="shelf-import"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg><span data-i18n="shelfImport">Open files</span></button>
+                  <button type="button" class="button primary" id="shelf-add-top"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span data-i18n="shelfNew">New document</span></button>
                 </div>
               </header>
-              <div class="library-shelf"><div class="library-grid" id="shelf-grid"></div></div>
+              <div class="library-toolbar">
+                <div class="library-filter-rail"><div id="shelf-filter" class="library-filters" role="group" aria-label="Filter by type" data-i18n-aria-label="shelfFilter"></div></div>
+                <div class="library-inline">
+                  <label class="library-search"><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg><input id="shelf-search" type="search" aria-keyshortcuts="/" aria-label="Search the library" data-i18n-placeholder="shelfSearch" data-i18n-aria-label="shelfSearch" dir="auto" autocomplete="off"><kbd aria-hidden="true">/</kbd></label>
+                  <select id="shelf-sort" aria-label="Sort by" data-i18n-aria-label="shelfSort"></select>
+                </div>
+              </div>
+              <div class="library-shelf"><div class="library-grid" id="shelf-grid" role="list" aria-label="Library" data-i18n-aria-label="shelfTitle"></div></div>
               <div id="shelf-no-results" hidden><span data-i18n="shelfNoResults">No results</span> <button type="button" class="library-action" id="shelf-reset" data-i18n="clearFilters">Clear filters</button></div>
               <div id="shelf-status" class="library-notice" aria-live="polite"></div>
             </div>

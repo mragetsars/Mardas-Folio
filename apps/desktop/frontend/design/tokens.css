@@ -49,6 +49,9 @@
   --ui-muted: var(--geist-gray-900);
   --ui-page: var(--geist-background);
   --ui-desk: var(--geist-background-200);
+  --ui-library-background: var(--geist-background-100);
+  --ui-library-surface: var(--geist-background-100);
+  --ui-library-insert: #0068d6;
   --ui-scrollbar-thumb: color-mix(in srgb, var(--ui-muted) 35%, transparent);
   --ui-overlay: rgb(0 0 0 / 0.42);
   --ui-shadow: 0 2px 8px rgb(0 0 0 / 0.025);
@@ -184,6 +187,8 @@ html[data-theme="dark"] {
   --ui-panel-soft: var(--geist-background-100);
   --ui-surface-floating: var(--geist-gray-100);
   --ui-desk: var(--geist-background-100);
+  --ui-library-surface: #171717;
+  --ui-library-insert: #58a8ff;
   --ui-scrollbar-thumb: color-mix(in srgb, var(--ui-muted) 25%, transparent);
   --ui-overlay: rgb(0 0 0 / 0.62);
   --ui-shadow: 0 2px 8px rgb(0 0 0 / 0.08);

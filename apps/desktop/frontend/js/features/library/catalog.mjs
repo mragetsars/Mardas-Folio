@@ -62,11 +62,15 @@ export function describe(model, stored) {
   let title = "",
     detail = "",
     author = "";
+  const extra = {};
   // A thumbnail reads a bounded excerpt. The editor keeps the complete source.
   if (type === "resume") {
-    const basics = resumeData(model.content)?.basics || {};
+    const resume = resumeData(model.content);
+    const basics = resume?.basics || {};
     title = short(basics.name);
     detail = short(basics.label, 110);
+    extra.summary = short(basics.summary);
+    extra.skills = short(resumeSkills(resume).join(", "), 180);
   } else if (model.kind === "json") {
     title =
       String(model.path || model.title || "JSON")
@@ -78,9 +82,11 @@ export function describe(model, stored) {
       .map((v) => v.trim())
       .filter(Boolean);
     title = short(lines[0]);
-    detail = short(lines.slice(1, 4).join(" "), 110);
+    detail = short(lines.slice(1, 4).join("\n"), 110);
   } else {
     const body = sample.slice(bodyStartOffset(sample));
+    if (type === "document")
+      extra.organization = short(fields.organization || fields.institution, 110);
     title = short(fields.title) || short(body.match(/^#\s+(.+)$/m)?.[1]);
     detail = short(
       type === "article"
@@ -98,7 +104,25 @@ export function describe(model, stored) {
       110,
     );
   }
-  return { type, title: title || short(basename(model.path) || model.title), detail, author };
+  return {
+    type,
+    title: title || short(basename(model.path) || model.title),
+    detail,
+    author,
+    ...extra,
+  };
+}
+
+export function resumeSkills(data) {
+  if (!Array.isArray(data?.skills)) return [];
+  return data.skills
+    .map((skill) => short(typeof skill === "string" ? skill : skill?.name))
+    .filter(Boolean);
+}
+
+const previewFields = ["detail", "author", "organization", "summary", "skills"];
+export function privatePreview() {
+  return Object.fromEntries(["title", ...previewFields].map((key) => [key, ""]));
 }
 
 export function upsert(items, record) {
@@ -112,8 +136,7 @@ export function upsert(items, record) {
   if (
     prior.type === record.type &&
     prior.title === record.title &&
-    prior.detail === record.detail &&
-    prior.author === record.author
+    previewFields.every((field) => (prior[field] || "") === (record[field] || ""))
   )
     return items;
   return items.map((item) =>
@@ -122,20 +145,24 @@ export function upsert(items, record) {
           ...item,
           type: record.type,
           title: record.title,
-          detail: record.detail,
-          author: record.author,
+          ...Object.fromEntries(previewFields.map((field) => [field, record[field] || ""])),
         }
       : item,
   );
 }
 
-export function moveVisible(items, movingId, targetId, visibleIds) {
+export function moveVisible(items, movingId, targetId, visibleIds, side) {
   const visible = new Set(visibleIds);
   const order = items.filter((item) => visible.has(item.id));
   const from = order.findIndex((item) => item.id === movingId);
-  const to = order.findIndex((item) => item.id === targetId);
-  if (from < 0 || to < 0 || from === to) return items;
-  order.splice(to, 0, order.splice(from, 1)[0]);
+  const target = order.findIndex((item) => item.id === targetId);
+  if (from < 0 || target < 0 || from === target) return items;
+  const insert =
+    target -
+    Number(from < target) +
+    Number((side || (from < target ? "after" : "before")) === "after");
+  if (insert === from) return items;
+  order.splice(insert, 0, order.splice(from, 1)[0]);
   let cursor = 0;
   return items.map((item) => (visible.has(item.id) ? order[cursor++] : item));
 }
