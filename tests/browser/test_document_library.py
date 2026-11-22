@@ -64,6 +64,11 @@ def test_library_keyboard_create_save_reorder_and_reopen(
             trigger.press("ArrowDown")
             note = page.get_by_role("menuitem", name="Note" if locale == "en" else "یادداشت")
             note.click()
+            expect(page.locator("body")).to_have_attribute("data-view", "library")
+            new_card = page.locator(".library-item[data-type=note]").last
+            expect(page.locator(".library-item[data-type=note]")).to_have_count(i + 1)
+            new_card.locator(".library-open").click()
+            expect(page.locator("body")).to_have_attribute("data-view", "workspace")
             if i == 0:
                 page.locator("#workspace-save").click()
                 assert not (tmp_path / name).exists()
@@ -77,28 +82,32 @@ def test_library_keyboard_create_save_reorder_and_reopen(
         expect(pair).to_have_count(1)
         first = page.locator(".library-item").first
         first.locator(".library-open").focus()
-        first.locator(".library-grip").press("ArrowDown")
+        first.locator(".library-open").press("Alt+ArrowDown")
         expect(first.locator(".library-open")).to_have_attribute("title", names[1])
 
         trigger.press("ArrowDown")
         page.get_by_role("menuitem", name="Note" if locale == "en" else "یادداشت").click()
-        page.locator("#open-library").click()
+        expect(page.locator("body")).to_have_attribute("data-view", "library")
         cards = page.locator(".library-item")
         expect(cards).to_have_count(3)
         draft = cards.last
         draft_id = draft.get_attribute("data-id")
         draft.locator(".library-open").focus()
-        draft.locator(".library-grip").press("Home")
+        assert draft_id
+        draft.locator(".library-open").press("Alt+Home")
         expect(cards.first).to_have_attribute("data-id", draft_id)
+        page.reload()
+        expect(cards.first).to_have_attribute("data-id", draft_id)
+        expect(page.locator("body")).to_have_attribute("data-view", "library")
         cards.first.locator(".library-open").click()
         page.locator("#workspace-save").click()
         expect(page.locator("#editor-title")).to_contain_text(draft_name)
         page.locator("#open-library").click()
         expect(cards.first.locator(".library-open")).to_have_attribute("title", draft_name)
         page.reload()
-        page.locator("#open-library").click()
         expect(cards.first.locator(".library-open")).to_have_attribute("title", draft_name)
         expect(cards.nth(1).locator(".library-open")).to_have_attribute("title", names[1])
+        expect(page.locator("body")).to_have_attribute("data-view", "library")
         assert all((tmp_path / name).is_file() for name in [*names, draft_name])
         assert not errors
 
@@ -180,8 +189,19 @@ def test_library_specimens_pointer_reorder_and_live_appearance(
         page.mouse.down()
         page.mouse.move(target_box["x"] + 50, target_box["y"] + 10, steps=10)
         expect(page.locator(".library-drag-image")).to_have_count(1)
-        expect(grid.locator('[data-id="2"]')).to_have_attribute("data-insert", "before")
-        expect(grid.locator('[data-id="2"]')).to_have_attribute("data-axis", "y")
+        marker = page.locator(".library-insert-mark")
+        expect(marker).to_be_visible()
+        from_note = marker.bounding_box()
+        report_box = grid.locator('[data-id="1"] .library-open').bounding_box()
+        assert from_note and report_box
+        rtl = locale == "fa"
+        page.mouse.move(
+            report_box["x"] + (10 if rtl else report_box["width"] - 10),
+            report_box["y"] + report_box["height"] / 2,
+            steps=5,
+        )
+        page.evaluate("new Promise(resolve => requestAnimationFrame(resolve))")
+        assert marker.bounding_box() == from_note
         page.mouse.up()
         expect(page.locator(".library-drag-image")).to_have_count(0)
         expect(grid.locator(".library-item").first).to_have_attribute("data-id", "1")
@@ -202,6 +222,9 @@ def test_library_specimens_pointer_reorder_and_live_appearance(
         form.locator('button[value="binder"]').click()
         expect(form.locator(".folio-binder-clip")).to_have_count(1)
         expect(grid.locator(".folio-paperclip")).to_have_count(1)
+        expect(form.locator(".library-color-picker svg use")).to_have_attribute(
+            "href", "#icon-eyedropper"
+        )
         form.locator('button[type="submit"]').click()
         expect(form).to_have_count(0)
         expect(report.locator(".folio-binder-clip")).to_have_count(1)
@@ -214,11 +237,54 @@ def test_library_specimens_pointer_reorder_and_live_appearance(
         page.set_viewport_size({"width": 280, "height": 760})
         expect(grid).to_have_css("--columns", "1")
         assert page.locator("#shelf-search").bounding_box()["width"] > 60
-        top_trigger = page.locator("#shelf-add-top")
-        top_trigger.press("ArrowDown")
-        expect(top_trigger).to_have_attribute("aria-expanded", "true")
+        page.locator("#shelf-add").press("ArrowDown")
+        expect(page.locator("#shelf-add")).to_have_attribute("aria-expanded", "true")
         expect(page.locator("#shelf-type-list [role=menuitem]")).to_have_count(5)
         page.keyboard.press("Escape")
-        expect(top_trigger).to_be_focused()
-        expect(top_trigger).to_have_attribute("aria-expanded", "false")
+        expect(page.locator("#shelf-add")).to_be_focused()
+        expect(page.locator("#shelf-add")).to_have_attribute("aria-expanded", "false")
+        expect(page.locator("#shelf-add-top")).to_have_count(0)
+        expect(page.locator("#shelf-import")).to_have_class("button primary")
+
+        rail = page.locator(".activity-rail")
+        assert rail.bounding_box()["x"] == 0
+        assert page.locator("#app-main").bounding_box()["x"] >= rail.bounding_box()["width"]
+        rail.locator("#workspace-quick-open").click()
+        expect(page.locator("#navigation-modal")).to_be_visible()
+        page.keyboard.press("Escape")
+        for button, modal in [
+            ("#help-button", "#help-modal"),
+            ("#command-button", "#command-modal"),
+        ]:
+            more = rail.locator("#app-utilities summary")
+            more.click()
+            rail.locator(button).click()
+            expect(page.locator(modal)).to_be_visible()
+            page.keyboard.press("Escape")
+            expect(more).to_be_focused()
+        rail.locator('[data-area="workspace"]').click()
+        expect(page.locator("body")).to_have_attribute("data-view", "workspace")
+        expect(rail).to_be_visible()
+        rail.locator('[data-area="library"]').click()
+
+        page.set_viewport_size({"width": 1200, "height": 900})
+        page.clock.install()
+        paper = grid.locator('[data-id="2"]')
+        paper.locator(".library-open").focus()
+        expect(paper.locator(".library-tools button")).to_have_count(2)
+        paper.locator(".library-remove").click()
+        countdown = page.locator(".library-undo-countdown")
+        expect(countdown).to_be_visible()
+        first_tick = countdown.text_content()
+        page.clock.run_for(2000)
+        assert countdown.text_content() != first_tick
+        page.locator(".library-undo-notice button").click()
+        expect(paper).to_have_count(1)
+        expect(countdown).to_have_count(0)
+        paper.locator(".library-open").focus()
+        paper.locator(".library-remove").click()
+        expect(countdown).to_be_visible()
+        page.clock.run_for(10500)
+        expect(page.locator(".library-undo-notice")).to_have_count(0)
+        expect(paper).to_have_count(0)
         assert not errors

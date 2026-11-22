@@ -23,16 +23,11 @@ export function createTypeMenu({ t, create, boundary }) {
   stack.setAttribute("aria-hidden", "true");
   trigger.append(stack, label, hint);
   host.append(trigger);
-  const triggers = [trigger, document.getElementById("shelf-add-top")].filter(Boolean);
   const menu = element("div", "library-type-deck");
   menu.id = "shelf-type-list";
   menu.setAttribute("role", "menu");
-  for (const button of triggers) {
-    button.setAttribute("aria-haspopup", "menu");
-    button.setAttribute("aria-controls", menu.id);
-  }
-  let anchor = trigger;
-  let foldTimer;
+  trigger.setAttribute("aria-haspopup", "menu");
+  trigger.setAttribute("aria-controls", menu.id);
   let open = false;
   let pinned = false;
   let area;
@@ -61,7 +56,7 @@ export function createTypeMenu({ t, create, boundary }) {
   document.body.append(menu);
 
   function layout() {
-    const box = (anchor === trigger ? stack : anchor).getBoundingClientRect();
+    const box = stack.getBoundingClientRect();
     const edge = boundary.getBoundingClientRect();
     const width = document.documentElement.clientWidth;
     const height = window.innerHeight;
@@ -79,11 +74,12 @@ export function createTypeMenu({ t, create, boundary }) {
     const y = box.top + box.height / 2;
     menu.style.left = x + "px";
     menu.style.top = y + "px";
-    const radius = 101;
+    const radius = 84;
     const clearance = 48;
     const padding = 8;
     const scale = clamp(
-      (Math.min(width, height) - 2 * padding) / (2 * (radius + clearance)),
+      (Math.min(Math.min(width, edge.right) - Math.max(0, edge.left), height) - 2 * padding) /
+        (2 * (radius + clearance)),
       0.01,
       1,
     );
@@ -100,7 +96,7 @@ export function createTypeMenu({ t, create, boundary }) {
     const maxX = Math.max(...offsets.map((p) => p.x)) + margin;
     const minY = Math.min(...offsets.map((p) => p.y)) - margin;
     const maxY = Math.max(...offsets.map((p) => p.y)) + margin;
-    const centerX = clamp(x, -minX, width - maxX);
+    const centerX = clamp(x, Math.max(0, edge.left) - minX, Math.min(width, edge.right) - maxX);
     const centerY = clamp(y, -minY, height - maxY);
     menu.style.setProperty("--orbit-scale", scale);
     buttons.forEach((button, index) => {
@@ -116,44 +112,27 @@ export function createTypeMenu({ t, create, boundary }) {
     };
     return true;
   }
-  function show(button, focus = false) {
+  function show(focus = false) {
     clearTimeout(closeTimer);
-    clearTimeout(foldTimer);
     closeTimer = undefined;
-    const moved = anchor !== button;
-    anchor = button;
     if (!layout()) return;
-    if (moved) {
-      menu.dataset.pose = "stack";
-      menu.setAttribute("data-snap", "");
-      menu.getBoundingClientRect();
-      menu.removeAttribute("data-snap");
-    }
     open = true;
     menu.dataset.pose = "fan";
     menu.inert = false;
     menu.removeAttribute("aria-hidden");
-    for (const control of triggers)
-      control.setAttribute("aria-expanded", String(control === anchor));
+    trigger.setAttribute("aria-expanded", "true");
     if (focus) buttons[0].focus({ preventScroll: true });
   }
   function close(focus = false) {
     clearTimeout(closeTimer);
     closeTimer = undefined;
-    if (focus) anchor.focus({ preventScroll: true });
+    if (focus) trigger.focus({ preventScroll: true });
     open = false;
     pinned = false;
     menu.dataset.pose = "stack";
     menu.inert = true;
     menu.setAttribute("aria-hidden", "true");
-    for (const control of triggers) control.setAttribute("aria-expanded", "false");
-    if (anchor !== trigger) {
-      clearTimeout(foldTimer);
-      foldTimer = setTimeout(() => {
-        anchor = trigger;
-        layout();
-      }, 320);
-    }
+    trigger.setAttribute("aria-expanded", "false");
   }
   menu.addEventListener("keydown", (event) => {
     if (event.key === "Escape" || event.key === "Tab") {
@@ -173,36 +152,35 @@ export function createTypeMenu({ t, create, boundary }) {
     event.preventDefault();
     buttons[position].focus({ preventScroll: true });
   });
-  for (const button of triggers) {
-    button.addEventListener("pointerenter", (event) => {
-      if (event.pointerType !== "touch" && !pinned && (!open || anchor !== button)) show(button);
-    });
-    button.addEventListener("click", (event) => {
-      if (pinned && anchor === button) return close();
-      pinned = event.detail === 0 || event.pointerType !== "mouse";
-      show(button, event.detail === 0);
-    });
-    button.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && open) {
-        event.preventDefault();
-        close(true);
-      }
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        pinned = true;
-        show(button, true);
-      }
-    });
-  }
-  for (const node of [...triggers, menu])
+  trigger.addEventListener("pointerenter", (event) => {
+    if (event.pointerType !== "touch" && !pinned && !open) show();
+  });
+  trigger.addEventListener("click", (event) => {
+    if (pinned) return close();
+    pinned = event.detail === 0 || event.pointerType !== "mouse";
+    show(event.detail === 0);
+  });
+  trigger.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && open) {
+      event.preventDefault();
+      close(true);
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      pinned = true;
+      show(true);
+    }
+  });
+  for (const node of [trigger, menu]) {
     node.addEventListener("focusout", (event) => {
       if (
         event.relatedTarget &&
-        !triggers.some((button) => button.contains(event.relatedTarget)) &&
+        !trigger.contains(event.relatedTarget) &&
         !menu.contains(event.relatedTarget)
       )
         close();
     });
+  }
   document.addEventListener("pointermove", (event) => {
     if (!open || pinned || menu.contains(document.activeElement) || event.pointerType === "touch")
       return;
@@ -217,12 +195,7 @@ export function createTypeMenu({ t, create, boundary }) {
     } else if (closeTimer === undefined) closeTimer = setTimeout(close, 130);
   });
   document.addEventListener("pointerdown", (event) => {
-    if (
-      open &&
-      !triggers.some((button) => button.contains(event.target)) &&
-      !menu.contains(event.target)
-    )
-      close();
+    if (open && !trigger.contains(event.target) && !menu.contains(event.target)) close();
   });
   boundary.addEventListener("scroll", layout, { passive: true });
   window.addEventListener("resize", layout);
@@ -245,10 +218,9 @@ export function createTypeMenu({ t, create, boundary }) {
     close,
     layout,
     open() {
-      const button = triggers.at(-1);
-      button.focus();
+      trigger.focus();
       pinned = true;
-      show(button, true);
+      show(true);
     },
   };
 }

@@ -17,6 +17,7 @@ export function createBookCreation({
   errorText,
 }) {
   let createSequence = 0;
+  let createOnShelf = false;
 
   function folderNameFromTitle(value) {
     const normalized = String(value || "")
@@ -28,7 +29,8 @@ export function createBookCreation({
     return normalized || "mardas-book";
   }
 
-  function openNewBookModal() {
+  function openNewBookModal({ stayInLibrary = false } = {}) {
+    createOnShelf = stayInLibrary;
     const titleInput = $("#book-project-title-input");
     const folderInput = $("#book-project-folder-input");
     titleInput.value = "";
@@ -74,7 +76,8 @@ export function createBookCreation({
     const sequence = ++createSequence;
     const expectedProjectPath = state.project?.path || null;
     const expectedProjectGeneration = state.projectGeneration;
-    const handoff = invalidateBookTaskForProjectChange();
+    const stayInLibrary = createOnShelf;
+    const handoff = stayInLibrary ? Promise.resolve() : invalidateBookTaskForProjectChange();
     try {
       await handoff;
       if (
@@ -96,13 +99,16 @@ export function createBookCreation({
         pathKey(state.project?.path) !== pathKey(expectedProjectPath)
       )
         return;
-      applyProjectPayload(project);
+      if (!stayInLibrary) applyProjectPayload(project);
       await onBookOpened(project);
+      if (sequence !== createSequence) return;
       closeNewBookModal();
-      showView("workspace");
-      activateSidebar("book", { reveal: false });
-      const first = project.book?.chapters?.[0]?.path;
-      if (first) await openProjectRelativeFile(first);
+      if (!stayInLibrary) {
+        showView("workspace");
+        activateSidebar("book", { reveal: false });
+        const first = project.book?.chapters?.[0]?.path;
+        if (first) await openProjectRelativeFile(first);
+      }
       toast(t("bookCreated"), "success");
     } catch (error) {
       if (sequence === createSequence) toast(errorText(error), "error");

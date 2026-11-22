@@ -37,7 +37,13 @@ export function createProjectWorkspace({
 
   async function loadProject(
     path,
-    { announce = true, openFirstChapter = true, requireBook = false } = {},
+    {
+      announce = true,
+      openFirstChapter = true,
+      requireBook = false,
+      background = false,
+      revealSidebar = true,
+    } = {},
   ) {
     const previousProjectPath = state.project?.path || null;
     const activationSequence = ++state.documentActivationSequence;
@@ -58,9 +64,9 @@ export function createProjectWorkspace({
     if (announce && book) await onBookOpened({ ...project, book });
     if (sequence !== state.projectRequestSequence) return null;
     state.bibliographyEntries = [];
-    if (activationSequence !== state.documentActivationSequence) return payload;
+    if (background || activationSequence !== state.documentActivationSequence) return payload;
     showView("workspace");
-    activateSidebar("project");
+    activateSidebar("project", { reveal: revealSidebar });
     if (announce) toast(t("projectOpened"), "success");
     const firstChapter = book?.chapters?.[0]?.path;
     const switchedProject =

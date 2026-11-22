@@ -1,49 +1,161 @@
-/* Desktop destinations. The application header never owns document tabs. */
-.shell > .topbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: clamp(8px, 2vw, 24px);
+/* Global navigation sits on the physical left in both interface directions. */
+.shell {
+  --activity-rail-width: 52px;
+  grid-template-columns: var(--activity-rail-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 28px;
 }
-.area-nav {
-  display: flex;
-  align-items: center;
-  align-self: stretch;
-  gap: 4px;
-  min-inline-size: 0;
-  -webkit-app-region: no-drag;
+html[dir="rtl"] .shell {
+  grid-template-columns: minmax(0, 1fr) var(--activity-rail-width);
 }
-.area-nav button {
+.shell > #app-main,
+.shell > .app-footer {
+  grid-column: 2;
+  min-width: 0;
+}
+html[dir="rtl"] .shell > :is(#app-main, .app-footer) {
+  grid-column: 1;
+}
+.shell > #app-main {
+  grid-row: 1;
+}
+.shell > .app-footer {
+  grid-row: 2;
+}
+body[data-view="workspace"] .shell,
+body[data-view="library"] .shell {
+  grid-template-rows: minmax(0, 1fr);
+}
+html[data-focus-mode="true"] body[data-view="workspace"] .shell {
+  --activity-rail-width: 0px;
+}
+html[data-focus-mode="true"] body[data-view="workspace"] .activity-rail {
+  display: none;
+}
+.activity-rail {
   position: relative;
+  z-index: 45;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-block: 12px;
+  border-right: 1px solid var(--ui-border);
+  background: var(--ui-panel-soft);
+}
+html[dir="rtl"] .activity-rail {
+  grid-column: 2;
+}
+.activity-brand {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 34px;
+}
+.activity-brand img {
+  border-radius: 6px;
+}
+.area-nav,
+.activity-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+}
+.activity-actions {
+  margin-block-start: auto;
+}
+.activity-button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   border: 0;
+  border-radius: 7px;
   background: transparent;
   color: var(--ui-muted);
-  font: 500 13px/1.4 var(--app-font);
-  padding: 0 clamp(7px, 1.4vw, 17px);
+  cursor: pointer;
+  list-style: none;
 }
-.area-nav button[aria-current="page"] {
+.activity-button > .ui-icon {
+  width: 20px;
+  height: 20px;
+}
+.activity-button:is(:hover, [aria-current="page"]),
+.activity-actions details[open] > summary {
   color: var(--ui-text);
+  background: var(--ui-control-hover);
 }
-.area-nav button[aria-current="page"]::after {
+.area-nav button[aria-current="page"]::before {
   content: "";
   position: absolute;
-  inset: auto 9px 0;
-  height: 2px;
-  background: currentColor;
-  border-radius: 2px;
+  left: 0;
+  width: 3px;
+  height: 22px;
+  border-radius: 0 4px 4px 0;
+  background: var(--ui-accent);
 }
-.area-nav button:hover {
+.activity-rail .engine {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 24px;
+  padding: 0;
+}
+.activity-actions .app-utilities > summary {
+  display: grid;
+}
+.activity-actions .app-utilities:not([open]) > .app-utilities-content {
+  display: none;
+}
+.activity-actions .app-utilities[open] > .app-utilities-content {
+  display: grid;
+  position: absolute;
+  z-index: 1;
+  inset: auto auto 0 calc(100% + 9px);
+  width: max-content;
+  max-width: calc(100vw - 62px);
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-panel);
+  box-shadow: var(--ui-shadow-float);
+}
+.activity-actions .app-utilities-content button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 0;
+  background: transparent;
+  border-radius: 5px;
+  text-align: start;
   color: var(--ui-text);
+  cursor: pointer;
 }
-.shell > .topbar .top-actions {
-  margin-inline-start: auto;
+.activity-actions .app-utilities-content button:hover {
+  background: var(--ui-control-hover);
+}
+@media (max-width: 500px), (max-height: 400px) {
+  .shell {
+    --activity-rail-width: 44px;
+  }
+  .activity-rail {
+    gap: 5px;
+    padding-block: 7px;
+  }
+  .activity-button {
+    width: 34px;
+    height: 34px;
+  }
 }
 :is(.area-nav button, .library-tools button, .json-field, .json-document summary):focus-visible {
   outline: 2px solid var(--ui-accent, currentColor);
   outline-offset: 2px;
-}
-body[data-view="library"] .shell {
-  grid-template-rows: var(--ui-bar-title, 46px) minmax(0, 1fr);
 }
 body[data-view="library"] .app-footer {
   display: none;
@@ -254,23 +366,7 @@ button.json-field:hover {
   overscroll-behavior: contain;
 }
 @media (max-width: 760px) {
-  .area-nav {
-    gap: 0;
-  }
-  body .topbar .brand span,
-  body .topbar .engine span {
-    display: none;
-  }
   .editor-header .workspace-navigation :is(kbd, .layout-toggle span, .quick-open-button span) {
     display: none;
-  }
-}
-@media (max-width: 440px) {
-  .shell > .topbar {
-    gap: 4px;
-    padding-inline: 5px;
-  }
-  .area-nav button {
-    padding-inline: 7px;
   }
 }

@@ -2383,6 +2383,7 @@ async function activateDocument(id, { focus = "editor" } = {}) {
   persistSession();
   renderWorkspace();
   if (focus === "background") return;
+  if (offerRecovery(model)) return;
   if (focus === "tab") {
     const tab = $$(".document-tab").find((element) => element.dataset.documentId === id);
     tab?.querySelector(".tab-activate")?.focus();
@@ -2409,7 +2410,7 @@ function activateNewDraft(model) {
   return model;
 }
 
-async function openAuthoringPaths(paths, { catalogue = true } = {}) {
+async function openAuthoringPaths(paths, { catalogue = true, background = false } = {}) {
   const values = [...new Set((Array.isArray(paths) ? paths : [paths]).filter(Boolean))];
   if (!values.length) return;
   const sequence = ++state.documentActivationSequence;
@@ -2421,6 +2422,7 @@ async function openAuthoringPaths(paths, { catalogue = true } = {}) {
       if (state.documents.includes(existing)) {
         if (catalogue) await library.remember(existing);
         intendedDocument = existing;
+        if (!background && sequence === state.documentActivationSequence) offerRecovery(existing);
       }
       continue;
     }
@@ -2452,14 +2454,12 @@ async function openAuthoringPaths(paths, { catalogue = true } = {}) {
       }
       if (catalogue) await library.remember(model);
       saveRecent(model.path);
-      const recovery = recoveryForPath(model.path);
       if (
+        !background &&
         sequence === state.documentActivationSequence &&
-        state.documents.includes(model) &&
-        recovery &&
-        recovery.content !== model.content
+        state.documents.includes(model)
       )
-        showRecovery(model, recovery);
+        offerRecovery(model);
     } catch (error) {
       toast(errorText(error), "error");
     }
@@ -2468,15 +2468,17 @@ async function openAuthoringPaths(paths, { catalogue = true } = {}) {
   // and scope grant, including when several files are opened together.
   if (sequence === state.documentActivationSequence && state.documents.includes(intendedDocument)) {
     state.activeDocumentId = intendedDocument.id;
-    showView("workspace");
+    if (!background) showView("workspace");
     state.validationSequence += 1;
     state.assetSequence += 1;
     state.bibliographySequence += 1;
   }
   persistSession();
   renderWorkspace();
-  schedulePreview(120);
-  refreshAssets();
+  if (!background) {
+    schedulePreview(120);
+    refreshAssets();
+  }
   return sequence === state.documentActivationSequence ? intendedDocument : null;
 }
 
@@ -2708,6 +2710,19 @@ async function refreshBibliography() {
     if (sequence !== state.bibliographySequence || !contextIsCurrent(context)) return;
     toast(errorText(error), "error");
   }
+}
+
+function offerRecovery(model) {
+  if (!model.path || documentDirty(model)) return false;
+  if (
+    state.pendingRecovery?.model === model ||
+    state.recoveryQueue.some((item) => item.model === model)
+  )
+    return true;
+  const recovery = recoveryForPath(model.path);
+  if (!recovery || recovery.content === model.content) return false;
+  showRecovery(model, recovery);
+  return true;
 }
 
 function showRecovery(model, recovery) {
@@ -3995,6 +4010,8 @@ async function engineHealth() {
     element.dataset.state = "ready";
     element.querySelector("span").dataset.i18n = "engineReady";
     element.querySelector("span").textContent = t("engineReady");
+    element.dataset.i18nTitle = "engineReady";
+    element.title = t("engineReady");
     $("#runtime-detail").textContent =
       `${health.engine_version || ""} · ${health.runtime?.platform || t("localRuntime")}`;
     await engineCapabilities();
@@ -4002,18 +4019,32 @@ async function engineHealth() {
     element.dataset.state = "error";
     element.querySelector("span").dataset.i18n = "engineUnavailable";
     element.querySelector("span").textContent = t("engineUnavailable");
+    element.dataset.i18nTitle = "engineUnavailable";
+    element.title = t("engineUnavailable");
     $("#runtime-detail").textContent = t("sidecarUnavailableDetail");
     toast(errorText(error), "error");
   }
 }
 
 function bindEvents() {
-  const utilityWidth = matchMedia("(min-width: 1001px)");
-  const updateUtilities = () => {
-    $("#app-utilities").open = utilityWidth.matches;
+  const utilities = $("#app-utilities");
+  const more = utilities.querySelector("summary");
+  const closeUtilities = ({ focus = false } = {}) => {
+    utilities.open = false;
+    if (focus) more.focus();
   };
-  updateUtilities();
-  utilityWidth.addEventListener("change", updateUtilities);
+  document.addEventListener("pointerdown", (event) => {
+    if (utilities.open && !utilities.contains(event.target)) closeUtilities();
+  });
+  utilities.addEventListener("focusout", (event) => {
+    if (event.relatedTarget && !utilities.contains(event.relatedTarget)) closeUtilities();
+  });
+  utilities.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && utilities.open) {
+      event.preventDefault();
+      closeUtilities({ focus: true });
+    }
+  });
   // Fixed popovers belong to the viewport. Keeping them inside a size-query
   // container would change their containing block and clip them over a pane.
   for (const menu of $$(".popover-menu, #editor-context-menu")) document.body.append(menu);
@@ -4079,10 +4110,13 @@ function bindEvents() {
     if (name === "workspace") {
       renderWorkspace();
       focusDocument();
+      if (activeDocument()) {
+        schedulePreview(80, { entering: true });
+        void refreshAssets();
+      }
     }
     if (name === "export" && state.sourcePath) schedulePdfPreview(0);
   }
-  $("#open-library").addEventListener("click", () => navigateArea("library"));
   for (const button of $$(".area-nav [data-area]"))
     button.addEventListener("click", () => navigateArea(button.dataset.area));
   $("#editor-open").addEventListener("click", () => $("#shelf-import").click());
@@ -4140,8 +4174,14 @@ function bindEvents() {
       () => focusDocument(),
     );
   });
-  $("#command-button").addEventListener("click", openCommandPalette);
-  $("#help-button").addEventListener("click", openHelp);
+  $("#command-button").addEventListener("click", () => {
+    closeUtilities({ focus: true });
+    openCommandPalette();
+  });
+  $("#help-button").addEventListener("click", () => {
+    closeUtilities({ focus: true });
+    openHelp();
+  });
   $("#settings-button").addEventListener("click", () => openSettings());
   for (const button of $$("button[data-view-mode]")) {
     button.addEventListener("click", () => setViewMode(button.dataset.viewMode));
@@ -4815,7 +4855,7 @@ const library = createShelf({
   t,
   create(type) {
     if (type === "book") {
-      openNewBookModal();
+      openNewBookModal({ stayInLibrary: true });
       return;
     }
     const seed = draftFor(type, t);
@@ -4828,7 +4868,11 @@ const library = createShelf({
     const model = createDocument({ kind: seed.kind, content });
     model.title = seed.title;
     model.libraryType = type;
-    activateNewDraft(model);
+    const recovery = saveRecovery(model);
+    if (!recovery.ok) toast(t("shelfWriteError"), "error");
+    state.documents.push(model);
+    renderWorkspace();
+    return model.id;
   },
   async open(item) {
     if (!item.path) {
@@ -4837,7 +4881,11 @@ const library = createShelf({
       return true;
     }
     if (item.type === "book") {
-      const payload = await loadProject(item.path, { announce: false, requireBook: true });
+      const payload = await loadProject(item.path, {
+        announce: false,
+        requireBook: true,
+        revealSidebar: false,
+      });
       return Boolean(payload?.book || payload?.project?.book);
     }
     const model = await openAuthoringPaths([item.path], { catalogue: false });
@@ -5028,24 +5076,27 @@ async function boot() {
           await loadProject(session.projectPath, {
             announce: false,
             openFirstChapter: false,
+            background: true,
           });
         } catch {
           await clearProjectState();
         }
       }
       if (session.paths.length) {
-        const restoration = openAuthoringPaths(session.paths, { catalogue: false });
+        const restoration = openAuthoringPaths(session.paths, {
+          catalogue: false,
+          background: true,
+        });
         const activationSequence = state.documentActivationSequence;
         await restoration;
         const active = findDocumentByPath(state.documents, session.activePath);
         if (active && activationSequence === state.documentActivationSequence)
-          await activateDocument(active.id);
+          await activateDocument(active.id, { focus: "background" });
       }
     }
   } catch (error) {
     toast(errorText(error), "error");
   }
-  const draftActivationSequence = state.documentActivationSequence;
   await engineHealth();
   await initializeUpdater();
   const drafts = readRecoveries().filter((item) => !item.path);
@@ -5061,14 +5112,9 @@ async function boot() {
     if (recoveredId) model.id = recoveredId;
     model.title = recovery.title || model.title;
     state.documents.push(model);
-    if (!state.activeDocumentId) state.activeDocumentId = model.id;
     restoredDrafts += 1;
   }
-  if (restoredDrafts && draftActivationSequence === state.documentActivationSequence) {
-    showView("workspace");
-    renderWorkspace();
-    schedulePreview(120);
-  }
+  if (restoredDrafts) renderWorkspace();
 }
 
 boot();

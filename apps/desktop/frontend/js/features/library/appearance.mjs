@@ -156,6 +156,7 @@ export function editAppearance(item, t, save, restore) {
       button.setAttribute("aria-pressed", String(button.value === selected.toLowerCase()));
     const input = list.querySelector("input");
     input.value = selected;
+    input.parentElement.style.setProperty("--swatch", selected);
     if (key === "color") {
       for (const chip of body.querySelectorAll(".library-texture-chip"))
         chip.style.backgroundColor = selected;
@@ -186,7 +187,10 @@ export function editAppearance(item, t, save, restore) {
       list.append(button);
     }
     input.addEventListener("input", () => select(input.value));
-    list.append(input);
+    const picker = element("label", "library-color-picker");
+    picker.title = input.title;
+    picker.append(libraryIcon("eyedropper"), input);
+    list.append(picker);
     pressColors(key, isNote ? noteColor(a) : a.color, list);
     group.append(element("legend", "", fieldLabel), list);
     return group;

@@ -10,6 +10,7 @@ localStorage.setItem("mardas.desktop.preferences.v1", JSON.stringify({
   onboardingComplete: true, viewMode: "source", autoPreview: false
 }));
 globalThis.calls = [];
+let library = {revision: 0, items: []};
 globalThis.project = {
   path: "/fixtures/book", name: "کتاب Sample", config: "mardas.toml", config_sha256: "config-v1",
   files: [{path: "one.md", kind: "markdown"}],
@@ -26,6 +27,10 @@ globalThis.__TAURI__ = {
     switch (args.method) {
       case "system.health": return {engine_version: "test", runtime: {platform: "browser"}};
       case "system.capabilities": return {methods: ["document.assets", "bibliography.index"]};
+      case "library.read": return library;
+      case "library.write":
+        library = {revision: library.revision + 1, items: args.params.items};
+        return {revision: library.revision};
       case "book.create":
         if (globalThis.holdCreation) await new Promise(resolve => {globalThis.finishCreation = resolve;});
         return project;
@@ -93,6 +98,14 @@ def fill_book_form(page):
     page.locator("#choose-book-parent").click()
 
 
+def submit_book_and_open_card(page):
+    page.locator("#book-project-form button[type=submit]").click()
+    expect(page.locator("#book-project-modal")).to_be_hidden()
+    expect(page.locator("body")).to_have_attribute("data-view", "library")
+    assert not page.evaluate("calls.some(call => call.method === 'project.read')")
+    page.locator('[data-type="book"] .library-open').click()
+
+
 def test_book_creation_and_review_preserve_editor_focus_and_publication_scope(book_page):
     page, locale = book_page
     fill_book_form(page)
@@ -102,8 +115,7 @@ def test_book_creation_and_review_preserve_editor_focus_and_publication_scope(bo
     expect(page.locator("#book-project-direction")).to_have_value(
         "rtl" if locale == "fa" else "ltr"
     )
-    page.locator("#book-project-form button[type=submit]").click()
-    expect(page.locator("#book-project-modal")).to_be_hidden()
+    submit_book_and_open_card(page)
     expect(page.locator("#markdown-editor")).to_have_value("# فصل One\\n\\nEnglish and فارسی\\n")
     before = page.locator("#markdown-editor").input_value()
     mode = page.locator("#workspace-view").get_attribute("data-view-mode")
@@ -163,7 +175,7 @@ def test_dismissed_creation_does_not_activate_a_late_project(book_page):
 def test_project_search_cancellation_rejects_late_results_and_keeps_navigation(book_page):
     page, _ = book_page
     fill_book_form(page)
-    page.locator("#book-project-form button[type=submit]").click()
+    submit_book_and_open_card(page)
     expect(page.locator("#markdown-editor")).to_have_value("# فصل One\\n\\nEnglish and فارسی\\n")
     if not page.locator("#author-sidebar").is_visible():
         page.locator("#workspace-layout-button").click()
@@ -204,7 +216,7 @@ def test_project_search_cancellation_rejects_late_results_and_keeps_navigation(b
 def test_workspace_controls_fit_one_row_and_open_preview_on_demand(book_page):
     page, locale = book_page
     fill_book_form(page)
-    page.locator("#book-project-form button[type=submit]").click()
+    submit_book_and_open_card(page)
     editor = page.locator("#workspace-view")
     expect(page.locator(".view-modes")).to_be_visible()
     for name in ("files", "preview", "sidebar", "formatting"):

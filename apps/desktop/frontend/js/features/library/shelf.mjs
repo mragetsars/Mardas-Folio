@@ -34,12 +34,27 @@ export function createShelf({
     sort = document.getElementById("shelf-sort"),
     notice = document.getElementById("shelf-status");
   const scroller = document.getElementById("library-view");
-  const menu = createTypeMenu({ t, create, boundary: scroller });
-  const moveMenu = element("div", "library-move-menu");
-  moveMenu.id = "shelf-move-menu";
-  moveMenu.hidden = true;
-  moveMenu.setAttribute("role", "menu");
-  document.body.append(moveMenu);
+  const menu = createTypeMenu({
+    t,
+    boundary: scroller,
+    create(type) {
+      if (search.value || (filterType && filterType !== type)) {
+        search.value = "";
+        selectFilter("");
+      }
+      const id = create(type);
+      if (id) focus(id, true);
+    },
+  });
+  const undoWindow = 10_000;
+  const undoButton = element("button", "library-action");
+  const countdown = element("span", "library-undo-countdown");
+  countdown.setAttribute("role", "timer");
+  undoButton.type = "button";
+  undoButton.addEventListener("click", () => void guard(undo()));
+  const undoNotice = element("div", "library-undo-notice");
+  const undoText = element("span");
+  undoNotice.append(undoText, undoButton, countdown);
   const catalogue = createCatalogue({
     read: readLibrary,
     write: async (rev, items) => {
@@ -68,11 +83,11 @@ export function createShelf({
     }
   }
   let visible = [],
-    moveGrip = null,
     touchItem = null,
     filterType = "",
     feedback = null,
     recentlyRemoved = null,
+    undoTimer = 0,
     currentKey = "";
   function say(key, action = null) {
     feedback = { key, action };
@@ -80,14 +95,35 @@ export function createShelf({
   }
   function drawNotice() {
     notice.replaceChildren();
-    if (!feedback) return;
-    notice.append(element("span", "", t(feedback.key)));
-    if (feedback.action) {
-      const b = element("button", "library-action", t(feedback.action.label));
-      b.type = "button";
-      b.addEventListener("click", feedback.action.run);
-      notice.append(b);
+    if (feedback) {
+      notice.append(element("span", "", t(feedback.key)));
+      if (feedback.action) {
+        const button = element("button", "library-action", t(feedback.action.label));
+        button.type = "button";
+        button.addEventListener("click", feedback.action.run);
+        notice.append(button);
+      }
     }
+    if (recentlyRemoved) {
+      undoText.textContent = t("shelfRemoved");
+      undoButton.textContent = t("undo");
+      notice.append(undoNotice);
+      displayUndoTime();
+    }
+  }
+  function displayUndoTime() {
+    if (!recentlyRemoved) return;
+    const seconds = Math.max(0, Math.ceil((recentlyRemoved.deadline - performance.now()) / 1000));
+    countdown.textContent = t("shelfUndoTime").replace(
+      "{seconds}",
+      new Intl.NumberFormat(state.locale).format(seconds),
+    );
+  }
+  function clearUndo() {
+    clearInterval(undoTimer);
+    recentlyRemoved = null;
+    if (undoButton === document.activeElement) menu.trigger.focus({ preventScroll: true });
+    drawNotice();
   }
   const guard = (task) => Promise.resolve(task).catch(() => say("shelfWriteError"));
   function record(model, existing) {
@@ -176,10 +212,10 @@ export function createShelf({
       ? t("shelfPrivate")
       : item.appearance.label || item.title || t("shelf" + item.type);
   }
-  function focus(id, selector = ".library-open", scroll = false) {
+  function focus(id, scroll = false) {
     const item = [...grid.querySelectorAll(".library-item")].find((node) => node.dataset.id === id);
     if (scroll) item?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-    (item?.querySelector(selector) || item?.querySelector(".library-open"))?.focus({
+    item?.querySelector(".library-open")?.focus({
       preventScroll: true,
     });
   }
@@ -228,13 +264,21 @@ export function createShelf({
       return items.filter((i) => i.id !== item.id);
     });
     if (!removed) return;
-    recentlyRemoved = { removed, index };
-    say("shelfRemoved", { label: "undo", run: () => void guard(undo()) });
+    recentlyRemoved = { removed, index, deadline: performance.now() + undoWindow };
+    feedback = null;
+    clearInterval(undoTimer);
+    drawNotice();
+    undoTimer = setInterval(() => {
+      if (performance.now() >= recentlyRemoved.deadline) clearUndo();
+      else displayUndoTime();
+    }, 250);
     menu.trigger.focus({ preventScroll: true });
   }
   async function undo() {
     const original = recentlyRemoved;
     if (!original) return;
+    clearUndo();
+    if (performance.now() >= original.deadline) return;
     await catalogue.change((items) => {
       if (
         items.some(
@@ -248,9 +292,6 @@ export function createShelf({
       next.splice(Math.min(original.index, next.length), 0, original.removed);
       return next;
     });
-    recentlyRemoved = null;
-    feedback = null;
-    drawNotice();
     focus(original.removed.id);
   }
   async function relink(item) {
@@ -293,7 +334,7 @@ export function createShelf({
   function movableIds() {
     return visible.map((item) => item.id);
   }
-  async function move(id, target, ids, side, keyboard = false) {
+  async function move(id, target, ids, side) {
     if (sort.value !== "manual" || id === target) return;
     let nextPins = null;
     await catalogue.change((items) => {
@@ -311,105 +352,21 @@ export function createShelf({
       render();
       say("shelfMoveDone");
     }
-    focus(id, keyboard ? ".library-grip" : ".library-open", true);
+    focus(id, true);
   }
   function moveBy(id, direction) {
     const ids = movableIds();
     const position = ids.indexOf(id);
     const target =
       direction === "first" ? 0 : direction === "last" ? ids.length - 1 : position + direction;
-    if (ids[target]) void guard(move(id, ids[target], ids, undefined, true));
+    if (ids[target]) void guard(move(id, ids[target], ids));
   }
-  function closeMove(restore = false) {
-    if (!moveGrip) return;
-    moveGrip.setAttribute("aria-expanded", "false");
-    moveGrip.closest(".library-item")?.classList.remove("menu-open");
-    if (restore) moveGrip.focus({ preventScroll: true });
-    moveGrip = null;
-    moveMenu.hidden = true;
-  }
-  function positionMove() {
-    if (!moveGrip) return;
-    const anchor = moveGrip.getBoundingClientRect();
-    const edge = scroller.getBoundingClientRect();
-    if (anchor.bottom <= edge.top || anchor.top >= edge.bottom) return closeMove();
-    const { width, height } = moveMenu.getBoundingClientRect();
-    const left = document.documentElement.dir === "rtl" ? anchor.right - width : anchor.left;
-    moveMenu.style.left =
-      Math.max(8, Math.min(left, document.documentElement.clientWidth - width - 8)) + "px";
-    moveMenu.style.top =
-      Math.max(
-        8,
-        anchor.bottom + height + 14 <= window.innerHeight
-          ? anchor.bottom + 6
-          : anchor.top - height - 6,
-      ) + "px";
-  }
-  function showMove(id, grip) {
-    if (moveGrip === grip) return closeMove(true);
-    closeMove();
-    menu.close();
-    const ids = movableIds();
-    const pos = ids.indexOf(id);
-    moveGrip = grip;
-    grip.setAttribute("aria-expanded", "true");
-    grip.closest(".library-item").classList.add("menu-open");
-    const actions = [
-      ["shelfEarlier", -1, pos === 0],
-      ["shelfLater", 1, pos === ids.length - 1],
-      ["shelfFirst", "first", pos === 0],
-      ["shelfLast", "last", pos === ids.length - 1],
-    ];
-    moveMenu.replaceChildren(
-      ...actions.map(([label, direction, disabled]) => {
-        const button = element("button", "", t(label));
-        button.type = "button";
-        button.tabIndex = -1;
-        button.disabled = disabled;
-        button.setAttribute("role", "menuitem");
-        button.addEventListener("click", () => {
-          closeMove(true);
-          moveBy(id, direction);
-        });
-        return button;
-      }),
-    );
-    moveMenu.hidden = false;
-    positionMove();
-    moveMenu.querySelector("button:enabled")?.focus({ preventScroll: true });
-  }
-  moveMenu.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" || event.key === "Tab") {
-      if (event.key === "Escape") event.preventDefault();
-      closeMove(true);
-      return;
-    }
-    const options = [...moveMenu.querySelectorAll("button:enabled")];
-    const index = options.indexOf(document.activeElement);
-    const next = { ArrowUp: index - 1, ArrowDown: index + 1, Home: 0, End: options.length - 1 }[
-      event.key
-    ];
-    if (next === undefined) return;
-    event.preventDefault();
-    options[(next + options.length) % options.length]?.focus();
-  });
-  moveMenu.addEventListener("focusout", (event) => {
-    if (
-      event.relatedTarget &&
-      event.relatedTarget !== moveGrip &&
-      !moveMenu.contains(event.relatedTarget)
-    )
-      closeMove();
-  });
   document.addEventListener("pointerdown", (event) => {
-    if (!moveMenu.contains(event.target) && !moveGrip?.contains(event.target)) closeMove();
     if (touchItem && !touchItem.contains(event.target)) {
       touchItem.classList.remove("tools-open");
       touchItem = null;
     }
   });
-  scroller.addEventListener("scroll", positionMove, { passive: true });
-  window.addEventListener("resize", positionMove);
   function tile(item) {
     const node = element("div", "library-item");
     node.dataset.id = item.id;
@@ -451,27 +408,28 @@ export function createShelf({
     );
     if (sort.value === "manual") {
       node.dataset.movable = "";
-      const grip = actionIcon("grip", t("shelfGrip"), () => showMove(item.id, grip));
-      grip.className = "library-grip";
-      grip.setAttribute("aria-haspopup", "menu");
-      grip.setAttribute("aria-expanded", "false");
-      grip.setAttribute("aria-controls", moveMenu.id);
-      grip.disabled = movableIds().length < 2;
-      grip.addEventListener("keydown", (event) => {
-        const rtl = document.documentElement.dir === "rtl";
-        const direction = {
-          ArrowUp: -1,
-          ArrowDown: 1,
-          ArrowLeft: rtl ? 1 : -1,
-          ArrowRight: rtl ? -1 : 1,
-          Home: "first",
-          End: "last",
-        }[event.key];
-        if (direction === undefined) return;
-        event.preventDefault();
-        moveBy(item.id, direction);
-      });
-      tools.append(grip);
+      if (visible.length > 1) {
+        button.setAttribute("aria-description", t("shelfKeyboardMove"));
+        button.setAttribute(
+          "aria-keyshortcuts",
+          "Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight Alt+Home Alt+End",
+        );
+        button.addEventListener("keydown", (event) => {
+          if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+          const rtl = document.documentElement.dir === "rtl";
+          const direction = {
+            ArrowUp: -1,
+            ArrowDown: 1,
+            ArrowLeft: rtl ? 1 : -1,
+            ArrowRight: rtl ? -1 : 1,
+            Home: "first",
+            End: "last",
+          }[event.key];
+          if (direction === undefined) return;
+          event.preventDefault();
+          moveBy(item.id, direction);
+        });
+      }
     }
     const removeButton = actionIcon(
       "trash",
@@ -529,8 +487,6 @@ export function createShelf({
     currentKey = key;
     const active = document.activeElement;
     const focused = active?.closest(".library-item")?.dataset.id;
-    const gripFocused = active?.matches(".library-grip");
-    closeMove();
     menu.close();
     touchItem = null;
     grid.replaceChildren();
@@ -548,7 +504,7 @@ export function createShelf({
     sizeShelf();
     document.getElementById("shelf-no-results").hidden =
       Boolean(visible.length) || (!filterType && !search.value);
-    if (focused) focus(focused, gripFocused ? ".library-grip" : ".library-open");
+    if (focused) focus(focused);
   }
   function selectFilter(type) {
     filterType = type;
@@ -585,10 +541,7 @@ export function createShelf({
   const drag = installShelfDrag({
     grid,
     scroller,
-    closeMenus: () => {
-      closeMove();
-      menu.close();
-    },
+    closeMenus: menu.close,
     move: (id, target, ids, side) => void guard(move(id, target, ids, side)),
     settled: render,
   });

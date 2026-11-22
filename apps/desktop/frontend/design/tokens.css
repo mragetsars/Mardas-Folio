@@ -68,6 +68,7 @@
   --ui-accent-teal: #0b7268;
   --ui-accent-purple: #7e3ab8;
   --ui-accent-pink: #a20d71;
+  --ui-library-open-bg: var(--ui-accent-teal);
   --ui-selected-bg: var(--geist-gray-300);
   --ui-selected-text: var(--ui-text);
   --ui-primary-bg: var(--ui-accent-monochrome);
@@ -218,6 +219,10 @@ html[data-theme="dark"] {
   --cm-search: color-mix(in srgb, var(--ui-primary-bg) 20%, transparent);
   --cm-search-border: color-mix(in srgb, var(--ui-accent) 55%, transparent);
   --cm-search-active: color-mix(in srgb, var(--ui-primary-bg) 34%, transparent);
+}
+
+:root[data-accent]:where(:not([data-accent="monochrome"], [data-accent="gray"])) {
+  --ui-library-open-bg: var(--ui-primary-bg);
 }
 
 :root[data-theme="dark"][data-accent]:where(:not([data-accent="monochrome"])) {
