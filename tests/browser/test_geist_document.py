@@ -98,7 +98,9 @@ def test_geist_document_controls(
         page.locator("[data-column-alignment=auto]").click()
         page.keyboard.press("Escape")
         code_line = editor.locator('[data-code-line="10"]')
-        expect(editor.locator(".cm-code-filename")).to_have_text("main.py")
+        filename = editor.locator(".cm-code-filename")
+        expect(filename).to_have_text("main.py")
+        assert filename.evaluate("element => element.scrollWidth <= element.clientWidth")
         expect(code_line.locator("span", has_text='"test"')).to_have_css(
             "color", "rgb(21, 128, 61)"
         )
