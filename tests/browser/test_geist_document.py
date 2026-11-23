@@ -55,6 +55,14 @@ def test_geist_document_controls(
         page = context.new_page()
         page.set_default_timeout(7000)
         page.on("pageerror", lambda error: errors.append(str(error)))
+        page.on(
+            "console",
+            lambda message: (
+                errors.append(message.text)
+                if message.text.startswith("CodeMirror plugin crashed")
+                else None
+            ),
+        )
         page.expose_function("nativeInvoke", native)
         page.add_init_script(
             f"localStorage.setItem('mardas.desktop.locale', '{locale}');"
@@ -83,6 +91,13 @@ def test_geist_document_controls(
         expect(write).to_have_attribute("aria-checked", "true")
 
         editor = page.locator(".cm-editor[data-editor-mode='live']")
+        fold = editor.locator(".cm-section-toggle").first
+        expect(fold).to_have_attribute("aria-expanded", "true")
+        fold.click()
+        expect(fold).to_have_attribute("aria-expanded", "false")
+        expect(editor.locator(".cm-md-table")).to_be_hidden()
+        fold.click()
+        expect(fold).to_have_attribute("aria-expanded", "true")
         expect(editor.locator(".cm-md-table th")).to_have_count(2)
         expect(editor.locator(".cm-md-table th").nth(1)).to_have_css("border-left-width", "1px")
         table = editor.locator(".cm-md-table")
@@ -111,7 +126,7 @@ def test_geist_document_controls(
 
         table.locator("[data-table-select=row]").nth(1).click()
         expect(panel.locator("textarea")).to_be_hidden()
-        expect(panel.locator(".cm-table-cell-structure button:visible")).to_have_count(2)
+        expect(panel.locator(".cm-table-cell-structure button:visible")).to_have_count(5)
         expect(table.locator(".cm-table-cell-active")).to_have_count(2)
         left.click()
         apply.click()
@@ -125,7 +140,7 @@ def test_geist_document_controls(
 
         table.locator("[data-table-select=column]").nth(1).click()
         expect(panel.locator("textarea")).to_be_hidden()
-        expect(panel.locator(".cm-table-cell-structure button:visible")).to_have_count(2)
+        expect(panel.locator(".cm-table-cell-structure button:visible")).to_have_count(6)
         expect(table.locator(".cm-table-cell-active")).to_have_count(3)
         panel.locator("[data-cell-alignment=auto]").click()
         apply.click()
@@ -159,6 +174,35 @@ def test_geist_document_controls(
         )
         page.keyboard.press("Control+z")
         expect(source_text).to_have_value(SOURCE)
+        table.locator("[data-table-select=row]").nth(1).click()
+        panel.locator("[data-table-action=move-row-after]").click()
+        expect(table.locator("tbody tr").first).to_contain_text("Two words")
+        cancel.click()
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
+        table.locator("[data-table-select=column]").first.click()
+        panel.locator("[data-table-action=move-column-after]").click()
+        expect(table.locator("th").first).to_have_text("Value")
+        cancel.click()
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
+        resize = table.get_by_role("separator")
+        resize.press("Shift+ArrowRight")
+        expect(source_text).to_have_value(re.compile(r"<!--folio-width:\d+-->"))
+        expect(table.locator("table")).to_have_class("cm-table-sized")
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
+
+        table.locator(".cm-table-actions summary").click()
+        table.locator(".cm-table-actions button").first.click()
+        copied_table = page.evaluate("window.copiedCode")
+        assert copied_table.startswith("| Name | Value |")
+        assert copied_table.endswith("| Two words | 2 |")
+        table.locator(".cm-table-actions button").last.click()
+        expect(table).to_have_count(0)
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
+
         code_line = editor.locator('[data-code-line="10"]')
         filename = editor.locator(".cm-code-filename")
         expect(filename).to_have_text("main.py")
@@ -176,6 +220,14 @@ def test_geist_document_controls(
         expect(mirror).to_have_value(re.compile(r"\[x\]", re.IGNORECASE))
         task.click()
         expect(mirror).to_have_value(SOURCE)
+        wrap = editor.locator(".code-wrap-button").first
+        expect(wrap).to_have_attribute("aria-pressed", "true")
+        wrap.click()
+        expect(wrap).to_have_attribute("aria-pressed", "false")
+        expect(code_line).to_have_css("white-space", "pre")
+        expect(source_text).to_have_value(SOURCE)
+        wrap.click()
+        expect(code_line).to_have_css("white-space", "pre-wrap")
         copy = editor.locator(".cm-code-copy").first
         copy.click()
         expect(copy.locator("use")).to_have_attribute("href", "#icon-check")
@@ -211,6 +263,9 @@ def test_geist_document_controls(
         expect(preview.get_by_text("Additional text")).to_be_hidden()
         disclosure.locator("summary").click()
         expect(preview.get_by_text("Additional text")).to_be_visible()
+        preview_code = preview.locator(".code-block").first
+        preview_code.locator(".code-wrap-button").click()
+        expect(preview_code.locator("td.code pre")).to_have_css("white-space", "pre-wrap")
         expect(preview.locator(".document-table-scroll table th")).to_have_count(2)
         expect(preview.locator(".document-table-scroll td").last).to_have_css("text-align", "right")
         page.locator("#workspace-layout-button").click()

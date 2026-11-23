@@ -1,3 +1,4 @@
+import { createCodeWrapButton } from "../ui/code-wrap.mjs";
 import { onlineImageControl } from "./online-images.mjs";
 import { createCopyButton } from "../ui/copy-button.mjs";
 
@@ -46,13 +47,21 @@ export function mountDocumentContent(
     const code = figure.querySelector("td.code pre") || figure.querySelector("pre");
     const caption = figure.querySelector("figcaption");
     if (!code || !caption) continue;
-    caption.append(
+    const actions = document.createElement("span");
+    actions.className = "document-code-actions";
+    actions.append(
+      createCodeWrapButton(document, false, (wrapped) => {
+        figure.classList.toggle("code-block--wrap", wrapped);
+      }),
+    );
+    actions.append(
       createCopyButton(document, {
         read: () => code.textContent,
         labels: codeLabels,
         className: "document-code-copy",
       }),
     );
+    caption.append(actions);
   }
   for (const table of fragment.querySelectorAll("table")) {
     if (table.closest(".code-block, .codehilite, .highlight")) continue;

@@ -13,14 +13,17 @@
  * the caret in it and the `[label](url)` scaffolding comes back. Code bodies
  * stay editable while their fence/language controls keep one stable header.
  */
-import { syntaxTree } from "@codemirror/language";
+import { foldable, foldedRanges, foldEffect, syntaxTree, unfoldEffect } from "@codemirror/language";
+import { spriteIcon } from "../frontend/js/ui/icons.mjs";
 import { Facet, RangeSetBuilder } from "@codemirror/state";
-import { Decoration, Direction, EditorView, ViewPlugin } from "@codemirror/view";
+import { Decoration, Direction, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 import {
   CodeBlockHeaderWidget,
   codeBodyPrefixRanges,
   codeRowAttributes,
   fencedCodeSpec,
+  setCodeWrap,
+  wrapsCode,
 } from "./code-block-tools.mjs";
 import { tableEditingExtension } from "./table-editing.mjs";
 import { sourceGutterDirection } from "./source-direction.mjs";
@@ -320,6 +323,53 @@ const codeIndentedSingleLine = Decoration.line({
  * inline text. Hiding `#` and `>` removes the only cue CSS could otherwise
  * have keyed on, so the block type is carried here instead.
  */
+class SectionFoldWidget extends WidgetType {
+  constructor(range, folded, locale) {
+    super();
+    this.range = range;
+    this.folded = folded;
+    this.locale = locale;
+  }
+
+  eq(other) {
+    return (
+      this.range.from === other.range.from &&
+      this.range.to === other.range.to &&
+      this.folded === other.folded &&
+      this.locale === other.locale
+    );
+  }
+
+  toDOM(view) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "cm-section-toggle";
+    button.contentEditable = "false";
+    button.setAttribute("aria-expanded", String(!this.folded));
+    const label =
+      this.locale === "fa"
+        ? this.folded
+          ? "بازکردن بخش"
+          : "جمع‌کردن بخش"
+        : this.folded
+          ? "Expand section"
+          : "Collapse section";
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    button.append(spriteIcon(this.folded ? "chevron-right" : "chevron-down"));
+    button.addEventListener("click", () => {
+      const effect = this.folded ? unfoldEffect : foldEffect;
+      view.dispatch({ effects: effect.of(this.range), selection: { anchor: this.range.from } });
+      view.focus();
+    });
+    return button;
+  }
+
+  ignoreEvent() {
+    return true;
+  }
+}
+
 const headingLines = new Map([
   ...[1, 2, 3, 4, 5, 6].map((level) => [
     `ATXHeading${level}`,
@@ -435,6 +485,7 @@ function buildDecorations(view) {
           const opener = state.doc.lineAt(node.from).from;
           const closer = state.doc.lineAt(node.to).from;
           const fence = fencedCodeSpec(state, node);
+          const wrapped = !fence || wrapsCode(state, fence.openerFrom);
           eachLine(state, node, (at) => {
             const deco = fence
               ? at === opener
@@ -455,24 +506,23 @@ function buildDecorations(view) {
                     : codeLine;
             lines.push({ at, deco });
             const info = fence && codeRowAttributes(state, fence, at);
-            if (info) {
-              const classes = [
-                info.number && "cm-code-numbered",
-                info.highlighted && "cm-code-highlighted",
-                info.added && "cm-code-added",
-                info.removed && "cm-code-removed",
-              ]
-                .filter(Boolean)
-                .join(" ");
-              if (classes) {
-                lines.push({
-                  at,
-                  deco: Decoration.line({
-                    class: classes,
-                    attributes: info.number ? { "data-code-line": info.number } : {},
-                  }),
-                });
-              }
+            const classes = [
+              info?.number && "cm-code-numbered",
+              info?.highlighted && "cm-code-highlighted",
+              info?.added && "cm-code-added",
+              info?.removed && "cm-code-removed",
+              !wrapped && fence && at >= fence.bodyFrom && at < fence.bodyTo && "cm-code-nowrap",
+            ]
+              .filter(Boolean)
+              .join(" ");
+            if (classes) {
+              lines.push({
+                at,
+                deco: Decoration.line({
+                  class: classes,
+                  attributes: info?.number ? { "data-code-line": info.number } : {},
+                }),
+              });
             }
           });
           if (fence) {
@@ -494,7 +544,7 @@ function buildDecorations(view) {
               from: fence.openerTo,
               to: fence.openerTo,
               deco: Decoration.widget({
-                widget: new CodeBlockHeaderWidget(fence, locale, state.readOnly),
+                widget: new CodeBlockHeaderWidget(fence, locale, state.readOnly, wrapped),
                 side: 1,
               }),
             });
@@ -563,7 +613,28 @@ function buildDecorations(view) {
 
         const heading = headingLines.get(node.name);
         if (heading) {
-          lines.push({ at: state.doc.lineAt(node.from).from, deco: heading });
+          const start = state.doc.lineAt(node.from).from;
+          const header = state.doc.lineAt(node.to);
+          lines.push({ at: start, deco: heading });
+          let folded = null;
+          foldedRanges(state).between(header.to, header.to, (from, to) => {
+            if (from === header.to) folded = { from, to };
+          });
+          const range = folded || foldable(state, header.from, header.to);
+          if (range) {
+            const locale =
+              typeof document !== "undefined" && document.documentElement.lang.startsWith("fa")
+                ? "fa"
+                : "en";
+            widgets.push({
+              from: node.from,
+              to: node.from,
+              deco: Decoration.widget({
+                widget: new SectionFoldWidget(range, Boolean(folded), locale),
+                side: -1,
+              }),
+            });
+          }
           // The `===` rule under a setext heading is collapsed by the block
           // field in live-widgets.mjs: replacing it takes a line break with
           // it, and a view plugin is not allowed to do that.
@@ -843,7 +914,7 @@ function buildDecorations(view) {
         return { from, to: Math.min(to, lineEnd), deco: deco || hidden, line: false };
       })
       .filter(({ from, to }) => to > from),
-  ].sort((a, b) => a.from - b.from || Number(b.line) - Number(a.line));
+  ].sort((a, b) => a.from - b.from || a.deco.startSide - b.deco.startSide);
 
   let lastFrom = -1;
   let lastTo = -1;
@@ -880,6 +951,11 @@ const livePreviewPlugin = ViewPlugin.fromClass(
         update.docChanged ||
         update.viewportChanged ||
         update.selectionSet ||
+        update.transactions.some((transaction) =>
+          transaction.effects.some(
+            (effect) => effect.is(setCodeWrap) || effect.is(foldEffect) || effect.is(unfoldEffect),
+          ),
+        ) ||
         update.startState.readOnly !== update.state.readOnly ||
         syntaxTree(update.startState) !== syntaxTree(update.state) ||
         update.startState.facet(assetResolver) !== update.state.facet(assetResolver) ||

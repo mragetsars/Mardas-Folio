@@ -137,6 +137,19 @@ def test_cell_alignment_comments_override_the_delimiter_and_auto_centers_one_wor
     assert "folio-align" not in result.body_html
 
 
+def test_column_width_comment_survives_rendering_with_cell_alignment():
+    result = render_markdown(
+        "| <!--folio-align:right--> <!--folio-width:68--> Title | "
+        "<!--folio-width:32--> Value |\n| --- | --- |\n| First | Second |\n"
+    )
+    soup = BeautifulSoup(result.body_html, "html.parser")
+    headers = soup.select("th")
+    assert [cell["width"] for cell in headers] == ["68%", "32%"]
+    assert headers[0]["align"] == "right"
+    assert headers[0].get_text(strip=True) == "Title"
+    assert "folio-width" not in result.body_html
+
+
 def test_safe_table_alignment_allows_only_three_values_and_removes_raw_css():
     result = render_markdown(
         '<table><tr><td align="CENTER" style="position:fixed" onclick="alert(1)">A</td>'

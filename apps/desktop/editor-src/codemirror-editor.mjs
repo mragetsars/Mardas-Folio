@@ -34,6 +34,7 @@ import {
   selectionToolbarExtension,
   slashCompletionSource,
 } from "./authoring-tools.mjs";
+import { codeWrapState } from "./code-block-tools.mjs";
 import { mardasEditorAppearance } from "./editor-theme.mjs";
 import { editorModeExtension, normalizeEditorMode } from "./live-preview.mjs";
 import { exitEmptyBlock, markdownCommandKeymap, runMarkdownCommand } from "./markdown-commands.mjs";
@@ -393,6 +394,7 @@ export function createCodeMirrorEditorAdapter(
     selectionToolbarExtension(editorLocale, markdownDocument && editorMode === "live");
   const extensions = [
     basicSetup,
+    codeWrapState,
     documentLanguage.of(markdownExtensions),
     // Prose has to wrap. A horizontal scrollbar under a paragraph forces
     // the reader to pan back and forth for every line, which is unusable

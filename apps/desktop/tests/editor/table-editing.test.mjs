@@ -5,6 +5,7 @@ import { markdownLanguage } from "@codemirror/lang-markdown";
 import {
   tableCellSource,
   tableCellAlignment,
+  columnWidthChanges,
   tableCellChanges,
   tableModel,
   tableStructureChanges,
@@ -108,4 +109,26 @@ test("cell and bulk alignment preserve column defaults, content and ragged rows"
   const changed = apply(updated, tableCellChanges(table, [[1, 1]], "right", "**New**"));
   assert.match(changed, /<!--folio-align:right--> \*\*New\*\*/);
   assert.match(changed, /<!--folio-align:auto--> B/);
+});
+
+test("column moves carry the width and alignment metadata with the cells", () => {
+  const source = "| <!--folio-align:left--> Name | Count |\n| :--- | ---: |\n| Alpha | Beta |\n";
+  const initial = model(source);
+  const sized = apply(
+    source,
+    columnWidthChanges(initial, [
+      [0, 60],
+      [1, 40],
+    ]),
+  );
+  const doc = EditorState.create({ doc: sized }).doc;
+  const moved = apply(sized, tableStructureChanges(model(sized), doc, "move-column-after", 0, 0));
+  assert.match(
+    moved,
+    /\| <!--folio-width:40--> Count \| <!--folio-align:left--> <!--folio-width:60--> Name/,
+  );
+  assert.match(moved, /\| ---: \| :--- \|/);
+  assert.match(moved, /\| Beta \| Alpha \|/);
+  const aligned = apply(moved, tableCellChanges(model(moved), [[0, 1]], "right"));
+  assert.match(aligned, /<!--folio-align:right--> <!--folio-width:60--> Name/);
 });

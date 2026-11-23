@@ -382,7 +382,7 @@ GLOBAL_SAFE_ATTRS = {
 TAG_SAFE_ATTRS = {
     "a": {"href", "name", "target", "rel"},
     "img": {"src", "alt", "width", "height"},
-    "th": {"align", "colspan", "rowspan", "scope"},
+    "th": {"align", "colspan", "rowspan", "scope", "width"},
     "td": {"align", "colspan", "rowspan"},
     "ol": {"start", "type"},
     "ul": {"type"},
@@ -1281,6 +1281,9 @@ def sanitize_soup(soup: BeautifulSoup) -> None:
                     del tag.attrs[attr]
             elif lower_attr in {"target", "rel"}:
                 if name != "a":
+                    del tag.attrs[attr]
+            elif lower_attr == "width" and name == "th":
+                if not re.fullmatch(r"(?:[1-9][0-9]?|100)%", str(value)):
                     del tag.attrs[attr]
             elif lower_attr == "align":
                 alignment = str(value or "").strip().lower()
@@ -2272,19 +2275,28 @@ def render_markdown(
         token = tokens[idx]
         inline = tokens[idx + 1]
         alignment = None
+        width = None
         if inline.type == "inline" and inline.children:
-            marker = inline.children[0]
-            match = (
-                re.fullmatch(r"<!--folio-align:(auto|left|center|right)-->", marker.content)
-                if marker.type == "html_inline"
-                else None
-            )
-            if match:
-                alignment = match.group(1)
+            while inline.children:
+                marker = inline.children[0]
+                if marker.type != "html_inline":
+                    break
+                match = re.fullmatch(
+                    r"<!--folio-(?:align:(auto|left|center|right)|width:([1-9][0-9]?|100))-->",
+                    marker.content,
+                )
+                if not match or (match[2] and token.type != "th_open"):
+                    break
+                alignment = alignment or match[1]
+                width = width or match[2]
                 inline.children.pop(0)
                 first = inline.children[0] if inline.children else None
                 if first is not None and first.type == "text":
                     first.content = first.content.lstrip()
+                    if not first.content:
+                        inline.children.pop(0)
+        if width:
+            token.attrSet("width", width + "%")
         legacy_alignment = re.fullmatch(
             r"\s*text-align:\s*(left|center|right)\s*;?\s*",
             token.attrs.pop("style", "") or "",

@@ -168,6 +168,7 @@
         isolation: isolate;
       }
       .table-wrap--rtl table { direction: rtl; }
+      .table-wrap table:has(> thead th[width]) { table-layout: fixed; }
       .table-wrap--ltr table { direction: ltr; }
       .table-wrap--mixed-direction table,
       .table-wrap--mixed table { unicode-bidi: plaintext; }

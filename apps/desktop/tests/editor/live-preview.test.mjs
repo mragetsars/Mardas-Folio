@@ -73,7 +73,11 @@ test("live preview never edits the document", () => {
   // directly. A dispatch with `changes` here would silently rewrite the user's
   // file to match what is displayed.
   assert.doesNotMatch(source, /changes\s*:/);
-  assert.doesNotMatch(source, /\.dispatch\(/);
+  const decorations = source.slice(
+    source.indexOf("function buildDecorations"),
+    source.indexOf("const livePreviewPlugin"),
+  );
+  assert.doesNotMatch(decorations, /\.dispatch\(/);
   assert.doesNotMatch(source, /replaceRange|insertText/);
 });
 

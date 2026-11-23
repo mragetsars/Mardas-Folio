@@ -506,3 +506,133 @@
     padding-inline: 8px;
   }
 }
+
+.codemirror-mount .cm-md-table table.cm-table-sized,
+.document-content .document-table-scroll table:has(> thead th[width]) {
+  table-layout: fixed;
+}
+
+.cm-table-column-resize {
+  position: absolute;
+  z-index: 1;
+  inset-block: 0;
+  inset-inline-end: -4px;
+  inline-size: 9px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.cm-table-column-resize:is(:hover, :focus-visible)::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 4px;
+  inline-size: 2px;
+  background: var(--ui-accent);
+}
+
+.cm-md-table table:dir(ltr) .cm-table-column-resize {
+  left: auto;
+  right: -4px;
+}
+
+.cm-md-table table:dir(rtl) .cm-table-column-resize {
+  left: -4px;
+  right: auto;
+}
+
+.cm-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-muted);
+  cursor: pointer;
+  margin-inline-end: 3px;
+  padding: 2px;
+}
+
+.cm-section-toggle:is(:hover, :focus-visible) {
+  background: var(--ui-control-hover);
+  color: var(--ui-text);
+}
+
+.cm-section-toggle:dir(rtl)[aria-expanded="false"] svg {
+  transform: scaleX(-1);
+}
+
+.cm-section-toggle .ui-icon {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-nowrap {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.document-code-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.document-content .code-wrap-button,
+.cm-code-header .code-wrap-button {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  min-block-size: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+
+:is(.document-content, .cm-code-header) .code-wrap-button:is(:hover, [aria-pressed="true"]) {
+  background: var(--ui-panel-muted);
+  color: var(--ui-text);
+}
+
+.code-wrap-button .ui-icon {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.document-content .code-block.code-block--wrap pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cm-table-actions {
+  margin-block-end: 5px;
+  font: var(--ui-text-xs)/1.5 var(--app-font);
+  color: var(--ui-muted);
+}
+
+.cm-table-actions summary {
+  inline-size: fit-content;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.cm-table-actions > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+}
+
+.cm-table-actions button {
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  color: var(--ui-text);
+  background: var(--ui-panel);
+  padding: 4px 6px;
+  cursor: pointer;
+}

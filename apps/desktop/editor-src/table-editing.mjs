@@ -91,13 +91,36 @@ export function columnAlignment(raw = "") {
 }
 
 const alignments = ["auto", "left", "center", "right"];
-const alignmentMarker = /^<!--folio-align:(auto|left|center|right)-->\s*/;
+const metadataMarker =
+  /^(?:<!--folio-(align:(auto|left|center|right)|width:([1-9][0-9]?|100))-->)\s*/;
+
+export function tableCellMetadata(raw = "") {
+  let alignment = null;
+  let width = null;
+  let prefix = 0;
+  for (
+    let match = metadataMarker.exec(raw);
+    match;
+    match = metadataMarker.exec(raw.slice(prefix))
+  ) {
+    if (match[2] && alignment === null) alignment = match[2];
+    if (match[3] && width === null) width = Number(match[3]);
+    prefix += match[0].length;
+  }
+  return { alignment, width, prefix };
+}
 
 export function tableCellAlignment(model, row, column) {
-  const raw = model?.rows[row]?.cells[column]?.raw || "";
-  const marker = alignmentMarker.exec(raw);
+  const info = tableCellMetadata(model?.rows[row]?.cells[column]?.raw);
   const inherited = columnAlignment(model?.delimiter?.cells[column]?.raw);
-  return { alignment: marker?.[1] || inherited, inherited, prefix: marker?.[0].length || 0 };
+  return { ...info, alignment: info.alignment || inherited, inherited };
+}
+
+function writeCellMetadata(text, { alignment, width }) {
+  const marks = [];
+  if (alignment) marks.push("<!--folio-align:" + alignment + "-->");
+  if (width) marks.push("<!--folio-width:" + width + "-->");
+  return [...marks, text].filter(Boolean).join(" ");
 }
 
 export function autoCellAlignment(text) {
@@ -120,13 +143,13 @@ export function tableCellChanges(model, coordinates, alignment, content) {
     const raw = record.cells[column]?.raw || "";
     const parsed = tableCellAlignment(model, row, column);
     const text = content ?? raw.slice(parsed.prefix);
-    const prefix =
+    const insert =
       alignment == null
-        ? raw.slice(0, parsed.prefix)
-        : alignment === "auto" && parsed.inherited === "auto"
-          ? ""
-          : "<!--folio-align:" + alignment + "-->" + (text ? " " : "");
-    const insert = prefix + text;
+        ? raw.slice(0, parsed.prefix) + text
+        : writeCellMetadata(text, {
+            alignment: alignment === "auto" && parsed.inherited === "auto" ? null : alignment,
+            width: parsed.width,
+          });
     if (insert === raw) continue;
     if (!rows.has(row)) rows.set(row, new Map());
     rows.get(row).set(column, insert);
@@ -156,8 +179,10 @@ const serializeRow = (cells) => `| ${cells.join(" | ")} |`;
 export function tableStructureChanges(model, document, action, rowIndex, columnIndex) {
   const rows = model.rows;
   if (!rows.length || !model.delimiter) return [];
-  if (action === "add-row") {
-    const row = rowIndex === 0 ? model.delimiter : rows[rowIndex];
+  if (action === "add-row" || action === "add-row-before") {
+    if (action === "add-row-before" && rowIndex === 0) return [];
+    const preceding = action === "add-row-before" ? rowIndex - 1 : rowIndex;
+    const row = preceding === 0 ? model.delimiter : rows[preceding];
     const reference = document.lineAt(model.delimiter.from);
     const prefix = reference.text.slice(0, model.delimiter.from - reference.from);
     return [{ from: row.to, insert: `\n${prefix}${serializeRow(Array(model.columns).fill(""))}` }];
@@ -167,16 +192,33 @@ export function tableStructureChanges(model, document, action, rowIndex, columnI
     const line = document.lineAt(rows[rowIndex].from);
     return [{ from: line.from, to: Math.min(document.length, line.to + 1), insert: "" }];
   }
+  if (action === "move-row-before" || action === "move-row-after") {
+    const other = rowIndex + (action.endsWith("before") ? -1 : 1);
+    if (rowIndex === 0 || other < 1 || other >= rows.length) return [];
+    const row = rows[rowIndex];
+    const target = rows[other];
+    return [
+      { from: row.from, to: row.to, insert: target.raw },
+      { from: target.from, to: target.to, insert: row.raw },
+    ].sort((left, right) => left.from - right.from);
+  }
   if (action === "delete-column" && model.columns <= 1) return [];
-  if (!["add-column", "delete-column"].includes(action)) return [];
+  const moving = action === "move-column-before" || action === "move-column-after";
+  const inserting = action === "add-column" || action === "add-column-before";
+  if (!moving && !inserting && action !== "delete-column") return [];
+  const target = columnIndex + (action.endsWith("before") ? -1 : 1);
+  if (moving && (target < 0 || target >= model.columns)) return [];
   const change = (row, cells) => {
     const values = Array.from(
       { length: Math.max(model.columns, cells.length) },
       (_, index) => cells[index] || "",
     );
-    if (action === "add-column")
-      values.splice(columnIndex + 1, 0, row === model.delimiter ? "---" : "");
-    else values.splice(columnIndex, 1);
+    if (moving) {
+      [values[columnIndex], values[target]] = [values[target], values[columnIndex]];
+    } else if (inserting) {
+      const index = action === "add-column-before" ? columnIndex : columnIndex + 1;
+      values.splice(index, 0, row === model.delimiter ? "---" : "");
+    } else values.splice(columnIndex, 1);
     return { from: row.from, to: row.to, insert: serializeRow(values) };
   };
   return [
@@ -188,6 +230,93 @@ export function tableStructureChanges(model, document, action, rowIndex, columnI
     ),
     change(model.delimiter, delimiterCells(model.delimiter.raw)),
   ].sort((a, b) => a.from - b.from);
+}
+
+export function columnWidthChanges(model, widths) {
+  return widths
+    .flatMap(([column, width]) => {
+      const cell = model.rows[0]?.cells[column];
+      if (!cell) return [];
+      const metadata = tableCellMetadata(cell.raw);
+      const insert = writeCellMetadata(cell.raw.slice(metadata.prefix), { ...metadata, width });
+      return insert === cell.raw ? [] : [{ from: cell.from, to: cell.to, insert }];
+    })
+    .sort((a, b) => a.from - b.from);
+}
+
+function fitColumnWidth(wrapper, column) {
+  const table = wrapper?.querySelector("table");
+  if (!table?.offsetWidth) return null;
+  const context = wrapper.ownerDocument.createElement("canvas").getContext("2d");
+  if (!context) return null;
+  let width = 0;
+  for (const cell of table.querySelectorAll('[data-table-column="' + column + '"]')) {
+    const style = getComputedStyle(cell);
+    context.font = style.fontWeight + " " + style.fontSize + " " + style.fontFamily;
+    const content = Math.max(
+      ...tableInlineText(cell)
+        .split("\n")
+        .map((line) => context.measureText(line.trim()).width),
+    );
+    width = Math.max(
+      width,
+      content + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight),
+    );
+  }
+  return Math.max(8, Math.min(85, Math.ceil((width * 100) / table.offsetWidth)));
+}
+
+function refreshTable(view, from) {
+  const editor = sessions.get(view);
+  const before = view.state.doc.length;
+  if (editor && !editor.commit()) return null;
+  const position =
+    editor && editor.model.from < from ? from + view.state.doc.length - before : from;
+  return modelAt(view, position);
+}
+
+export function resizeTableColumns(view, from, widths) {
+  const current = refreshTable(view, from);
+  if (current) dispatchEdit(view, columnWidthChanges(current, widths));
+}
+
+export function createTableActions(view, model) {
+  const labels = tableLabels();
+  const options = document.createElement("details");
+  options.className = "cm-table-actions";
+  const summary = document.createElement("summary");
+  summary.textContent = labels.tableOptions;
+  options.append(summary);
+  const actions = document.createElement("div");
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.textContent = labels.tableCopy;
+  const status = document.createElement("span");
+  status.setAttribute("role", "status");
+  copy.addEventListener("click", async () => {
+    const current = refreshTable(view, model.from);
+    if (!current) return;
+    try {
+      await navigator.clipboard.writeText(view.state.doc.sliceString(current.from, current.to));
+      status.textContent = labels.tableCopied;
+    } catch {
+      status.textContent = labels.tableCopyFailed;
+    }
+  });
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.textContent = labels.tableRemove;
+  remove.addEventListener("click", () => {
+    const current = refreshTable(view, model.from);
+    if (!current || view.state.readOnly) return;
+    sessions.get(view)?.close(false, false);
+    dispatchEdit(view, [{ from: current.from, to: current.to, insert: "" }]);
+    view.focus();
+  });
+  actions.append(copy, remove, status);
+  options.append(actions);
+  options.addEventListener("toggle", () => view.requestMeasure());
+  return options;
 }
 
 function modelAt(view, position) {
@@ -216,6 +345,19 @@ const translations = {
     apply: "Apply",
     cancel: "Cancel",
     addRow: "Add row below",
+    addRowBefore: "Add row above",
+    moveRowBefore: "Move row up",
+    moveRowAfter: "Move row down",
+    addColumnBefore: "Add column before",
+    moveColumnBefore: "Move column before",
+    moveColumnAfter: "Move column after",
+    resizeColumn: "Resize column",
+    fitColumn: "Fit to contents",
+    tableOptions: "Table actions",
+    tableCopy: "Copy as Markdown",
+    tableCopied: "Table copied",
+    tableCopyFailed: "Copy failed",
+    tableRemove: "Remove table",
     deleteRow: "Delete row",
     addColumn: "Add column after",
     deleteColumn: "Delete column",
@@ -244,6 +386,19 @@ const translations = {
     apply: "اعمال",
     cancel: "لغو",
     addRow: "افزودن ردیف پایین",
+    addRowBefore: "افزودن ردیف بالا",
+    moveRowBefore: "انتقال ردیف به بالا",
+    moveRowAfter: "انتقال ردیف به پایین",
+    addColumnBefore: "افزودن ستون قبل",
+    moveColumnBefore: "انتقال ستون به قبل",
+    moveColumnAfter: "انتقال ستون به بعد",
+    resizeColumn: "تغییر عرض ستون",
+    fitColumn: "تنظیم عرض با محتوا",
+    tableOptions: "عملیات جدول",
+    tableCopy: "کپی به‌صورت Markdown",
+    tableCopied: "جدول کپی شد",
+    tableCopyFailed: "کپی ناموفق بود",
+    tableRemove: "حذف جدول",
     deleteRow: "حذف ردیف",
     addColumn: "افزودن ستون بعدی",
     deleteColumn: "حذف ستون",
@@ -339,22 +494,23 @@ class CellEditor {
     this.panel.append(help, this.error);
     const structure = (this.structurePanel = document.createElement("div"));
     structure.className = "cm-table-cell-structure";
-    this.addRow = this.button(this.labels.addRow, () => this.structure("add-row"), structure);
-    this.deleteRow = this.button(
-      this.labels.deleteRow,
-      () => this.structure("delete-row"),
-      structure,
-    );
-    this.addColumn = this.button(
-      this.labels.addColumn,
-      () => this.structure("add-column"),
-      structure,
-    );
-    this.deleteColumn = this.button(
-      this.labels.deleteColumn,
-      () => this.structure("delete-column"),
-      structure,
-    );
+    this.structureButtons = [
+      ["row", "add-row-before", "addRowBefore"],
+      ["row", "add-row", "addRow"],
+      ["row", "move-row-before", "moveRowBefore"],
+      ["row", "move-row-after", "moveRowAfter"],
+      ["row", "delete-row", "deleteRow"],
+      ["column", "add-column-before", "addColumnBefore"],
+      ["column", "add-column", "addColumn"],
+      ["column", "move-column-before", "moveColumnBefore"],
+      ["column", "move-column-after", "moveColumnAfter"],
+      ["column", "fit-column", "fitColumn"],
+      ["column", "delete-column", "deleteColumn"],
+    ].map(([kind, action, label]) => {
+      const button = this.button(this.labels[label], () => this.structure(action), structure);
+      button.dataset.tableAction = action;
+      return { kind, action, button };
+    });
     const actions = document.createElement("footer");
     this.button(this.labels.cancel, () => this.close(false), actions);
     this.apply = this.button(this.labels.apply, () => this.close(true), actions);
@@ -476,8 +632,19 @@ class CellEditor {
     this.panel.setAttribute("aria-label", this.title.textContent);
     this.tools.hidden = this.contentLabel.hidden = this.preview.hidden = this.help.hidden = !single;
     this.structurePanel.hidden = kind !== "row" && kind !== "column";
-    this.addRow.hidden = this.deleteRow.hidden = kind !== "row";
-    this.addColumn.hidden = this.deleteColumn.hidden = kind !== "column";
+    const unavailable = {
+      "add-row-before": row === 0,
+      "move-row-before": row < 2,
+      "move-row-after": row === 0 || row + 1 >= this.model.rows.length,
+      "delete-row": row === 0,
+      "move-column-before": column === 0,
+      "move-column-after": column + 1 >= this.model.columns,
+      "delete-column": this.model.columns <= 1,
+    };
+    for (const control of this.structureButtons) {
+      control.button.hidden = control.kind !== kind;
+      control.button.disabled = Boolean(unavailable[control.action]);
+    }
     this.error.hidden = true;
     this.apply.disabled = false;
     this.positionLabel.textContent = {
@@ -486,8 +653,6 @@ class CellEditor {
       column: String(column + 1),
       cells: String(this.coordinates().length),
     }[kind];
-    this.deleteRow.disabled = row === 0;
-    this.deleteColumn.disabled = this.model.columns <= 1;
     this.paintPreview();
     this.reposition();
     if (single) {
@@ -604,7 +769,7 @@ class CellEditor {
     if (this.view.state.readOnly || this.apply.disabled) return false;
     const single = this.selection.kind === "cell";
     const value = single ? tableCellSource(this.input.value) : undefined;
-    const originalText = this.original.slice(alignmentMarker.exec(this.original)?.[0].length || 0);
+    const originalText = this.original.slice(tableCellMetadata(this.original).prefix);
     if (this.pendingAlignment == null && (!single || value === originalText)) return true;
     const doc = this.view.state.doc;
     const current = modelAt(this.view, this.model.from);
@@ -642,13 +807,10 @@ class CellEditor {
 
   structure(action) {
     if (!this.commit()) return;
-    const changes = tableStructureChanges(
-      this.model,
-      this.view.state.doc,
-      action,
-      this.row,
-      this.column,
-    );
+    const changes =
+      action === "fit-column"
+        ? columnWidthChanges(this.model, [[this.column, fitColumnWidth(this.table(), this.column)]])
+        : tableStructureChanges(this.model, this.view.state.doc, action, this.row, this.column);
     this.committing = true;
     try {
       dispatchEdit(this.view, changes);
@@ -660,10 +822,10 @@ class CellEditor {
       this.close(false);
       return;
     }
-    const row =
-      action === "add-row" ? this.row + 1 : Math.min(this.row, this.model.rows.length - 1);
-    const column =
-      action === "add-column" ? this.column + 1 : Math.min(this.column, this.model.columns - 1);
+    const rowOffset = { "add-row": 1, "move-row-before": -1, "move-row-after": 1 };
+    const columnOffset = { "add-column": 1, "move-column-before": -1, "move-column-after": 1 };
+    const row = Math.min(this.row + (rowOffset[action] || 0), this.model.rows.length - 1);
+    const column = Math.min(this.column + (columnOffset[action] || 0), this.model.columns - 1);
     this.open(row, column);
   }
 

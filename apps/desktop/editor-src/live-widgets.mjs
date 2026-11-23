@@ -34,11 +34,14 @@ import { markdownLanguage } from "@codemirror/lang-markdown";
 import { appendTableInline, tableInlineText } from "./table-inline.mjs";
 import {
   autoCellAlignment,
+  createTableActions,
   openTableCellEditor,
+  resizeTableColumns,
   selectTableCell,
   tableCellAlignment,
   tableLabels,
   tableModel,
+  tableCellMetadata,
   tableRowCells,
 } from "./table-editing.mjs";
 import { mathAndFootnotes } from "./markdown-extras.mjs";
@@ -60,7 +63,7 @@ const BLOCK_CONTAINERS = new Set([
 /** The table's column order belongs to its content, not the interface locale. */
 export function tableContentDirection(markup) {
   const firstLetter = String(markup)
-    .replace(/<!--folio-align:(?:auto|left|center|right)-->/g, "")
+    .replace(/<!--folio-(?:align:(?:auto|left|center|right)|width:(?:[1-9][0-9]?|100))-->/g, "")
     .match(/\p{L}/u)?.[0];
   return firstLetter && /[\u0590-\u08ff\uFB1D-\uFDFF\uFE70-\uFEFF]/u.test(firstLetter)
     ? "rtl"
@@ -188,6 +191,106 @@ export class MathWidget extends WidgetType {
   }
 }
 
+function columnResizeHandle(view, model, table, colgroup, column) {
+  const handle = document.createElement("span");
+  handle.className = "cm-table-column-resize";
+  handle.dataset.tableResize = "";
+  handle.tabIndex = 0;
+  handle.setAttribute("role", "separator");
+  handle.setAttribute("aria-orientation", "vertical");
+  handle.setAttribute("aria-label", tableLabels().resizeColumn + " " + (column + 1));
+  handle.setAttribute("aria-valuemin", "1");
+  handle.setAttribute("aria-valuemax", "100");
+  handle.setAttribute(
+    "aria-valuenow",
+    String(
+      tableCellMetadata(model.rows[0].cells[column]?.raw).width || Math.round(100 / model.columns),
+    ),
+  );
+  const sizes = () =>
+    [...table.rows[0].cells].map((cell) =>
+      Math.max(1, Math.round((cell.getBoundingClientRect().width * 100) / table.offsetWidth)),
+    );
+  const fromDelta = (base, delta) => {
+    const result = [...base];
+    const sum = base[column] + base[column + 1];
+    const min = Math.min(8, Math.floor(sum / 2));
+    result[column] = Math.max(min, Math.min(sum - min, base[column] + delta));
+    result[column + 1] = sum - result[column];
+    return result;
+  };
+  const commit = (widths) =>
+    resizeTableColumns(
+      view,
+      model.from,
+      widths.map((width, index) => [index, width]),
+    );
+  handle.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const sign = (event.key === "ArrowRight" ? 1 : -1) * (table.dir === "rtl" ? -1 : 1);
+    commit(fromDelta(sizes(), sign * (event.shiftKey ? 5 : 1)));
+    requestAnimationFrame(() =>
+      view.dom
+        .querySelector(
+          `.cm-md-table[data-table-from="${model.from}"] [data-table-column="${column}"] [data-table-resize]`,
+        )
+        ?.focus({ preventScroll: true }),
+    );
+  });
+  let drag = null;
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    drag = {
+      id: event.pointerId,
+      x: event.clientX,
+      base: sizes(),
+      original: [...colgroup.children].map((item) => item.style.width),
+      originallySized: table.classList.contains("cm-table-sized"),
+    };
+    handle.setPointerCapture(event.pointerId);
+  });
+  handle.addEventListener("pointermove", (event) => {
+    if (!drag || event.pointerId !== drag.id) return;
+    const sign = table.dir === "rtl" ? -1 : 1;
+    drag.next = fromDelta(
+      drag.base,
+      Math.round((sign * (event.clientX - drag.x) * 100) / table.offsetWidth),
+    );
+    table.classList.add("cm-table-sized");
+    drag.next.forEach((width, index) => {
+      colgroup.children[index].style.width = width + "%";
+    });
+    handle.setAttribute("aria-valuenow", String(drag.next[column]));
+    view.requestMeasure();
+  });
+  const endDrag = (event) => {
+    if (!drag || event.pointerId !== drag.id) return;
+    const current = drag;
+    drag = null;
+    table.classList.toggle("cm-table-sized", current.originallySized);
+    current.original.forEach((width, index) => {
+      colgroup.children[index].style.width = width;
+    });
+    if (
+      event.type === "pointerup" &&
+      current.next &&
+      current.next[column] !== current.base[column]
+    ) {
+      commit(current.next);
+    }
+    view.requestMeasure();
+  };
+  handle.addEventListener("pointerup", endDrag);
+  handle.addEventListener("pointercancel", endDrag);
+  handle.addEventListener("lostpointercapture", endDrag);
+  handle.addEventListener("click", (event) => event.stopPropagation());
+  return handle;
+}
+
 export class TableWidget extends WidgetType {
   constructor(markup, from, to, renderMath = null, syntax = null) {
     super();
@@ -232,6 +335,19 @@ export class TableWidget extends WidgetType {
     const parsed = this.syntax || tableParser.parse(this.markup).topNode.firstChild;
     const offset = this.syntax ? this.from : 0;
     const model = parsed ? tableModel(this.markup, this.from, parsed) : null;
+    const colgroup = document.createElement("colgroup");
+    if (view || model?.rows[0]?.cells.some((cell) => tableCellMetadata(cell.raw).width)) {
+      for (let column = 0; column < (model?.columns || 0); column += 1) {
+        const col = document.createElement("col");
+        const width = tableCellMetadata(model.rows[0].cells[column]?.raw).width;
+        if (width) {
+          col.style.width = width + "%";
+          table.classList.add("cm-table-sized");
+        }
+        colgroup.append(col);
+      }
+      table.append(colgroup);
+    }
     wrapper.setAttribute("data-table-from", String(this.from));
     if (view && model) {
       wrapper.classList.toggle("cm-md-table--editable", !view.state.readOnly);
@@ -303,12 +419,20 @@ export class TableWidget extends WidgetType {
             });
             element.append(button);
           };
-          if (head) scopeButton("column", column, 0, column);
+          if (head) {
+            scopeButton("column", column, 0, column);
+            if (column + 1 < columns)
+              element.append(columnResizeHandle(view, model, table, colgroup, column));
+          }
           if (!column) scopeButton("row", index, index, 0);
           element.addEventListener(
             "mousedown",
             (event) => {
-              if (event.button !== 0 || event.target.closest("[data-table-select]")) return;
+              if (
+                event.button !== 0 ||
+                event.target.closest("[data-table-select], [data-table-resize]")
+              )
+                return;
               event.preventDefault();
               event.stopPropagation();
             },
@@ -339,6 +463,7 @@ export class TableWidget extends WidgetType {
       }
       body.append(row);
     });
+    if (view && model && !view.state.readOnly) wrapper.append(createTableActions(view, model));
     wrapper.append(table);
     return wrapper;
   }

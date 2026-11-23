@@ -1,8 +1,32 @@
 /** Fenced code stays in CodeMirror; only its Markdown scaffolding is a widget. */
-import { EditorSelection, Transaction } from "@codemirror/state";
+import { EditorSelection, MapMode, StateEffect, StateField, Transaction } from "@codemirror/state";
 import { isolateHistory } from "@codemirror/commands";
 import { WidgetType } from "@codemirror/view";
 import { createCopyButton } from "../frontend/js/ui/copy-button.mjs";
+import { createCodeWrapButton } from "../frontend/js/ui/code-wrap.mjs";
+
+export const setCodeWrap = StateEffect.define();
+export const codeWrapState = StateField.define({
+  create: () => new Set(),
+  update(value, transaction) {
+    const effect = transaction.effects.find((item) => item.is(setCodeWrap));
+    if (!effect && !transaction.docChanged) return value;
+    const next = new Set();
+    for (const position of value) {
+      const mapped = transaction.changes.mapPos(position, 1, MapMode.TrackDel);
+      if (mapped != null) next.add(mapped);
+    }
+    if (effect) {
+      if (effect.value.wrapped) next.delete(effect.value.position);
+      else next.add(effect.value.position);
+    }
+    return next;
+  },
+});
+
+export function wrapsCode(state, position) {
+  return !state.field(codeWrapState, false)?.has(position);
+}
 
 const TEXT = {
   en: {
@@ -249,16 +273,18 @@ export function codeLanguageChange(state, spec, language) {
 }
 
 export class CodeBlockHeaderWidget extends WidgetType {
-  constructor(spec, locale = "en", readOnly = false) {
+  constructor(spec, locale = "en", readOnly = false, wrapped = true) {
     super();
     this.spec = spec;
     this.locale = locale;
     this.readOnly = readOnly;
+    this.wrapped = wrapped;
   }
   eq(other) {
     return (
       this.locale === other.locale &&
       this.readOnly === other.readOnly &&
+      this.wrapped === other.wrapped &&
       Object.keys(this.spec).every(
         (key) => key === "presentation" || this.spec[key] === other.spec[key],
       )
@@ -338,7 +364,18 @@ export class CodeBlockHeaderWidget extends WidgetType {
       labels,
       className: "cm-code-copy",
     });
-    actions.append(edit, copy);
+    const wrap = createCodeWrapButton(document, this.wrapped, (wrapped) => {
+      if (!currentSpec(view, spec)) return;
+      view.dispatch({ effects: setCodeWrap.of({ position: spec.openerFrom, wrapped }) });
+      requestAnimationFrame(() => {
+        const line = view.domAtPos(spec.openerFrom).node;
+        (line.nodeType === 1 ? line : line.parentElement)
+          ?.closest(".cm-line")
+          ?.querySelector(".code-wrap-button")
+          ?.focus({ preventScroll: true });
+      });
+    });
+    actions.append(edit, wrap, copy);
     const identity = document.createElement("span");
     identity.className = "cm-code-identity";
     if (spec.presentation.title) {
