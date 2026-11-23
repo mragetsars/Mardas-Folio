@@ -571,6 +571,9 @@
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-nowrap {
   white-space: pre;
   overflow-wrap: normal;
+  overflow-x: auto;
+  direction: ltr;
+  scrollbar-width: thin;
 }
 
 .document-code-actions {

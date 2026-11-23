@@ -8,12 +8,15 @@ from playwright.sync_api import expect
 
 from mardas_folio.application import EngineService
 
+CODE = 'return_value = "test"\nprint(42)\n# ' + "keep this line visible " * 20
+
 SOURCE = (
     "---\ntitle: Fixtures\n---\n\n"
     "# Example document\n\n"
     "- [ ] Check the figures\n\n"
     "| Name | Value |\n| --- | ---: |\n| فارسی | 1 |\n| Two words | 2 |\n\n"
-    '~~~{.python .numberLines title="main.py" linenostart=10 hl_lines="11"}\nreturn_value = "test"\nprint(42)\n~~~\n\n'
+    '~~~{.python .numberLines title="main.py" linenostart=10 hl_lines="11"}\n'
+    f"{CODE}\n~~~\n\n"
     "~~~diff\n+++ b/main.py\n-old\n+new\n~~~\n\n"
     "<details><summary>More information</summary><p>Additional text</p></details>\n"
 )
@@ -225,13 +228,19 @@ def test_geist_document_controls(
         wrap.click()
         expect(wrap).to_have_attribute("aria-pressed", "false")
         expect(code_line).to_have_css("white-space", "pre")
+        long_line = editor.locator(".cm-code-nowrap", has_text="keep this line visible")
+        assert long_line.evaluate("element => element.scrollWidth > element.clientWidth")
+        assert (
+            long_line.evaluate("element => { element.scrollLeft = 64; return element.scrollLeft; }")
+            > 0
+        )
         expect(source_text).to_have_value(SOURCE)
         wrap.click()
         expect(code_line).to_have_css("white-space", "pre-wrap")
         copy = editor.locator(".cm-code-copy").first
         copy.click()
         expect(copy.locator("use")).to_have_attribute("href", "#icon-check")
-        assert page.evaluate("window.copiedCode").strip() == 'return_value = "test"\nprint(42)'
+        assert page.evaluate("window.copiedCode").rstrip("\n") == CODE
         live_disclosure = editor.locator(".cm-document-disclosure details")
         expect(live_disclosure).to_have_js_property("open", False)
         live_disclosure.locator("summary").press("Enter")
