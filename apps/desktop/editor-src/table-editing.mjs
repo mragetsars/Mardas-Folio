@@ -541,11 +541,39 @@ class CellEditor {
         chosen.has(cell.dataset.tableRow + ":" + cell.dataset.tableColumn),
       );
     }
-    const rect = anchor.getBoundingClientRect(),
-      panel = this.panel.getBoundingClientRect();
-    this.panel.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - panel.width - 8))}px`;
-    const below = rect.bottom + 6;
-    this.panel.style.top = `${Math.max(8, Math.min(below, innerHeight - panel.height - 8))}px`;
+    const rect = anchor.getBoundingClientRect();
+    const table = this.table().getBoundingClientRect();
+    const gap = 8;
+    this.panel.style.maxBlockSize = "";
+    const panel = this.panel.getBoundingClientRect();
+    const clamp = (value, end) => Math.max(gap, Math.min(value, end));
+    const below = innerHeight - table.bottom - gap * 2;
+    const above = table.top - gap * 2;
+    const fitsSide = (left) => left >= gap && left + panel.width <= innerWidth - gap;
+    const right = table.right + gap;
+    const left = table.left - panel.width - gap;
+    let x = clamp(rect.left, innerWidth - panel.width - gap);
+    let y;
+    if (below >= panel.height) {
+      y = table.bottom + gap;
+    } else if (above >= panel.height) {
+      y = table.top - panel.height - gap;
+    } else if (fitsSide(right) || fitsSide(left)) {
+      x = fitsSide(right) ? right : left;
+      y = clamp(rect.top, innerHeight - panel.height - gap);
+    } else {
+      // A long table may fill the viewport. Use the larger outside region when
+      // it can hold the controls, otherwise keep part of the table accessible.
+      const space = Math.max(below, above);
+      const height = Math.min(panel.height, Math.max(space, Math.min(200, panel.height)));
+      this.panel.style.maxBlockSize = height + "px";
+      y =
+        below >= above
+          ? clamp(table.bottom + gap, innerHeight - height - gap)
+          : clamp(table.top - height - gap, innerHeight - height - gap);
+    }
+    this.panel.style.left = x + "px";
+    this.panel.style.top = y + "px";
   }
 
   format(marker) {

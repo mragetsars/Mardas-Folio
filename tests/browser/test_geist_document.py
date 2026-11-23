@@ -139,6 +139,10 @@ def test_geist_document_controls(
         expect(source_text).to_have_value(SOURCE)
 
         table.locator("th").first.click()
+        table.locator("td").nth(2).click(modifiers=["Shift"])
+        expect(table.locator(".cm-table-cell-active")).to_have_count(3)
+        cancel.click()
+        table.locator("th").first.click()
         table.locator("td").last.click(modifiers=["Shift"])
         expect(table.locator(".cm-table-cell-active")).to_have_count(6)
         expect(panel.locator(".cm-table-cell-structure")).to_be_hidden()

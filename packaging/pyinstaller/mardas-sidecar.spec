@@ -5,7 +5,7 @@ import os
 import sys
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_all, collect_data_files, copy_metadata
+from PyInstaller.utils.hooks import collect_all, copy_metadata
 
 project_root = Path(os.environ["MARDAS_PROJECT_ROOT"]).resolve()
 entrypoint = project_root / "packaging" / "pyinstaller" / "entrypoint.py"
@@ -13,7 +13,15 @@ entrypoint = project_root / "packaging" / "pyinstaller" / "entrypoint.py"
 sys.path.insert(0, str(project_root / "scripts"))
 from chromium_payload import chromium_datas, payload_summary  # noqa: E402
 
-datas = collect_data_files("mardas_folio")
+# Use assets from the same checkout as the modules being frozen. Collecting
+# by package name may resolve an older installation in the build environment.
+assets = project_root / "src" / "mardas_folio" / "assets"
+asset_suffixes = {".css", ".png", ".svg", ".html", ".js", ".ttf", ".txt", ".md"}
+datas = [
+    (str(path), str(Path("mardas_folio/assets") / path.relative_to(assets).parent))
+    for path in sorted(assets.rglob("*"))
+    if path.is_file() and path.suffix in asset_suffixes
+]
 datas += copy_metadata("mardas-folio")
 playwright_datas, playwright_binaries, playwright_hiddenimports = collect_all("playwright")
 datas += playwright_datas
