@@ -1,111 +1,34 @@
-/* The controls float beside the table while the draft stays in the cell. */
+/* The cell overlay and its controls stay outside CodeMirror's editable DOM. */
 .cm-table-cell-editor {
   position: fixed;
-  z-index: 140;
-  box-sizing: border-box;
-  width: min(420px, calc(100vw - 16px));
-  max-height: calc(100vh - 16px);
-  overflow: auto;
-  padding: 14px;
+  z-index: 142;
+  max-width: calc(100vw - 16px);
+  padding: 4px;
   border: 1px solid var(--ui-border-strong);
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--ui-panel);
   color: var(--ui-text);
   box-shadow: var(--ui-shadow-float);
-  font: var(--ui-text-sm)/1.5 var(--app-font);
+  font: var(--ui-text-xs)/1.5 var(--app-font);
 }
-.cm-table-cell-editor * {
-  box-sizing: border-box;
-}
-.cm-table-cell-editor header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.cm-table-cell-editor header small,
-.cm-table-cell-editor p {
-  color: var(--ui-muted);
-  font-size: var(--ui-text-2xs);
-}
-.cm-table-cell-editor label {
-  display: grid;
-  gap: 5px;
-  font-size: var(--ui-text-xs);
-  color: var(--ui-text-soft);
-}
-.cm-table-cell-editor textarea {
-  display: block;
-  width: 100%;
-  min-height: 64px;
-  max-height: 200px;
-  resize: vertical;
-  padding: 8px 10px;
-  border: 1px solid var(--ui-border-strong);
-  border-radius: 8px;
-  background: var(--ui-page);
-  color: var(--ui-text);
-  font: var(--ui-text-md)/1.6 var(--app-font);
-}
-.cm-table-cell-editor textarea:focus-visible {
-  outline: var(--ui-focus-ring);
-  outline-offset: 1px;
-}
-.cm-table-cell-content {
-  position: relative;
-  min-block-size: 1.5em;
-}
-.cm-table-cell-content:has(> textarea) .cm-table-cell-rendered {
-  visibility: hidden;
-}
-.cm-table-cell-content > textarea {
-  position: absolute;
-  inset: 0;
-  box-sizing: border-box;
-  inline-size: 100%;
-  block-size: 100%;
-  min-inline-size: 0;
-  padding: 0;
-  border: 0;
-  outline: 0;
-  resize: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  line-height: inherit;
-}
-.cm-table-cell-preview {
-  min-height: 24px;
-  max-height: 100px;
+.cm-table-cell-editor[data-selection="row"],
+.cm-table-cell-editor[data-selection="column"] {
+  min-inline-size: 200px;
+  max-block-size: calc(100vh - 16px);
   overflow: auto;
-  padding: 6px 10px;
-  margin-top: 6px;
-  border-radius: 6px;
-  background: var(--ui-panel-soft);
-  overflow-wrap: anywhere;
-}
-.cm-table-cell-preview:empty {
-  display: none;
-}
-.cm-table-cell-preview code {
-  padding: 0.1em 0.3em;
-  background: var(--ui-panel-muted);
-  border-radius: 4px;
 }
 .cm-table-cell-editor button {
-  min-height: 30px;
-  padding: 4px 9px;
-  border: 1px solid var(--ui-border);
-  border-radius: 7px;
+  min-height: 26px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 5px;
   background: transparent;
-  color: var(--ui-text-soft);
+  color: inherit;
   font: inherit;
   cursor: pointer;
 }
 .cm-table-cell-editor button:hover {
-  background: var(--ui-panel-muted);
+  background: var(--ui-control-hover);
 }
 .cm-table-cell-editor button:disabled {
   opacity: 0.4;
@@ -113,60 +36,59 @@
 }
 .cm-table-cell-editor button:focus-visible {
   outline: var(--ui-focus-ring);
-  outline-offset: 1px;
+  outline-offset: -1px;
 }
-.cm-table-cell-formats {
-  display: flex;
-  gap: 4px;
-  margin-block: 4px 10px;
-}
-.cm-table-cell-formats button {
-  min-width: 32px;
-}
-.cm-table-cell-formats button[data-cell-format="bold"] {
-  font-weight: 700;
-}
-.cm-table-cell-formats button[data-cell-format="italic"] {
-  font-style: italic;
+.cm-table-cell-editor button[aria-pressed="true"] {
+  background: var(--ui-selected-bg);
+  color: var(--ui-selected-text);
 }
 .cm-table-cell-alignment {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  margin-block-start: 8px;
+  gap: 2px;
 }
 .cm-table-cell-alignment > span {
-  margin-inline-end: 4px;
+  padding-inline: 5px;
   color: var(--ui-muted);
 }
-.cm-table-cell-alignment button[aria-pressed="true"] {
-  background: var(--ui-selected-bg);
-  color: var(--ui-selected-text);
-}
 .cm-table-cell-structure {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding-block: 10px;
-  border-top: 1px solid var(--ui-border);
+  display: grid;
+  margin-block-start: 4px;
+  padding-block-start: 4px;
+  border-block-start: 1px solid var(--ui-border);
 }
 .cm-table-cell-structure button {
-  font-size: var(--ui-text-2xs);
+  text-align: start;
 }
-.cm-table-cell-editor footer {
-  display: flex;
-  justify-content: end;
-  gap: 6px;
-  padding-top: 8px;
-}
-.cm-table-cell-editor button.cm-table-cell-apply {
-  background: var(--ui-primary-bg);
-  color: var(--ui-primary-text);
-  border-color: transparent;
-}
-.cm-table-cell-editor .cm-table-cell-error {
+.cm-table-cell-structure button[data-table-action^="delete"] {
   color: var(--ui-danger);
+}
+.cm-table-cell-error {
+  padding-inline: 5px;
+  color: var(--ui-danger);
+}
+.cm-table-cell-content {
+  min-block-size: 1.5em;
+}
+.cm-table-cell-drafting .cm-table-cell-rendered {
+  visibility: hidden;
+}
+.cm-table-cell-input {
+  position: fixed;
+  box-sizing: border-box;
+  z-index: 141;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  color: var(--ui-text);
+  outline: 0;
+  scrollbar-width: thin;
+}
+.cm-table-cell-input code {
+  padding: 0.1em 0.25em;
+  border-radius: 4px;
+  background: var(--ui-panel-muted);
 }
 .cm-md-table .cm-table-cell-active {
   outline: var(--ui-focus-ring);
@@ -187,6 +109,8 @@ body:has(.cm-table-cell-editor) .cm-selection-toolbar {
   display: none;
 }
 
+.cm-table-cell-editor[hidden],
+.cm-table-cell-input[hidden],
 .cm-table-cell-editor [hidden] {
   display: none;
 }
@@ -203,6 +127,10 @@ body:has(.cm-table-cell-editor) .cm-selection-toolbar {
   background: transparent;
   color: var(--ui-muted);
   cursor: pointer;
+}
+.cm-table-selection-handle:not(.cm-table-handle-active, :focus-visible) {
+  opacity: 0;
+  pointer-events: none;
 }
 .cm-table-selection-handle:hover,
 .cm-table-selection-handle:focus-visible {
@@ -244,4 +172,152 @@ body:has(.cm-table-cell-editor) .cm-selection-toolbar {
 }
 .cm-md-table table:dir(rtl) [data-table-select="row"] {
   right: 3px;
+}
+
+.cm-md-table--editable {
+  position: relative;
+  padding-inline-end: 16px;
+}
+.cm-table-extend,
+.cm-block-grip {
+  padding: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  background: var(--ui-panel);
+  color: var(--ui-muted);
+  cursor: grab;
+  touch-action: none;
+}
+.cm-table-extend {
+  display: block;
+  inline-size: 100%;
+  min-block-size: 16px;
+  margin-block-start: 4px;
+  font: var(--ui-text-xs)/1 var(--app-font);
+  opacity: 0;
+}
+.cm-md-table:hover > .cm-table-extend,
+.cm-md-table[data-active-row] > .cm-table-extend,
+.cm-table-extend:focus-visible {
+  opacity: 1;
+}
+.cm-table-extend:hover,
+.cm-block-grip:hover {
+  background: var(--ui-control-hover);
+  color: var(--ui-text);
+}
+.cm-table-extend[data-table-extend="column"] {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 24px;
+  inset-block-end: 30px;
+  inline-size: 13px;
+}
+.cm-block-grip {
+  position: absolute;
+  z-index: 12;
+  left: 4px;
+  inline-size: 21px;
+  block-size: 25px;
+  font-size: 16px;
+}
+.cm-block-drop {
+  position: absolute;
+  z-index: 13;
+  block-size: 2px;
+  background: var(--ui-accent);
+  box-shadow: var(--ui-focus-ring);
+  pointer-events: none;
+}
+.cm-block-drop[hidden],
+.cm-block-grip[hidden] {
+  display: none;
+}
+.cm-diagram {
+  margin-block: 8px;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-panel);
+  color: var(--ui-text);
+}
+.cm-diagram > header,
+.cm-diagram-controls > summary,
+.cm-diagram-note {
+  padding: 8px 12px;
+  font: var(--ui-text-sm)/1.5 var(--app-font);
+}
+.cm-diagram > header {
+  border-block-end: 1px solid var(--ui-border);
+  color: var(--ui-muted);
+}
+.cm-diagram-canvas {
+  display: grid;
+  min-block-size: 100px;
+  padding: 8px;
+  place-items: center;
+}
+.cm-diagram-canvas svg {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+}
+.cm-diagram-controls {
+  border-block-start: 1px solid var(--ui-border);
+}
+.cm-diagram-controls > summary {
+  cursor: pointer;
+}
+.cm-diagram-controls > div {
+  display: grid;
+  gap: 8px;
+  padding: 8px 12px 12px;
+}
+.cm-diagram-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 6px;
+}
+.cm-diagram-controls label,
+.cm-visual-fields label {
+  display: grid;
+  gap: 2px;
+  color: var(--ui-muted);
+  font-size: var(--ui-text-xs);
+}
+.cm-diagram-controls :is(input, select, button),
+.cm-visual-fields :is(input, textarea, button) {
+  justify-self: start;
+  max-inline-size: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 6px;
+  color: var(--ui-text);
+  background: var(--ui-page);
+  font: var(--ui-text-sm)/1.5 var(--app-font);
+}
+.cm-diagram-controls button {
+  cursor: pointer;
+}
+.cm-diagram-controls .cm-diagram-apply {
+  color: var(--ui-primary-text);
+  background: var(--ui-primary-bg);
+}
+
+.cm-visual-fields:not([hidden]) {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-block-start: 4px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-panel);
+}
+.cm-visual-fields :is(input, textarea) {
+  inline-size: min(100%, 30rem);
+}
+.cm-visual-fields button {
+  cursor: pointer;
 }

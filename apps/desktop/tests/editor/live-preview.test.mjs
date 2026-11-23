@@ -93,12 +93,9 @@ test("hidden ranges are atomic so the caret cannot stall inside them", () => {
   assert.match(source, /EditorView\.atomicRanges\.of/);
 });
 
-test("the caret's own prose line reveals its source syntax", () => {
-  assert.match(source, /activeLines/);
-  assert.match(
-    source,
-    /if \(active\.has\(state\.doc\.lineAt\(node\.from\)\.number\) && !stableCodeMarker\) return;/,
-  );
+test("prose formatting stays visual when it receives the caret", () => {
+  assert.match(source, /const HIDDEN_MARKS/);
+  assert.doesNotMatch(source, /if \(active\.has\(state\.doc\.lineAt\(node\.from\)\.number\)/);
 });
 
 test("one view mode decides both the rendering and the preview pane", () => {
@@ -169,16 +166,17 @@ test("a callout is drawn as the card the engine will publish", () => {
     assert.ok(source.includes(`"${kind}"`), `${kind} is not a recognised callout`);
   }
   // Only the marker is hidden, and only while the caret is elsewhere.
-  assert.match(source, /if \(!active\.has\(first\.number\)\)/);
+  assert.match(source, /marks\.push\(\[from, from \+ marker\[2\]\.length/);
 });
 
-test("front matter collapses to a summary until the caret asks for it", () => {
+test("front matter uses a visual summary and native field controls", () => {
   const widgets = readFileSync(
     new URL("../../editor-src/live-widgets.mjs", import.meta.url),
     "utf8",
   );
   assert.match(widgets, /class FrontMatterWidget/);
-  assert.match(widgets, /node\.name === "Frontmatter" && !spansActiveLine/);
+  assert.match(widgets, /node\.name === "Frontmatter"/);
+  assert.match(widgets, /editVisualFields\(view, this\.markup/);
   // The document is never rewritten to match what is drawn.
   assert.doesNotMatch(widgets, /FrontMatterWidget[\s\S]{0,600}dispatch\(/);
 });

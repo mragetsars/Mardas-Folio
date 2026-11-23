@@ -74,11 +74,16 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 panel = page.locator(".cm-table-cell-editor")
                 value = page.locator(".cm-table-cell-input")
                 expect(panel).to_be_visible()
-                expect(value).to_have_value("**bold** and *italic*")
+                expect(value).to_have_text("bold and italic")
+                expect(value.locator("strong")).to_have_text("bold")
                 expect(grid.locator("table")).to_be_visible()
-                expect(cell.locator("textarea")).to_be_focused()
-                value.fill("**changed** and a|b")
-                expect(panel.locator(".cm-table-cell-preview strong")).to_have_text("changed")
+                expect(value).to_be_focused()
+                value.evaluate("(node, text) => node.textContent = text", "changed and a|b")
+                value.evaluate(
+                    "node => { const sel = getSelection(); sel.setBaseAndExtent(node.firstChild, 0, node.firstChild, 7); }"
+                )
+                value.press("Control+b")
+                expect(value.locator("b, strong")).to_have_text("changed")
                 value.press("Enter")
                 expect(panel).to_have_count(0)
                 edited = SAMPLE.replace("**bold** and *italic*", "**changed** and a\\|b")
@@ -87,19 +92,19 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 page.evaluate("adapter.runCommand('undo')")
                 expect(page.locator("#source")).to_have_value(SAMPLE)
                 case["checks"].append(
-                    "cell editing keeps grid rendered, previews inline formatting, escapes new pipes, one Undo restores exact Markdown"
+                    "cell editing keeps grid rendered, edits formatted content directly, escapes new pipes, one Undo restores exact Markdown"
                 )
 
                 cell.click()
-                value.fill("DISCARDED")
+                value.evaluate("(node, text) => node.textContent = text", "DISCARDED")
                 value.press("Escape")
                 expect(page.locator("#source")).to_have_value(SAMPLE)
                 cell.click()
-                value.fill("Committed by Tab")
+                value.evaluate("(node, text) => node.textContent = text", "Committed by Tab")
                 value.press("Tab")
-                expect(value).to_have_value("$E=mc^2$")
+                expect(value).to_have_text("E=mc^2")
                 value.press("Shift+Tab")
-                expect(value).to_have_value("Committed by Tab")
+                expect(value).to_have_text("Committed by Tab")
                 value.press("Escape")
                 expect(page.locator("#source")).to_have_value(
                     SAMPLE.replace("**bold** and *italic*", "Committed by Tab")
@@ -111,7 +116,7 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 )
 
                 cell.click()
-                value.fill("Outside commit")
+                value.evaluate("(node, text) => node.textContent = text", "Outside commit")
                 page.locator("#outside").click()
                 expect(panel).to_have_count(0)
                 expect(page.locator("#source")).to_have_value(
@@ -120,13 +125,14 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 page.evaluate("adapter.runCommand('undo')")
                 expect(page.locator("#source")).to_have_value(SAMPLE)
 
+                cell.click()
                 grid.locator('[data-table-select="column"]').nth(1).click()
                 add_column = "Add column after" if locale == "en" else "افزودن ستون بعدی"
-                panel.get_by_role("button", name=add_column, exact=True).click()
+                panel.get_by_role("menuitem", name=add_column, exact=True).click()
                 expect(grid.locator("th")).to_have_count(4)
                 grid.locator('[data-table-row="1"][data-table-column="2"]').click()
-                expect(value).to_have_value("")
-                value.fill("New column")
+                expect(value).to_have_text("")
+                value.evaluate("(node, text) => node.textContent = text", "New column")
                 value.press("Enter")
                 expect(grid.locator("tbody tr").first.locator("td").nth(2)).to_have_text(
                     "New column"
@@ -139,11 +145,12 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 )
 
                 nested = page.locator(".cm-md-table").nth(1)
+                nested.locator("td").first.click()
                 nested.locator('[data-table-select="row"]').nth(1).click()
                 add_row = "Add row below" if locale == "en" else "افزودن ردیف پایین"
-                panel.get_by_role("button", name=add_row, exact=True).click()
+                panel.get_by_role("menuitem", name=add_row, exact=True).click()
                 nested.locator('[data-table-row="2"][data-table-column="0"]').click()
-                value.fill("ردیف تازه")
+                value.evaluate("(node, text) => node.textContent = text", "ردیف تازه")
                 value.press("Enter")
                 assert "> | ردیف تازه" in page.locator("#source").input_value()
                 expect(nested.locator("tbody tr")).to_have_count(2)
@@ -151,8 +158,11 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 expect(page.locator("#source")).to_have_value(SAMPLE)
 
                 cell.click()
-                value.fill('<img src=x onerror="globalThis.__tableInjected=1">')
-                assert page.locator(".cm-table-cell-preview img").count() == 0
+                value.evaluate(
+                    "(node, text) => node.textContent = text",
+                    '<img src=x onerror="globalThis.__tableInjected=1">',
+                )
+                assert value.locator("img").count() == 0
                 assert page.evaluate("Boolean(globalThis.__tableInjected)") is False
                 geometry = panel.bounding_box()
                 assert (

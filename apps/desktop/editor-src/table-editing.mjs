@@ -4,7 +4,10 @@ import { Transaction } from "@codemirror/state";
 import { isolateHistory } from "@codemirror/commands";
 import { ViewPlugin } from "@codemirror/view";
 import { markdownLanguage } from "@codemirror/lang-markdown";
-import { appendTableInline, tableInlineText } from "./table-inline.mjs";
+import { mathAndFootnotes } from "./markdown-extras.mjs";
+
+const cellParser = markdownLanguage.parser.configure([mathAndFootnotes]);
+import { appendTableInline, tableInlineText, tableInlineSource } from "./table-inline.mjs";
 import { authoringShortcutKey } from "../frontend/js/core/keyboard-shortcuts.mjs";
 
 const sessions = new WeakMap();
@@ -280,6 +283,82 @@ export function resizeTableColumns(view, from, widths) {
   if (current) dispatchEdit(view, columnWidthChanges(current, widths));
 }
 
+export function tableExtendButton(view, model, kind) {
+  const row = kind === "row";
+  const fa = document.documentElement.lang.startsWith("fa");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "cm-table-extend";
+  button.dataset.tableExtend = kind;
+  button.textContent = "+";
+  button.title = row
+    ? fa
+      ? "افزودن ردیف با کلیک یا کشیدن"
+      : "Click or drag to add rows"
+    : fa
+      ? "افزودن ستون با کلیک یا کشیدن"
+      : "Click or drag to add columns";
+  button.ariaLabel = button.title;
+  const append = (count) => {
+    const current = refreshTable(view, model.from);
+    if (!current?.delimiter || view.state.readOnly) return;
+    sessions.get(view)?.close(false, false);
+    if (row) {
+      const line = view.state.doc.lineAt(current.delimiter.from);
+      const prefix = line.text.slice(0, current.delimiter.from - line.from);
+      const insert = ("\n" + prefix + serializeRow(Array(current.columns).fill(""))).repeat(count);
+      dispatchEdit(view, [
+        { from: (current.rows[1] ? current.rows.at(-1) : current.delimiter).to, insert },
+      ]);
+    } else {
+      const changes = [...current.rows, current.delimiter]
+        .map((record) => {
+          const filler = record === current.delimiter ? "---" : "";
+          const cells = record.cells.map(({ raw }) => raw);
+          while (cells.length < current.columns) cells.push(filler);
+          cells.splice(current.columns, 0, ...Array(count).fill(filler));
+          return { from: record.from, to: record.to, insert: serializeRow(cells) };
+        })
+        .sort((a, b) => a.from - b.from);
+      dispatchEdit(view, changes);
+    }
+    view.focus();
+  };
+  let gesture;
+  button.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const direction = row || button.closest("table, .cm-md-table")?.dir !== "rtl" ? 1 : -1;
+    gesture = { start: row ? event.clientY : event.clientX, direction, count: 1 };
+    button.setPointerCapture(event.pointerId);
+  });
+  button.addEventListener("pointermove", (event) => {
+    if (!gesture) return;
+    const position = row ? event.clientY : event.clientX;
+    gesture.count = Math.min(
+      20,
+      1 +
+        Math.max(0, Math.floor(((position - gesture.start) * gesture.direction) / (row ? 26 : 42))),
+    );
+    button.textContent = "+" + gesture.count;
+  });
+  button.addEventListener("pointerup", () => {
+    if (!gesture) return;
+    const { count } = gesture;
+    gesture = null;
+    button.textContent = "+";
+    append(count);
+  });
+  button.addEventListener("pointercancel", () => {
+    gesture = null;
+    button.textContent = "+";
+  });
+  button.addEventListener("click", (event) => {
+    if (event.detail === 0) append(1);
+  });
+  return button;
+}
+
 export function createTableActions(view, model) {
   const labels = tableLabels();
   const options = document.createElement("details");
@@ -330,7 +409,7 @@ const translations = {
     title: "Edit table cell",
     row: "Row",
     column: "Column",
-    content: "Cell content (Markdown)",
+    content: "Cell content",
     alignment: "Alignment",
     rowSelection: "Selected row",
     columnSelection: "Selected column",
@@ -371,7 +450,7 @@ const translations = {
     title: "ویرایش سلول جدول",
     row: "ردیف",
     column: "ستون",
-    content: "محتوای سلول (Markdown)",
+    content: "محتوای سلول",
     alignment: "تراز",
     rowSelection: "ردیف انتخاب‌شده",
     columnSelection: "ستون انتخاب‌شده",
@@ -429,43 +508,22 @@ class CellEditor {
     this.selection = selection;
     this.panel = document.createElement("section");
     this.panel.className = "cm-table-cell-editor";
-    this.panel.setAttribute("role", "dialog");
-    this.panel.setAttribute("aria-modal", "false");
-    this.panel.setAttribute("aria-label", this.labels.title);
+    this.panel.setAttribute("role", "group");
     this.panel.dir = document.documentElement.dir;
-    const heading = document.createElement("header");
-    this.title = document.createElement("strong");
-    this.positionLabel = document.createElement("small");
-    heading.append(this.title, this.positionLabel);
-    this.panel.append(heading);
-    const tools = document.createElement("div");
-    tools.className = "cm-table-cell-formats";
-    for (const [name, text, marker] of [
-      ["bold", "B", "**"],
-      ["italic", "I", "*"],
-      ["code", "</>", "`"],
-    ]) {
-      const button = this.button(text, () => this.format(marker), tools);
-      button.title = button.ariaLabel = this.labels[name];
-      button.dataset.cellFormat = name;
-    }
-    this.tools = tools;
-    const label = (this.contentLabel = document.createElement("label"));
-    label.textContent = this.labels.content;
-    this.input = document.createElement("textarea");
+    this.input = document.createElement("div");
     this.input.className = "cm-table-cell-input";
-    this.input.rows = 2;
-    this.input.dir = "auto";
-    this.input.spellcheck = false;
+    this.input.contentEditable = "true";
+    this.input.setAttribute("role", "textbox");
+    this.input.setAttribute("aria-multiline", "true");
     this.input.setAttribute("aria-label", this.labels.content);
     this.input.setAttribute("aria-keyshortcuts", "Alt+F10");
-    label.append(this.input);
-    this.panel.append(tools, label);
-    this.preview = document.createElement("div");
-    this.preview.className = "cm-table-cell-preview";
-    this.preview.dir = "auto";
-    this.panel.append(this.preview);
-    this.input.addEventListener("input", () => this.paintPreview());
+    this.input.dir = "auto";
+    this.input.addEventListener("input", () => this.updateAlignment());
+    this.input.addEventListener("paste", (event) => {
+      event.preventDefault();
+      document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
+    });
+    document.body.append(this.input);
     const alignment = document.createElement("div");
     alignment.className = "cm-table-cell-alignment";
     alignment.setAttribute("role", "group");
@@ -478,7 +536,10 @@ class CellEditor {
         this.labels[value],
         () => {
           this.pendingAlignment = value;
-          this.updateAlignment();
+          if (this.commit()) {
+            if (this.selection.kind !== "cell") this.close(false);
+            else this.input.focus({ preventScroll: true });
+          }
         },
         alignment,
       );
@@ -486,13 +547,11 @@ class CellEditor {
       return control;
     });
     this.panel.append(alignment);
-    const help = (this.help = document.createElement("p"));
-    help.textContent = this.labels.help;
     this.error = document.createElement("p");
     this.error.className = "cm-table-cell-error";
     this.error.setAttribute("role", "alert");
     this.error.hidden = true;
-    this.panel.append(help, this.error);
+    this.panel.append(this.error);
     const structure = (this.structurePanel = document.createElement("div"));
     structure.className = "cm-table-cell-structure";
     this.structureButtons = [
@@ -512,16 +571,12 @@ class CellEditor {
       button.dataset.tableAction = action;
       return { kind, action, button };
     });
-    const actions = document.createElement("footer");
-    this.button(this.labels.cancel, () => this.close(false), actions);
-    this.apply = this.button(this.labels.apply, () => this.close(true), actions);
-    this.apply.className = "cm-table-cell-apply";
-    this.panel.append(structure, actions);
+    this.panel.append(structure);
     document.body.append(this.panel);
     this.input.addEventListener("keydown", (event) => this.key(event));
     this.panel.addEventListener("keydown", (event) => this.actionKey(event));
     this.outside = (event) => {
-      if (this.panel.contains(event.target)) return;
+      if (this.panel.contains(event.target) || this.input.contains(event.target)) return;
       // Keep an unsupported action from falling through to the editor's old
       // selection, including clicks dispatched while a host refresh is busy.
       const action = event.target.closest?.(documentActions);
@@ -550,7 +605,7 @@ class CellEditor {
       this.close(false, false);
     };
     this.toolbarClick = (event) => {
-      if (this.panel.contains(event.target)) return;
+      if (this.panel.contains(event.target) || this.input.contains(event.target)) return;
       const command = event.target.closest?.("[data-editor-command]")?.dataset.editorCommand;
       const marker = { bold: "**", italic: "*", code: "`" }[command];
       if (!marker) return;
@@ -558,6 +613,14 @@ class CellEditor {
       event.stopImmediatePropagation();
       this.format(marker);
     };
+    this.keepDraftFocus = (event) => {
+      if (
+        this.selection.kind === "cell" &&
+        cellFormats.has(event.target.closest?.("[data-editor-command]")?.dataset.editorCommand)
+      )
+        event.preventDefault();
+    };
+    document.addEventListener("mousedown", this.keepDraftFocus, true);
     this.saveKey = (event) => {
       const key = authoringShortcutKey(event);
       if (!["s", "f", "h", "p", "o", "n", "\\", "+", "=", "-", "0"].includes(key)) return;
@@ -574,6 +637,8 @@ class CellEditor {
     document.addEventListener("click", this.toolbarClick, true);
     document.addEventListener("keydown", this.saveKey, true);
     window.addEventListener("blur", this.windowBlur);
+    this.scroll = () => this.reposition();
+    view.scrollDOM.addEventListener("scroll", this.scroll, { passive: true });
     this.guardDocumentActions();
     this.open(row, column);
   }
@@ -626,12 +691,25 @@ class CellEditor {
     this.source = this.view.state.doc.sliceString(this.model.from, this.model.to);
     this.cell = this.model.rows[row]?.cells[column];
     this.original = this.cell?.raw || "";
-    this.input.value = this.original.slice(tableCellAlignment(this.model, row, column).prefix);
+    const source = this.original.slice(tableCellMetadata(this.original).prefix);
+    this.input.replaceChildren();
+    const markup = "| Cell |\n| --- |\n| " + source + " |";
+    cellParser.parse(markup).iterate({
+      enter: (node) => {
+        if (node.name === "TableCell" && node.from > 15)
+          appendTableInline(this.input, node.node, markup, { preserveSource: true });
+      },
+    });
+    this.initialDraft = tableInlineSource(this.input);
     const { kind } = this.selection;
     const single = kind === "cell";
-    this.title.textContent = single ? this.labels.title : this.labels[kind + "Selection"];
-    this.panel.setAttribute("aria-label", this.title.textContent);
-    this.tools.hidden = this.contentLabel.hidden = this.preview.hidden = this.help.hidden = !single;
+    this.panel.dataset.selection = kind;
+    this.panel.setAttribute("role", kind === "row" || kind === "column" ? "menu" : "group");
+    this.panel.setAttribute(
+      "aria-label",
+      single ? this.labels.alignment : this.labels[kind + "Selection"],
+    );
+    this.input.hidden = !single;
     this.structurePanel.hidden = kind !== "row" && kind !== "column";
     const unavailable = {
       "add-row-before": row === 0,
@@ -645,21 +723,16 @@ class CellEditor {
     for (const control of this.structureButtons) {
       control.button.hidden = control.kind !== kind;
       control.button.disabled = Boolean(unavailable[control.action]);
+      control.button.setAttribute("role", "menuitem");
     }
     this.error.hidden = true;
-    this.apply.disabled = false;
-    this.positionLabel.textContent = {
-      cell: `${this.labels.row} ${row + 1} · ${this.labels.column} ${column + 1}`,
-      row: String(row + 1),
-      column: String(column + 1),
-      cells: String(this.coordinates().length),
-    }[kind];
-    this.paintPreview();
+    this.updateAlignment();
     this.reposition();
     if (single) {
-      this.input.focus();
-      this.input.select();
-    } else this.alignments[0].focus();
+      this.input.focus({ preventScroll: true });
+      const selection = document.getSelection();
+      selection.selectAllChildren(this.input);
+    } else this.actions()[0]?.focus({ preventScroll: true });
     requestAnimationFrame(() => this.reposition());
   }
 
@@ -690,99 +763,118 @@ class CellEditor {
       button.setAttribute("aria-pressed", String(button.dataset.cellAlignment === alignment));
     }
     if (this.selection.kind === "cell") {
-      const rendered = tableInlineText(this.preview);
-      this.input.style.textAlign = this.preview.style.textAlign =
-        alignment === "auto" ? autoCellAlignment(rendered) : alignment;
+      const rendered = tableInlineText(this.input);
+      this.input.style.textAlign = alignment === "auto" ? autoCellAlignment(rendered) : alignment;
     }
   }
 
   reposition() {
     if (!this.panel.isConnected) return;
     const anchor = this.anchor();
-    if (this.selection.kind === "cell") {
-      const content = anchor?.querySelector(".cm-table-cell-content");
-      const mount = content || this.contentLabel;
-      if (this.input.parentElement !== mount) {
-        const restoreFocus =
-          document.activeElement === this.input ||
-          (!this.input.isConnected && document.activeElement === document.body);
-        mount.append(this.input);
-        if (restoreFocus) this.input.focus({ preventScroll: true });
-      }
-      this.contentLabel.hidden = Boolean(content);
-    }
+    this.panel.hidden = !anchor;
+    this.input.hidden = !anchor || this.selection.kind !== "cell";
     if (!anchor) return;
+    const grid = this.table();
+    grid.dataset.activeRow = this.row;
+    grid.dataset.activeColumn = this.column;
     const chosen = new Set(this.coordinates().map(([row, column]) => row + ":" + column));
-    for (const cell of this.table().querySelectorAll("[data-table-row][data-table-column]")) {
+    for (const cell of grid.querySelectorAll("[data-table-row][data-table-column]")) {
       cell.classList.toggle(
         "cm-table-cell-active",
         chosen.has(cell.dataset.tableRow + ":" + cell.dataset.tableColumn),
       );
+      cell.classList.toggle("cm-table-cell-drafting", cell === anchor && !this.input.hidden);
+      cell.querySelectorAll("[data-table-select]").forEach((button) => {
+        const scope = button.dataset.tableSelect;
+        button.classList.toggle(
+          "cm-table-handle-active",
+          scope === "row"
+            ? +cell.dataset.tableRow === this.row
+            : +cell.dataset.tableColumn === this.column,
+        );
+        button.setAttribute(
+          "aria-expanded",
+          String(
+            this.selection.kind === scope &&
+              (scope === "row"
+                ? +cell.dataset.tableRow === this.row
+                : +cell.dataset.tableColumn === this.column),
+          ),
+        );
+      });
     }
-    const rect = anchor.getBoundingClientRect();
-    const table = this.table().getBoundingClientRect();
-    const gap = 8;
-    this.panel.style.maxBlockSize = "";
+    const viewport = this.view.scrollDOM.getBoundingClientRect();
+    const content = anchor.querySelector(".cm-table-cell-content");
+    if (content && !this.input.hidden) {
+      const rect = content.getBoundingClientRect();
+      const style = getComputedStyle(anchor);
+      Object.assign(this.input.style, {
+        left: rect.left + "px",
+        top: rect.top + "px",
+        width: rect.width + "px",
+        height: Math.max(rect.height, 22) + "px",
+        font: style.font,
+        clipPath:
+          "inset(" +
+          [
+            Math.max(0, viewport.top - rect.top),
+            Math.max(0, rect.right - viewport.right),
+            Math.max(0, rect.bottom - viewport.bottom),
+            Math.max(0, viewport.left - rect.left),
+          ]
+            .map((value) => value + "px")
+            .join(" ") +
+          ")",
+      });
+    }
+    const handle = grid.querySelector(
+      '[data-table-select="' + this.selection.kind + '"][aria-expanded="true"]',
+    );
+    const rect = (handle || anchor).getBoundingClientRect();
+    const visible = rect.bottom >= viewport.top && rect.top < viewport.bottom;
+    this.panel.hidden = !visible;
+    if (!visible) return;
     const panel = this.panel.getBoundingClientRect();
-    const clamp = (value, end) => Math.max(gap, Math.min(value, end));
-    const below = innerHeight - table.bottom - gap * 2;
-    const above = table.top - gap * 2;
-    const fitsSide = (left) => left >= gap && left + panel.width <= innerWidth - gap;
-    const right = table.right + gap;
-    const left = table.left - panel.width - gap;
-    let x = clamp(rect.left, innerWidth - panel.width - gap);
-    let y;
-    if (below >= panel.height) {
-      y = table.bottom + gap;
-    } else if (above >= panel.height) {
-      y = table.top - panel.height - gap;
-    } else if (fitsSide(right) || fitsSide(left)) {
-      x = fitsSide(right) ? right : left;
-      y = clamp(rect.top, innerHeight - panel.height - gap);
-    } else {
-      // A long table may fill the viewport. Use the larger outside region when
-      // it can hold the controls, otherwise keep part of the table accessible.
-      const space = Math.max(below, above);
-      const height = Math.min(panel.height, Math.max(space, Math.min(200, panel.height)));
-      this.panel.style.maxBlockSize = height + "px";
-      y =
-        below >= above
-          ? clamp(table.bottom + gap, innerHeight - height - gap)
-          : clamp(table.top - height - gap, innerHeight - height - gap);
-    }
-    this.panel.style.left = x + "px";
-    this.panel.style.top = y + "px";
+    const above = this.selection.kind === "cell" && rect.top - panel.height - 6 >= viewport.top;
+    const x = rect.left + (rect.width - panel.width) / 2;
+    const y = above ? rect.top - panel.height - 6 : rect.bottom + 6;
+    this.panel.style.left = Math.max(8, Math.min(x, innerWidth - panel.width - 8)) + "px";
+    this.panel.style.top = Math.max(8, Math.min(y, innerHeight - panel.height - 8)) + "px";
   }
 
   format(marker) {
-    const input = this.input,
-      from = input.selectionStart,
-      to = input.selectionEnd;
-    input.setRangeText(marker + input.value.slice(from, to) + marker, from, to, "select");
-    input.setSelectionRange(from + marker.length, to + marker.length);
-    input.focus();
-    this.paintPreview();
-  }
-
-  paintPreview() {
-    const markup = `| Cell |\n| --- |\n| ${tableCellSource(this.input.value)} |`;
-    const tree = markdownLanguage.parser.parse(markup);
-    let cell = null;
-    tree.iterate({
-      enter(node) {
-        if (node.name === "TableCell") cell = node.node;
-      },
-    });
-    this.preview.replaceChildren();
-    if (cell) appendTableInline(this.preview, cell, markup);
+    if (this.selection.kind !== "cell") return;
+    const selection = document.getSelection();
+    if (!this.input.contains(selection.anchorNode) || !this.input.contains(selection.focusNode))
+      this.input.focus();
+    if (marker !== "`") {
+      document.execCommand(marker === "**" ? "bold" : "italic");
+    } else if (selection.rangeCount && this.input.contains(selection.anchorNode)) {
+      const range = selection.getRangeAt(0);
+      const existing = range.startContainer.parentElement?.closest("code");
+      if (existing && this.input.contains(existing)) {
+        existing.replaceWith(...existing.childNodes);
+      } else if (!range.collapsed) {
+        const code = document.createElement("code");
+        code.textContent = range.toString();
+        range.deleteContents();
+        range.insertNode(code);
+        selection.selectAllChildren(code);
+      }
+    }
     this.updateAlignment();
   }
 
   commit() {
-    if (this.view.state.readOnly || this.apply.disabled) return false;
+    if (this.view.state.readOnly || !this.error.hidden) return false;
     const single = this.selection.kind === "cell";
-    const value = single ? tableCellSource(this.input.value) : undefined;
     const originalText = this.original.slice(tableCellMetadata(this.original).prefix);
+    const draft = single ? tableInlineSource(this.input) : null;
+    const value = single
+      ? draft === this.initialDraft
+        ? originalText
+        : tableCellSource(draft)
+      : undefined;
     if (this.pendingAlignment == null && (!single || value === originalText)) return true;
     const doc = this.view.state.doc;
     const current = modelAt(this.view, this.model.from);
@@ -794,7 +886,6 @@ class CellEditor {
     ) {
       this.error.textContent = this.labels.conflict;
       this.error.hidden = false;
-      this.apply.disabled = true;
       return false;
     }
     const changes = tableCellChanges(current, this.coordinates(), this.pendingAlignment, value);
@@ -812,6 +903,7 @@ class CellEditor {
     this.source = this.view.state.doc.sliceString(this.model.from, this.model.to);
     this.cell = this.model.rows[this.row]?.cells[this.column];
     this.original = this.cell?.raw || "";
+    this.initialDraft = draft;
     this.pendingAlignment = null;
     this.updateAlignment();
     requestAnimationFrame(() => this.reposition());
@@ -933,13 +1025,28 @@ class CellEditor {
       button.disabled = disabled || this.view.state.readOnly;
     this.input.remove();
     this.panel.remove();
+    const grid = this.table();
+    if (grid) {
+      delete grid.dataset.activeRow;
+      delete grid.dataset.activeColumn;
+      grid
+        .querySelectorAll(".cm-table-cell-drafting, .cm-table-handle-active")
+        .forEach((node) =>
+          node.classList.remove("cm-table-cell-drafting", "cm-table-handle-active"),
+        );
+      grid
+        .querySelectorAll('[aria-expanded="true"][data-table-select]')
+        .forEach((node) => node.setAttribute("aria-expanded", "false"));
+    }
     this.view.dom
       .querySelectorAll(".cm-table-cell-active")
       .forEach((cell) => cell.classList.remove("cm-table-cell-active"));
     document.removeEventListener("click", this.outside, true);
     document.removeEventListener("click", this.toolbarClick, true);
     document.removeEventListener("keydown", this.saveKey, true);
+    document.removeEventListener("mousedown", this.keepDraftFocus, true);
     window.removeEventListener("blur", this.windowBlur);
+    this.view.scrollDOM.removeEventListener("scroll", this.scroll);
     sessions.delete(this.view);
     if (focus) anchor?.closest(".cm-md-table")?.focus();
   }

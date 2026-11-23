@@ -25,7 +25,8 @@
  * Painting never rewrites the document. Explicit controls such as table-cell
  * editing and task checkboxes dispatch bounded source edits through CodeMirror.
  */
-import { Facet, RangeSetBuilder, StateField } from "@codemirror/state";
+import { Facet, RangeSetBuilder, StateField, Transaction } from "@codemirror/state";
+import { isolateHistory } from "@codemirror/commands";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { onlineImageControl } from "../frontend/js/preview/online-images.mjs";
 import { spriteIcon } from "../frontend/js/ui/icons.mjs";
@@ -35,6 +36,7 @@ import { appendTableInline, tableInlineText } from "./table-inline.mjs";
 import {
   autoCellAlignment,
   createTableActions,
+  tableExtendButton,
   openTableCellEditor,
   resizeTableColumns,
   selectTableCell,
@@ -44,6 +46,8 @@ import {
   tableCellMetadata,
   tableRowCells,
 } from "./table-editing.mjs";
+import { codeBodyText, fencedCodeSpec } from "./code-block-tools.mjs";
+import { diagramRenderer, DiagramWidget } from "./diagram-widget.mjs";
 import { mathAndFootnotes } from "./markdown-extras.mjs";
 
 const tableParser = markdownLanguage.parser.configure([mathAndFootnotes]);
@@ -70,15 +74,6 @@ export function tableContentDirection(markup) {
     : "ltr";
 }
 
-/**
- * A rendered GitHub table.
- *
- * The cells are deliberately not `contenteditable`. Nesting an editable element
- * inside CodeMirror's own editable host makes its DOM observer reconcile those
- * keystrokes back into the document, which rewrote the whole file in testing.
- * Editing a cell in place needs an editor mounted outside `contentDOM`. The
- * cell editor is a portaled panel over the grid and changes only that cell.
- */
 /**
  * Why every block widget below declares `estimatedHeight`.
  *
@@ -421,6 +416,8 @@ export class TableWidget extends WidgetType {
               " " +
               (index + 1);
             button.setAttribute("aria-label", button.title);
+            button.setAttribute("aria-haspopup", "menu");
+            button.setAttribute("aria-expanded", "false");
             button.addEventListener("click", (event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -472,6 +469,11 @@ export class TableWidget extends WidgetType {
     });
     if (view && model && !view.state.readOnly) wrapper.append(createTableActions(view, model));
     wrapper.append(table);
+    if (view && model && !view.state.readOnly)
+      wrapper.append(
+        tableExtendButton(view, model, "row"),
+        tableExtendButton(view, model, "column"),
+      );
     return wrapper;
   }
 
@@ -741,18 +743,65 @@ export class TaskWidget extends WidgetType {
  * A document's first screenful should be the document. Four to fifteen lines of
  * YAML above the first heading is metadata the writer set once and then reads
  * past every time they open the file. Collapsed it stays visible as a summary —
- * title, language, whether a cover is on — and clicking it, or moving the caret
- * into it, brings the YAML straight back for editing.
+ * title, language, whether a cover is on. The chip opens native fields for
+ * common scalar metadata.
  */
+function editVisualFields(view, source, from, fields, onApply) {
+  const fa = document.documentElement.lang.startsWith("fa");
+  const form = document.createElement("form");
+  form.className = "cm-visual-fields";
+  const values = fields.map(({ name, value, multiline }) => {
+    const label = document.createElement("label");
+    label.textContent = name;
+    const input = document.createElement(multiline ? "textarea" : "input");
+    input.dir = "auto";
+    input.value = value;
+    label.append(input);
+    form.append(label);
+    return input;
+  });
+  const button = document.createElement("button");
+  button.type = "submit";
+  button.textContent = fa ? "اعمال" : "Apply";
+  button.disabled = view.state.readOnly || !fields.length;
+  form.append(button);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const to = from + source.length;
+    if (view.state.readOnly || view.state.doc.sliceString(from, to) !== source) return;
+    const insert = onApply(values.map((input) => input.value));
+    if (insert !== source)
+      view.dispatch({
+        changes: { from, to, insert },
+        annotations: [Transaction.userEvent.of("input.fields"), isolateHistory.of("full")],
+      });
+    else form.hidden = true;
+    view.requestMeasure();
+  });
+  return form;
+}
+
+const simpleMetadataFields = {
+  title: ["Title", "عنوان"],
+  subtitle: ["Subtitle", "زیرعنوان"],
+  author: ["Author", "نویسنده"],
+  date: ["Date", "تاریخ"],
+  lang: ["Language", "زبان"],
+  version: ["Version", "نسخه"],
+};
+
 class FrontMatterWidget extends WidgetType {
-  constructor(markup, from) {
+  constructor(markup, from, readOnly) {
     super();
     this.markup = markup;
     this.from = from;
+    this.readOnly = readOnly;
   }
 
   eq(other) {
-    return other.markup === this.markup && other.from === this.from;
+    return (
+      other.markup === this.markup && other.from === this.from && other.readOnly === this.readOnly
+    );
   }
 
   /** Collapsed to one summary row whatever the metadata's length. */
@@ -782,12 +831,46 @@ class FrontMatterWidget extends WidgetType {
     block.className = "cm-md-frontmatter-block";
     const wrapper = document.createElement("button");
     wrapper.type = "button";
+    const lines = this.markup.split("\n");
+    const fa = document.documentElement.lang.startsWith("fa");
+    const fields = lines.flatMap((line, index) => {
+      const match = /^([a-z]+)(:\s*)(.+)$/.exec(line);
+      if (
+        !match ||
+        !Object.hasOwn(simpleMetadataFields, match[1]) ||
+        /^\s|^['"[{&*!>|]|\s#/.test(match[3]) ||
+        /^\s+\S/.test(lines[index + 1] || "")
+      )
+        return [];
+      return [
+        {
+          name: simpleMetadataFields[match[1]][fa ? 1 : 0],
+          index,
+          value: match[3],
+          key: match[1],
+          prefix: match[1] + match[2],
+        },
+      ];
+    });
+    const form = editVisualFields(view, this.markup, this.from, fields, (values) => {
+      const next = lines.slice();
+      fields.forEach((field, index) => {
+        if (field.value !== values[index])
+          next[field.index] = field.prefix + JSON.stringify(values[index]);
+      });
+      return next.join("\n");
+    });
+    form.hidden = true;
+    wrapper.disabled = this.readOnly || !fields.length;
+    wrapper.setAttribute("aria-expanded", "false");
     wrapper.addEventListener("click", () => {
-      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
-      view.focus();
+      form.hidden = !form.hidden;
+      wrapper.setAttribute("aria-expanded", String(!form.hidden));
+      if (!form.hidden) form.querySelector("input")?.focus();
+      view.requestMeasure();
     });
     wrapper.className = "cm-md-frontmatter";
-    block.append(wrapper);
+    block.append(wrapper, form);
     const label = document.createElement("span");
     label.className = "cm-md-frontmatter-label";
     label.textContent = document.documentElement.lang.startsWith("fa") ? "مشخصات سند" : "Metadata";
@@ -883,20 +966,48 @@ class DisclosureWidget extends WidgetType {
     const details = this.details.cloneNode(true);
     details.addEventListener("toggle", () => view.requestMeasure());
     group.append(details);
-    if (!this.readOnly) {
+    const editable =
+      /^(<details(?:\s[^>]*)?>\s*<summary>)([^<]*)(<\/summary>\s*<p>)([^<]*)(<\/p>\s*<\/details>\s*)$/i.exec(
+        this.markup,
+      );
+    if (!this.readOnly && editable) {
+      const fa = document.documentElement.lang.startsWith("fa");
+      const escape = (text) =>
+        text.replace(
+          /[&<>]/g,
+          (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[character],
+        );
+      const paragraph = details.querySelector("p");
+      const form = editVisualFields(
+        view,
+        this.markup,
+        this.from,
+        [
+          {
+            name: fa ? "عنوان بخش" : "Section title",
+            value: details.querySelector("summary").textContent,
+          },
+          { name: fa ? "متن بخش" : "Section text", value: paragraph.textContent, multiline: true },
+        ],
+        ([title, body]) => editable[1] + escape(title) + editable[3] + escape(body) + editable[5],
+      );
+      form.hidden = true;
       const edit = document.createElement("button");
       edit.type = "button";
       edit.className = "icon-button cm-disclosure-edit";
       edit.title = document.documentElement.lang.startsWith("fa")
         ? "ویرایش متن بخش"
-        : "Edit disclosure source";
+        : "Edit disclosure";
       edit.setAttribute("aria-label", edit.title);
       edit.append(spriteIcon("pencil"));
       edit.addEventListener("click", () => {
-        view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
-        view.focus();
+        form.hidden = !form.hidden;
+        edit.setAttribute("aria-expanded", String(!form.hidden));
+        if (!form.hidden) form.querySelector("input")?.focus();
+        view.requestMeasure();
       });
-      group.append(edit);
+      edit.setAttribute("aria-expanded", "false");
+      group.append(edit, form);
     }
     return group;
   }
@@ -951,18 +1062,22 @@ function buildBlockDecorations(state) {
 
   tree.iterate({
     enter: (node) => {
-      if (node.name === "Frontmatter" && !spansActiveLine(state, active, node)) {
+      if (node.name === "Frontmatter") {
         items.push([
           node.from,
           node.to,
           Decoration.replace({
-            widget: new FrontMatterWidget(state.doc.sliceString(node.from, node.to), node.from),
+            widget: new FrontMatterWidget(
+              state.doc.sliceString(node.from, node.to),
+              node.from,
+              state.readOnly,
+            ),
             block: true,
           }),
         ]);
         return false;
       }
-      if (node.name === "HTMLBlock" && !spansActiveLine(state, active, node)) {
+      if (node.name === "HTMLBlock") {
         const markup = state.doc.sliceString(node.from, node.to);
         const details = disclosureContent(markup);
         if (details) {
@@ -977,7 +1092,26 @@ function buildBlockDecorations(state) {
         }
         return false;
       }
-      if (node.name === "Table" && !spansActiveLine(state, active, node)) {
+      if (node.name === "FencedCode") {
+        const spec = fencedCodeSpec(state, node);
+        if (spec?.language.toLowerCase() === "mermaid") {
+          items.push([
+            node.from,
+            node.to,
+            Decoration.replace({
+              widget: new DiagramWidget(
+                codeBodyText(state, spec),
+                spec,
+                state.facet(diagramRenderer),
+                state.readOnly,
+              ),
+              block: true,
+            }),
+          ]);
+        }
+        return false;
+      }
+      if (node.name === "Table") {
         items.push([
           node.from,
           node.to,
@@ -1080,7 +1214,8 @@ export function createBlockWidgetField() {
         const key = activeLineKey(transaction.state);
         if (
           key === renderedFor &&
-          transaction.startState.facet(mathRenderer) === transaction.state.facet(mathRenderer)
+          transaction.startState.facet(mathRenderer) === transaction.state.facet(mathRenderer) &&
+          transaction.startState.facet(diagramRenderer) === transaction.state.facet(diagramRenderer)
         )
           return value;
         renderedFor = key;

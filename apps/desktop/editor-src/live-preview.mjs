@@ -1,3 +1,5 @@
+import { diagramRenderer } from "./diagram-widget.mjs";
+import { blockDragExtension } from "./block-drag.mjs";
 /**
  * Live preview: edit Markdown as it will read, not as it is stored.
  *
@@ -8,10 +10,8 @@
  * visible (`#`, `**`, backticks, link brackets, `>`) are hidden, and the text
  * they governed is styled instead.
  *
- * A prose line the cursor is on shows its raw marks. That is what makes the
- * mode editable rather than merely a preview: to change a link's target you put
- * the caret in it and the `[label](url)` scaffolding comes back. Code bodies
- * stay editable while their fence/language controls keep one stable header.
+ * The visual markers stay hidden as the caret moves. Source is the
+ * dedicated mode for editing Markdown punctuation and structure directly.
  */
 import { foldable, foldedRanges, foldEffect, syntaxTree, unfoldEffect } from "@codemirror/language";
 import { spriteIcon } from "../frontend/js/ui/icons.mjs";
@@ -597,10 +597,8 @@ function buildDecorations(view) {
             lines.push({ at, deco: calloutLine(kind, at === first.from) });
             if (rtl) lines.push({ at, deco: rtlBlock });
           });
-          if (!active.has(first.number)) {
-            const from = first.from + marker[1].length;
-            marks.push([from, from + marker[2].length + (marker[0].endsWith(" ") ? 1 : 0)]);
-          }
+          const from = first.from + marker[1].length;
+          marks.push([from, from + marker[2].length + (marker[0].endsWith(" ") ? 1 : 0)]);
           return;
         }
         // Applied whether or not the caret is on the line: an item that
@@ -684,7 +682,6 @@ function buildDecorations(view) {
             return;
           }
         }
-        if (active.has(state.doc.lineAt(node.from).number) && !stableCodeMarker) return;
 
         // An image and a task checkbox replace inline text, not a block, so
         // they are drawn here — over the viewport — rather than in the block
@@ -1101,7 +1098,7 @@ export function normalizeEditorMode(value) {
  */
 export function editorModeExtension(
   mode,
-  { resolveAsset, requestOnlineImage, strings, renderMath } = {},
+  { resolveAsset, requestOnlineImage, strings, renderMath, renderDiagram } = {},
 ) {
   const perLineDirection = EditorView.perLineTextDirection.of(true);
   return normalizeEditorMode(mode) === "live"
@@ -1113,6 +1110,8 @@ export function editorModeExtension(
         mathRenderer.of(typeof renderMath === "function" ? renderMath : null),
         livePreviewPlugin,
         tableEditingExtension(),
+        diagramRenderer.of(renderDiagram || null),
+        blockDragExtension,
         perLineDirection,
       ]
     : [sourceGutterDirection, autoDirectionPlugin, perLineDirection];

@@ -4818,7 +4818,7 @@ function bindEvents() {
       event.target.matches("input,textarea,select,[contenteditable='true']") &&
       !event.target.closest(".editor-surface");
     const tableEditorShortcut =
-      event.target.closest?.(".cm-table-cell-editor") &&
+      event.target.closest?.(".cm-table-cell-editor, .cm-table-cell-input") &&
       ["s", "f", "h", "p", "o", "n", "\\", "+", "=", "-", "0"].includes(key);
     if (formControl && !tableEditorShortcut) return;
     if (
@@ -5091,6 +5091,30 @@ async function boot() {
     }
   }
   const textarea = $("#markdown-editor");
+  const diagramCache = new Map();
+  let diagramSequence = 0;
+  async function renderEditorDiagram(source) {
+    if (source.length > 64_000) return null;
+    if (!diagramCache.has(source)) {
+      if (diagramCache.size >= 32) diagramCache.delete(diagramCache.keys().next().value);
+      // Use an isolated fence longer than every run inside the diagram.
+      const fence = "~".repeat(
+        Math.max(2, ...Array.from(source.matchAll(/~+/g), ([run]) => run.length)) + 1,
+      );
+      const pending = previewDocumentText({ content: fence + "mermaid\n" + source + "\n" + fence })
+        .then((result) => result.body_html)
+        .catch((error) => {
+          diagramCache.delete(source);
+          throw error;
+        });
+      diagramCache.set(source, pending);
+    }
+    const fragment = safePreviewHtml(
+      await diagramCache.get(source),
+      "editor-diagram-" + ++diagramSequence + "-",
+    );
+    return fragment.querySelector(".md2pdf-mermaid-svg");
+  }
   const editorOptions = {
     locale: state.locale,
     strings: editorStrings(),
@@ -5101,6 +5125,7 @@ async function boot() {
     onLeaveEditor: moveFocusOutOfEditor,
     resolveAsset: resolveEditorAsset,
     requestOnlineImage: (origin, source) => onlineImageOptions().onRequest(origin, source),
+    renderDiagram: renderEditorDiagram,
     renderMath: (container, { isCurrent } = {}) =>
       typesetPreviewMath(container, { isCurrent, errorLabel: t("previewMathFailed") }),
     getCompletions: () =>

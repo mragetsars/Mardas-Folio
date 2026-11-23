@@ -18,7 +18,10 @@ SOURCE = (
     '~~~{.python .numberLines title="main.py" linenostart=10 hl_lines="11"}\n'
     f"{CODE}\n~~~\n\n"
     "~~~diff\n+++ b/main.py\n-old\n+new\n~~~\n\n"
-    "<details><summary>More information</summary><p>Additional text</p></details>\n"
+    "<details><summary>More information</summary><p>Additional text</p></details>\n\n"
+    "~~~mermaid\nflowchart LR\n  A[First node] --> B[Last node]\n~~~\n\n"
+    "## Other topic\n\nParagraph under other topic.\n\n"
+    "### Nested topic\n\nNested content.\n"
 )
 
 
@@ -108,40 +111,48 @@ def test_geist_document_controls(
         panel = page.locator(".cm-table-cell-editor")
         draft = page.locator(".cm-table-cell-input")
         source_text = page.locator("#markdown-editor")
-        apply = panel.locator(".cm-table-cell-apply")
-        cancel = panel.locator("footer button").first
         left = panel.locator("[data-cell-alignment=left]")
         center = panel.locator("[data-cell-alignment=center]")
         expect(cell).to_have_css("direction", "rtl")
         expect(cell).to_have_css("text-align", "center")
+        expect(table.locator(".cm-table-handle-active")).to_have_count(0)
         cell.click()
-        expect(cell.locator("textarea")).to_be_focused()
-        expect(draft).to_have_value("فارسی")
+        expect(draft).to_be_focused()
+        expect(draft).to_have_text("فارسی")
+        expect(table.locator(".cm-table-handle-active")).to_have_count(2)
+        draft.press("Control+b")
+        expect(draft.locator("b, strong")).to_have_text("فارسی")
+        draft.press("Enter")
+        expect(source_text).to_have_value(SOURCE.replace("| فارسی", "| **فارسی**"))
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
+        cell.click()
+
         draft.press("End")
         page.keyboard.type(" test")
-        expect(draft).to_have_value("فارسی test")
+        expect(draft).to_have_text("فارسی test")
         expect(source_text).to_have_value(SOURCE)
         draft.press("Escape")
         expect(draft).to_have_count(0)
         cell.click()
-        expect(panel.locator("[data-cell-format]")).to_have_count(3)
+        expect(panel.locator("[data-cell-format]")).to_have_count(0)
         expect(panel.locator(".cm-table-cell-structure")).to_be_hidden()
         left.click()
-        apply.click()
         expect(cell).to_have_css("text-align", "left")
         expect(source_text).to_have_value(
             SOURCE.replace("| فارسی", "| <!--folio-align:left--> فارسی")
         )
         expect(table.locator("td").nth(2)).to_have_css("text-align", "start")
+        draft.press("Enter")
         page.keyboard.press("Control+z")
         expect(source_text).to_have_value(SOURCE)
 
+        cell.click()
         table.locator("[data-table-select=row]").nth(1).click()
         expect(draft).to_be_hidden()
         expect(panel.locator(".cm-table-cell-structure button:visible")).to_have_count(5)
         expect(table.locator(".cm-table-cell-active")).to_have_count(2)
         left.click()
-        apply.click()
         expect(source_text).to_have_value(
             SOURCE.replace(
                 "| فارسی | 1 |", "| <!--folio-align:left--> فارسی | <!--folio-align:left--> 1 |"
@@ -150,12 +161,12 @@ def test_geist_document_controls(
         page.keyboard.press("Control+z")
         expect(source_text).to_have_value(SOURCE)
 
+        table.locator("td").nth(1).click()
         table.locator("[data-table-select=column]").nth(1).press("Enter")
         expect(draft).to_be_hidden()
         expect(panel.locator(".cm-table-cell-structure button:visible")).to_have_count(6)
         expect(table.locator(".cm-table-cell-active")).to_have_count(3)
         panel.locator("[data-cell-alignment=auto]").click()
-        apply.click()
         expect(table.locator("td").nth(1)).to_have_css("text-align", "center")
         expect(source_text).to_have_value(
             SOURCE.replace("| Value |", "| <!--folio-align:auto--> Value |")
@@ -168,17 +179,16 @@ def test_geist_document_controls(
         table.locator("th").first.click()
         table.locator("td").nth(2).click(modifiers=["Shift"])
         expect(table.locator(".cm-table-cell-active")).to_have_count(3)
-        cancel.click()
+        page.keyboard.press("Escape")
         table.locator("th").first.click()
         table.locator("td").last.click(modifiers=["Shift"])
         expect(table.locator(".cm-table-cell-active")).to_have_count(6)
         expect(panel.locator(".cm-table-cell-structure")).to_be_hidden()
-        cancel.click()
+        page.keyboard.press("Escape")
         table.locator("th").first.click()
         table.locator("td").last.click(modifiers=["Control"])
         expect(table.locator(".cm-table-cell-active")).to_have_count(2)
         center.click()
-        apply.click()
         expect(source_text).to_have_value(
             SOURCE.replace("| Name |", "| <!--folio-align:center--> Name |").replace(
                 "| 2 |", "| <!--folio-align:center--> 2 |"
@@ -186,22 +196,43 @@ def test_geist_document_controls(
         )
         page.keyboard.press("Control+z")
         expect(source_text).to_have_value(SOURCE)
+        cell.click()
         table.locator("[data-table-select=row]").nth(1).click()
         panel.locator("[data-table-action=move-row-after]").click()
         expect(table.locator("tbody tr").first).to_contain_text("Two words")
-        cancel.click()
+        page.keyboard.press("Escape")
         page.keyboard.press("Control+z")
         expect(source_text).to_have_value(SOURCE)
+        cell.click()
         table.locator("[data-table-select=column]").first.click()
         panel.locator("[data-table-action=move-column-after]").click()
         expect(table.locator("th").first).to_have_text("Value")
-        cancel.click()
+        page.keyboard.press("Escape")
         page.keyboard.press("Control+z")
         expect(source_text).to_have_value(SOURCE)
         resize = table.get_by_role("separator")
         resize.press("Shift+ArrowRight")
         expect(source_text).to_have_value(re.compile(r"<!--folio-width:\d+-->"))
         expect(table.locator("table")).to_have_class("cm-table-sized")
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
+
+        table.hover()
+        add_column = table.locator('[data-table-extend="column"]')
+        add_column.click()
+        expect(table.locator("th")).to_have_count(3)
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
+        table.hover()
+        add_row = table.locator('[data-table-extend="row"]')
+        box = add_row.bounding_box()
+        assert box
+        x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(x, y + 31, steps=5)
+        page.mouse.up()
+        expect(table.locator("tbody tr")).to_have_count(4)
         page.keyboard.press("Control+z")
         expect(source_text).to_have_value(SOURCE)
 
@@ -257,11 +288,11 @@ def test_geist_document_controls(
         live_disclosure.locator("summary").click()
         expect(live_disclosure.locator("p")).to_be_hidden()
         editor.locator(".cm-disclosure-edit").click()
-        expect(live_disclosure).to_have_count(0)
+        expect(editor.locator(".cm-document-disclosure .cm-visual-fields")).to_be_visible()
         expect(mirror).to_have_value(SOURCE)
         metadata = editor.locator("button.cm-md-frontmatter")
         metadata.press("Enter")
-        expect(metadata).to_have_count(0)
+        expect(editor.locator(".cm-md-frontmatter-block .cm-visual-fields")).to_be_visible()
         editor.locator(".cm-line", has_text="Example document").click(button="right")
         context_menu = page.locator("#editor-context-menu")
         expect(context_menu).to_be_visible()
@@ -288,6 +319,42 @@ def test_geist_document_controls(
         expect(preview.locator(".document-table-scroll td").last).to_have_css("text-align", "right")
         page.locator("#workspace-layout-button").click()
         page.locator("#workspace-toggle-preview").click()
+
+        diagram = editor.locator(".cm-diagram")
+        expect(diagram.locator(".md2pdf-mermaid-svg")).to_be_visible()
+        assert (
+            diagram.locator(".md2pdf-mermaid-bg").evaluate("el => getComputedStyle(el).fill")
+            != "rgb(0, 0, 0)"
+        )
+        diagram.locator("summary").click()
+        diagram.locator("input").first.fill("Updated node")
+        diagram.locator(".cm-diagram-apply").click()
+        expect(diagram.locator("svg")).to_contain_text("Updated node")
+        expect(mirror).to_have_value(re.compile(r"Updated node"))
+        editor.locator(".cm-content").focus()
+        page.keyboard.press("Control+z")
+        expect(mirror).to_have_value(SOURCE)
+
+        paragraph = editor.locator(".cm-line", has_text="Paragraph under other topic.")
+        nested = editor.locator(".cm-line", has_text="Nested topic")
+        paragraph.hover()
+        grip = editor.locator(".cm-block-grip")
+        expect(grip).to_be_visible()
+        box = grip.bounding_box()
+        target = nested.bounding_box()
+        assert box and target
+        page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        page.mouse.down()
+        page.mouse.move(
+            target["x"] + target["width"] / 2, target["y"] + target["height"] * 0.8, steps=10
+        )
+        page.mouse.up()
+        expect(mirror).to_have_value(
+            SOURCE.replace("Paragraph under other topic.\n\n", "").rstrip()
+            + "\n\nParagraph under other topic.\n"
+        )
+        page.keyboard.press("Control+z")
+        expect(mirror).to_have_value(SOURCE)
 
         trigger = page.locator("#workspace-export-formats")
         menu = page.locator("#workspace-export-menu")

@@ -304,6 +304,7 @@ export function createCodeMirrorEditorAdapter(
     resolveAsset,
     requestOnlineImage,
     renderMath,
+    renderDiagram,
     theme,
     mode,
     locale = "en",
@@ -389,6 +390,7 @@ export function createCodeMirrorEditorAdapter(
       requestOnlineImage,
       strings: editorText,
       renderMath,
+      renderDiagram,
     });
   const selectionExtensions = () =>
     selectionToolbarExtension(editorLocale, markdownDocument && editorMode === "live");

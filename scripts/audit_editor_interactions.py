@@ -128,11 +128,11 @@ def run(dist: Path, output: Path) -> dict:
                     table.locator("tbody tr").first.locator("td").nth(2).locator(
                         "svg"
                     ).first.click()
-                    expect(cell_editor).to_have_value("$E=mc^2$")
+                    expect(cell_editor).to_have_text("E=mc^2")
                     expect(table).to_be_visible()
                     cell_editor.press("Escape")
                     table.locator("tbody code").first.click()
-                    expect(cell_editor).to_have_value("`--title`")
+                    expect(cell_editor.locator("code")).to_have_text("--title")
                     expect(table).to_be_visible()
                     cell_editor.press("Escape")
                     expect(buffer).to_have_value(SAMPLE)
@@ -177,7 +177,7 @@ def run(dist: Path, output: Path) -> dict:
                           return a.left>=b.left-1&&a.right<=b.right+1;
                         }""")
                     page.locator(".cm-md-table tbody code").first.click()
-                    expect(cell_editor).to_have_value("`--title`")
+                    expect(cell_editor.locator("code")).to_have_text("--title")
                     expect(page.locator(".cm-selection-toolbar:visible")).to_have_count(0)
                     cell_editor.fill("CELL_ENTRY_`--title`")
                     cell_editor.press("Enter")

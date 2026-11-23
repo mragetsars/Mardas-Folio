@@ -5205,46 +5205,46 @@ html[data-focus-mode="true"]
   background: var(--ui-panel-soft);
   direction: ltr;
 }
-.document-content .md2pdf-mermaid-svg {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-svg {
   display: block;
   width: auto;
   max-width: 100%;
   height: auto;
   margin-inline: auto;
 }
-.document-content .md2pdf-mermaid-bg {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-bg {
   fill: var(--ui-panel-soft);
   stroke: var(--ui-border);
 }
-.document-content .md2pdf-mermaid-node-shape {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-node-shape {
   fill: var(--ui-panel);
   stroke: var(--ui-accent);
 }
-.document-content .md2pdf-mermaid-node-detail {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-node-detail {
   fill: none;
   stroke: var(--ui-accent);
 }
-.document-content .md2pdf-mermaid-node-label {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-node-label {
   fill: var(--ui-text);
 }
-.document-content .md2pdf-mermaid-edge path {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-edge path {
   fill: none;
   stroke: var(--ui-accent);
 }
-.document-content .md2pdf-mermaid-edge-dotted path {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-edge-dotted path {
   stroke-dasharray: 4 4;
 }
-.document-content .md2pdf-mermaid-edge-thick path {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-edge-thick path {
   stroke-width: 3;
 }
-.document-content .md2pdf-mermaid-arrow-head {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-arrow-head {
   fill: var(--ui-accent);
 }
-.document-content .md2pdf-mermaid-edge-label-bg {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-edge-label-bg {
   fill: var(--ui-panel-soft);
   stroke: var(--ui-border);
 }
-.document-content .md2pdf-mermaid-edge-label {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-edge-label {
   fill: var(--ui-text-soft);
 }
 .document-content .math[data-math-rendered] {
@@ -5263,22 +5263,22 @@ html[data-focus-mode="true"]
 .document-content :is(th, td)[align="right"] {
   text-align: right;
 }
-.document-content .md2pdf-mermaid-node-shape {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-node-shape {
   stroke-width: 1.5;
 }
-.document-content .md2pdf-mermaid-node-label {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-node-label {
   font-size: var(--ui-text-xs);
   font-weight: 700;
   dominant-baseline: middle;
   unicode-bidi: plaintext;
 }
-.document-content .md2pdf-mermaid-edge path {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-edge path {
   stroke-width: 1.8;
 }
-.document-content .md2pdf-mermaid-edge-thick path {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-edge-thick path {
   stroke-width: 2.8;
 }
-.document-content .md2pdf-mermaid-edge-label {
+:is(.document-content, .cm-diagram) .md2pdf-mermaid-edge-label {
   font: 700 var(--ui-text-2xs)/1 var(--app-font);
   unicode-bidi: plaintext;
 }
