@@ -62,6 +62,7 @@ def test_geist_document_controls(
               onboardingComplete:true, autoPreview:true, viewMode:'write'}));
             globalThis.__TAURI__={core:{invoke:(c,a={})=>nativeInvoke(c,a)},
             event:{listen:async()=>()=>{}}};
+            Object.freeze(Object.prototype);
             Object.defineProperty(navigator, 'clipboard', {
               value: {writeText: async (value) => { window.copiedCode = value; }}
             });"""

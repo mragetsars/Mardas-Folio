@@ -12,6 +12,34 @@ const entryPoint = resolve(desktopRoot, "editor-src/codemirror-editor.mjs");
 const outputPath = resolve(desktopRoot, "frontend/js/vendor/codemirror-editor.bundle.mjs");
 const checkOnly = process.argv.includes("--check");
 
+// Tauri freezes Object.prototype. The C-like and SQL lexers include "constructor"
+// and "toString" in their keyword lists, so the legacy map must create own keys.
+const legacyKeywords = {
+  name: "codemirror-frozen-keywords",
+  setup(build) {
+    build.onLoad(
+      { filter: /[/\\]legacy-modes[/\\]mode[/\\](clike|sql)\.js$/ },
+      async ({ path }) => {
+        const source = await readFile(path, "utf8");
+        const original = [
+          '  var obj = {}, words = str.split(" ");',
+          "  for (var i = 0; i < words.length; ++i) obj[words[i]] = true;",
+          "  return obj;",
+        ].join("\n");
+        if (!source.includes(original))
+          throw new Error("The CodeMirror keyword patch no longer matches " + path);
+        return {
+          contents: source.replace(
+            original,
+            '  return Object.fromEntries(str.split(" ").map(word => [word, true]));',
+          ),
+          loader: "js",
+        };
+      },
+    );
+  },
+};
+
 const result = await build({
   absWorkingDir: desktopRoot,
   banner: {
@@ -24,7 +52,7 @@ const result = await build({
   legalComments: "eof",
   minify: true,
   platform: "browser",
-  plugins: [codeMirrorBidiPatch()],
+  plugins: [codeMirrorBidiPatch(), legacyKeywords],
   sourcemap: false,
   target: ["es2020"],
   treeShaking: true,

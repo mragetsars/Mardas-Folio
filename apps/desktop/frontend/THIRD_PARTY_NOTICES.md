@@ -24,12 +24,15 @@ The desktop copy contains a guarded compatibility patch in
 explicitly create their own writable property before assignment so MathJax runs
 with Tauri's frozen `Object.prototype`. The publisher's original asset is unchanged.
 
-CodeMirror is bundled with one modification. `@codemirror/view` is patched as the bundle is
+CodeMirror includes build-time compatibility patches. `@codemirror/view` is patched as the bundle is
 built, by `apps/desktop/scripts/codemirror-bidi-patch.mjs`, to correct selection geometry and
 Home/End movement on mixed-direction lines, Unicode classification of printable General
 Punctuation and neutral Spacing Modifier Letters (including IPA stress marks), and selection
 continuation bounds inside the writing margins. The guarded patch
 modifies four internal functions and is documented in full at that path.
+
+The legacy C-like and SQL lexers build keyword maps with own properties so they work with
+Tauri's frozen object prototype. The guarded patch is in the editor build script.
 
 ## MIT License
 
