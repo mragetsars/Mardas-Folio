@@ -1,4 +1,4 @@
-/* The cell editor lives outside CodeMirror's editable DOM and keeps the grid visible. */
+/* The controls float beside the table while the draft stays in the cell. */
 .cm-table-cell-editor {
   position: fixed;
   z-index: 140;
@@ -52,6 +52,29 @@
 .cm-table-cell-editor textarea:focus-visible {
   outline: var(--ui-focus-ring);
   outline-offset: 1px;
+}
+.cm-table-cell-content {
+  position: relative;
+  min-block-size: 1.5em;
+}
+.cm-table-cell-content:has(> textarea) .cm-table-cell-rendered {
+  visibility: hidden;
+}
+.cm-table-cell-content > textarea {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
 }
 .cm-table-cell-preview {
   min-height: 24px;

@@ -379,9 +379,18 @@ export class TableWidget extends WidgetType {
           ? cells.find((candidate) => candidate.from + this.from - offset === physical.from)
           : null;
         const element = document.createElement(head ? "th" : "td");
+        const editable = view && model && !view.state.readOnly;
+        const content = editable ? document.createElement("div") : element;
+        const rendered = editable ? document.createElement("div") : element;
+        if (editable) {
+          content.className = "cm-table-cell-content";
+          rendered.className = "cm-table-cell-rendered";
+          content.append(rendered);
+          element.append(content);
+        }
         const { alignment, prefix } = tableCellAlignment(model, index, column);
         if (cell)
-          appendTableInline(element, cell, this.markup, {
+          appendTableInline(rendered, cell, this.markup, {
             offset,
             contentFrom: cell.from + prefix,
             renderMathNode:
@@ -401,7 +410,7 @@ export class TableWidget extends WidgetType {
         element.dir = "auto";
         element.setAttribute("data-table-row", String(index));
         element.setAttribute("data-table-column", String(column));
-        if (view && model && !view.state.readOnly) {
+        if (editable) {
           const scopeButton = (scope, index, targetRow, targetColumn) => {
             const button = document.createElement("button");
             button.type = "button";
@@ -430,7 +439,7 @@ export class TableWidget extends WidgetType {
             (event) => {
               if (
                 event.button !== 0 ||
-                event.target.closest("[data-table-select], [data-table-resize]")
+                event.target.closest("[data-table-select], [data-table-resize], textarea")
               )
                 return;
               event.preventDefault();
@@ -439,13 +448,11 @@ export class TableWidget extends WidgetType {
             { capture: true },
           );
           element.addEventListener("click", (event) => {
-            if (event.button !== 0) return;
+            if (event.button !== 0 || event.target.closest("textarea")) return;
             event.preventDefault();
             event.stopPropagation();
-            // Open after the pointer sequence completes. A popup positioned
-            // above a low cell can cover its own mouseup target; opening on
-            // mousedown retargeted that click to body and immediately closed
-            // the editor through the outside-click handler.
+            // Mount the input after the click so its DOM does not replace the
+            // target before the pointer sequence finishes.
             selectTableCell(view, model, index, column, event);
           });
         }
@@ -470,8 +477,10 @@ export class TableWidget extends WidgetType {
 
   ignoreEvent(event) {
     // Mouse input belongs to the visual cell editor. Keyboard history and
-    // navigation still belong to CodeMirror after the grid regains focus.
-    return event.type !== "keydown";
+    // navigation return to CodeMirror after the grid regains focus.
+    return (
+      event.type !== "keydown" || !!event.target.closest?.("button, summary, .cm-table-cell-input")
+    );
   }
 }
 

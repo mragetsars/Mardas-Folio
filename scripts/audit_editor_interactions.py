@@ -121,7 +121,7 @@ def run(dist: Path, output: Path) -> dict:
                     case["checks"].append(
                         "nested inline formats, math, escaped pipes, ragged rows, alignment and safe HTML in real table widget"
                     )
-                    cell_editor = page.locator(".cm-table-cell-editor textarea")
+                    cell_editor = page.locator(".cm-table-cell-input")
                     # The formula widget has its own source-edit listener. A
                     # click in a table formula must remain a cell edit, even
                     # when the actual target is MathJax's nested SVG.
@@ -137,7 +137,7 @@ def run(dist: Path, output: Path) -> dict:
                     cell_editor.press("Escape")
                     expect(buffer).to_have_value(SAMPLE)
                     case["checks"].append(
-                        "click opens a portaled single-cell editor while the formatted grid stays visible; Escape preserves Markdown"
+                        "click edits inside the cell while the formatted grid stays visible; Escape preserves Markdown"
                     )
 
                     editor.focus()

@@ -72,11 +72,11 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 cell = grid.locator('[data-table-row="1"][data-table-column="1"]')
                 cell.click()
                 panel = page.locator(".cm-table-cell-editor")
-                value = panel.locator("textarea")
+                value = page.locator(".cm-table-cell-input")
                 expect(panel).to_be_visible()
                 expect(value).to_have_value("**bold** and *italic*")
                 expect(grid.locator("table")).to_be_visible()
-                assert not value.evaluate("e=>document.querySelector('.cm-content').contains(e)")
+                expect(cell.locator("textarea")).to_be_focused()
                 value.fill("**changed** and a|b")
                 expect(panel.locator(".cm-table-cell-preview strong")).to_have_text("changed")
                 value.press("Enter")
@@ -120,10 +120,11 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 page.evaluate("adapter.runCommand('undo')")
                 expect(page.locator("#source")).to_have_value(SAMPLE)
 
-                cell.click()
+                grid.locator('[data-table-select="column"]').nth(1).click()
                 add_column = "Add column after" if locale == "en" else "افزودن ستون بعدی"
                 panel.get_by_role("button", name=add_column, exact=True).click()
                 expect(grid.locator("th")).to_have_count(4)
+                grid.locator('[data-table-row="1"][data-table-column="2"]').click()
                 expect(value).to_have_value("")
                 value.fill("New column")
                 value.press("Enter")
@@ -138,9 +139,10 @@ def run(dist: Path, output: Path, bundle: Path | None) -> dict:
                 )
 
                 nested = page.locator(".cm-md-table").nth(1)
-                nested.locator('[data-table-row="1"][data-table-column="0"]').click()
+                nested.locator('[data-table-select="row"]').nth(1).click()
                 add_row = "Add row below" if locale == "en" else "افزودن ردیف پایین"
                 panel.get_by_role("button", name=add_row, exact=True).click()
+                nested.locator('[data-table-row="2"][data-table-column="0"]').click()
                 value.fill("ردیف تازه")
                 value.press("Enter")
                 assert "> | ردیف تازه" in page.locator("#source").input_value()

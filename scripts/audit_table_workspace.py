@@ -29,7 +29,8 @@ def run(dist: Path, output: Path) -> dict:
             page.on("pageerror", lambda error: errors.append(str(error)))
             try:
                 initialise(page, url, locale, theme, source=False)
-                page.locator("#workflow-open").click()
+                page.locator('[data-area="workspace"]').click()
+                page.keyboard.press("Control+o")
                 expect(page.locator("#document-tabs .document-tab")).to_have_count(2)
                 replace_content(page, SAMPLE)
                 page.keyboard.press("Control+End")
@@ -38,7 +39,7 @@ def run(dist: Path, output: Path) -> dict:
                     '.cm-md-table [data-table-row="1"][data-table-column="1"]'
                 ).first
                 panel = page.locator(".cm-table-cell-editor")
-                draft = panel.locator("textarea")
+                draft = page.locator(".cm-table-cell-input")
 
                 if (
                     page.locator("#workspace-toggle-formatting").get_attribute("aria-pressed")
@@ -91,7 +92,9 @@ def run(dist: Path, output: Path) -> dict:
                 ), focus_paint
                 page.keyboard.press("Escape")
                 expect(draft).to_be_focused()
-                draft.press("Alt+F10")
+                draft.press("Escape")
+                grid = page.locator(".cm-md-table").first
+                grid.locator('[data-table-select="column"]').nth(1).click()
                 page.keyboard.press("Home")
                 for _ in range(5):
                     page.keyboard.press("ArrowDown")
@@ -102,8 +105,9 @@ def run(dist: Path, output: Path) -> dict:
                 )
                 expect(add_column).to_be_focused()
                 page.keyboard.press("Enter")
+                expect(grid.locator("th")).to_have_count(4)
+                grid.locator('[data-table-row="1"][data-table-column="2"]').click()
                 expect(draft).to_be_focused()
-                expect(page.locator(".cm-md-table").first.locator("th")).to_have_count(4)
                 draft.fill("KEYBOARD_NEW_COLUMN")
                 draft.press("Alt+F10")
                 page.keyboard.press("End")
@@ -115,7 +119,7 @@ def run(dist: Path, output: Path) -> dict:
                 page.keyboard.press("Control+z")
                 expect(buffer).to_have_value(SAMPLE)
                 case["checks"].append(
-                    "Alt+F10, Escape, arrows, Home/End and Enter reach Add column and Apply with no pointer; two physical Undo steps restore the exact original table"
+                    "Alt+F10, Escape, arrows, Home/End and Enter navigate the cell and column actions; two physical Undo steps restore the exact original table"
                 )
 
                 cell.click()
@@ -136,12 +140,12 @@ def run(dist: Path, output: Path) -> dict:
                 cell.click()
                 draft.fill("START_TAB_DRAFT")
                 page.locator("#tab-new-document").click()
-                expect(page.locator("#workspace-empty")).to_be_visible()
-                page.locator("#document-tabs .document-tab").nth(1).locator(".tab-activate").click()
+                expect(page.locator("body")).to_have_attribute("data-view", "library")
+                page.locator('[data-area="workspace"]').click()
                 expect(buffer).to_have_value(
                     SAMPLE.replace("**bold** and *italic*", "START_TAB_DRAFT")
                 )
-                page.locator("#document-tabs .document-tab").last.locator(".tab-close").click()
+                page.locator(".cm-content").focus()
                 page.keyboard.press("Control+z")
                 expect(buffer).to_have_value(SAMPLE)
                 cell.click()
@@ -150,12 +154,12 @@ def run(dist: Path, output: Path) -> dict:
                 page.locator("#tab-new-document").click()
                 expect(panel).to_be_visible()
                 expect(draft).to_have_value("BLOCKED_CELL_DRAFT")
-                expect(page.locator("#workspace-empty")).to_be_hidden()
+                expect(page.locator("body")).to_have_attribute("data-view", "workspace")
                 panel.locator(".cm-table-cell-apply").evaluate("button => button.disabled = false")
                 draft.press("Escape")
                 expect(buffer).to_have_value(SAMPLE)
                 case["checks"].append(
-                    "starter tabs commit table drafts and stay closed when a draft cannot be committed"
+                    "opening the document-type chooser commits the draft and stays in the editor when a draft cannot be committed"
                 )
 
                 cell.click()

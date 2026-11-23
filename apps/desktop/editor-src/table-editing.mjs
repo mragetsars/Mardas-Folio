@@ -1,4 +1,4 @@
-/** Cell editing is portaled outside contentDOM: CodeMirror remains the source of truth. */
+/** Table controls edit cell drafts while CodeMirror owns the Markdown source. */
 import { syntaxTree } from "@codemirror/language";
 import { Transaction } from "@codemirror/state";
 import { isolateHistory } from "@codemirror/commands";
@@ -457,6 +457,7 @@ class CellEditor {
     this.input.rows = 2;
     this.input.dir = "auto";
     this.input.spellcheck = false;
+    this.input.setAttribute("aria-label", this.labels.content);
     this.input.setAttribute("aria-keyshortcuts", "Alt+F10");
     label.append(this.input);
     this.panel.append(tools, label);
@@ -698,6 +699,18 @@ class CellEditor {
   reposition() {
     if (!this.panel.isConnected) return;
     const anchor = this.anchor();
+    if (this.selection.kind === "cell") {
+      const content = anchor?.querySelector(".cm-table-cell-content");
+      const mount = content || this.contentLabel;
+      if (this.input.parentElement !== mount) {
+        const restoreFocus =
+          document.activeElement === this.input ||
+          (!this.input.isConnected && document.activeElement === document.body);
+        mount.append(this.input);
+        if (restoreFocus) this.input.focus({ preventScroll: true });
+      }
+      this.contentLabel.hidden = Boolean(content);
+    }
     if (!anchor) return;
     const chosen = new Set(this.coordinates().map(([row, column]) => row + ":" + column));
     for (const cell of this.table().querySelectorAll("[data-table-row][data-table-column]")) {
@@ -918,6 +931,7 @@ class CellEditor {
     this.actionObserver.disconnect();
     for (const [button, disabled] of this.disabledActions)
       button.disabled = disabled || this.view.state.readOnly;
+    this.input.remove();
     this.panel.remove();
     this.view.dom
       .querySelectorAll(".cm-table-cell-active")
