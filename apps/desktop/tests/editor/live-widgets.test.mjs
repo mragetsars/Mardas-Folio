@@ -37,7 +37,13 @@ function fakeDocument() {
   const make = (tag) => {
     const node = {
       tag,
+      localName: tag,
       children: [],
+      get childNodes() {
+        return node.textContent
+          ? [{ nodeType: 3, nodeValue: node.textContent }, ...node.children]
+          : node.children;
+      },
       attributes: {},
       style: {},
       textContent: "",
@@ -168,6 +174,7 @@ test("live table column order follows content in either interface direction", ()
         const cells = wrapper.children[0].children[0].children[0].children;
         assert.equal(cells[0].textContent, markup.split("|")[1].trim());
         assert.equal(cells[0].dir, "auto");
+        assert.equal(cells[0].style.textAlign, "center");
       }
     }
   } finally {

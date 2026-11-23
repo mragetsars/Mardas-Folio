@@ -206,6 +206,9 @@
       .md2pdf-document .table-wrap :is(th, td)[align="left"] { text-align: left; }
       .md2pdf-document .table-wrap :is(th, td)[align="center"] { text-align: center; }
       .md2pdf-document .table-wrap :is(th, td)[align="right"] { text-align: right; }
+      .md2pdf-document .table-wrap :is(th, td).table-cell--auto-centered { text-align: center; }
+      .md2pdf-document .table-wrap :is(th, td).table-cell--auto-left { text-align: left; }
+      .md2pdf-document .table-wrap :is(th, td).table-cell--auto-right { text-align: right; }
       .table-wrap--numeric,
       .table-wrap--persian-number,
       .table-wrap--latin-number,

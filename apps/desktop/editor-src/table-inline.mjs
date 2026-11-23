@@ -23,12 +23,14 @@ function text(parent, value) {
 export function appendTableInline(parent, node, source, options = {}) {
   const slice = (from, to) =>
     source.slice(from - (options.offset || 0), to - (options.offset || 0));
+  const start = Math.max(node.from, options.contentFrom ?? node.from);
   if (!node.firstChild) {
-    parent.textContent = slice(node.from, node.to);
+    parent.textContent = slice(start, node.to);
     return;
   }
-  let cursor = node.from;
+  let cursor = start;
   for (let child = node.firstChild; child; child = child.nextSibling) {
+    if (child.to <= start) continue;
     text(parent, slice(cursor, child.from));
     const raw = slice(child.from, child.to);
     if (tags[child.name]) {
@@ -66,4 +68,10 @@ export function appendTableInline(parent, node, source, options = {}) {
     cursor = child.to;
   }
   text(parent, slice(cursor, node.to));
+}
+
+export function tableInlineText(node) {
+  if (node.nodeType === 3) return node.nodeValue;
+  if (node.localName === "br") return "\n";
+  return Array.from(node.childNodes, tableInlineText).join("");
 }

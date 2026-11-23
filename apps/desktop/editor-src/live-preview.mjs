@@ -37,6 +37,7 @@ import {
   blockWidgetRanges,
   createBlockWidgetField,
   parseImage,
+  tableContentDirection,
 } from "./live-widgets.mjs";
 
 /**
@@ -942,8 +943,9 @@ export function sourceBlockDirections(state, visibleRanges) {
       enter(node) {
         const code = node.name === "FencedCode" || node.name === "CodeBlock";
         if (!code && node.name !== "Table") return;
-        const direction =
-          !code && blockIsRtl(state.doc.sliceString(node.from, node.to)) ? "rtl" : "ltr";
+        const direction = code
+          ? "ltr"
+          : tableContentDirection(state.doc.sliceString(node.from, node.to));
         const first = state.doc.lineAt(Math.max(from, node.from)).number;
         const last = state.doc.lineAt(Math.min(to, node.to)).number;
         for (let number = first; number <= last; number += 1) {

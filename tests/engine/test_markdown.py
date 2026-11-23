@@ -109,6 +109,34 @@ def test_markdown_table_alignment_survives_safe_rendering_and_bidi_profiles():
     assert not soup.select("[style]")
 
 
+def test_cell_alignment_comments_override_the_delimiter_and_auto_centers_one_word():
+    result = render_markdown(
+        "| <!--folio-align:right--> Title | <!--folio-align:auto--> Value |\n"
+        "| --- | ---: |\n"
+        "| <!--folio-align:left--> **فارسی** | راست |\n"
+        "| **تنها** | <!--folio-align:center--> Multiple words |\n"
+        "| left شروع | <!--folio-align:auto--> راست سپس English |\n"
+    )
+    soup = BeautifulSoup(result.body_html, "html.parser")
+    cells = soup.select("th, td")
+    assert [cell.get("align") for cell in cells] == [
+        "right",
+        None,
+        "left",
+        "right",
+        None,
+        "center",
+        None,
+        None,
+    ]
+    assert "table-cell--auto-centered" in cells[1]["class"]
+    assert "table-cell--auto-centered" in cells[4]["class"]
+    assert "table-cell--auto-left" in cells[6]["class"]
+    assert "table-cell--auto-right" in cells[7]["class"]
+    assert cells[2].strong.get_text() == "فارسی"
+    assert "folio-align" not in result.body_html
+
+
 def test_safe_table_alignment_allows_only_three_values_and_removes_raw_css():
     result = render_markdown(
         '<table><tr><td align="CENTER" style="position:fixed" onclick="alert(1)">A</td>'

@@ -31,10 +31,12 @@ import { onlineImageControl } from "../frontend/js/preview/online-images.mjs";
 import { spriteIcon } from "../frontend/js/ui/icons.mjs";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { markdownLanguage } from "@codemirror/lang-markdown";
-import { appendTableInline } from "./table-inline.mjs";
+import { appendTableInline, tableInlineText } from "./table-inline.mjs";
 import {
-  columnAlignment,
+  autoCellAlignment,
   openTableCellEditor,
+  selectTableCell,
+  tableCellAlignment,
   tableLabels,
   tableModel,
   tableRowCells,
@@ -57,7 +59,9 @@ const BLOCK_CONTAINERS = new Set([
 
 /** The table's column order belongs to its content, not the interface locale. */
 export function tableContentDirection(markup) {
-  const firstLetter = String(markup).match(/\p{L}/u)?.[0];
+  const firstLetter = String(markup)
+    .replace(/<!--folio-align:(?:auto|left|center|right)-->/g, "")
+    .match(/\p{L}/u)?.[0];
   return firstLetter && /[\u0590-\u08ff\uFB1D-\uFDFF\uFE70-\uFEFF]/u.test(firstLetter)
     ? "rtl"
     : "ltr";
@@ -230,10 +234,11 @@ export class TableWidget extends WidgetType {
     const model = parsed ? tableModel(this.markup, this.from, parsed) : null;
     wrapper.setAttribute("data-table-from", String(this.from));
     if (view && model) {
+      wrapper.classList.toggle("cm-md-table--editable", !view.state.readOnly);
       wrapper.tabIndex = 0;
       wrapper.setAttribute("aria-label", tableLabels().table);
       wrapper.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" || event.isComposing) return;
+        if (event.target !== wrapper || event.key !== "Enter" || event.isComposing) return;
         event.preventDefault();
         event.stopPropagation();
         openTableCellEditor(view, model, 0, 0);
@@ -258,9 +263,11 @@ export class TableWidget extends WidgetType {
           ? cells.find((candidate) => candidate.from + this.from - offset === physical.from)
           : null;
         const element = document.createElement(head ? "th" : "td");
+        const { alignment, prefix } = tableCellAlignment(model, index, column);
         if (cell)
           appendTableInline(element, cell, this.markup, {
             offset,
+            contentFrom: cell.from + prefix,
             renderMathNode:
               this.renderMath && view
                 ? (node) =>
@@ -273,16 +280,35 @@ export class TableWidget extends WidgetType {
                     ).toDOM(view)
                 : null,
           });
-        const alignment = columnAlignment(model?.delimiter?.cells[column]?.raw);
-        if (alignment !== "auto") element.style.textAlign = alignment;
+        element.style.textAlign =
+          alignment === "auto" ? autoCellAlignment(tableInlineText(element)) : alignment;
         element.dir = "auto";
         element.setAttribute("data-table-row", String(index));
         element.setAttribute("data-table-column", String(column));
-        if (view) {
+        if (view && model && !view.state.readOnly) {
+          const scopeButton = (scope, index, targetRow, targetColumn) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "cm-table-selection-handle";
+            button.dataset.tableSelect = scope;
+            button.title =
+              (scope === "row" ? tableLabels().selectRow : tableLabels().selectColumn) +
+              " " +
+              (index + 1);
+            button.setAttribute("aria-label", button.title);
+            button.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openTableCellEditor(view, model, targetRow, targetColumn, { kind: scope });
+            });
+            element.append(button);
+          };
+          if (head) scopeButton("column", column, 0, column);
+          if (!column) scopeButton("row", index, index, 0);
           element.addEventListener(
             "mousedown",
             (event) => {
-              if (event.button !== 0) return;
+              if (event.button !== 0 || event.target.closest("[data-table-select]")) return;
               event.preventDefault();
               event.stopPropagation();
             },
@@ -296,7 +322,7 @@ export class TableWidget extends WidgetType {
             // above a low cell can cover its own mouseup target; opening on
             // mousedown retargeted that click to body and immediately closed
             // the editor through the outside-click handler.
-            if (model) openTableCellEditor(view, model, index, column);
+            selectTableCell(view, model, index, column, event);
           });
         }
         row.append(element);

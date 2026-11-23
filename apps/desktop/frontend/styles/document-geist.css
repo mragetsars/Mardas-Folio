@@ -239,6 +239,26 @@
   text-align: right;
 }
 
+.document-content .document-table-scroll :is(th, td).table-cell--auto-centered {
+  text-align: center;
+}
+
+.document-content .document-table-scroll :is(th, td).table-cell--auto-left {
+  text-align: left;
+}
+
+.document-content .document-table-scroll :is(th, td).table-cell--auto-right {
+  text-align: right;
+}
+
+.codemirror-mount .cm-md-table.cm-md-table--editable :is(td, th):first-child {
+  padding-inline: 25px;
+}
+
+.codemirror-mount .cm-md-table.cm-md-table--editable th {
+  padding-block-start: 23px;
+}
+
 .document-content .document-table-scroll :is(tbody, tfoot):last-child tr:last-child > *,
 .codemirror-mount .cm-md-table tbody tr:last-child > * {
   border-block-end: 0;

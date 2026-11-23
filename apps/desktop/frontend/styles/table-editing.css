@@ -163,3 +163,62 @@
 body:has(.cm-table-cell-editor) .cm-selection-toolbar {
   display: none;
 }
+
+.cm-table-cell-editor [hidden] {
+  display: none;
+}
+.cm-md-table--editable :is(td, th) {
+  position: relative;
+}
+.cm-table-selection-handle {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+.cm-table-selection-handle:hover,
+.cm-table-selection-handle:focus-visible {
+  background: var(--ui-control-hover);
+  color: var(--ui-text);
+}
+.cm-table-selection-handle::before {
+  content: "";
+  inline-size: 2px;
+  block-size: 2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.cm-table-selection-handle[data-table-select="row"] {
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  inline-size: 16px;
+  block-size: 24px;
+}
+.cm-table-selection-handle[data-table-select="row"]::before {
+  box-shadow:
+    0 -4px currentColor,
+    0 4px currentColor;
+}
+.cm-table-selection-handle[data-table-select="column"] {
+  inset-block-start: 3px;
+  inset-inline-start: calc(50% - 12px);
+  inline-size: 24px;
+  block-size: 16px;
+}
+.cm-table-selection-handle[data-table-select="column"]::before {
+  box-shadow:
+    -4px 0 currentColor,
+    4px 0 currentColor;
+}
+
+.cm-md-table table:dir(ltr) [data-table-select="row"] {
+  left: 3px;
+}
+.cm-md-table table:dir(rtl) [data-table-select="row"] {
+  right: 3px;
+}

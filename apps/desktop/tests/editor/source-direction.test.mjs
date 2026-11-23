@@ -59,3 +59,9 @@ test("literal inline backticks and a standalone rule acquire no block direction"
   const state = stateFor("Persian inline `نام` and punctuation.\n\n---\n\nنثر فارسی.");
   assert.equal(directionsFor(state).size, 0);
 });
+
+test("a cell alignment marker does not affect the source table direction", () => {
+  const state = stateFor("| <!--folio-align:left--> عنوان | مقدار |\n| --- | --- |\n| 10 | 12 |");
+  const directions = directionsFor(state);
+  for (const number of [1, 2, 3]) assert.equal(directionAt(state, directions, number), "rtl");
+});

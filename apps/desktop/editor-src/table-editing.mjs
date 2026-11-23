@@ -4,7 +4,7 @@ import { Transaction } from "@codemirror/state";
 import { isolateHistory } from "@codemirror/commands";
 import { ViewPlugin } from "@codemirror/view";
 import { markdownLanguage } from "@codemirror/lang-markdown";
-import { appendTableInline } from "./table-inline.mjs";
+import { appendTableInline, tableInlineText } from "./table-inline.mjs";
 import { authoringShortcutKey } from "../frontend/js/core/keyboard-shortcuts.mjs";
 
 const sessions = new WeakMap();
@@ -90,12 +90,65 @@ export function columnAlignment(raw = "") {
   return raw.endsWith(":") ? "right" : "auto";
 }
 
-const alignmentMarks = {
-  auto: ["", ""],
-  left: [":", ""],
-  center: [":", ":"],
-  right: ["", ":"],
-};
+const alignments = ["auto", "left", "center", "right"];
+const alignmentMarker = /^<!--folio-align:(auto|left|center|right)-->\s*/;
+
+export function tableCellAlignment(model, row, column) {
+  const raw = model?.rows[row]?.cells[column]?.raw || "";
+  const marker = alignmentMarker.exec(raw);
+  const inherited = columnAlignment(model?.delimiter?.cells[column]?.raw);
+  return { alignment: marker?.[1] || inherited, inherited, prefix: marker?.[0].length || 0 };
+}
+
+export function autoCellAlignment(text) {
+  const words = text.trim().split(/\s+/u);
+  return words.length === 1 && words[0] ? "center" : "start";
+}
+
+function selectedCells(model, row, column, selection) {
+  if (selection.kind === "row") return Array.from({ length: model.columns }, (_, c) => [row, c]);
+  if (selection.kind === "column") return model.rows.map((_, r) => [r, column]);
+  return selection.cells || [[row, column]];
+}
+
+/** Existing GFM column marks remain defaults until a cell receives its own override. */
+export function tableCellChanges(model, coordinates, alignment, content) {
+  const rows = new Map();
+  for (const [row, column] of coordinates) {
+    const record = model.rows[row];
+    if (!record || column < 0 || column >= model.columns) continue;
+    const raw = record.cells[column]?.raw || "";
+    const parsed = tableCellAlignment(model, row, column);
+    const text = content ?? raw.slice(parsed.prefix);
+    const prefix =
+      alignment == null
+        ? raw.slice(0, parsed.prefix)
+        : alignment === "auto" && parsed.inherited === "auto"
+          ? ""
+          : "<!--folio-align:" + alignment + "-->" + (text ? " " : "");
+    const insert = prefix + text;
+    if (insert === raw) continue;
+    if (!rows.has(row)) rows.set(row, new Map());
+    rows.get(row).set(column, insert);
+  }
+  const changes = [];
+  for (const [row, updates] of rows) {
+    const record = model.rows[row];
+    if ([...updates.keys()].some((column) => !record.cells[column])) {
+      const cells = Array.from(
+        { length: Math.max(model.columns, record.cells.length) },
+        (_, column) => updates.get(column) ?? record.cells[column]?.raw ?? "",
+      );
+      changes.push({ from: record.from, to: record.to, insert: serializeRow(cells) });
+    } else {
+      for (const [column, insert] of updates) {
+        const { from, to } = record.cells[column];
+        changes.push({ from, to, insert });
+      }
+    }
+  }
+  return changes.sort((a, b) => a.from - b.from);
+}
 
 const serializeRow = (cells) => `| ${cells.join(" | ")} |`;
 
@@ -103,13 +156,6 @@ const serializeRow = (cells) => `| ${cells.join(" | ")} |`;
 export function tableStructureChanges(model, document, action, rowIndex, columnIndex) {
   const rows = model.rows;
   if (!rows.length || !model.delimiter) return [];
-  if (action.startsWith("align-")) {
-    const cell = model.delimiter.cells[columnIndex];
-    const marks = alignmentMarks[action.slice(6)];
-    if (!cell || !marks) return [];
-    const insert = marks[0] + cell.raw.replace(/^:|:$/g, "") + marks[1];
-    return insert === cell.raw ? [] : [{ from: cell.from, to: cell.to, insert }];
-  }
   if (action === "add-row") {
     const row = rowIndex === 0 ? model.delimiter : rows[rowIndex];
     const reference = document.lineAt(model.delimiter.from);
@@ -156,7 +202,12 @@ const translations = {
     row: "Row",
     column: "Column",
     content: "Cell content (Markdown)",
-    alignment: "Column alignment",
+    alignment: "Alignment",
+    rowSelection: "Selected row",
+    columnSelection: "Selected column",
+    cellsSelection: "Selected cells",
+    selectRow: "Select row",
+    selectColumn: "Select column",
     auto: "Auto",
     left: "Left",
     center: "Center",
@@ -179,7 +230,12 @@ const translations = {
     row: "ردیف",
     column: "ستون",
     content: "محتوای سلول (Markdown)",
-    alignment: "تراز ستون",
+    alignment: "تراز",
+    rowSelection: "ردیف انتخاب‌شده",
+    columnSelection: "ستون انتخاب‌شده",
+    cellsSelection: "سلول‌های انتخاب‌شده",
+    selectRow: "انتخاب ردیف",
+    selectColumn: "انتخاب ستون",
     auto: "خودکار",
     left: "چپ",
     center: "وسط",
@@ -211,10 +267,11 @@ function dispatchEdit(view, changes) {
 }
 
 class CellEditor {
-  constructor(view, model, row, column) {
+  constructor(view, model, row, column, selection) {
     this.view = view;
     this.model = model;
     this.labels = tableLabels();
+    this.selection = selection;
     this.panel = document.createElement("section");
     this.panel.className = "cm-table-cell-editor";
     this.panel.setAttribute("role", "dialog");
@@ -222,10 +279,9 @@ class CellEditor {
     this.panel.setAttribute("aria-label", this.labels.title);
     this.panel.dir = document.documentElement.dir;
     const heading = document.createElement("header");
-    const title = document.createElement("strong");
-    title.textContent = this.labels.title;
+    this.title = document.createElement("strong");
     this.positionLabel = document.createElement("small");
-    heading.append(title, this.positionLabel);
+    heading.append(this.title, this.positionLabel);
     this.panel.append(heading);
     const tools = document.createElement("div");
     tools.className = "cm-table-cell-formats";
@@ -238,7 +294,8 @@ class CellEditor {
       button.title = button.ariaLabel = this.labels[name];
       button.dataset.cellFormat = name;
     }
-    const label = document.createElement("label");
+    this.tools = tools;
+    const label = (this.contentLabel = document.createElement("label"));
     label.textContent = this.labels.content;
     this.input = document.createElement("textarea");
     this.input.className = "cm-table-cell-input";
@@ -260,32 +317,39 @@ class CellEditor {
     const alignmentLabel = document.createElement("span");
     alignmentLabel.textContent = this.labels.alignment;
     alignment.append(alignmentLabel);
-    this.alignments = Object.keys(alignmentMarks).map((value) => {
+    this.alignments = alignments.map((value) => {
       const control = this.button(
         this.labels[value],
-        () => this.structure("align-" + value),
+        () => {
+          this.pendingAlignment = value;
+          this.updateAlignment();
+        },
         alignment,
       );
-      control.dataset.columnAlignment = value;
+      control.dataset.cellAlignment = value;
       return control;
     });
     this.panel.append(alignment);
-    const help = document.createElement("p");
+    const help = (this.help = document.createElement("p"));
     help.textContent = this.labels.help;
     this.error = document.createElement("p");
     this.error.className = "cm-table-cell-error";
     this.error.setAttribute("role", "alert");
     this.error.hidden = true;
     this.panel.append(help, this.error);
-    const structure = document.createElement("div");
+    const structure = (this.structurePanel = document.createElement("div"));
     structure.className = "cm-table-cell-structure";
-    this.button(this.labels.addRow, () => this.structure("add-row"), structure);
+    this.addRow = this.button(this.labels.addRow, () => this.structure("add-row"), structure);
     this.deleteRow = this.button(
       this.labels.deleteRow,
       () => this.structure("delete-row"),
       structure,
     );
-    this.button(this.labels.addColumn, () => this.structure("add-column"), structure);
+    this.addColumn = this.button(
+      this.labels.addColumn,
+      () => this.structure("add-column"),
+      structure,
+    );
     this.deleteColumn = this.button(
       this.labels.deleteColumn,
       () => this.structure("delete-column"),
@@ -304,14 +368,17 @@ class CellEditor {
       // Keep an unsupported action from falling through to the editor's old
       // selection, including clicks dispatched while a host refresh is busy.
       const action = event.target.closest?.(documentActions);
-      if (action && !cellFormats.has(action.dataset.editorCommand)) {
+      if (
+        action &&
+        (this.selection.kind !== "cell" || !cellFormats.has(action.dataset.editorCommand))
+      ) {
         event.preventDefault();
         event.stopImmediatePropagation();
         this.input.focus();
         return;
       }
       const command = event.target.closest?.("[data-editor-command]")?.dataset.editorCommand;
-      if (["bold", "italic", "code"].includes(command)) return;
+      if (this.selection.kind === "cell" && cellFormats.has(command)) return;
       // Another cell handles committing and opening its own editor.
       if (event.target.closest?.(".cm-md-table")) return;
       // Commit before the target's click handler, once the browser has fixed
@@ -357,7 +424,7 @@ class CellEditor {
   guardDocumentActions() {
     this.disabledActions = new Map();
     const guard = (element) => {
-      if (cellFormats.has(element.dataset.editorCommand)) return;
+      if (this.selection.kind === "cell" && cellFormats.has(element.dataset.editorCommand)) return;
       if (!this.disabledActions.has(element)) this.disabledActions.set(element, element.disabled);
       if (!element.disabled) element.disabled = true;
     };
@@ -398,41 +465,82 @@ class CellEditor {
   open(row, column) {
     this.row = row;
     this.column = column;
+    this.pendingAlignment = null;
+    this.source = this.view.state.doc.sliceString(this.model.from, this.model.to);
     this.cell = this.model.rows[row]?.cells[column];
     this.original = this.cell?.raw || "";
-    this.input.value = this.original;
-    const alignment = columnAlignment(this.model.delimiter?.cells[column]?.raw);
-    for (const button of this.alignments) {
-      button.setAttribute("aria-pressed", String(button.dataset.columnAlignment === alignment));
-    }
-    this.input.style.textAlign = this.preview.style.textAlign =
-      alignment === "auto" ? "start" : alignment;
-    this.paintPreview();
+    this.input.value = this.original.slice(tableCellAlignment(this.model, row, column).prefix);
+    const { kind } = this.selection;
+    const single = kind === "cell";
+    this.title.textContent = single ? this.labels.title : this.labels[kind + "Selection"];
+    this.panel.setAttribute("aria-label", this.title.textContent);
+    this.tools.hidden = this.contentLabel.hidden = this.preview.hidden = this.help.hidden = !single;
+    this.structurePanel.hidden = kind !== "row" && kind !== "column";
+    this.addRow.hidden = this.deleteRow.hidden = kind !== "row";
+    this.addColumn.hidden = this.deleteColumn.hidden = kind !== "column";
     this.error.hidden = true;
     this.apply.disabled = false;
-    this.positionLabel.textContent = `${this.labels.row} ${row + 1} · ${this.labels.column} ${column + 1}`;
+    this.positionLabel.textContent = {
+      cell: `${this.labels.row} ${row + 1} · ${this.labels.column} ${column + 1}`,
+      row: String(row + 1),
+      column: String(column + 1),
+      cells: String(this.coordinates().length),
+    }[kind];
     this.deleteRow.disabled = row === 0;
     this.deleteColumn.disabled = this.model.columns <= 1;
+    this.paintPreview();
     this.reposition();
-    this.input.focus();
-    this.input.select();
-    // A deferred focus would steal a fast Alt+F10 action back from its button.
+    if (single) {
+      this.input.focus();
+      this.input.select();
+    } else this.alignments[0].focus();
     requestAnimationFrame(() => this.reposition());
   }
 
+  coordinates() {
+    return selectedCells(this.model, this.row, this.column, this.selection);
+  }
+
+  table() {
+    return [...this.view.dom.querySelectorAll(".cm-md-table")].find(
+      (element) => Number(element.dataset.tableFrom) === this.model.from,
+    );
+  }
+
   anchor() {
-    return [...this.view.dom.querySelectorAll(".cm-md-table")]
-      .find((element) => Number(element.dataset.tableFrom) === this.model.from)
-      ?.querySelector(`[data-table-row="${this.row}"][data-table-column="${this.column}"]`);
+    return this.table()?.querySelector(
+      `[data-table-row="${this.row}"][data-table-column="${this.column}"]`,
+    );
+  }
+
+  updateAlignment() {
+    const current = new Set(
+      this.coordinates().map(
+        ([row, column]) => tableCellAlignment(this.model, row, column).alignment,
+      ),
+    );
+    const alignment = this.pendingAlignment ?? (current.size === 1 ? [...current][0] : null);
+    for (const button of this.alignments) {
+      button.setAttribute("aria-pressed", String(button.dataset.cellAlignment === alignment));
+    }
+    if (this.selection.kind === "cell") {
+      const rendered = tableInlineText(this.preview);
+      this.input.style.textAlign = this.preview.style.textAlign =
+        alignment === "auto" ? autoCellAlignment(rendered) : alignment;
+    }
   }
 
   reposition() {
     if (!this.panel.isConnected) return;
     const anchor = this.anchor();
     if (!anchor) return;
-    for (const current of this.view.dom.querySelectorAll(".cm-table-cell-active"))
-      current.classList.remove("cm-table-cell-active");
-    anchor.classList.add("cm-table-cell-active");
+    const chosen = new Set(this.coordinates().map(([row, column]) => row + ":" + column));
+    for (const cell of this.table().querySelectorAll("[data-table-row][data-table-column]")) {
+      cell.classList.toggle(
+        "cm-table-cell-active",
+        chosen.has(cell.dataset.tableRow + ":" + cell.dataset.tableColumn),
+      );
+    }
     const rect = anchor.getBoundingClientRect(),
       panel = this.panel.getBoundingClientRect();
     this.panel.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - panel.width - 8))}px`;
@@ -461,32 +569,29 @@ class CellEditor {
     });
     this.preview.replaceChildren();
     if (cell) appendTableInline(this.preview, cell, markup);
+    this.updateAlignment();
   }
 
   commit() {
     if (this.view.state.readOnly || this.apply.disabled) return false;
-    const value = tableCellSource(this.input.value);
-    if (value === this.original) return true;
+    const single = this.selection.kind === "cell";
+    const value = single ? tableCellSource(this.input.value) : undefined;
+    const originalText = this.original.slice(alignmentMarker.exec(this.original)?.[0].length || 0);
+    if (this.pendingAlignment == null && (!single || value === originalText)) return true;
+    const doc = this.view.state.doc;
+    const current = modelAt(this.view, this.model.from);
     if (
-      this.cell &&
-      this.view.state.doc.sliceString(this.cell.from, this.cell.to) !== this.original
+      !current ||
+      (single && this.cell
+        ? doc.sliceString(this.cell.from, this.cell.to) !== this.original
+        : current && doc.sliceString(current.from, current.to) !== this.source)
     ) {
       this.error.textContent = this.labels.conflict;
       this.error.hidden = false;
       this.apply.disabled = true;
       return false;
     }
-    let changes;
-    if (this.cell) changes = [{ from: this.cell.from, to: this.cell.to, insert: value }];
-    else {
-      const row = this.model.rows[this.row];
-      const values = Array.from(
-        { length: this.model.columns },
-        (_, index) => row.cells[index]?.raw || "",
-      );
-      values[this.column] = value;
-      changes = [{ from: row.from, to: row.to, insert: serializeRow(values) }];
-    }
+    const changes = tableCellChanges(current, this.coordinates(), this.pendingAlignment, value);
     this.committing = true;
     try {
       dispatchEdit(this.view, changes);
@@ -498,9 +603,11 @@ class CellEditor {
       this.close(false);
       return false;
     }
+    this.source = this.view.state.doc.sliceString(this.model.from, this.model.to);
     this.cell = this.model.rows[this.row]?.cells[this.column];
     this.original = this.cell?.raw || "";
-    this.input.value = this.original;
+    this.pendingAlignment = null;
+    this.updateAlignment();
     requestAnimationFrame(() => this.reposition());
     return true;
   }
@@ -562,7 +669,9 @@ class CellEditor {
   }
 
   actions() {
-    return [...this.panel.querySelectorAll("button:not(:disabled)")];
+    return [...this.panel.querySelectorAll("button:not(:disabled)")].filter(
+      (button) => !button.closest("[hidden]"),
+    );
   }
 
   actionKey(event) {
@@ -570,7 +679,8 @@ class CellEditor {
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      this.input.focus();
+      if (this.selection.kind === "cell") this.input.focus();
+      else this.close(false);
       return;
     }
     if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -619,7 +729,9 @@ class CellEditor {
     for (const [button, disabled] of this.disabledActions)
       button.disabled = disabled || this.view.state.readOnly;
     this.panel.remove();
-    anchor?.classList.remove("cm-table-cell-active");
+    this.view.dom
+      .querySelectorAll(".cm-table-cell-active")
+      .forEach((cell) => cell.classList.remove("cm-table-cell-active"));
     document.removeEventListener("click", this.outside, true);
     document.removeEventListener("click", this.toolbarClick, true);
     document.removeEventListener("keydown", this.saveKey, true);
@@ -629,7 +741,7 @@ class CellEditor {
   }
 }
 
-export function openTableCellEditor(view, model, row, column) {
+export function openTableCellEditor(view, model, row, column, selection = { kind: "cell" }) {
   if (view.state.readOnly || !model.columns) return;
   const previous = sessions.get(view);
   const beforeLength = view.state.doc.length;
@@ -637,10 +749,35 @@ export function openTableCellEditor(view, model, row, column) {
   const delta = view.state.doc.length - beforeLength;
   const position = previous && previous.model.from < model.from ? model.from + delta : model.from;
   previous?.close(false, false);
-  // A previous commit may have replaced this widget and shifted source offsets.
-  const current = modelAt(view, position) || model;
-  const editor = new CellEditor(view, current, row, column);
+  const current = modelAt(view, position);
+  if (!current || !current.rows[row] || column >= current.columns) return;
+  const editor = new CellEditor(view, current, row, column, selection);
   sessions.set(view, editor);
+}
+
+export function selectTableCell(view, model, row, column, { shiftKey, ctrlKey, metaKey }) {
+  const previous = sessions.get(view);
+  const sameTable = previous?.model.from === model.from;
+  if (shiftKey && sameTable) {
+    const [startRow, startColumn] = previous.selection.start || [previous.row, previous.column];
+    const cells = [];
+    for (let r = Math.min(startRow, row); r <= Math.max(startRow, row); r++)
+      for (let c = Math.min(startColumn, column); c <= Math.max(startColumn, column); c++)
+        cells.push([r, c]);
+    openTableCellEditor(view, model, row, column, {
+      kind: "cells",
+      cells,
+      start: [startRow, startColumn],
+    });
+  } else if (ctrlKey || metaKey) {
+    const cells = sameTable ? previous.coordinates() : [];
+    const remaining = cells.filter(([r, c]) => r !== row || c !== column);
+    if (remaining.length === cells.length) remaining.push([row, column]);
+    if (remaining.length) {
+      const [lastRow, lastColumn] = remaining.at(-1);
+      openTableCellEditor(view, model, lastRow, lastColumn, { kind: "cells", cells: remaining });
+    } else previous?.close(true);
+  } else openTableCellEditor(view, model, row, column);
 }
 
 /** The host must flush a cell draft before saving or snapshotting recovery. */

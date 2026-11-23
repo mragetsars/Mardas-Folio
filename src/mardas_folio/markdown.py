@@ -274,7 +274,7 @@ if TYPE_CHECKING:
     from .citations import BibliographyLibrary
 
 
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 from markdown_it import MarkdownIt
 
 from .appearance import appearance_from_metadata, code_style_for_appearance, resolve_appearance
@@ -1853,6 +1853,35 @@ def postprocess_soup(
         mixed_numeric_cells = 0
         for cell in table.find_all(["th", "td"]):
             cell_text = cell.get_text(" ", strip=True)
+            rendered_text = "".join(
+                "\n" if getattr(item, "name", None) == "br" else str(item)
+                for item in cell.descendants
+                if (isinstance(item, NavigableString) and not isinstance(item, Comment))
+                or getattr(item, "name", None) == "br"
+            )
+            if not cell.get("align"):
+                if len(rendered_text.split()) == 1:
+                    _add_classes(cell, "table-cell--auto-centered")
+                else:
+                    first_strong = next(
+                        (
+                            kind
+                            for character in rendered_text
+                            if (kind := unicodedata.bidirectional(character)) in {"L", "R", "AL"}
+                        ),
+                        "",
+                    )
+                    cell_direction = cell.get("dir")
+                    if cell_direction in {"ltr", "rtl"} or first_strong:
+                        align_right = (
+                            cell_direction == "rtl"
+                            if cell_direction in {"ltr", "rtl"}
+                            else first_strong in {"R", "AL"}
+                        )
+                        _add_classes(
+                            cell,
+                            "table-cell--auto-right" if align_right else "table-cell--auto-left",
+                        )
             cell_profile = direction_profile(cell_text)
             cell["data-md2pdf-direction-profile"] = cell_profile
             if cell_profile == "rtl":
@@ -2240,18 +2269,31 @@ def render_markdown(
     def render_table_cell_open(
         tokens: list[Any], idx: int, options: dict[str, Any], env: dict[str, Any]
     ) -> str:
-        # markdown-it expresses the separator row's alignment as inline CSS.
-        # Keep that author intent through the HTML sanitizer using the narrow
-        # table-cell attribute it already permits, without allowing raw styles.
         token = tokens[idx]
-        alignment = re.fullmatch(
+        inline = tokens[idx + 1]
+        alignment = None
+        if inline.type == "inline" and inline.children:
+            marker = inline.children[0]
+            match = (
+                re.fullmatch(r"<!--folio-align:(auto|left|center|right)-->", marker.content)
+                if marker.type == "html_inline"
+                else None
+            )
+            if match:
+                alignment = match.group(1)
+                inline.children.pop(0)
+                first = inline.children[0] if inline.children else None
+                if first is not None and first.type == "text":
+                    first.content = first.content.lstrip()
+        legacy_alignment = re.fullmatch(
             r"\s*text-align:\s*(left|center|right)\s*;?\s*",
-            token.attrGet("style") or "",
+            token.attrs.pop("style", "") or "",
             flags=re.IGNORECASE,
         )
-        if alignment:
-            token.attrSet("align", alignment.group(1).lower())
-            token.attrs.pop("style", None)
+        if alignment is None and legacy_alignment:
+            alignment = legacy_alignment.group(1).lower()
+        if alignment in {"left", "center", "right"}:
+            token.attrSet("align", alignment)
         return md.renderer.renderToken(tokens, idx, options, env)
 
     md.renderer.rules["th_open"] = render_table_cell_open

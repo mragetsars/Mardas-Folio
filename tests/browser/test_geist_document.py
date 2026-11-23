@@ -12,7 +12,7 @@ SOURCE = (
     "---\ntitle: Fixtures\n---\n\n"
     "# Example document\n\n"
     "- [ ] Check the figures\n\n"
-    "| Name | Value |\n| --- | ---: |\n| فارسی | 1 |\n\n"
+    "| Name | Value |\n| --- | ---: |\n| فارسی | 1 |\n| Two words | 2 |\n\n"
     '~~~{.python .numberLines title="main.py" linenostart=10 hl_lines="11"}\nreturn_value = "test"\nprint(42)\n~~~\n\n'
     "~~~diff\n+++ b/main.py\n-old\n+new\n~~~\n\n"
     "<details><summary>More information</summary><p>Additional text</p></details>\n"
@@ -85,18 +85,76 @@ def test_geist_document_controls(
         editor = page.locator(".cm-editor[data-editor-mode='live']")
         expect(editor.locator(".cm-md-table th")).to_have_count(2)
         expect(editor.locator(".cm-md-table th").nth(1)).to_have_css("border-left-width", "1px")
-        cell = editor.locator(".cm-md-table td").first
+        table = editor.locator(".cm-md-table")
+        cell = table.locator("td").first
+        panel = page.locator(".cm-table-cell-editor")
+        source_text = page.locator("#markdown-editor")
+        apply = panel.locator(".cm-table-cell-apply")
+        cancel = panel.locator("footer button").first
+        left = panel.locator("[data-cell-alignment=left]")
+        center = panel.locator("[data-cell-alignment=center]")
         expect(cell).to_have_css("direction", "rtl")
+        expect(cell).to_have_css("text-align", "center")
         cell.click()
-        align = page.locator("[data-column-alignment=left]")
-        align.click()
-        expect(align).to_have_attribute("aria-pressed", "true")
+        expect(panel.locator("textarea")).to_have_value("فارسی")
+        expect(panel.locator("[data-cell-format]")).to_have_count(3)
+        expect(panel.locator(".cm-table-cell-structure")).to_be_hidden()
+        left.click()
+        apply.click()
         expect(cell).to_have_css("text-align", "left")
-        expect(page.locator("#markdown-editor")).to_have_value(
-            SOURCE.replace("| --- |", "| :--- |")
+        expect(source_text).to_have_value(
+            SOURCE.replace("| فارسی", "| <!--folio-align:left--> فارسی")
         )
-        page.locator("[data-column-alignment=auto]").click()
-        page.keyboard.press("Escape")
+        expect(table.locator("td").nth(2)).to_have_css("text-align", "start")
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
+
+        table.locator("[data-table-select=row]").nth(1).click()
+        expect(panel.locator("textarea")).to_be_hidden()
+        expect(panel.locator(".cm-table-cell-structure button:visible")).to_have_count(2)
+        expect(table.locator(".cm-table-cell-active")).to_have_count(2)
+        left.click()
+        apply.click()
+        expect(source_text).to_have_value(
+            SOURCE.replace(
+                "| فارسی | 1 |", "| <!--folio-align:left--> فارسی | <!--folio-align:left--> 1 |"
+            )
+        )
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
+
+        table.locator("[data-table-select=column]").nth(1).click()
+        expect(panel.locator("textarea")).to_be_hidden()
+        expect(panel.locator(".cm-table-cell-structure button:visible")).to_have_count(2)
+        expect(table.locator(".cm-table-cell-active")).to_have_count(3)
+        panel.locator("[data-cell-alignment=auto]").click()
+        apply.click()
+        expect(table.locator("td").nth(1)).to_have_css("text-align", "center")
+        expect(source_text).to_have_value(
+            SOURCE.replace("| Value |", "| <!--folio-align:auto--> Value |")
+            .replace("| 1 |", "| <!--folio-align:auto--> 1 |")
+            .replace("| 2 |", "| <!--folio-align:auto--> 2 |")
+        )
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
+
+        table.locator("th").first.click()
+        table.locator("td").last.click(modifiers=["Shift"])
+        expect(table.locator(".cm-table-cell-active")).to_have_count(6)
+        expect(panel.locator(".cm-table-cell-structure")).to_be_hidden()
+        cancel.click()
+        table.locator("th").first.click()
+        table.locator("td").last.click(modifiers=["Control"])
+        expect(table.locator(".cm-table-cell-active")).to_have_count(2)
+        center.click()
+        apply.click()
+        expect(source_text).to_have_value(
+            SOURCE.replace("| Name |", "| <!--folio-align:center--> Name |").replace(
+                "| 2 |", "| <!--folio-align:center--> 2 |"
+            )
+        )
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
         code_line = editor.locator('[data-code-line="10"]')
         filename = editor.locator(".cm-code-filename")
         expect(filename).to_have_text("main.py")

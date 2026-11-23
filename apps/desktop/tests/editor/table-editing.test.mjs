@@ -4,6 +4,8 @@ import { EditorState } from "@codemirror/state";
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import {
   tableCellSource,
+  tableCellAlignment,
+  tableCellChanges,
   tableModel,
   tableStructureChanges,
 } from "../../editor-src/table-editing.mjs";
@@ -80,4 +82,30 @@ test("a one-column table cannot lose its final column", () => {
     tableStructureChanges(model(one), EditorState.create({ doc: one }).doc, "delete-column", 1, 0),
     [],
   );
+});
+
+test("cell and bulk alignment preserve column defaults, content and ragged rows", () => {
+  const source = "| A | B |\n| --- | ---: |\n| One | Two |\n| Short |\n";
+  const first = model(source);
+  const updated = apply(
+    source,
+    tableCellChanges(
+      first,
+      [
+        [0, 1],
+        [1, 1],
+        [2, 1],
+      ],
+      "auto",
+    ),
+  );
+  const table = model(updated);
+  assert.equal(table.delimiter.cells[1].raw, "---:");
+  assert.equal(tableCellAlignment(table, 1, 0).alignment, "auto");
+  assert.equal(tableCellAlignment(table, 1, 1).alignment, "auto");
+  assert.match(updated, /<!--folio-align:auto--> Two/);
+  assert.match(updated, /Short \| <!--folio-align:auto-->/);
+  const changed = apply(updated, tableCellChanges(table, [[1, 1]], "right", "**New**"));
+  assert.match(changed, /<!--folio-align:right--> \*\*New\*\*/);
+  assert.match(changed, /<!--folio-align:auto--> B/);
 });
