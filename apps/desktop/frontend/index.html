@@ -290,7 +290,6 @@
               <header class="library-heading">
                 <div>
                   <h1 id="workspace-empty-title" data-i18n="shelfTitle">Library</h1>
-                  <p data-i18n="shelfHint">Select a document to open it. Drag to rearrange the library.</p>
                 </div>
                 <div class="library-heading-actions">
                   <button type="button" class="button primary" id="shelf-import"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg><span data-i18n="shelfImport">Open files</span></button>
@@ -323,7 +322,7 @@
         <div class="toolbar-group toolbar-publish-actions">
           <button class="button secondary compact document-save-button" id="workspace-save" type="button" data-i18n-aria-label="save" aria-label="ذخیره"><svg class="ui-icon" aria-hidden="true"><use href="#icon-save"></use></svg><span data-i18n="save">ذخیره</span></button>
           <div class="export-split" role="group" data-i18n-aria-label="commandExport" aria-label="Export">
-            <button class="button secondary document-export-button" id="workspace-export" type="button" data-i18n-title="exportAsPdf" data-i18n-aria-label="exportAsPdf" aria-label="Export as PDF"><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg><span data-i18n="exportAsPdf">خروجی PDF</span></button>
+            <button class="button secondary document-export-button" id="workspace-export" type="button" data-i18n-title="exportAsPdf" data-i18n-aria-label="exportAsPdf" aria-label="Export as PDF"><svg class="ui-icon" aria-hidden="true"><use href="#icon-export"></use></svg><span data-i18n="commandExport">خروجی</span></button>
             <button class="button secondary export-split-trigger" id="workspace-export-formats" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="workspace-export-menu" data-i18n-title="exportFormats" data-i18n-aria-label="exportFormats" aria-label="More export formats"><svg class="ui-icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
           </div>
           <details class="document-actions" id="document-actions-menu">
@@ -704,20 +703,16 @@
             </div>
           </div>
           <div class="settings-row" data-settings-terms="accent color colour monochrome purple آبی بنفش رنگ تاکیدی سیاه سفید">
-            <label class="settings-label" for="setting-accent" data-i18n="interfaceAccent">رنگ تأکیدی رابط</label>
-            <div class="settings-control settings-accent-control">
-              <span class="settings-accent-swatch" aria-hidden="true"></span>
-              <select id="setting-accent">
-                <option value="monochrome" data-i18n="accentMonochrome">سیاه‌وسفید (پیش‌فرض)</option>
-                <option value="gray" data-i18n="accentGray">خاکستری</option>
-                <option value="blue" data-i18n="accentBlue">آبی</option>
-                <option value="red" data-i18n="accentRed">قرمز</option>
-                <option value="amber" data-i18n="accentAmber">کهربایی</option>
-                <option value="green" data-i18n="accentGreen">سبز</option>
-                <option value="teal" data-i18n="accentTeal">فیروزه‌ای</option>
-                <option value="purple" data-i18n="accentPurple">بنفش</option>
-                <option value="pink" data-i18n="accentPink">صورتی</option>
-              </select>
+            <span class="settings-label" id="setting-accent-label" data-i18n="interfaceAccent">رنگ تأکیدی رابط</span>
+            <div class="settings-control settings-accent-control" id="setting-accent" role="radiogroup" aria-labelledby="setting-accent-label">
+              <label data-i18n-title="accentMonochrome" style="--settings-accent-sample: var(--ui-accent-monochrome)"><input class="sr-only" type="radio" name="accent" value="monochrome" data-i18n-aria-label="accentMonochrome" aria-label="Black and white (default)" checked><span aria-hidden="true"></span></label>
+              <label data-i18n-title="accentBlue" style="--settings-accent-sample: var(--ui-accent-blue)"><input class="sr-only" type="radio" name="accent" value="blue" data-i18n-aria-label="accentBlue" aria-label="Blue"><span aria-hidden="true"></span></label>
+              <label data-i18n-title="accentRed" style="--settings-accent-sample: var(--ui-accent-red)"><input class="sr-only" type="radio" name="accent" value="red" data-i18n-aria-label="accentRed" aria-label="Red"><span aria-hidden="true"></span></label>
+              <label data-i18n-title="accentAmber" style="--settings-accent-sample: var(--ui-accent-amber)"><input class="sr-only" type="radio" name="accent" value="amber" data-i18n-aria-label="accentAmber" aria-label="Amber"><span aria-hidden="true"></span></label>
+              <label data-i18n-title="accentGreen" style="--settings-accent-sample: var(--ui-accent-green)"><input class="sr-only" type="radio" name="accent" value="green" data-i18n-aria-label="accentGreen" aria-label="Green"><span aria-hidden="true"></span></label>
+              <label data-i18n-title="accentTeal" style="--settings-accent-sample: var(--ui-accent-teal)"><input class="sr-only" type="radio" name="accent" value="teal" data-i18n-aria-label="accentTeal" aria-label="Teal"><span aria-hidden="true"></span></label>
+              <label data-i18n-title="accentPurple" style="--settings-accent-sample: var(--ui-accent-purple)"><input class="sr-only" type="radio" name="accent" value="purple" data-i18n-aria-label="accentPurple" aria-label="Purple"><span aria-hidden="true"></span></label>
+              <label data-i18n-title="accentPink" style="--settings-accent-sample: var(--ui-accent-pink)"><input class="sr-only" type="radio" name="accent" value="pink" data-i18n-aria-label="accentPink" aria-label="Pink"><span aria-hidden="true"></span></label>
             </div>
           </div>
           <div class="settings-row" data-settings-terms="zoom font size اندازه فونت بزرگنمایی">

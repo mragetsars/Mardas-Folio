@@ -7,6 +7,7 @@ import {
   codeBodyPrefixRanges,
   codeBodyText,
   codeLanguageChange,
+  codeRowAttributes,
   fencedCodeSpec,
 } from "../../editor-src/code-block-tools.mjs";
 
@@ -123,4 +124,29 @@ test("rendered code hides continuation scaffold but preserves semantic indentati
     assert.deepEqual(rows, visible, source);
     assert.equal(state.doc.toString(), source);
   }
+});
+
+test("fence filenames, source numbering, highlights and change markers preserve the code", () => {
+  const source =
+    '~~~{.python .numberLines filename="app.py" linenostart=10 hl_lines="11" added="1"}\none\ntwo\n~~~';
+  const { state, spec } = fixture(source);
+  assert.equal(spec.language, "python");
+  assert.equal(spec.presentation.title, "app.py");
+  assert.deepEqual(codeRowAttributes(state, spec, state.doc.line(2).from), {
+    number: "10",
+    highlighted: false,
+    added: true,
+    removed: false,
+  });
+  assert.deepEqual(codeRowAttributes(state, spec, state.doc.line(3).from), {
+    number: "11",
+    highlighted: true,
+    added: false,
+    removed: false,
+  });
+  assert.equal(
+    state.update({ changes: codeLanguageChange(state, spec, "js") }).state.doc.toString(),
+    source.replace(".python", ".js"),
+  );
+  assert.equal(codeBodyText(state, spec), "one\ntwo\n");
 });

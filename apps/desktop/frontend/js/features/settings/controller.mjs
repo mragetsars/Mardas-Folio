@@ -12,11 +12,12 @@ export function createSettingsController({
 }) {
   const form = $("#settings-form");
   const theme = form.elements.namedItem("theme");
+  const accent = form.elements.namedItem("accent");
   const settingsPanel = createSettingsPanel(form);
   let resetPending = false;
   function fillSettingsForm(preferences = state.preferences) {
     theme.value = preferences.theme;
-    $("#setting-accent").value = preferences.accent;
+    accent.value = preferences.accent;
     const zoomSetting = $("#setting-document-zoom");
     if (zoomSetting) zoomSetting.value = String(preferences.documentZoom);
     $("#setting-motion").value = preferences.reducedMotion;
@@ -24,7 +25,6 @@ export function createSettingsController({
     $("#setting-typewriter").checked = preferences.typewriter;
     if ($("#setting-writing-width")) $("#setting-writing-width").value = preferences.writingWidth;
     $("#setting-locale").value = state.locale;
-    settingsPanel.updateAccentPreview();
   }
 
   function openSettings(section = "settings-appearance") {
@@ -44,7 +44,7 @@ export function createSettingsController({
       ...(resetPending ? DEFAULT_PREFERENCES : state.preferences),
       onboardingComplete: state.preferences.onboardingComplete,
       theme: theme.value,
-      accent: $("#setting-accent").value,
+      accent: accent.value,
       documentZoom: Number($("#setting-document-zoom").value),
       writingWidth: $("#setting-writing-width")?.value || "full",
       reducedMotion: $("#setting-motion").value,

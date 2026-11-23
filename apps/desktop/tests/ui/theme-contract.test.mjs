@@ -105,10 +105,9 @@ test("workspace surface tokens keep small UI text above AA contrast", () => {
 
 test("the trial accent fills are available alongside the monochrome default", () => {
   const index = readFileSync(new URL("index.html", frontend), "utf8");
-  const picker = index.match(/<select id="setting-accent">([^]*?)<\/select>/)?.[1] ?? "";
-  const accents = [...picker.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]);
+  const picker = index.match(/<div [^>]*id="setting-accent"[^>]*>([^]*?)<\/div>/)?.[1] ?? "";
+  const accents = [...picker.matchAll(/name="accent" value="([^"]+)"/g)].map((match) => match[1]);
   const trialFills = {
-    gray: "#525252",
     blue: "#006efe",
     red: "#cf2f36",
     amber: "#8a5300",

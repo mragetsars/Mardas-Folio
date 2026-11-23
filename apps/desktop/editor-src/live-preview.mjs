@@ -19,6 +19,7 @@ import { Decoration, Direction, EditorView, ViewPlugin } from "@codemirror/view"
 import {
   CodeBlockHeaderWidget,
   codeBodyPrefixRanges,
+  codeRowAttributes,
   fencedCodeSpec,
 } from "./code-block-tools.mjs";
 import { tableEditingExtension } from "./table-editing.mjs";
@@ -452,6 +453,26 @@ function buildDecorations(view) {
                     ? codeIndentedCloseLine
                     : codeLine;
             lines.push({ at, deco });
+            const info = fence && codeRowAttributes(state, fence, at);
+            if (info) {
+              const classes = [
+                info.number && "cm-code-numbered",
+                info.highlighted && "cm-code-highlighted",
+                info.added && "cm-code-added",
+                info.removed && "cm-code-removed",
+              ]
+                .filter(Boolean)
+                .join(" ");
+              if (classes) {
+                lines.push({
+                  at,
+                  deco: Decoration.line({
+                    class: classes,
+                    attributes: info.number ? { "data-code-line": info.number } : {},
+                  }),
+                });
+              }
+            }
           });
           if (fence) {
             // The code body remains native editable text. Language, fences

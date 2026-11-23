@@ -49,7 +49,6 @@
   --ui-muted: var(--geist-gray-900);
   --ui-page: var(--geist-background);
   --ui-desk: var(--geist-background-200);
-  --ui-library-background: var(--geist-background-100);
   --ui-library-surface: var(--geist-background-100);
   --ui-library-insert: #0068d6;
   --ui-scrollbar-thumb: color-mix(in srgb, var(--ui-muted) 35%, transparent);
@@ -60,7 +59,6 @@
   --ui-control-hover: var(--ui-panel-muted);
   --ui-surface-navigation: var(--ui-panel-soft);
   --ui-accent-monochrome: var(--geist-foreground);
-  --ui-accent-gray: #525252;
   --ui-accent-blue: #006efe;
   --ui-accent-red: #cf2f36;
   --ui-accent-amber: #8a5300;
@@ -68,7 +66,6 @@
   --ui-accent-teal: #0b7268;
   --ui-accent-purple: #7e3ab8;
   --ui-accent-pink: #a20d71;
-  --ui-library-open-bg: var(--ui-accent-teal);
   --ui-selected-bg: var(--geist-gray-300);
   --ui-selected-text: var(--ui-text);
   --ui-primary-bg: var(--ui-accent-monochrome);
@@ -221,10 +218,6 @@ html[data-theme="dark"] {
   --cm-search-active: color-mix(in srgb, var(--ui-primary-bg) 34%, transparent);
 }
 
-:root[data-accent]:where(:not([data-accent="monochrome"], [data-accent="gray"])) {
-  --ui-library-open-bg: var(--ui-primary-bg);
-}
-
 :root[data-theme="dark"][data-accent]:where(:not([data-accent="monochrome"])) {
   --ui-accent: color-mix(in srgb, var(--ui-primary-bg) 60%, white);
   --ui-accent-hover: color-mix(in srgb, var(--ui-primary-bg) 40%, white);
@@ -232,9 +225,6 @@ html[data-theme="dark"] {
   --ui-selected-bg: color-mix(in srgb, var(--ui-primary-bg) 20%, black);
 }
 
-:root[data-accent="gray"] {
-  --ui-primary-bg: var(--ui-accent-gray);
-}
 :root[data-accent="red"] {
   --ui-primary-bg: var(--ui-accent-red);
 }

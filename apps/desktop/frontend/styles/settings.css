@@ -145,18 +145,41 @@
 .settings-control {
   min-width: 0;
 }
-.settings-accent-control {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--ui-space-2);
-  align-items: center;
+.settings-row :is(.theme-switcher, .settings-accent-control) {
+  justify-self: end;
 }
-.settings-accent-swatch {
-  width: 16px;
-  height: 16px;
-  border: 1px solid var(--ui-border-strong);
-  border-radius: var(--ui-radius-pill);
-  background: var(--settings-accent-sample, var(--ui-accent-monochrome));
+.settings-accent-control {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+}
+.settings-row .settings-accent-control label {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 32px;
+  cursor: pointer;
+}
+.settings-accent-control label > span {
+  inline-size: 16px;
+  block-size: 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: 50%;
+  background: var(--settings-accent-sample);
+}
+.settings-accent-control label:hover > span {
+  outline: 1px solid var(--ui-border-strong);
+  outline-offset: 2px;
+}
+.settings-accent-control input:checked + span {
+  outline: 1px solid var(--ui-text);
+  outline-offset: 2px;
+}
+.settings-accent-control input:focus-visible + span {
+  outline: var(--ui-focus-ring);
+  outline-offset: 2px;
 }
 .settings-zoom {
   width: 92px;

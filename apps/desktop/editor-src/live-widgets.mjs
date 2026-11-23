@@ -32,7 +32,13 @@ import { spriteIcon } from "../frontend/js/ui/icons.mjs";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import { appendTableInline } from "./table-inline.mjs";
-import { openTableCellEditor, tableLabels, tableModel } from "./table-editing.mjs";
+import {
+  columnAlignment,
+  openTableCellEditor,
+  tableLabels,
+  tableModel,
+  tableRowCells,
+} from "./table-editing.mjs";
 import { mathAndFootnotes } from "./markdown-extras.mjs";
 
 const tableParser = markdownLanguage.parser.configure([mathAndFootnotes]);
@@ -48,29 +54,6 @@ const BLOCK_CONTAINERS = new Set([
   "OrderedList",
   "ListItem",
 ]);
-
-/** Split a table row into cells, honouring escaped pipes. */
-function splitRow(line) {
-  const trimmed = line.replace(/^\s*\|/, "").replace(/\|\s*$/, "");
-  const cells = [];
-  let current = "";
-  for (let index = 0; index < trimmed.length; index += 1) {
-    const character = trimmed[index];
-    if (character === "\\" && trimmed[index + 1] === "|") {
-      current += "|";
-      index += 1;
-      continue;
-    }
-    if (character === "|") {
-      cells.push(current);
-      current = "";
-      continue;
-    }
-    current += character;
-  }
-  cells.push(current);
-  return cells.map((cell) => cell.trim());
-}
 
 /** The table's column order belongs to its content, not the interface locale. */
 export function tableContentDirection(markup) {
@@ -223,7 +206,7 @@ export class TableWidget extends WidgetType {
     return this.markup
       .split("\n")
       .filter((line) => line.trim())
-      .map(splitRow);
+      .map((line) => tableRowCells(line).map(({ raw }) => raw.replaceAll("\\|", "|")));
   }
 
   /** Header, body rows, cell padding, the wrapper's border and its padding. */
@@ -257,22 +240,9 @@ export class TableWidget extends WidgetType {
       });
     }
     const rows = [];
-    let delimiter = null;
     for (let child = parsed?.firstChild; child; child = child.nextSibling) {
       if (child.name === "TableHeader" || child.name === "TableRow") rows.push(child);
-      else if (child.name === "TableDelimiter") delimiter = child;
     }
-    const alignments = (
-      delimiter ? splitRow(this.markup.slice(delimiter.from - offset, delimiter.to - offset)) : []
-    ).map((cell) =>
-      cell.startsWith(":")
-        ? cell.endsWith(":")
-          ? "center"
-          : "left"
-        : cell.endsWith(":")
-          ? "right"
-          : "",
-    );
     let columns = 0;
     rows.forEach((sourceRow, index) => {
       const cells = [];
@@ -303,7 +273,8 @@ export class TableWidget extends WidgetType {
                     ).toDOM(view)
                 : null,
           });
-        if (alignments[column]) element.style.textAlign = alignments[column];
+        const alignment = columnAlignment(model?.delimiter?.cells[column]?.raw);
+        if (alignment !== "auto") element.style.textAlign = alignment;
         element.dir = "auto";
         element.setAttribute("data-table-row", String(index));
         element.setAttribute("data-table-column", String(column));

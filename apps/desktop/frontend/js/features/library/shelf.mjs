@@ -350,7 +350,6 @@ export function createShelf({
     if (nextPins) {
       rememberPins(nextPins);
       render();
-      say("shelfMoveDone");
     }
     focus(id, true);
   }

@@ -56,6 +56,9 @@ export function mountDocumentContent(
   }
   for (const table of fragment.querySelectorAll("table")) {
     if (table.closest(".code-block, .codehilite, .highlight")) continue;
+    for (const cell of table.querySelectorAll("th, td")) {
+      if (!cell.hasAttribute("dir")) cell.dir = "auto";
+    }
     const wrapper = document.createElement("div");
     wrapper.className = "document-table-scroll";
     table.replaceWith(wrapper);

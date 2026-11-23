@@ -215,6 +215,30 @@
   border-block-end: 1px solid var(--ui-border);
 }
 
+:is(.document-table-scroll, .cm-md-table) table:dir(ltr) :is(th, td) + :is(th, td) {
+  border-left: 1px solid var(--ui-border);
+}
+
+:is(.document-table-scroll, .cm-md-table) table:dir(rtl) :is(th, td) + :is(th, td) {
+  border-right: 1px solid var(--ui-border);
+}
+
+.document-content .document-table-scroll :is(th, td) {
+  text-align: start;
+}
+
+.document-content .document-table-scroll :is(th, td)[align="left"] {
+  text-align: left;
+}
+
+.document-content .document-table-scroll :is(th, td)[align="center"] {
+  text-align: center;
+}
+
+.document-content .document-table-scroll :is(th, td)[align="right"] {
+  text-align: right;
+}
+
 .document-content .document-table-scroll :is(tbody, tfoot):last-child tr:last-child > *,
 .codemirror-mount .cm-md-table tbody tr:last-child > * {
   border-block-end: 0;

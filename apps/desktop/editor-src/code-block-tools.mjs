@@ -39,6 +39,13 @@ const LANGUAGES = [
   "cpp",
   "markdown",
   "yaml",
+  "diff",
+  "go",
+  "csharp",
+  "ruby",
+  "lua",
+  "powershell",
+  "dockerfile",
 ];
 
 function codeBodyPrefix(opener, opening) {
@@ -91,6 +98,74 @@ export function codeBodyPrefixRanges(state, spec) {
   return ranges;
 }
 
+const range = /^(\d+)(?:-(\d+))?$/;
+const lineNumber = /^(?:linenos|line-?numbers|numberlines|numbered)$/i;
+
+function lineRanges(value) {
+  return value.split(/[,;\s]+/).flatMap((part) => {
+    const match = range.exec(part);
+    if (!match) return [];
+    const first = Number(match[1]);
+    const last = Number(match[2] || match[1]);
+    return Number.isSafeInteger(last) && first > 0 && last >= first ? [[first, last]] : [];
+  });
+}
+
+export function codePresentation(attributes) {
+  const values = new Map();
+  const bare = attributes.replace(
+    /([a-z][\w-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s}]+))/gi,
+    (_, key, double, single, plain) => {
+      values.set(key.toLowerCase(), double ?? single ?? plain);
+      return " ";
+    },
+  );
+  const options = Array.from(values);
+  const option = (keys) => options.find(([key]) => keys.test(key))?.[1] ?? "";
+  const start = Number(option(/^(?:start|start-?line|line-start|lineno-?start|first-line)$/));
+  const numbered =
+    bare.split(/[{}\s]+/).some((word) => lineNumber.test(word.replace(/^\./, ""))) ||
+    options.some(
+      ([key, value]) => lineNumber.test(key) && /^(?:1|true|yes|on|table|inline)$/i.test(value),
+    );
+  const ranges = options
+    .filter(([key]) => /^(?:hl[_-]lines|highlight|line-highlight|lines|emphasize-lines)$/.test(key))
+    .flatMap(([, value]) => lineRanges(value));
+  for (const brace of bare.matchAll(/\{([0-9,;\s-]+)\}/g)) ranges.push(...lineRanges(brace[1]));
+  return {
+    title: option(/^(?:title|filename|file|caption|name)$/),
+    numbered,
+    start: Number.isSafeInteger(start) && start > 0 ? start : 1,
+    ranges,
+    added: lineRanges(option(/^(?:added|added-lines)$/)),
+    removed: lineRanges(option(/^(?:removed|removed-lines)$/)),
+  };
+}
+
+export function codeRowAttributes(state, spec, at) {
+  const { numbered, start, ranges, added, removed } = spec.presentation;
+  const diff = /^(diff|patch)$/i.test(spec.language);
+  if (!numbered && !ranges.length && !added.length && !removed.length && !diff) return null;
+  if (at < spec.bodyFrom || at >= spec.bodyTo) return null;
+  const line = state.doc.lineAt(at);
+  const index = line.number - state.doc.lineAt(spec.openerFrom).number;
+  const number = index + start - 1;
+  // Follow the publisher: a range reaching below the first displayed
+  // number uses snippet-relative numbering for that option.
+  const inRanges = (list) => {
+    const shouldUseSourceNumbers = start > 1 && list.every(([first]) => first >= start);
+    const lineNumber = shouldUseSourceNumbers ? number : index;
+    return list.some(([first, last]) => lineNumber >= first && lineNumber <= last);
+  };
+  const text = diff ? stripCodePrefix(line.text, spec.bodyPrefix) : "";
+  return {
+    number: numbered ? String(number) : "",
+    highlighted: inRanges(ranges),
+    added: inRanges(added) || (diff && /^\+(?!\+\+)/.test(text)),
+    removed: inRanges(removed) || (diff && /^-(?!--)/.test(text)),
+  };
+}
+
 /** Positions come from the actual parsed node, including longer/tilde fences. */
 export function fencedCodeSpec(state, value) {
   const node = value.node || value;
@@ -107,9 +182,23 @@ export function fencedCodeSpec(state, value) {
       ? marks.at(-1)
       : null;
   const rawInfo = state.doc.sliceString(opening.to, opener.to);
-  const language = /^\s*(\S+)/.exec(rawInfo);
-  const languageFrom = language ? opening.to + language[0].length - language[1].length : opening.to;
-  const languageTo = language ? languageFrom + language[1].length : languageFrom;
+  const firstToken = /^\s*(\S+)/.exec(rawInfo);
+  const brace = /^\s*\{([^}]*)\}/.exec(rawInfo);
+  const languageClass = brace && /(?:^|\s)\.([a-z_][\w.+#-]*)/i.exec(brace[1]);
+  const language = brace ? languageClass?.[1] || "" : firstToken?.[1] || "";
+  const infoStart = opening.to + rawInfo.length - rawInfo.trimStart().length;
+  const languageFrom = languageClass
+    ? opening.to +
+      rawInfo.indexOf("{") +
+      1 +
+      languageClass.index +
+      languageClass[0].length -
+      language.length
+    : infoStart;
+  const languageTo = languageFrom + language.length;
+  const attributes = (
+    brace ? rawInfo.trimStart() : state.doc.sliceString(languageTo, opener.to)
+  ).trim();
   const bodyFrom = Math.min(opener.to + 1, state.doc.length);
   const bodyTo = closing ? state.doc.lineAt(closing.from).from : node.to;
   const bodyPrefix = codeBodyPrefix(opener, opening);
@@ -121,8 +210,10 @@ export function fencedCodeSpec(state, value) {
     openerText: opener.text,
     languageFrom,
     languageTo,
-    language: language?.[1] || "",
-    attributes: state.doc.sliceString(languageTo, opener.to).trim(),
+    language,
+    hasBrace: Boolean(brace),
+    attributes,
+    presentation: codePresentation(attributes),
     bodyFrom,
     bodyTo,
     bodyPrefix,
@@ -151,7 +242,8 @@ export function codeLanguageChange(state, spec, language) {
   if (!/^[A-Za-z0-9_+.#-]*$/.test(language)) return null;
   // Keeping attributes after a missing language would turn the first one into
   // the language. An explicit text language retains their exact spelling.
-  const insert = language || (spec.attributes ? "text" : "");
+  const name = language || (spec.attributes ? "text" : "");
+  const insert = spec.hasBrace && !spec.language ? name + " " : name;
   if (state.doc.sliceString(spec.languageFrom, spec.languageTo) === insert) return null;
   return { from: spec.languageFrom, to: spec.languageTo, insert };
 }
@@ -167,7 +259,9 @@ export class CodeBlockHeaderWidget extends WidgetType {
     return (
       this.locale === other.locale &&
       this.readOnly === other.readOnly &&
-      Object.keys(this.spec).every((key) => this.spec[key] === other.spec[key])
+      Object.keys(this.spec).every(
+        (key) => key === "presentation" || this.spec[key] === other.spec[key],
+      )
     );
   }
   ignoreEvent() {
@@ -245,7 +339,17 @@ export class CodeBlockHeaderWidget extends WidgetType {
       className: "cm-code-copy",
     });
     actions.append(edit, copy);
-    root.append(language, actions);
+    const identity = document.createElement("span");
+    identity.className = "cm-code-identity";
+    if (spec.presentation.title) {
+      const title = document.createElement("span");
+      title.className = "cm-code-filename";
+      title.textContent = title.title = spec.presentation.title;
+      title.dir = "auto";
+      identity.append(title);
+    }
+    identity.append(language);
+    root.append(identity, actions);
     return root;
   }
 }

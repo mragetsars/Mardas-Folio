@@ -118,7 +118,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                             assert all(
                                 pair["ratio"] >= pair["minimum"] for pair in colours["pairs"]
                             ), colours
-                            accents = page.locator("#setting-accent option").evaluate_all(
+                            accents = page.locator("#setting-accent input").evaluate_all(
                                 "options => options.map(option => option.value)"
                             )
                             for accent in accents:
@@ -277,9 +277,9 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                                 expect(zoom).to_be_focused()
                                 zoom.fill("100")
                                 page.mouse.move(0, 0)
-                                expect(picker).to_have_value("monochrome")
-                                picker.select_option("blue")
-                                expect(page.locator(".settings-accent-swatch")).to_have_css(
+                                expect(picker.locator("input[value=monochrome]")).to_be_checked()
+                                picker.locator("label:has(input[value=blue])").click()
+                                expect(picker.locator("input:checked + span")).to_have_css(
                                     "background-color", "rgb(0, 110, 254)"
                                 )
                                 page.locator("#cancel-settings").click()
@@ -287,14 +287,14 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                                     "data-accent", "monochrome"
                                 )
                                 open_settings(page)
-                                expect(picker).to_have_value("monochrome")
-                                picker.select_option("purple")
-                                expect(page.locator(".settings-accent-swatch")).to_have_css(
+                                expect(picker.locator("input[value=monochrome]")).to_be_checked()
+                                picker.locator("label:has(input[value=purple])").click()
+                                expect(picker.locator("input:checked + span")).to_have_css(
                                     "background-color", "rgb(126, 58, 184)"
                                 )
                                 select_settings_section(page, "writing")
                                 select_settings_section(page, "appearance")
-                                expect(picker).to_have_value("purple")
+                                expect(picker.locator("input[value=purple]")).to_be_checked()
                                 submit.click()
                                 expect(page.locator("html")).to_have_attribute(
                                     "data-accent", "purple"
@@ -304,7 +304,7 @@ def run_audit(dist: Path, output: Path) -> dict[str, Any]:
                                 )
                                 assert saved == "purple", saved
                                 open_settings(page)
-                                expect(picker).to_have_value("purple")
+                                expect(picker.locator("input[value=purple]")).to_be_checked()
                                 expect(submit).to_have_css("background-color", "rgb(126, 58, 184)")
                                 expect(submit).to_have_css("color", "rgb(255, 255, 255)")
                                 picker.select_option("monochrome")

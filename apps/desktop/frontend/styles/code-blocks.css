@@ -59,8 +59,45 @@
   user-select: none;
   font: 500 var(--ui-text-xs)/1.4 var(--app-font);
 }
+.cm-code-identity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-inline-size: 0;
+}
+.cm-code-filename {
+  color: var(--ui-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-numbered {
+  position: relative;
+  padding-left: calc(40px + 4ch);
+}
+.cm-code-numbered::before {
+  content: attr(data-code-line);
+  position: absolute;
+  left: 12px;
+  width: calc(20px + 4ch);
+  text-align: right;
+  color: var(--ui-muted);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-highlighted {
+  background: color-mix(in srgb, var(--ui-info) 13%, var(--ui-panel));
+}
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-added {
+  background: color-mix(in srgb, var(--ui-success) 14%, var(--ui-panel));
+}
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-removed {
+  background: color-mix(in srgb, var(--ui-danger) 14%, var(--ui-panel));
+}
 .cm-code-language {
-  max-width: min(45%, 200px);
+  max-width: min(100%, 164px);
+  min-width: 0;
   min-height: 28px;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -80,6 +117,7 @@
 }
 .cm-code-actions {
   display: inline-flex;
+  flex: none;
   gap: 4px;
 }
 .cm-code-header button {

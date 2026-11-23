@@ -85,12 +85,31 @@ function delimiterCells(raw) {
     .map((value) => value.trim());
 }
 
+export function columnAlignment(raw = "") {
+  if (raw.startsWith(":")) return raw.endsWith(":") ? "center" : "left";
+  return raw.endsWith(":") ? "right" : "auto";
+}
+
+const alignmentMarks = {
+  auto: ["", ""],
+  left: [":", ""],
+  center: [":", ":"],
+  right: ["", ":"],
+};
+
 const serializeRow = (cells) => `| ${cells.join(" | ")} |`;
 
 /** Structural edits touch only table rows, preserving surrounding block/list prefixes. */
 export function tableStructureChanges(model, document, action, rowIndex, columnIndex) {
   const rows = model.rows;
   if (!rows.length || !model.delimiter) return [];
+  if (action.startsWith("align-")) {
+    const cell = model.delimiter.cells[columnIndex];
+    const marks = alignmentMarks[action.slice(6)];
+    if (!cell || !marks) return [];
+    const insert = marks[0] + cell.raw.replace(/^:|:$/g, "") + marks[1];
+    return insert === cell.raw ? [] : [{ from: cell.from, to: cell.to, insert }];
+  }
   if (action === "add-row") {
     const row = rowIndex === 0 ? model.delimiter : rows[rowIndex];
     const reference = document.lineAt(model.delimiter.from);
@@ -137,6 +156,11 @@ const translations = {
     row: "Row",
     column: "Column",
     content: "Cell content (Markdown)",
+    alignment: "Column alignment",
+    auto: "Auto",
+    left: "Left",
+    center: "Center",
+    right: "Right",
     help: "Tab: next cell · Shift+Tab: previous · Enter: apply · Esc: cancel. Alt+F10: cell actions; use arrows or Home/End, Enter to run, Esc to return to the text. Inline Markdown stays in this cell.",
     apply: "Apply",
     cancel: "Cancel",
@@ -155,6 +179,11 @@ const translations = {
     row: "ردیف",
     column: "ستون",
     content: "محتوای سلول (Markdown)",
+    alignment: "تراز ستون",
+    auto: "خودکار",
+    left: "چپ",
+    center: "وسط",
+    right: "راست",
     help: "Tab: سلول بعدی · Shift+Tab: قبلی · Enter: اعمال · Esc: لغو. Alt+F10: ابزارهای سلول؛ جهت‌نما یا Home/End برای انتخاب، Enter برای اجرا و Esc برای بازگشت به متن. قالب‌بندی Markdown فقط در همین سلول است.",
     apply: "اعمال",
     cancel: "لغو",
@@ -224,6 +253,23 @@ class CellEditor {
     this.preview.dir = "auto";
     this.panel.append(this.preview);
     this.input.addEventListener("input", () => this.paintPreview());
+    const alignment = document.createElement("div");
+    alignment.className = "cm-table-cell-alignment";
+    alignment.setAttribute("role", "group");
+    alignment.setAttribute("aria-label", this.labels.alignment);
+    const alignmentLabel = document.createElement("span");
+    alignmentLabel.textContent = this.labels.alignment;
+    alignment.append(alignmentLabel);
+    this.alignments = Object.keys(alignmentMarks).map((value) => {
+      const control = this.button(
+        this.labels[value],
+        () => this.structure("align-" + value),
+        alignment,
+      );
+      control.dataset.columnAlignment = value;
+      return control;
+    });
+    this.panel.append(alignment);
     const help = document.createElement("p");
     help.textContent = this.labels.help;
     this.error = document.createElement("p");
@@ -355,6 +401,12 @@ class CellEditor {
     this.cell = this.model.rows[row]?.cells[column];
     this.original = this.cell?.raw || "";
     this.input.value = this.original;
+    const alignment = columnAlignment(this.model.delimiter?.cells[column]?.raw);
+    for (const button of this.alignments) {
+      button.setAttribute("aria-pressed", String(button.dataset.columnAlignment === alignment));
+    }
+    this.input.style.textAlign = this.preview.style.textAlign =
+      alignment === "auto" ? "start" : alignment;
     this.paintPreview();
     this.error.hidden = true;
     this.apply.disabled = false;

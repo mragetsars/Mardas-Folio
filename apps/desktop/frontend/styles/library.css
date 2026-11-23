@@ -1716,12 +1716,6 @@ body:not([data-view="library"]) .library-type-deck {
   align-items: center;
   gap: 7px;
   padding: 6px 12px;
-  color: white;
-  background: var(--ui-library-open-bg);
-  border-color: var(--ui-library-open-bg);
-}
-#shelf-import:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ui-library-open-bg) 87%, black);
 }
 
 .library-toolbar {
@@ -1815,16 +1809,13 @@ body:not([data-view="library"]) .library-type-deck {
 }
 
 #library-view {
-  background: var(--ui-library-background);
+  background: var(--ui-page);
 }
 .library-heading-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-}
-.library-heading p {
-  margin-block-start: 6px;
 }
 .library-inline select {
   width: auto;

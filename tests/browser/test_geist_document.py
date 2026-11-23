@@ -12,8 +12,9 @@ SOURCE = (
     "---\ntitle: Fixtures\n---\n\n"
     "# Example document\n\n"
     "- [ ] Check the figures\n\n"
-    "| Name | Value |\n| --- | ---: |\n| One | 1 |\n\n"
-    "~~~python\nprint(42)\n~~~\n\n"
+    "| Name | Value |\n| --- | ---: |\n| فارسی | 1 |\n\n"
+    '~~~{.python .numberLines title="main.py" linenostart=10 hl_lines="11"}\nreturn_value = "test"\nprint(42)\n~~~\n\n'
+    "~~~diff\n+++ b/main.py\n-old\n+new\n~~~\n\n"
     "<details><summary>More information</summary><p>Additional text</p></details>\n"
 )
 
@@ -66,7 +67,11 @@ def test_geist_document_controls(
             });"""
         )
         page.goto(frontend_url)
-        page.locator("#shelf-import").click()
+        import_files = page.locator("#shelf-import")
+        expect(import_files).to_have_css("background-color", "rgb(0, 0, 0)")
+        expect(page.locator("#library-view")).to_have_css("background-color", "rgb(255, 255, 255)")
+        expect(page.locator("[data-i18n=shelfHint]")).to_have_count(0)
+        import_files.click()
         expect(page.locator("body")).to_have_attribute("data-view", "workspace")
         write = page.locator('[data-view-mode="write"].view-mode')
         source_mode = page.locator('[data-view-mode="source"].view-mode')
@@ -78,9 +83,27 @@ def test_geist_document_controls(
 
         editor = page.locator(".cm-editor[data-editor-mode='live']")
         expect(editor.locator(".cm-md-table th")).to_have_count(2)
-        expect(editor.locator(".cm-md-table th").first).to_have_css(
-            "border-inline-start-width", "0px"
+        expect(editor.locator(".cm-md-table th").nth(1)).to_have_css("border-left-width", "1px")
+        cell = editor.locator(".cm-md-table td").first
+        expect(cell).to_have_css("direction", "rtl")
+        cell.click()
+        align = page.locator("[data-column-alignment=left]")
+        align.click()
+        expect(align).to_have_attribute("aria-pressed", "true")
+        expect(cell).to_have_css("text-align", "left")
+        expect(page.locator("#markdown-editor")).to_have_value(
+            SOURCE.replace("| --- |", "| :--- |")
         )
+        page.locator("[data-column-alignment=auto]").click()
+        page.keyboard.press("Escape")
+        code_line = editor.locator('[data-code-line="10"]')
+        expect(editor.locator(".cm-code-filename")).to_have_text("main.py")
+        expect(code_line.locator("span", has_text='"test"')).to_have_css(
+            "color", "rgb(21, 128, 61)"
+        )
+        expect(editor.locator(".cm-code-highlighted")).to_have_attribute("data-code-line", "11")
+        expect(editor.locator(".cm-code-removed")).to_have_text("-old")
+        expect(editor.locator(".cm-code-added")).to_have_text("+new")
         task = editor.locator(".cm-md-task")
         expect(task).to_have_css("width", "16px")
         task.click()
@@ -88,10 +111,10 @@ def test_geist_document_controls(
         expect(mirror).to_have_value(re.compile(r"\[x\]", re.IGNORECASE))
         task.click()
         expect(mirror).to_have_value(SOURCE)
-        copy = editor.locator(".cm-code-copy")
+        copy = editor.locator(".cm-code-copy").first
         copy.click()
         expect(copy.locator("use")).to_have_attribute("href", "#icon-check")
-        assert page.evaluate("window.copiedCode").strip() == "print(42)"
+        assert page.evaluate("window.copiedCode").strip() == 'return_value = "test"\nprint(42)'
         live_disclosure = editor.locator(".cm-document-disclosure details")
         expect(live_disclosure).to_have_js_property("open", False)
         live_disclosure.locator("summary").press("Enter")
@@ -124,12 +147,14 @@ def test_geist_document_controls(
         disclosure.locator("summary").click()
         expect(preview.get_by_text("Additional text")).to_be_visible()
         expect(preview.locator(".document-table-scroll table th")).to_have_count(2)
+        expect(preview.locator(".document-table-scroll td").last).to_have_css("text-align", "right")
         page.locator("#workspace-layout-button").click()
         page.locator("#workspace-toggle-preview").click()
 
         trigger = page.locator("#workspace-export-formats")
         menu = page.locator("#workspace-export-menu")
         main_export = page.locator("#workspace-export")
+        expect(main_export).to_have_text("خروجی" if locale == "fa" else "Export")
         expect(main_export).to_have_css("height", "32px")
         expect(trigger).to_have_css("height", "32px")
         expect(main_export).to_have_css("border-top-width", "1px")
@@ -166,10 +191,24 @@ def test_geist_document_controls(
         expect(page.locator("html")).to_have_attribute("data-theme", "dark")
         page.locator("#settings-button").click()
         expect(theme.locator('input[value="dark"]')).to_be_checked()
-        page.keyboard.press("Escape")
-
+        accent = page.locator("#setting-accent")
+        expect(accent.locator('input[type="radio"]')).to_have_count(8)
+        expect(accent.locator("input[value=gray]")).to_have_count(0)
+        get_ends = """() => [...document.querySelectorAll('#setting-theme, #setting-accent')]
+          .map(el => { const {left,right}=el.getBoundingClientRect();
+             const row = el.closest('.settings-row').getBoundingClientRect();
+             return document.dir === 'rtl' ? left-row.left : row.right-right; })"""
+        assert page.evaluate(get_ends) == [0, 0]
+        accent.locator("label:has(input[value=purple])").click()
+        page.locator("#settings-form button[type='submit']").click()
         page.locator("#open-library").click()
-        page.locator("#shelf-import").click()
+        expect(page.locator("#library-view")).to_have_css("background-color", "rgb(0, 0, 0)")
+        expect(import_files).to_have_css("background-color", "rgb(126, 58, 184)")
+        page.locator("#settings-button").click()
+        accent.locator("label:has(input[value=monochrome])").click()
+        page.locator("#settings-form button[type='submit']").click()
+        expect(import_files).to_have_css("background-color", "rgb(255, 255, 255)")
+        import_files.click()
         json_document = page.locator("#json-document")
         json_document.locator("summary", has_text="nested").click()
         json_document.locator(".json-field", has_text="enabled").click()

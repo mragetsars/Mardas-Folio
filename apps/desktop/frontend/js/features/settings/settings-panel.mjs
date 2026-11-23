@@ -7,8 +7,6 @@ export function createSettingsPanel(form) {
   const buttons = [...nav.querySelectorAll("button[aria-controls]")];
   const content = form.querySelector("#settings-sections");
   const empty = form.querySelector("#settings-empty");
-  const accent = form.querySelector("#setting-accent");
-  const swatch = form.querySelector(".settings-accent-swatch");
   const sections = [...content.querySelectorAll(".settings-section")].map((section) => ({
     section,
     heading: section.querySelector("h3"),
@@ -23,7 +21,7 @@ export function createSettingsPanel(form) {
     for (const { section, heading, rows } of sections) {
       for (const row of rows) {
         const searchableText = foldForFilter(
-          `${heading.textContent} ${row.dataset.settingsTerms || ""} ${row.textContent}`,
+          `${heading.textContent} ${row.dataset.settingsTerms || ""} ${row.textContent} ${[...row.querySelectorAll("input[type=radio]")].map((radio) => radio.getAttribute("aria-label")).join(" ")}`,
         );
         row.hidden = searching && !terms.every((term) => searchableText.includes(term));
       }
@@ -47,10 +45,6 @@ export function createSettingsPanel(form) {
     render();
   }
 
-  function updateAccentPreview() {
-    swatch.style.setProperty("--settings-accent-sample", `var(--ui-accent-${accent.value})`);
-  }
-
   nav.addEventListener("click", (event) => {
     const button = event.target.closest("button[aria-controls]");
     if (button) showSection(button.getAttribute("aria-controls"));
@@ -63,7 +57,6 @@ export function createSettingsPanel(form) {
     showSection();
     search.focus();
   });
-  accent.addEventListener("change", updateAccentPreview);
   // A draft can contain an invalid number after its row has been filtered out.
   form.addEventListener(
     "invalid",
@@ -74,5 +67,5 @@ export function createSettingsPanel(form) {
     true,
   );
 
-  return { showSection, updateAccentPreview };
+  return { showSection };
 }

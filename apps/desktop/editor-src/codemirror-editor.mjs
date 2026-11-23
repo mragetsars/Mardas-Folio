@@ -1,6 +1,19 @@
 import { autocompletion, completionKeymap, snippetCompletion } from "@codemirror/autocomplete";
 import { indentLess, indentMore, redo, undo } from "@codemirror/commands";
 import { css } from "@codemirror/lang-css";
+import { jsonLanguage } from "@codemirror/lang-json";
+import { pythonLanguage } from "@codemirror/lang-python";
+import { yamlLanguage } from "@codemirror/lang-yaml";
+import { c, cpp, csharp, java } from "@codemirror/legacy-modes/mode/clike";
+import { diff } from "@codemirror/legacy-modes/mode/diff";
+import { dockerFile } from "@codemirror/legacy-modes/mode/dockerfile";
+import { go } from "@codemirror/legacy-modes/mode/go";
+import { lua } from "@codemirror/legacy-modes/mode/lua";
+import { powerShell } from "@codemirror/legacy-modes/mode/powershell";
+import { ruby } from "@codemirror/legacy-modes/mode/ruby";
+import { rust } from "@codemirror/legacy-modes/mode/rust";
+import { shell } from "@codemirror/legacy-modes/mode/shell";
+import { standardSQL } from "@codemirror/legacy-modes/mode/sql";
 import { html } from "@codemirror/lang-html";
 import { javascript } from "@codemirror/lang-javascript";
 import {
@@ -9,7 +22,7 @@ import {
   markdownLanguage,
   pasteURLAsLink,
 } from "@codemirror/lang-markdown";
-import { LanguageDescription } from "@codemirror/language";
+import { StreamLanguage } from "@codemirror/language";
 import { setDiagnostics } from "@codemirror/lint";
 import { Compartment, EditorSelection, EditorState, Prec, Transaction } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
@@ -34,27 +47,36 @@ import { commitTableCellDraft } from "./table-editing.mjs";
 
 const MAX_COMPLETIONS = 500;
 
-/**
- * Languages available for fenced code blocks.
- *
- * These parsers already sit in the dependency tree beneath
- * `@codemirror/lang-markdown`, so wiring them up costs no new dependency.
- */
-const CODE_LANGUAGES = [
-  LanguageDescription.of({
-    name: "javascript",
-    alias: ["js", "jsx", "node", "mjs"],
-    load: async () => javascript({ jsx: true }),
-  }),
-  LanguageDescription.of({
-    name: "typescript",
-    alias: ["ts", "tsx"],
-    load: async () => javascript({ jsx: true, typescript: true }),
-  }),
-  LanguageDescription.of({ name: "json", load: async () => javascript() }),
-  LanguageDescription.of({ name: "html", alias: ["htm"], load: async () => html() }),
-  LanguageDescription.of({ name: "css", load: async () => css() }),
-];
+const CODE_LANGUAGES = new Map([
+  ...[
+    ["javascript", ["js", "jsx", "node", "mjs"], javascript({ jsx: true }).language],
+    ["typescript", ["ts", "tsx"], javascript({ jsx: true, typescript: true }).language],
+    ["json", [], jsonLanguage],
+    ["html", ["htm"], html().language],
+    ["css", [], css().language],
+    ["python", ["py", "python3"], pythonLanguage],
+    ["yaml", ["yml"], yamlLanguage],
+    ["bash", ["sh", "shell", "zsh"], StreamLanguage.define(shell)],
+    ["sql", [], StreamLanguage.define(standardSQL)],
+    ["rust", ["rs"], StreamLanguage.define(rust)],
+    ["java", [], StreamLanguage.define(java)],
+    ["c", [], StreamLanguage.define(c)],
+    ["cpp", ["c++", "cc", "cxx"], StreamLanguage.define(cpp)],
+    ["csharp", ["c#", "cs"], StreamLanguage.define(csharp)],
+    ["diff", ["patch"], StreamLanguage.define(diff)],
+    ["go", ["golang"], StreamLanguage.define(go)],
+    ["ruby", ["rb"], StreamLanguage.define(ruby)],
+    ["lua", [], StreamLanguage.define(lua)],
+    ["powershell", ["ps1", "pwsh"], StreamLanguage.define(powerShell)],
+    ["dockerfile", ["docker"], StreamLanguage.define(dockerFile)],
+    ["markdown", ["md"], markdownLanguage],
+  ].flatMap(([name, aliases, language]) => [name, ...aliases].map((alias) => [alias, language])),
+]);
+
+function codeLanguage(info) {
+  const name = info.replace(/^\{?\./, "").replace(/\}$/, "");
+  return CODE_LANGUAGES.get(name.toLowerCase()) || null;
+}
 
 const MARKDOWN_SNIPPETS = Object.freeze([
   snippetCompletion("# ${Heading}", {
@@ -333,7 +355,7 @@ export function createCodeMirrorEditorAdapter(
     // actually publishes.
     markdown({
       base: markdownLanguage,
-      codeLanguages: CODE_LANGUAGES,
+      codeLanguages: codeLanguage,
       extensions: [frontmatter, mathAndFootnotes],
     }),
     Prec.highest(

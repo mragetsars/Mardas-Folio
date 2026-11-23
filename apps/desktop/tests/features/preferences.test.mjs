@@ -61,17 +61,8 @@ test("preferences resolve system appearance without network state", () => {
 test("accent settings migrate, validate and survive a restart", () => {
   assert.equal(normalizePreferences({ theme: "dark" }).accent, "monochrome");
   assert.equal(normalizePreferences({ accent: "unknown" }).accent, "monochrome");
-  for (const accent of [
-    "monochrome",
-    "gray",
-    "blue",
-    "red",
-    "amber",
-    "green",
-    "teal",
-    "purple",
-    "pink",
-  ]) {
+  assert.equal(normalizePreferences({ accent: "gray" }).accent, "monochrome");
+  for (const accent of ["monochrome", "blue", "red", "amber", "green", "teal", "purple", "pink"]) {
     const store = storage();
     writePreferences({ accent, theme: "dark" }, store);
     const dataset = {};
