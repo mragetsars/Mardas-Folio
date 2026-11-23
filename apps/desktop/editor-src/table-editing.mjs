@@ -1,3 +1,4 @@
+import { spriteIcon } from "../frontend/js/ui/icons.mjs";
 /** Table controls edit cell drafts while CodeMirror owns the Markdown source. */
 import { syntaxTree } from "@codemirror/language";
 import { Transaction } from "@codemirror/state";
@@ -361,12 +362,33 @@ export function tableExtendButton(view, model, kind) {
 
 export function createTableActions(view, model) {
   const labels = tableLabels();
-  const options = document.createElement("details");
+  const options = document.createElement("div");
   options.className = "cm-table-actions";
-  const summary = document.createElement("summary");
-  summary.textContent = labels.tableOptions;
-  options.append(summary);
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "cm-table-actions-trigger";
+  trigger.ariaLabel = trigger.title = labels.tableOptions;
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.append(spriteIcon("table"));
   const actions = document.createElement("div");
+  actions.className = "cm-table-actions-menu";
+  actions.popover = "auto";
+  trigger.addEventListener("click", () => {
+    if (actions.matches(":popover-open")) actions.hidePopover();
+    else {
+      actions.showPopover();
+      const anchor = trigger.getBoundingClientRect();
+      const menu = actions.getBoundingClientRect();
+      actions.style.left =
+        Math.max(8, Math.min(anchor.right + 6, innerWidth - menu.width - 8)) + "px";
+      actions.style.top = Math.max(8, Math.min(anchor.top, innerHeight - menu.height - 8)) + "px";
+      copy.focus({ preventScroll: true });
+    }
+  });
+  actions.addEventListener("toggle", () =>
+    trigger.setAttribute("aria-expanded", String(actions.matches(":popover-open"))),
+  );
+  options.append(trigger);
   const copy = document.createElement("button");
   copy.type = "button";
   copy.textContent = labels.tableCopy;
@@ -394,7 +416,6 @@ export function createTableActions(view, model) {
   });
   actions.append(copy, remove, status);
   options.append(actions);
-  options.addEventListener("toggle", () => view.requestMeasure());
   return options;
 }
 

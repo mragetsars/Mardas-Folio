@@ -7,6 +7,10 @@ import pytest
 from playwright.sync_api import expect
 
 from mardas_folio.application import EngineService
+from tests._paths import ROOT
+
+GUIDE = (ROOT / "docs" / "guides" / "GUIDE.en.md").read_text(encoding="utf-8")
+GUIDE_DIAGRAM = re.findall(r"```mermaid\s*\n(.*?)\n```", GUIDE, re.S)[1]
 
 CODE = 'return_value = "test"\nprint(42)\n# ' + "keep this line visible " * 20
 
@@ -19,7 +23,7 @@ SOURCE = (
     f"{CODE}\n~~~\n\n"
     "~~~diff\n+++ b/main.py\n-old\n+new\n~~~\n\n"
     "<details><summary>More information</summary><p>Additional text</p></details>\n\n"
-    "~~~mermaid\nflowchart LR\n  A[First node] --> B[Last node]\n~~~\n\n"
+    f"~~~mermaid\n{GUIDE_DIAGRAM}\n~~~\n\n"
     "## Other topic\n\nParagraph under other topic.\n\n"
     "### Nested topic\n\nNested content.\n"
 )
@@ -115,8 +119,35 @@ def test_geist_document_controls(
         center = panel.locator("[data-cell-alignment=center]")
         expect(cell).to_have_css("direction", "rtl")
         expect(cell).to_have_css("text-align", "center")
+        rendered_cell = cell.locator(".cm-table-cell-content")
+        geometry = rendered_cell.bounding_box()
         expect(table.locator(".cm-table-handle-active")).to_have_count(0)
         cell.click()
+        expect(table.locator(".cm-table-handle-active")).to_have_count(2)
+        assert rendered_cell.bounding_box() == geometry
+        header_bounds = table.locator("th").first.bounding_box()
+        row_control = table.locator(".cm-table-handle-active[data-table-select=row]").bounding_box()
+        column_control = table.locator(
+            ".cm-table-handle-active[data-table-select=column]"
+        ).bounding_box()
+        assert geometry and header_bounds and row_control and column_control
+        assert abs(row_control["x"] + row_control["width"] / 2 - header_bounds["x"]) <= 2
+        assert abs(column_control["y"] + column_control["height"] / 2 - header_bounds["y"]) <= 2
+        assert (
+            page.evaluate(
+                "(b) => document.elementFromPoint(b.x + 2, b.y + b.height / 2)?.dataset.tableSelect",
+                row_control,
+            )
+            == "row"
+        )
+        assert (
+            page.evaluate(
+                "(b) => document.elementFromPoint(b.x + b.width / 2, b.y + 2)?.dataset.tableSelect",
+                column_control,
+            )
+            == "column"
+        )
+
         expect(draft).to_be_focused()
         expect(draft).to_have_text("فارسی")
         expect(table.locator(".cm-table-handle-active")).to_have_count(2)
@@ -236,12 +267,18 @@ def test_geist_document_controls(
         page.keyboard.press("Control+z")
         expect(source_text).to_have_value(SOURCE)
 
-        table.locator(".cm-table-actions summary").click()
-        table.locator(".cm-table-actions button").first.click()
+        table.locator("th").first.hover()
+        grip = editor.locator(".cm-block-grip")
+        table_actions = table.locator(".cm-table-actions-trigger")
+        expect(grip).to_be_visible()
+        a, b = grip.bounding_box(), table_actions.bounding_box()
+        assert a and b and abs(a["x"] - b["x"]) <= 2 and b["y"] > a["y"]
+        table_actions.click()
+        table.locator(".cm-table-actions-menu button").first.click()
         copied_table = page.evaluate("window.copiedCode")
         assert copied_table.startswith("| Name | Value |")
         assert copied_table.endswith("| Two words | 2 |")
-        table.locator(".cm-table-actions button").last.click()
+        table.locator(".cm-table-actions-menu button").last.click()
         expect(table).to_have_count(0)
         page.keyboard.press("Control+z")
         expect(source_text).to_have_value(SOURCE)
@@ -326,11 +363,18 @@ def test_geist_document_controls(
             diagram.locator(".md2pdf-mermaid-bg").evaluate("el => getComputedStyle(el).fill")
             != "rgb(0, 0, 0)"
         )
-        diagram.locator("summary").click()
+        diagram.locator(".cm-diagram-controls > summary").click()
         diagram.locator("input").first.fill("Updated node")
+        expect(diagram.locator("svg")).to_contain_text("Updated node")
+        expect(mirror).to_have_value(SOURCE)
+        diagram.locator(".cm-diagram-group > summary").nth(1).click()
+        dotted = diagram.locator(".cm-diagram-group").nth(1).locator(".cm-diagram-fields").last
+        expect(dotted.locator("select").nth(2)).to_have_value("-.->")
+        expect(dotted.locator("input")).to_have_value("no")
+        dotted.locator("input").fill("try again")
         diagram.locator(".cm-diagram-apply").click()
         expect(diagram.locator("svg")).to_contain_text("Updated node")
-        expect(mirror).to_have_value(re.compile(r"Updated node"))
+        expect(mirror).to_have_value(re.compile(r"-\.->\|try again\| Fix"))
         editor.locator(".cm-content").focus()
         page.keyboard.press("Control+z")
         expect(mirror).to_have_value(SOURCE)
@@ -348,11 +392,23 @@ def test_geist_document_controls(
         page.mouse.move(
             target["x"] + target["width"] / 2, target["y"] + target["height"] * 0.8, steps=10
         )
+        ghost = editor.locator(".cm-block-drag-ghost")
+        marker = editor.locator(".cm-block-drop")
+        expect(ghost).to_contain_text("Paragraph under other topic.")
+        expect(paragraph).to_have_class(re.compile(r"cm-block-drag-origin"))
+        after_heading = marker.bounding_box()
+        nested_content = editor.locator(".cm-line", has_text="Nested content.").bounding_box()
+        assert after_heading and nested_content
+        page.mouse.move(nested_content["x"] + nested_content["width"] / 2, nested_content["y"] + 3)
+        assert marker.bounding_box() == after_heading
         page.mouse.up()
         expect(mirror).to_have_value(
-            SOURCE.replace("Paragraph under other topic.\n\n", "").rstrip()
-            + "\n\nParagraph under other topic.\n"
+            SOURCE.replace("Paragraph under other topic.\n\n", "").replace(
+                "Nested content.", "Paragraph under other topic.\n\nNested content."
+            )
         )
+        expect(ghost).to_be_hidden()
+        expect(marker).to_be_hidden()
         page.keyboard.press("Control+z")
         expect(mirror).to_have_value(SOURCE)
 

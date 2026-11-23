@@ -467,13 +467,17 @@ export class TableWidget extends WidgetType {
       }
       body.append(row);
     });
-    if (view && model && !view.state.readOnly) wrapper.append(createTableActions(view, model));
-    wrapper.append(table);
-    if (view && model && !view.state.readOnly)
+    if (view && model && !view.state.readOnly) {
+      const scroller = document.createElement("div");
+      scroller.className = "cm-table-scroll";
+      scroller.append(table);
       wrapper.append(
+        scroller,
+        createTableActions(view, model),
         tableExtendButton(view, model, "row"),
         tableExtendButton(view, model, "column"),
       );
+    } else wrapper.append(table);
     return wrapper;
   }
 

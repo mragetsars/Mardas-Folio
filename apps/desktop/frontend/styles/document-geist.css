@@ -251,14 +251,6 @@
   text-align: right;
 }
 
-.codemirror-mount .cm-md-table.cm-md-table--editable :is(td, th):first-child {
-  padding-inline: 25px;
-}
-
-.codemirror-mount .cm-md-table.cm-md-table--editable th {
-  padding-block-start: 23px;
-}
-
 .document-content .document-table-scroll :is(tbody, tfoot):last-child tr:last-child > *,
 .codemirror-mount .cm-md-table tbody tr:last-child > * {
   border-block-end: 0;
@@ -277,6 +269,16 @@
   border-spacing: 0;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.codemirror-mount .cm-md-table--editable table {
+  overflow: visible;
+}
+.cm-md-table--editable :is(table:dir(ltr) th:first-child, table:dir(rtl) th:last-child) {
+  border-top-left-radius: 7px;
+}
+.cm-md-table--editable :is(table:dir(ltr) th:last-child, table:dir(rtl) th:first-child) {
+  border-top-right-radius: 7px;
 }
 
 .codemirror-mount .cm-md-task,
@@ -542,12 +544,14 @@
 }
 
 .cm-section-toggle {
-  display: inline-flex;
-  align-items: center;
+  display: inline-grid;
+  place-items: center;
   vertical-align: middle;
+  inline-size: 26px;
+  block-size: 26px;
   border: 0;
-  border-radius: 4px;
-  background: transparent;
+  border-radius: 7px;
+  background: var(--ui-panel-soft);
   color: var(--ui-muted);
   cursor: pointer;
   margin-inline-end: 3px;
@@ -612,30 +616,72 @@
 }
 
 .cm-table-actions {
-  margin-block-end: 5px;
-  font: var(--ui-text-xs)/1.5 var(--app-font);
+  position: absolute;
+  z-index: 12;
+  top: calc(0.9em + 32px);
+  left: -26px;
+  inline-size: 21px;
+}
+.cm-md-table:dir(rtl) > .cm-table-actions {
+  left: -10px;
+}
+.cm-table-actions-trigger {
+  display: grid;
+  place-items: center;
+  inline-size: 21px;
+  block-size: 23px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
   color: var(--ui-muted);
-}
-
-.cm-table-actions summary {
-  inline-size: fit-content;
   cursor: pointer;
-  padding: 2px 4px;
+  opacity: 0;
 }
-
-.cm-table-actions > div {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+.cm-table-actions-trigger .ui-icon {
+  inline-size: 14px;
+  block-size: 14px;
+}
+.cm-md-table:is(:hover, :focus-within, [data-active-row], .cm-block-hover)
+  .cm-table-actions-trigger,
+.cm-table-actions-trigger:is(:hover, :focus-visible, [aria-expanded="true"]) {
+  opacity: 1;
+}
+.cm-table-actions-trigger:is(:hover, :focus-visible, [aria-expanded="true"]) {
+  background: var(--ui-control-hover);
+  color: var(--ui-text);
+}
+.cm-table-actions-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
   padding: 4px;
-}
-
-.cm-table-actions button {
-  border: 1px solid var(--ui-border);
-  border-radius: 4px;
+  min-inline-size: 160px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 8px;
   color: var(--ui-text);
   background: var(--ui-panel);
-  padding: 4px 6px;
+  box-shadow: var(--ui-shadow-float);
+  font: var(--ui-text-xs)/1.5 var(--app-font);
+}
+.cm-table-actions-menu:popover-open {
+  display: grid;
+}
+.cm-table-actions-menu button {
+  border: 0;
+  border-radius: 5px;
+  padding: 6px 8px;
+  color: inherit;
+  background: transparent;
+  text-align: start;
   cursor: pointer;
+}
+.cm-table-actions-menu button:is(:hover, :focus-visible) {
+  background: var(--ui-control-hover);
+}
+.cm-table-actions-menu button:last-of-type {
+  color: var(--ui-danger);
+}
+.cm-table-actions-menu [role="status"]:not(:empty) {
+  padding-inline: 8px;
 }

@@ -108,6 +108,10 @@
 body:has(.cm-table-cell-editor) .cm-selection-toolbar {
   display: none;
 }
+body:has(.cm-block-drag-ghost:not([hidden])) .cm-selection-toolbar,
+.cm-editor:has(.cm-block-drag-ghost:not([hidden])) :is(.cm-selectionBackground, .cm-cursorLayer) {
+  visibility: hidden;
+}
 
 .cm-table-cell-editor[hidden],
 .cm-table-cell-input[hidden],
@@ -119,12 +123,13 @@ body:has(.cm-table-cell-editor) .cm-selection-toolbar {
 }
 .cm-table-selection-handle {
   position: absolute;
+  z-index: 2;
   display: grid;
   place-items: center;
   padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 8px;
+  background: var(--ui-panel);
   color: var(--ui-muted);
   cursor: pointer;
 }
@@ -146,9 +151,9 @@ body:has(.cm-table-cell-editor) .cm-selection-toolbar {
 }
 .cm-table-selection-handle[data-table-select="row"] {
   inset-block-start: 50%;
-  transform: translateY(-50%);
-  inline-size: 16px;
-  block-size: 24px;
+  translate: -50% -50%;
+  inline-size: 13px;
+  block-size: 23px;
 }
 .cm-table-selection-handle[data-table-select="row"]::before {
   box-shadow:
@@ -156,10 +161,11 @@ body:has(.cm-table-cell-editor) .cm-selection-toolbar {
     0 4px currentColor;
 }
 .cm-table-selection-handle[data-table-select="column"] {
-  inset-block-start: 3px;
-  inset-inline-start: calc(50% - 12px);
-  inline-size: 24px;
-  block-size: 16px;
+  top: 0;
+  left: 50%;
+  translate: -50% -50%;
+  inline-size: 23px;
+  block-size: 13px;
 }
 .cm-table-selection-handle[data-table-select="column"]::before {
   box-shadow:
@@ -168,15 +174,24 @@ body:has(.cm-table-cell-editor) .cm-selection-toolbar {
 }
 
 .cm-md-table table:dir(ltr) [data-table-select="row"] {
-  left: 3px;
+  left: 0;
 }
 .cm-md-table table:dir(rtl) [data-table-select="row"] {
-  right: 3px;
+  right: 0;
+  translate: 50% -50%;
 }
 
-.cm-md-table--editable {
+.codemirror-mount .cm-md-table--editable {
   position: relative;
   padding-inline-end: 16px;
+  overflow: visible;
+}
+.cm-md-table--editable > .cm-table-scroll {
+  overflow-x: auto;
+  padding-inline-start: 8px;
+  padding-block-start: 8px;
+  margin-inline-start: -8px;
+  margin-block-start: -8px;
 }
 .cm-table-extend,
 .cm-block-grip {
@@ -218,18 +233,59 @@ body:has(.cm-table-cell-editor) .cm-selection-toolbar {
   z-index: 12;
   left: 4px;
   inline-size: 21px;
-  block-size: 25px;
-  font-size: 16px;
+  block-size: 23px;
+  display: grid;
+  place-items: center;
+  border-color: transparent;
+  background: transparent;
+}
+.cm-block-grip .ui-icon {
+  inline-size: 14px;
+  block-size: 14px;
 }
 .cm-block-drop {
   position: absolute;
   z-index: 13;
   block-size: 2px;
-  background: var(--ui-accent);
-  box-shadow: var(--ui-focus-ring);
+  translate: 0 -50%;
+  background: var(--geist-blue-700, #0070f3);
   pointer-events: none;
 }
+.cm-block-drop::before {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 50%;
+  translate: -50% -50%;
+  box-sizing: border-box;
+  inline-size: 8px;
+  block-size: 8px;
+  border: 2px solid var(--geist-blue-700, #0070f3);
+  border-radius: 50%;
+  background: var(--ui-page);
+  content: "";
+}
+.cm-block-drag-ghost {
+  position: fixed;
+  z-index: 150;
+  max-inline-size: min(34rem, calc(100vw - 16px));
+  max-block-size: 9rem;
+  padding: 6px 9px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 6px;
+  color: var(--ui-text);
+  background: var(--ui-panel);
+  box-shadow: var(--ui-shadow-float);
+  opacity: 0.88;
+  pointer-events: none;
+}
+.cm-block-drag-origin {
+  opacity: 0.28;
+}
 .cm-block-drop[hidden],
+.cm-block-drag-ghost[hidden],
 .cm-block-grip[hidden] {
   display: none;
 }
@@ -274,11 +330,66 @@ body:has(.cm-table-cell-editor) .cm-selection-toolbar {
   gap: 8px;
   padding: 8px 12px 12px;
 }
+.cm-diagram-direction {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cm-diagram-group {
+  min-inline-size: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: 7px;
+}
+.cm-diagram-group > summary {
+  cursor: pointer;
+  padding: 7px 10px;
+  background: var(--ui-panel-soft);
+  font: 600 var(--ui-text-sm)/1.5 var(--app-font);
+}
+.cm-diagram-group > summary > span {
+  margin-inline-start: 8px;
+  color: var(--ui-muted);
+  font-weight: 400;
+}
+.cm-diagram-group > div {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  max-block-size: 300px;
+  overflow: auto;
+}
 .cm-diagram-fields {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
   gap: 6px;
+  padding-block-end: 8px;
+  border-block-end: 1px solid var(--ui-border);
+}
+.cm-diagram-fields > label {
+  flex: 1 1 116px;
+  min-inline-size: 0;
+}
+.cm-diagram-fields > label > :is(input, select) {
+  inline-size: 100%;
+}
+.cm-diagram-controls > footer {
+  display: flex;
+  justify-content: end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  border-block-start: 1px solid var(--ui-border);
+}
+.cm-diagram-controls > footer p {
+  margin: 0;
+  margin-inline-end: auto;
+  color: var(--ui-danger);
+  font-size: var(--ui-text-xs);
+}
+.cm-diagram-controls > footer p:empty {
+  display: none;
 }
 .cm-diagram-controls label,
 .cm-visual-fields label {
