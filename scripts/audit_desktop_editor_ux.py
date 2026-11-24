@@ -444,7 +444,7 @@ def run_writing_width(page: Any) -> list[str]:
     expect(mirror(page)).to_have_value(before + "WIDTH_HISTORY_MARKER")
     full_width = editor(page).bounding_box()["width"]
     open_settings(page, "writing")
-    page.locator("#setting-writing-width").select_option("readable")
+    page.locator("#setting-writing-width").fill("42")
     page.locator('#settings-form button[type="submit"]').click()
     comfortable_width = editor(page).bounding_box()["width"]
     if comfortable_width >= full_width - 100:
@@ -452,9 +452,9 @@ def run_writing_width(page: Any) -> list[str]:
             f"Readable column did not narrow full writing space: {full_width} -> {comfortable_width}"
         )
     open_settings(page, "writing")
-    page.locator("#setting-writing-width").select_option("wide")
+    page.locator("#setting-writing-width").fill("73")
     page.locator('#settings-form button[type="submit"]').click()
-    expect(page.locator("html")).to_have_attribute("data-writing-width", "wide")
+    expect(page.locator("#document-width-label")).to_have_text("73%")
     wide_width = editor(page).bounding_box()["width"]
     if wide_width <= comfortable_width + 100:
         raise AssertionError(
@@ -463,7 +463,7 @@ def run_writing_width(page: Any) -> list[str]:
     saved = page.evaluate(
         "JSON.parse(localStorage.getItem('mardas.desktop.preferences.v1')).writingWidth"
     )
-    if saved != "wide":
+    if saved != 73:
         raise AssertionError("Writing width preference was not persisted")
     expect(mirror(page)).to_have_value(before + "WIDTH_HISTORY_MARKER")
     mode(page, "source")
@@ -471,7 +471,7 @@ def run_writing_width(page: Any) -> list[str]:
     page.keyboard.press("Control+z")
     expect(mirror(page)).to_have_value(before)
     open_settings(page, "writing")
-    expect(page.locator("#setting-writing-width")).to_have_value("wide")
+    expect(page.locator("#setting-writing-width")).to_have_value("73")
     page.keyboard.press("Escape")
     return ["writing-column-preference-persists-and-preserves-source-history"]
 

@@ -748,18 +748,11 @@ function renderDocumentViewControls() {
   if (larger) larger.disabled = zoom >= DOCUMENT_ZOOM_MAX;
   const width = $("#document-toggle-width");
   if (width) {
-    const full = state.preferences.writingWidth === "full";
-    width.setAttribute("aria-pressed", String(!full));
-    const label = t(full ? "useReadableWidth" : "useFullWidth");
+    const value = state.preferences.writingWidth + "%";
+    const label = `${t("writingWidth")} · ${value}`;
     width.title = label;
     width.setAttribute("aria-label", label);
-    $("#document-width-label").textContent = t(
-      full
-        ? "fullColumn"
-        : state.preferences.writingWidth === "wide"
-          ? "wideColumn"
-          : "comfortableColumn",
-    );
+    $("#document-width-label").textContent = value;
   }
 }
 
@@ -1224,20 +1217,12 @@ function commandDefinitions() {
       run: () => changeDocumentZoom(0),
     },
     {
-      id: "document-full-width",
-      symbol: "focus",
-      label: t("useFullWidth"),
+      id: "document-width",
+      symbol: "settings",
+      label: t("writingWidth"),
       keywords: "document width full canvas عرض تمام",
       priority: 37,
-      run: () => updateDocumentView({ writingWidth: "full" }),
-    },
-    {
-      id: "document-readable-width",
-      symbol: "book",
-      label: t("useReadableWidth"),
-      keywords: "document width readable column عرض ستون خوانا",
-      priority: 37,
-      run: () => updateDocumentView({ writingWidth: "readable" }),
+      run: () => openSettings("settings-writing", "#setting-writing-width"),
     },
     {
       id: "help",
@@ -4405,9 +4390,7 @@ function bindEvents() {
   $("#document-zoom-in")?.addEventListener("click", () => changeDocumentZoom(1));
   $("#document-zoom-reset")?.addEventListener("click", () => changeDocumentZoom(0));
   $("#document-toggle-width")?.addEventListener("click", () =>
-    updateDocumentView({
-      writingWidth: state.preferences.writingWidth === "full" ? "readable" : "full",
-    }),
+    openSettings("settings-writing", "#setting-writing-width"),
   );
   $("#workspace-quick-open")?.addEventListener("click", () => navigationPicker.open("files"));
   $("#navigator-new")?.addEventListener("click", createUntitledDocument);
@@ -4788,6 +4771,7 @@ function bindEvents() {
   $("#command-query").addEventListener("keydown", commandKeydown);
 
   document.addEventListener("keydown", (event) => {
+    if (event.target.closest?.(".cm-editor-dialog")) return;
     if (event.key === "Escape") {
       // The dialog manager and editor menus get the first Escape. Closing a
       // picker must not also leave the writer's focus mode underneath it.
@@ -4882,6 +4866,7 @@ function bindEvents() {
     "keydown",
     (event) => {
       if (event.key !== "Escape" || event.defaultPrevented || modalManager.hasOpenModal()) return;
+      if (event.target.closest?.(".cm-editor-dialog")) return;
       const compactDrawer =
         event.target.closest?.(".editor-surface") &&
         compactSidePanes.matches &&

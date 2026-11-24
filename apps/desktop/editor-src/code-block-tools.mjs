@@ -4,6 +4,8 @@ import { isolateHistory } from "@codemirror/commands";
 import { WidgetType } from "@codemirror/view";
 import { createCopyButton } from "../frontend/js/ui/copy-button.mjs";
 import { createCodeWrapButton } from "../frontend/js/ui/code-wrap.mjs";
+import { spriteIcon } from "../frontend/js/ui/icons.mjs";
+import { editorDialog } from "./editor-dialog.mjs";
 
 export const setCodeWrap = StateEffect.define();
 export const codeWrapState = StateField.define({
@@ -37,6 +39,11 @@ const TEXT = {
     copy: "Copy code",
     copied: "Copied",
     failed: "Copy failed",
+    settings: "Code block settings",
+    highlight: "Highlighted lines",
+    added: "Added lines",
+    removed: "Removed lines",
+    rangeHelp: "Enter line numbers or ranges, for example 2, 5–7.",
   },
   fa: {
     block: "بلوک کد",
@@ -46,6 +53,11 @@ const TEXT = {
     copy: "کپی کد",
     copied: "کپی شد",
     failed: "کپی نشد",
+    settings: "تنظیمات بلوک کد",
+    highlight: "خط‌های برجسته",
+    added: "خط‌های افزوده‌شده",
+    removed: "خط‌های حذف‌شده",
+    rangeHelp: "شماره یا بازهٔ خط‌ها را وارد کن، مثلاً 2, 5–7.",
   },
 };
 const LANGUAGES = [
@@ -122,8 +134,14 @@ export function codeBodyPrefixRanges(state, spec) {
   return ranges;
 }
 
-const range = /^(\d+)(?:-(\d+))?$/;
+const range = /^(\d{1,15})(?:-(\d{1,15}))?$/;
 const lineNumber = /^(?:linenos|line-?numbers|numberlines|numbered)$/i;
+const rangeKeys = {
+  ranges: /^(?:hl[_-]lines|highlight|line-highlight|lines|emphasize-lines)$/,
+  added: /^(?:added|added[-_]lines)$/,
+  removed: /^(?:removed|removed[-_]lines)$/,
+};
+const fenceOption = /([a-z][\w-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s}]+))/gi;
 
 function lineRanges(value) {
   return value.split(/[,;\s]+/).flatMap((part) => {
@@ -137,13 +155,10 @@ function lineRanges(value) {
 
 export function codePresentation(attributes) {
   const values = new Map();
-  const bare = attributes.replace(
-    /([a-z][\w-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s}]+))/gi,
-    (_, key, double, single, plain) => {
-      values.set(key.toLowerCase(), double ?? single ?? plain);
-      return " ";
-    },
-  );
+  const bare = attributes.replace(fenceOption, (_, key, double, single, plain) => {
+    values.set(key.toLowerCase(), double ?? single ?? plain);
+    return " ";
+  });
   const options = Array.from(values);
   const option = (keys) => options.find(([key]) => keys.test(key))?.[1] ?? "";
   const start = Number(option(/^(?:start|start-?line|line-start|lineno-?start|first-line)$/));
@@ -153,7 +168,7 @@ export function codePresentation(attributes) {
       ([key, value]) => lineNumber.test(key) && /^(?:1|true|yes|on|table|inline)$/i.test(value),
     );
   const ranges = options
-    .filter(([key]) => /^(?:hl[_-]lines|highlight|line-highlight|lines|emphasize-lines)$/.test(key))
+    .filter(([key]) => rangeKeys.ranges.test(key))
     .flatMap(([, value]) => lineRanges(value));
   for (const brace of bare.matchAll(/\{([0-9,;\s-]+)\}/g)) ranges.push(...lineRanges(brace[1]));
   return {
@@ -161,8 +176,8 @@ export function codePresentation(attributes) {
     numbered,
     start: Number.isSafeInteger(start) && start > 0 ? start : 1,
     ranges,
-    added: lineRanges(option(/^(?:added|added-lines)$/)),
-    removed: lineRanges(option(/^(?:removed|removed-lines)$/)),
+    added: lineRanges(option(rangeKeys.added)),
+    removed: lineRanges(option(rangeKeys.removed)),
   };
 }
 
@@ -182,11 +197,20 @@ export function codeRowAttributes(state, spec, at) {
     return list.some(([first, last]) => lineNumber >= first && lineNumber <= last);
   };
   const text = diff ? stripCodePrefix(line.text, spec.bodyPrefix) : "";
+  const change = inRanges(added)
+    ? "added"
+    : inRanges(removed)
+      ? "removed"
+      : diff && /^\+(?!\+\+)/.test(text)
+        ? "added"
+        : diff && /^-(?!--)/.test(text)
+          ? "removed"
+          : "";
   return {
     number: numbered ? String(number) : "",
     highlighted: inRanges(ranges),
-    added: inRanges(added) || (diff && /^\+(?!\+\+)/.test(text)),
-    removed: inRanges(removed) || (diff && /^-(?!--)/.test(text)),
+    added: change === "added",
+    removed: change === "removed",
   };
 }
 
@@ -232,6 +256,7 @@ export function fencedCodeSpec(state, value) {
     openerFrom: opener.from,
     openerTo: opener.to,
     openerText: opener.text,
+    infoFrom: opening.to,
     languageFrom,
     languageTo,
     language,
@@ -270,6 +295,84 @@ export function codeLanguageChange(state, spec, language) {
   const insert = spec.hasBrace && !spec.language ? name + " " : name;
   if (state.doc.sliceString(spec.languageFrom, spec.languageTo) === insert) return null;
   return { from: spec.languageFrom, to: spec.languageTo, insert };
+}
+
+const formatRanges = (ranges) =>
+  ranges.map(([from, to]) => (from === to ? String(from) : from + "-" + to)).join(", ");
+
+export function codeLineOptionsChange(state, spec, values) {
+  const info = state.sliceDoc(spec.infoFrom, spec.openerTo);
+  // Consume each quoted value as a unit so a title that mentions a setting
+  // is preserved. Numeric braces are an alternate spelling of highlights.
+  const tokens = new RegExp(fenceOption.source + "|\\{[0-9,;\\s-]+\\}", "gi");
+  const remaining = info.replace(tokens, (text, key) =>
+    !key || Object.keys(values).some((kind) => rangeKeys[kind].test(key.toLowerCase())) ? "" : text,
+  );
+  const clean = remaining.trimEnd();
+  const attributes = [
+    ["hl_lines", values.ranges],
+    ["added", values.added],
+    ["removed", values.removed],
+  ]
+    .filter(([, ranges]) => ranges.length)
+    .map(([key, ranges]) => key + '="' + formatRanges(ranges) + '"');
+  const insert = attributes.length
+    ? (clean.trim() ? clean : "text") + " " + attributes.join(" ")
+    : clean;
+  return insert === info ? null : { from: spec.infoFrom, to: spec.openerTo, insert };
+}
+
+function openLineOptions(view, spec, labels) {
+  const panel = editorDialog(view, labels.settings);
+  panel.dialog.classList.add("cm-code-settings-dialog");
+  const help = document.createElement("p");
+  help.textContent = labels.rangeHelp;
+  panel.body.append(help);
+  const inputs = Object.fromEntries(
+    [
+      ["ranges", labels.highlight],
+      ["added", labels.added],
+      ["removed", labels.removed],
+    ].map(([kind, label]) => {
+      const field = document.createElement("label");
+      field.textContent = label;
+      const input = document.createElement("input");
+      input.dir = "ltr";
+      input.value = formatRanges(spec.presentation[kind]);
+      input.pattern = "[0-9,;\\s\\-–۰-۹٠-٩]*";
+      field.append(input);
+      panel.body.append(field);
+      return [kind, input];
+    }),
+  );
+  panel.open(() => {
+    if (view.state.readOnly || !currentSpec(view, spec)) return false;
+    const values = {};
+    for (const [kind, input] of Object.entries(inputs)) {
+      const value = input.value
+        .replace(/[۰-۹٠-٩]/g, (digit) => digit.charCodeAt(0) % 16)
+        .replaceAll("–", "-");
+      if (value.split(/[,;\s]+/).some((part) => part && !lineRanges(part).length)) {
+        input.focus();
+        panel.message.textContent = labels.rangeHelp;
+        return false;
+      }
+      values[kind] = lineRanges(value);
+    }
+    if (
+      Object.keys(values).every(
+        (kind) => formatRanges(values[kind]) === formatRanges(spec.presentation[kind]),
+      )
+    )
+      return true;
+    const change = codeLineOptionsChange(view.state, spec, values);
+    if (change)
+      view.dispatch({
+        changes: change,
+        annotations: [isolateHistory.of("full"), Transaction.userEvent.of("input.code-settings")],
+      });
+    return true;
+  });
 }
 
 export class CodeBlockHeaderWidget extends WidgetType {
@@ -376,6 +479,18 @@ export class CodeBlockHeaderWidget extends WidgetType {
       });
     });
     if (spec.bodyFrom === spec.bodyTo && !view.state.readOnly) actions.append(edit);
+    if (!view.state.readOnly) {
+      const options = document.createElement("button");
+      options.type = "button";
+      options.className = "cm-code-settings";
+      options.ariaLabel = options.title = labels.settings;
+      options.setAttribute("aria-haspopup", "dialog");
+      options.append(spriteIcon("settings"));
+      options.addEventListener("click", () => {
+        if (currentSpec(view, spec)) openLineOptions(view, spec, labels);
+      });
+      actions.append(options);
+    }
     actions.append(wrap, copy);
     const identity = document.createElement("span");
     identity.className = "cm-code-identity";

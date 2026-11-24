@@ -72,14 +72,20 @@ test("accent settings migrate, validate and survive a restart", () => {
   }
 });
 
-test("existing narrow defaults migrate to a full canvas while explicit new widths persist", () => {
-  assert.equal(normalizePreferences().writingWidth, "readable");
-  assert.equal(normalizePreferences({ writingWidth: "comfortable" }).writingWidth, "full");
-  for (const writingWidth of ["full", "readable", "wide"]) {
-    const store = storage();
-    writePreferences({ writingWidth }, store);
-    assert.equal(readPreferences(store).writingWidth, writingWidth);
-  }
+test("existing width presets migrate and arbitrary width values persist", () => {
+  assert.equal(normalizePreferences().writingWidth, 45);
+  for (const [writingWidth, percent] of Object.entries({
+    comfortable: 100,
+    full: 100,
+    readable: 45,
+    wide: 65,
+  }))
+    assert.equal(normalizePreferences({ writingWidth }).writingWidth, percent);
+  assert.equal(normalizePreferences({ writingWidth: 12 }).writingWidth, 25);
+  assert.equal(normalizePreferences({ writingWidth: 140 }).writingWidth, 100);
+  const store = storage();
+  writePreferences({ writingWidth: 73 }, store);
+  assert.equal(readPreferences(store).writingWidth, 73);
 });
 
 test("document text zoom preserves legacy accessibility sizes and bounds malformed stored values", () => {
@@ -116,7 +122,7 @@ test("document text zoom exposes its own scale without altering the interface or
   );
   assert.equal(dataset.documentZoom, "150");
   assert.equal(dataset.contentScale, "comfortable");
-  assert.equal(dataset.writingWidth, "full");
+  assert.equal(properties.get("--writing-column"), "100%");
   assert.equal(properties.get("--document-text-scale"), "1.5");
   assert.equal(properties.get("--writing-line-height"), "1.65");
   assert.equal(properties.get("--writing-paragraph-gap"), "8px");

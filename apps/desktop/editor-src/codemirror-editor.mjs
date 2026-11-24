@@ -29,7 +29,6 @@ import { EditorView, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 
 import {
-  authoringToolsTheme,
   readOnlyDocumentGuard,
   selectionToolbarExtension,
   slashCompletionSource,
@@ -406,7 +405,6 @@ export function createCodeMirrorEditorAdapter(
     preview.of(previewExtensions()),
     writingRhythm.of(typewriterExtension(typewriterEnabled)),
     selectionTools.of(selectionExtensions()),
-    authoringToolsTheme,
     searchHighlights,
     // The read-only facet prevents ordinary typing. This also protects
     // transactions from custom commands, history and rendered widgets.

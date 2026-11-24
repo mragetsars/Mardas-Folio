@@ -248,6 +248,7 @@ function lineDirection(text) {
 }
 const listMark = Decoration.mark({ class: "cm-md-list-mark" });
 const documentTextRun = Decoration.mark({ class: "cm-document-text-run" });
+const selectedDocumentText = Decoration.mark({ class: "cm-document-selected-text" });
 
 /** The three spellings of one bullet. An ordered marker keeps its number. */
 const BULLET_SPELLINGS = new Set(["-", "*", "+"]);
@@ -465,12 +466,6 @@ function buildDecorations(view) {
           state.facet(mathRenderer) &&
           node.to - node.from <= 16 * 1024
         ) {
-          const editing = state.selection.ranges.some((range) =>
-            range.empty
-              ? range.from >= node.from && range.from <= node.to
-              : range.from < node.to && range.to > node.from,
-          );
-          if (editing) return false;
           marks.push([
             node.from,
             node.to,
@@ -481,6 +476,7 @@ function buildDecorations(view) {
                 node.to,
                 false,
                 state.facet(mathRenderer),
+                state.readOnly,
               ),
             }),
           ]);
@@ -695,6 +691,11 @@ function buildDecorations(view) {
     for (let pos = from; pos <= to;) {
       const line = state.doc.lineAt(pos);
       lines.push({ at: line.from, deco: lineDirection(line.text) });
+      for (const selection of state.selection.ranges) {
+        const start = Math.max(line.from, selection.from);
+        const end = Math.min(line.to, selection.to);
+        if (start < end) marks.push([start, end, selectedDocumentText]);
+      }
       // CodeMirror uses short, plain ASCII lines as samples of the default
       // font. Document has larger headings and smaller code rows, so sample
       // the editor's default styling instead of resetting the height map

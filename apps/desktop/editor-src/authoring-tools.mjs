@@ -13,8 +13,10 @@ import {
   StateField,
   Transaction,
 } from "@codemirror/state";
-import { EditorView, getTooltip, keymap, showTooltip, tooltips } from "@codemirror/view";
+import { getTooltip, keymap, showTooltip, tooltips } from "@codemirror/view";
 import { runMarkdownCommand } from "./markdown-commands.mjs";
+import { spriteIcon } from "../frontend/js/ui/icons.mjs";
+import { openMathEditor, updateMath } from "./math-editor.mjs";
 
 const BLOCKS = Object.freeze([
   {
@@ -204,6 +206,22 @@ export function slashBlockOptions(query = "", locale = "en") {
     apply(view, completion) {
       const transaction = slashBlockTransaction(view.state, block.id, locale);
       if (!transaction) return;
+      if (block.id === "math-block") {
+        const { from, to, insert } = transaction.changes;
+        const original = view.state.sliceDoc(from, to);
+        return openMathEditor(view, {
+          display: true,
+          expression: "",
+          apply: (markup) =>
+            updateMath(
+              view,
+              from,
+              to,
+              insert.replace(block.text, () => markup),
+              original,
+            ),
+        });
+      }
       transaction.annotations.push(pickedCompletion.of(completion));
       view.dispatch(transaction);
       view.focus();
@@ -224,10 +242,31 @@ export function slashCompletionSource(getLocale) {
 }
 
 const FORMATS = Object.freeze([
-  { command: "bold", text: "B", en: "Bold", fa: "پررنگ", shortcut: "Ctrl/Cmd+B" },
-  { command: "italic", text: "I", en: "Italic", fa: "مورب", shortcut: "Ctrl/Cmd+I" },
-  { command: "link", text: "↗", en: "Link", fa: "پیوند", shortcut: "Ctrl/Cmd+K" },
-  { command: "code", text: "</>", en: "Inline code", fa: "کد درون متن", shortcut: "Ctrl/Cmd+E" },
+  {
+    command: "bold",
+    icon: "format-bold",
+    node: "StrongEmphasis",
+    en: "Bold",
+    fa: "پررنگ",
+    shortcut: "Ctrl/Cmd+B",
+  },
+  {
+    command: "italic",
+    icon: "format-italic",
+    node: "Emphasis",
+    en: "Italic",
+    fa: "مورب",
+    shortcut: "Ctrl/Cmd+I",
+  },
+  { command: "link", icon: "link", node: "Link", en: "Link", fa: "پیوند", shortcut: "Ctrl/Cmd+K" },
+  {
+    command: "code",
+    icon: "format-code",
+    node: "InlineCode",
+    en: "Inline code",
+    fa: "کد درون متن",
+    shortcut: "Ctrl/Cmd+E",
+  },
 ]);
 
 export function selectionToolbarEligible(state) {
@@ -240,6 +279,11 @@ export function selectionToolbarEligible(state) {
     !inAuthoringProse(state, main.to)
   )
     return false;
+  if (state.doc.lineAt(main.from).number !== state.doc.lineAt(main.to).number) {
+    let node = syntaxTree(state).resolveInner(main.from, 1);
+    while (node && node.name !== "Paragraph") node = node.parent;
+    if (!node || main.to > node.to) return false;
+  }
   let prose = true;
   syntaxTree(state).iterate({
     from: main.from,
@@ -270,9 +314,15 @@ function toolbarDOM(view, locale) {
     button.tabIndex = index === 0 ? 0 : -1;
     button.dataset.editorCommand = format.command;
     const label = locale === "fa" ? format.fa : format.en;
-    button.textContent = format.text;
+    button.append(spriteIcon(format.icon));
     button.setAttribute("aria-label", label);
     button.title = `${label} (${format.shortcut})`;
+    button.setAttribute(
+      "aria-keyshortcuts",
+      format.shortcut.replace("Ctrl/Cmd", "Control") +
+        " " +
+        format.shortcut.replace("Ctrl/Cmd", "Meta"),
+    );
     button.addEventListener("mousedown", (event) => event.preventDefault());
     button.addEventListener("click", () => runMarkdownCommand(view, format.command));
     dom.append(button);
@@ -304,6 +354,14 @@ function toolbarDOM(view, locale) {
   const updateFocus = () => {
     const active = document.activeElement;
     dom.hidden = !view.dom.contains(active) && !dom.contains(active);
+    const { from, to } = view.state.selection.main;
+    const formats = new Set();
+    for (let node = syntaxTree(view.state).resolveInner(from, 1); node; node = node.parent) {
+      if (node.to >= to) formats.add(node.name);
+    }
+    buttons.forEach((button, index) =>
+      button.setAttribute("aria-pressed", String(formats.has(FORMATS[index].node))),
+    );
   };
   return {
     dom,
@@ -378,33 +436,3 @@ export function selectionToolbarExtension(locale = "en", enabled = true) {
     ),
   ];
 }
-
-export const authoringToolsTheme = EditorView.baseTheme({
-  ".cm-selection-toolbar": {
-    display: "flex",
-    alignItems: "center",
-    gap: "2px",
-    padding: "4px",
-    fontFamily: "var(--app-font, system-ui, sans-serif)",
-  },
-  ".cm-selection-toolbar[hidden]": { display: "none" },
-  ".cm-selection-toolbar button": {
-    display: "grid",
-    placeItems: "center",
-    minWidth: "32px",
-    height: "32px",
-    border: "0",
-    borderRadius: "5px",
-    background: "transparent",
-    color: "var(--cm-text, #111111)",
-    font: "inherit",
-    cursor: "pointer",
-  },
-  '.cm-selection-toolbar button[data-editor-command="bold"]': { fontWeight: "750" },
-  '.cm-selection-toolbar button[data-editor-command="italic"]': { fontStyle: "italic" },
-  ".cm-selection-toolbar button:hover": { background: "var(--cm-accent-soft, #edf5ff)" },
-  ".cm-selection-toolbar button:focus-visible": {
-    outline: "2px solid var(--cm-link, #1d4ed8)",
-    outlineOffset: "-2px",
-  },
-});

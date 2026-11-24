@@ -6,7 +6,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   theme: "system",
   accent: "monochrome",
   contentScale: "comfortable",
-  writingWidth: "readable",
+  writingWidth: 45,
   documentZoom: 100,
   writingDensity: "comfortable",
   writingFont: "document",
@@ -29,7 +29,9 @@ export const DEFAULT_PREFERENCES = Object.freeze({
 const THEMES = new Set(["system", "light", "dark"]);
 const ACCENTS = new Set(["monochrome", "blue", "red", "amber", "green", "teal", "purple", "pink"]);
 const SCALES = new Set(["comfortable", "large", "extra-large"]);
-const WRITING_WIDTHS = new Set(["full", "readable", "wide"]);
+const LEGACY_WIDTHS = { comfortable: 100, full: 100, readable: 45, wide: 65 };
+export const WRITING_WIDTH_MIN = 25;
+export const WRITING_WIDTH_MAX = 100;
 const WRITING_DENSITIES = { compact: [1.5, 4], comfortable: [1.65, 8], relaxed: [1.85, 14] };
 const WRITING_FONTS = {
   document: "var(--prose-font, var(--app-font))",
@@ -72,10 +74,10 @@ export function normalizePreferences(value = {}) {
       ? value.contentScale
       : DEFAULT_PREFERENCES.contentScale,
     writingWidth:
-      value?.writingWidth === "comfortable"
-        ? "full"
-        : WRITING_WIDTHS.has(value?.writingWidth)
-          ? value.writingWidth
+      typeof value?.writingWidth === "number" && Number.isFinite(value.writingWidth)
+        ? Math.max(WRITING_WIDTH_MIN, Math.min(WRITING_WIDTH_MAX, Math.round(value.writingWidth)))
+        : Object.hasOwn(LEGACY_WIDTHS, value?.writingWidth)
+          ? LEGACY_WIDTHS[value.writingWidth]
           : DEFAULT_PREFERENCES.writingWidth,
     documentZoom: normalizeDocumentZoom(
       value?.documentZoom,
@@ -152,7 +154,7 @@ export function applyPreferences(documentElement, value, matchMedia = globalThis
   documentElement.dataset.themePreference = normalized.theme;
   documentElement.dataset.accent = normalized.accent;
   documentElement.dataset.contentScale = normalized.contentScale;
-  documentElement.dataset.writingWidth = normalized.writingWidth;
+  documentElement.style?.setProperty("--writing-column", `${normalized.writingWidth}%`);
   documentElement.dataset.documentZoom = String(normalized.documentZoom);
   documentElement.style?.setProperty(
     "--document-text-scale",

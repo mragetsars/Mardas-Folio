@@ -24,6 +24,7 @@ SOURCE = (
         '~~~{.python .numberLines title="main.py" linenostart=10 hl_lines="11"}\n'
         f"{CODE}\n~~~\n\n"
         "~~~diff\n+++ b/main.py\n-old\n+new\n~~~\n\n"
+        "Use $E=mc^2$ in context.\n\n$$\nx^2+1\n$$\n\n"
         "<details><summary>More information</summary><p>Additional text</p></details>\n\n"
         f"~~~mermaid\n{GUIDE_DIAGRAM}\n~~~\n\n"
         "## Other topic\n\nParagraph under other topic.\n\n"
@@ -69,6 +70,13 @@ def test_geist_document_controls(
     ) as context:
         page = context.new_page()
         page.set_default_timeout(7000)
+        page.route(
+            "**/js/vendor/mathjax/tex-svg-full.js",
+            lambda route: route.fulfill(
+                path=ROOT / "src" / "mardas_folio" / "assets" / "mathjax" / "tex-svg-full.js",
+                content_type="text/javascript",
+            ),
+        )
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.on(
             "console",
@@ -85,7 +93,7 @@ def test_geist_document_controls(
               onboardingComplete:true, autoPreview:true, viewMode:'write'}));
             globalThis.__TAURI__={core:{invoke:(c,a={})=>nativeInvoke(c,a)},
             event:{listen:async()=>()=>{}}};
-            Object.freeze(Object.prototype);
+
             Object.defineProperty(navigator, 'clipboard', {
               value: {writeText: async (value) => { window.copiedCode = value; }}
             });"""
@@ -123,7 +131,9 @@ def test_geist_document_controls(
         left = panel.locator("[data-cell-alignment=left]")
         center = panel.locator("[data-cell-alignment=center]")
         expect(cell).to_have_css("direction", "rtl")
-        expect(cell).to_have_css("text-align", "center")
+        expect(cell).to_have_css("text-align", "start")
+        expect(table.locator("th").nth(1)).to_have_css("text-align", "center")
+        expect(table.locator("td").nth(1)).to_have_css("text-align", "center")
         rendered_cell = cell.locator(".cm-table-cell-content")
         geometry = rendered_cell.bounding_box()
         expect(table.locator(".cm-table-handle-active")).to_have_count(0)
@@ -310,6 +320,18 @@ def test_geist_document_controls(
         expect(editor.locator(".cm-code-added")).to_have_text("+new")
         # Keep this brief, styled row out of CodeMirror's default font sample.
         expect(editor.locator(".cm-code-added .cm-document-text-run")).to_have_text("+new")
+        editor.locator(".cm-code-settings").first.click()
+        code_settings = page.locator(".cm-code-settings-dialog")
+        fields = code_settings.locator("input")
+        fields.nth(1).fill("12")
+        fields.nth(2).fill("10")
+        code_settings.locator('button[type="submit"]').click()
+        expect(code_settings).to_have_count(0)
+        expect(editor.locator('[data-code-line="10"]')).to_have_class(re.compile("cm-code-removed"))
+        expect(editor.locator('[data-code-line="12"]')).to_have_class(re.compile("cm-code-added"))
+        expect(source_text).to_have_value(re.compile('added="12" removed="10"'))
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(SOURCE)
         task = editor.locator(".cm-md-task")
         expect(task).to_have_css("width", "16px")
         before_task = task.bounding_box()
@@ -398,6 +420,29 @@ def test_geist_document_controls(
         page.locator("#workspace-layout-button").click()
         page.locator("#workspace-toggle-preview").click()
 
+        math_dialog = page.locator(".cm-math-dialog")
+        inline = editor.locator(".cm-md-math-preview:not(.cm-md-math-block-preview)")
+        inline.locator(".cm-math-edit").press("Enter")
+        expression = math_dialog.locator("input").first
+        expect(expression).to_have_value("E=mc^2")
+        expression.fill("a^2+b^2=c^2")
+        expect(math_dialog.locator(".cm-math-dialog-preview mjx-container")).to_be_visible()
+        math_dialog.locator('button[type="submit"]').click()
+        expect(mirror).to_have_value(SOURCE.replace("E=mc^2", "a^2+b^2=c^2"))
+        page.keyboard.press("Control+z")
+        expect(mirror).to_have_value(SOURCE)
+        editor.locator(".cm-md-math-block-preview .cm-math-edit").press("Enter")
+        expect(math_dialog.locator("textarea")).to_have_value("x^2+1")
+        math_dialog.locator("button").filter(has_text="½").click()
+        math_dialog.locator(".cm-math-template-fields input").first.fill("a")
+        math_dialog.locator(".cm-math-template-fields input").last.fill("b")
+        math_dialog.locator(".cm-math-template-fields button").click()
+        expect(math_dialog.locator("textarea")).to_have_value(re.compile(r"\\frac\{a\}\{b\}"))
+        math_dialog.locator('button[type="submit"]').click()
+        expect(mirror).to_have_value(re.compile(r"\\frac\{a\}\{b\}"))
+        page.keyboard.press("Control+z")
+        expect(mirror).to_have_value(SOURCE)
+
         diagram = editor.locator(".cm-diagram")
         expect(diagram.locator(".md2pdf-mermaid-svg")).to_be_visible()
         assert (
@@ -420,6 +465,19 @@ def test_geist_document_controls(
         page.keyboard.press("Control+z")
         expect(mirror).to_have_value(SOURCE)
 
+        nodes = diagram.locator('[data-diagram-pick="nodes"]')
+        nodes.first.click()
+        expect(nodes.first).to_have_attribute("aria-pressed", "true")
+        expect(diagram.locator(".cm-diagram-field-selected input").first).to_be_visible()
+        diagram.locator('.cm-diagram-tools button[aria-pressed="false"]').click()
+        nodes.first.click()
+        nodes.last.click()
+        expect(diagram.locator(".cm-diagram-field-selected select[data-endpoint]")).to_have_count(2)
+        diagram.locator(".cm-diagram-apply").click()
+        expect(mirror).not_to_have_value(SOURCE)
+        page.keyboard.press("Control+z")
+        expect(mirror).to_have_value(SOURCE)
+
         paragraph = editor.locator(".cm-content .cm-line", has_text="Paragraph under other topic.")
         nested = editor.locator(".cm-line", has_text="Nested topic")
         paragraph.hover()
@@ -437,6 +495,9 @@ def test_geist_document_controls(
         marker = editor.locator(".cm-block-drop")
         expect(ghost.locator(".cm-md-prose")).to_have_text("Paragraph under other topic.")
         expect(ghost.locator(".cm-md-prose")).to_have_css("text-align", "justify")
+        expect(editor.locator(".cm-block-drag-ghost")).to_have_css(
+            "background-color", "rgba(0, 0, 0, 0)"
+        )
         expect(paragraph).to_have_class(re.compile(r"cm-block-drag-origin"))
         after_heading = marker.bounding_box()
         nested_content = editor.locator(".cm-line", has_text="Nested content.").bounding_box()

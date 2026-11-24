@@ -21,6 +21,61 @@
 .codemirror-mount .cm-content::selection {
   background: transparent !important;
 }
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-selectionLayer .cm-selectionBackground {
+  visibility: hidden;
+}
+.cm-editor[data-editor-mode="live"] .cm-document-selected-text {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--geist-blue-700, #0070f3) 30%, transparent);
+}
+.cm-editor[data-editor-mode="live"] .cm-document-selected-block {
+  outline: 2px solid var(--geist-blue-700, #0070f3);
+  outline-offset: -2px;
+}
+body:has(.cm-block-drag-ghost:not([hidden])) .cm-document-selected-text {
+  background: transparent;
+}
+.cm-tooltip.cm-selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 8px;
+  background: var(--ui-panel);
+  box-shadow: var(--ui-shadow-float);
+  color: var(--ui-text);
+}
+.cm-tooltip.cm-selection-toolbar[hidden] {
+  display: none;
+}
+.cm-selection-toolbar button {
+  display: grid;
+  place-items: center;
+  inline-size: 31px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ui-text-soft);
+  cursor: pointer;
+}
+.cm-selection-toolbar button[data-editor-command="link"] {
+  margin-inline-start: 4px;
+}
+.cm-selection-toolbar button:is(:hover, [aria-pressed="true"]) {
+  background: var(--ui-control-hover);
+  color: var(--ui-text);
+}
+.cm-selection-toolbar button:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: -1px;
+}
+.cm-selection-toolbar svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
 /* The separator's own 2px line is its keyboard focus indicator. */
 body[data-view="workspace"] .authoring-grid .pane-resizer:focus-visible {
   outline: 0 !important;

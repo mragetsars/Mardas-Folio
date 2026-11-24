@@ -291,10 +291,7 @@ body:has(.cm-block-drag-ghost:not([hidden])) .cm-selection-toolbar,
   position: fixed;
   z-index: 150;
   overflow: hidden;
-  border-radius: var(--ui-radius-sm);
   color: var(--ui-text);
-  background: var(--ui-page);
-  box-shadow: var(--ui-shadow-float);
   pointer-events: none;
 }
 .cm-block-drag-copy {
@@ -350,6 +347,61 @@ body:has(.cm-block-drag-ghost:not([hidden])) .cm-selection-toolbar,
   width: 100%;
   max-width: 720px;
   height: auto;
+}
+.cm-diagram-tools-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--ui-muted);
+  font: var(--ui-text-xs)/1.5 var(--app-font);
+}
+.cm-diagram-tools-panel[hidden] {
+  display: none;
+}
+.cm-diagram-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.cm-diagram-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 6px;
+  background: var(--ui-page);
+  color: var(--ui-text);
+  font: inherit;
+}
+.cm-diagram-tools button[hidden] {
+  display: none;
+}
+.cm-diagram-tools button:is(:hover, [aria-pressed="true"]) {
+  background: var(--ui-control-hover);
+}
+.cm-diagram-canvas [data-diagram-pick] {
+  cursor: pointer;
+}
+.cm-diagram-connecting [data-diagram-pick="nodes"] {
+  cursor: crosshair;
+}
+.cm-diagram-canvas
+  [data-diagram-pick]:is(:hover, :focus-visible, [aria-pressed="true"])
+  :is(.md2pdf-mermaid-node-shape, path:not(.cm-diagram-edge-hit)) {
+  stroke: var(--geist-blue-700, #0070f3);
+  stroke-width: 2.5px;
+}
+.cm-diagram-canvas .md2pdf-mermaid-edge > .cm-diagram-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14px;
+  pointer-events: stroke;
+}
+.cm-diagram-filtered > .cm-diagram-fields:not(.cm-diagram-field-selected) {
+  display: none;
 }
 .cm-diagram-controls {
   border-block-start: 1px solid var(--ui-border);

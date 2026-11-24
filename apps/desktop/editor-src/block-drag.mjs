@@ -1,5 +1,5 @@
 import { syntaxTree } from "@codemirror/language";
-import { Transaction } from "@codemirror/state";
+import { EditorSelection, Transaction } from "@codemirror/state";
 import { ViewPlugin } from "@codemirror/view";
 import { isolateHistory } from "@codemirror/commands";
 import { spriteIcon } from "../frontend/js/ui/icons.mjs";
@@ -117,7 +117,10 @@ export const blockDragExtension = ViewPlugin.fromClass(
       this.grip.className = "cm-block-grip";
       this.grip.append(spriteIcon("grip"));
       const fa = document.documentElement.lang.startsWith("fa");
-      this.grip.title = this.grip.ariaLabel = fa ? "جابجایی بلوک سند" : "Move document block";
+      this.grip.ariaLabel = fa ? "انتخاب یا جابه‌جایی بلوک" : "Select or move document block";
+      this.grip.title = fa
+        ? "کلیک برای انتخاب، کشیدن برای جابه‌جایی"
+        : "Click to select, drag to move";
       this.grip.setAttribute("aria-keyshortcuts", "ArrowUp ArrowDown");
       this.indicator = document.createElement("div");
       this.indicator.className = "cm-block-drop";
@@ -306,7 +309,10 @@ export const blockDragExtension = ViewPlugin.fromClass(
         }
       });
       const finish = (event) => {
-        if (event.type === "pointerup" && this.drop) this.move(this.drop);
+        if (event.type === "pointerup") {
+          if (this.drop) this.move(this.drop);
+          else if (this.grab && this.ghost.hidden) this.select(this.grab, event.shiftKey);
+        }
         this.endDrag();
       };
       this.grip.addEventListener("pointerup", finish);
@@ -320,6 +326,11 @@ export const blockDragExtension = ViewPlugin.fromClass(
       };
       view.dom.ownerDocument.addEventListener("keydown", this.cancelKey, true);
       this.grip.addEventListener("keydown", (event) => {
+        if (this.source && ["Enter", " "].includes(event.key)) {
+          event.preventDefault();
+          this.select(this.source, event.shiftKey);
+          return;
+        }
         if (!this.source || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
         const down = event.key === "ArrowDown";
         const doc = view.state.doc;
@@ -335,6 +346,51 @@ export const blockDragExtension = ViewPlugin.fromClass(
           this.source.section,
         );
         this.move(blockMove(view.state, this.source, target, down));
+      });
+    }
+
+    select(block, extend) {
+      const { view } = this;
+      if (view.state.readOnly) return;
+      const current = view.state.selection.main;
+      const selection =
+        extend && !current.empty
+          ? EditorSelection.range(
+              Math.min(block.from, current.from),
+              Math.max(block.to, current.to),
+            )
+          : EditorSelection.range(block.from, block.to);
+      view.dispatch({ selection, userEvent: "select.block" });
+      view.focus();
+    }
+
+    updateWidgetSelection() {
+      const view = this.view;
+      view.requestMeasure({
+        read: () =>
+          Array.from(view.contentDOM.children)
+            .filter((element) =>
+              element.matches(
+                ".cm-md-table, .cm-diagram, .cm-md-math-block-preview, .cm-md-rule, .cm-document-disclosure, .cm-md-frontmatter",
+              ),
+            )
+            .map((element) => {
+              const from = view.posAtDOM(element, 0);
+              const position = Math.min(view.state.doc.length, from + 1);
+              const range = movableBlock(view.state, position, false, false);
+              const selected =
+                range &&
+                view.state.selection.ranges.some(
+                  (selection) =>
+                    !selection.empty && selection.from <= range.from && selection.to >= range.to,
+                );
+              return [element, Boolean(selected)];
+            }),
+        write: (items) => {
+          for (const [element, selected] of items)
+            element.classList.toggle("cm-document-selected-block", selected);
+        },
+        key: this.updateWidgetSelection,
       });
     }
 
@@ -399,6 +455,12 @@ export const blockDragExtension = ViewPlugin.fromClass(
     }
 
     update(update) {
+      const hasSelection = (state) => state.selection.ranges.some((range) => !range.empty);
+      if (
+        (update.selectionSet || update.viewportChanged || update.docChanged) &&
+        (hasSelection(update.state) || hasSelection(update.startState))
+      )
+        this.updateWidgetSelection();
       if (update.docChanged) {
         this.endDrag();
         this.source = null;

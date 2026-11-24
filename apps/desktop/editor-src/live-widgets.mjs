@@ -1,4 +1,5 @@
 import { documentLineLayout } from "./document-line-layout.mjs";
+import { mathRenderer, openMathEditor, updateMath } from "./math-editor.mjs";
 import { visualMetadataFields, updateVisualMetadata } from "./markdown-frontmatter.mjs";
 /**
  * Block widgets for live preview.
@@ -27,16 +28,16 @@ import { visualMetadataFields, updateVisualMetadata } from "./markdown-frontmatt
  * Painting never rewrites the document. Explicit controls such as table-cell
  * editing and task checkboxes dispatch bounded source edits through CodeMirror.
  */
-import { Facet, RangeSetBuilder, StateField, Transaction } from "@codemirror/state";
+import { RangeSetBuilder, StateField, Transaction } from "@codemirror/state";
 import { isolateHistory } from "@codemirror/commands";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { onlineImageControl } from "../frontend/js/preview/online-images.mjs";
 import { spriteIcon } from "../frontend/js/ui/icons.mjs";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { markdownLanguage } from "@codemirror/lang-markdown";
-import { appendTableInline, tableInlineText } from "./table-inline.mjs";
+import { appendTableInline } from "./table-inline.mjs";
 import {
-  autoCellAlignment,
+  autoColumnAlignment,
   createTableActions,
   tableExtendButton,
   openTableCellEditor,
@@ -102,19 +103,17 @@ const LINE_HEIGHT = 26;
 const TABLE_BLOCK_PADDING = 27;
 const FRONT_MATTER_BLOCK_PADDING = 16;
 
-/** The host supplies its existing offline renderer; the bundle owns no URL. */
-export const mathRenderer = Facet.define({
-  combine: (values) => (values.length ? values[0] : null),
-});
+export { mathRenderer };
 
 export class MathWidget extends WidgetType {
-  constructor(markup, from, to, display, renderMath) {
+  constructor(markup, from, to, display, renderMath, readOnly = false) {
     super();
     this.markup = markup;
     this.from = from;
     this.to = to;
     this.display = display;
     this.renderMath = renderMath;
+    this.readOnly = readOnly;
   }
 
   eq(other) {
@@ -123,6 +122,7 @@ export class MathWidget extends WidgetType {
       other.from === this.from &&
       other.to === this.to &&
       other.display === this.display &&
+      other.readOnly === this.readOnly &&
       other.renderMath === this.renderMath
     );
   }
@@ -144,17 +144,27 @@ export class MathWidget extends WidgetType {
       wrapper.dataset.disposed !== "true" &&
       view.dom.contains(wrapper) &&
       view.state.doc.sliceString(this.from, this.to) === this.markup;
-    wrapper.addEventListener("mousedown", (event) => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const contentStart = this.display ? Math.max(2, this.markup.indexOf("\n") + 1) : 1;
-      view.dispatch({
-        selection: { anchor: Math.min(this.to, this.from + contentStart) },
-        scrollIntoView: true,
-      });
-      view.focus();
-    });
+    if (!this.readOnly) {
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "cm-math-edit";
+      edit.ariaLabel = edit.title = document.documentElement.lang.startsWith("fa")
+        ? "ویرایش فرمول"
+        : "Edit equation";
+      edit.append(spriteIcon("pencil"));
+      wrapper.append(edit);
+      const open = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!isCurrent()) return;
+        openMathEditor(view, {
+          display: this.display,
+          expression: this.markup.slice(this.display ? 2 : 1, this.display ? -2 : -1).trim(),
+          apply: (insert) => updateMath(view, this.from, this.to, insert, this.markup),
+        });
+      };
+      wrapper.addEventListener("click", open);
+    }
     // A widget is only created when CodeMirror actually draws it. Wait until
     // that draw has attached it, then use the shared renderer's bounded queue
     // and cache. A removed/edited widget cannot accept a late typeset result.
@@ -184,7 +194,7 @@ export class MathWidget extends WidgetType {
   }
 
   ignoreEvent() {
-    return false;
+    return true;
   }
 }
 
@@ -362,6 +372,7 @@ export class TableWidget extends WidgetType {
       if (child.name === "TableHeader" || child.name === "TableRow") rows.push(child);
     }
     let columns = 0;
+    const renderedRows = [];
     rows.forEach((sourceRow, index) => {
       const cells = [];
       for (let cell = sourceRow.firstChild; cell; cell = cell.nextSibling) {
@@ -370,12 +381,15 @@ export class TableWidget extends WidgetType {
       const head = index === 0;
       if (head) columns = model?.columns || cells.length;
       const row = document.createElement("tr");
+      const renderedCells = [];
+      renderedRows.push(renderedCells);
       for (let column = 0; column < columns; column += 1) {
         const physical = model?.rows[index]?.cells[column];
         const cell = physical
           ? cells.find((candidate) => candidate.from + this.from - offset === physical.from)
           : null;
         const element = document.createElement(head ? "th" : "td");
+        renderedCells.push(element);
         const editable = view && model && !view.state.readOnly;
         const content = editable ? document.createElement("div") : element;
         const rendered = editable ? document.createElement("div") : element;
@@ -399,11 +413,11 @@ export class TableWidget extends WidgetType {
                       this.from + node.to - offset,
                       false,
                       this.renderMath,
+                      !editable,
                     ).toDOM(view)
                 : null,
           });
-        element.style.textAlign =
-          alignment === "auto" ? autoCellAlignment(tableInlineText(element)) : alignment;
+        if (alignment !== "auto") element.style.textAlign = alignment;
         element.dir = "auto";
         element.setAttribute("data-table-row", String(index));
         element.setAttribute("data-table-column", String(column));
@@ -469,6 +483,13 @@ export class TableWidget extends WidgetType {
       }
       body.append(row);
     });
+    for (let column = 0; column < columns; column += 1) {
+      const cells = renderedRows.map((row) => row[column]);
+      const alignment = autoColumnAlignment(cells);
+      for (const cell of cells) {
+        if (cell && !cell.style.textAlign) cell.style.textAlign = alignment;
+      }
+    }
     if (view && model && !view.state.readOnly) {
       const frame = document.createElement("div");
       frame.className = "cm-table-frame";
@@ -1177,8 +1198,7 @@ function buildBlockDecorations(state) {
       if (
         node.name === "BlockMath" &&
         state.facet(mathRenderer) &&
-        node.to - node.from <= 16 * 1024 &&
-        !spansActiveLine(state, active, node)
+        node.to - node.from <= 16 * 1024
       ) {
         items.push([
           node.from,
@@ -1190,6 +1210,7 @@ function buildBlockDecorations(state) {
               node.to,
               true,
               state.facet(mathRenderer),
+              state.readOnly,
             ),
             block: true,
           }),

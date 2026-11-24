@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import re
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from bs4 import BeautifulSoup, Tag
@@ -41,6 +42,8 @@ CODE_FENCE_HIGHLIGHT_KEYS = {
     "lines",
     "emphasize-lines",
 }
+CODE_FENCE_ADDED_KEYS = {"added", "added-lines", "added_lines"}
+CODE_FENCE_REMOVED_KEYS = {"removed", "removed-lines", "removed_lines"}
 CODE_FENCE_LINE_NUMBER_KEYS = {
     "linenos",
     "line-numbers",
@@ -91,6 +94,7 @@ class CodeHtmlFormatter(HtmlFormatter):
         linenos: bool = False,
         hl_lines: list[int] | None = None,
         line_start: int = 1,
+        changes: dict[int, str] | None = None,
     ) -> None:
         super().__init__(
             style=style,
@@ -100,6 +104,24 @@ class CodeHtmlFormatter(HtmlFormatter):
             linenostart=max(1, int(line_start or 1)),
             hl_lines=hl_lines or [],
         )
+        self.changes = changes or {}
+
+    def wrap(self, source: Iterable[tuple[int, str]]) -> Iterator[tuple[int, str]]:
+        """Keep Pygments tokens and numbering while styling individual changes."""
+
+        def change_rows() -> Iterator[tuple[int, str]]:
+            for index, (kind, value) in enumerate(source, 1):
+                change = self.changes.get(index)
+                if kind == 1 and change:
+                    value = _normalize_highlight_line_breaks(value)
+                    content = value.rstrip("\n")
+                    value = (
+                        f'<span class="code-change code-change--{change}">{content}</span>'
+                        + value[len(content) :]
+                    )
+                yield kind, value
+
+        return super().wrap(change_rows() if self.changes else source)
 
 
 def _normalize_highlight_line_breaks(highlighted_html: str) -> str:
@@ -134,6 +156,17 @@ def _parse_line_highlights(spec: str | None) -> list[int]:
         if part.isdigit() and int(part) > 0:
             values.add(int(part))
     return sorted(values)
+
+
+def _parse_change_ranges(value: str) -> list[tuple[int, int]]:
+    ranges = []
+    for part in re.split(r"[,;\s]+", value):
+        match = re.fullmatch(r"([0-9]{1,15})(?:-([0-9]{1,15}))?", part)
+        if match:
+            start, end = int(match[1]), int(match[2] or match[1])
+            if 0 < start <= end:
+                ranges.append((start, end))
+    return ranges
 
 
 def _normalize_code_language(value: str | None) -> str:
@@ -266,6 +299,12 @@ def parse_code_fence_info(info: str | None) -> dict[str, Any]:
         "invalid_reference_label": invalid_reference_label,
         "linenos": linenos,
         "highlight_lines": sorted(set(highlight_values)),
+        "added_ranges": _parse_change_ranges(
+            next((value for key, value in kv.items() if key.lower() in CODE_FENCE_ADDED_KEYS), "")
+        ),
+        "removed_ranges": _parse_change_ranges(
+            next((value for key, value in kv.items() if key.lower() in CODE_FENCE_REMOVED_KEYS), "")
+        ),
         "line_start": line_start,
         "attrs": attrs,
     }
@@ -281,6 +320,8 @@ def highlight_code(
     extra_classes: str = "",
     linenos: bool = False,
     highlight_lines: list[int] | None = None,
+    added_ranges: list[tuple[int, int]] | None = None,
+    removed_ranges: list[tuple[int, int]] | None = None,
     line_start: int = 1,
     reference_label: str | None = None,
 ) -> str:
@@ -289,10 +330,12 @@ def highlight_code(
     label = language or "text"
     try:
         lexer = (
-            get_lexer_by_name(language, stripall=False) if language else TextLexer(stripall=False)
+            get_lexer_by_name(language, stripall=False, stripnl=False)
+            if language
+            else TextLexer(stripall=False, stripnl=False)
         )
     except ClassNotFound:
-        lexer = TextLexer(stripall=False)
+        lexer = TextLexer(stripall=False, stripnl=False)
         label = language or "text"
     normalized_highlight_lines = highlight_lines or []
     if (
@@ -301,11 +344,28 @@ def highlight_code(
         and all(line >= line_start for line in normalized_highlight_lines)
     ):
         normalized_highlight_lines = [line - line_start + 1 for line in normalized_highlight_lines]
+    rows = code.split("\n")
+    changes = {}
+    for ranges, kind in ((removed_ranges, "removed"), (added_ranges, "added")):
+        if not ranges:
+            continue
+        offset = line_start - 1 if all(start >= line_start for start, _ in ranges) else 0
+        for start, end in ranges:
+            changes.update(
+                (index, kind) for index in range(start - offset, min(len(rows), end - offset) + 1)
+            )
+    if language in {"diff", "patch"}:
+        for index, row in enumerate(rows, 1):
+            if row.startswith("+") and not row.startswith("+++"):
+                changes.setdefault(index, "added")
+            elif row.startswith("-") and not row.startswith("---"):
+                changes.setdefault(index, "removed")
     formatter = CodeHtmlFormatter(
         code_style,
         linenos=linenos,
         hl_lines=normalized_highlight_lines,
         line_start=line_start,
+        changes=changes,
     )
     highlighted = _normalize_highlight_line_breaks(highlight(code, lexer, formatter))
     caption_value = caption if caption not in (None, "") else label.upper()
@@ -332,6 +392,8 @@ def highlight_code(
         classes += " code-block--numbered"
     if highlight_lines:
         classes += " code-block--highlighted"
+    if changes:
+        classes += " code-block--changes"
     if line_count >= 18:
         classes += " code-block--medium"
     if line_count >= 36:

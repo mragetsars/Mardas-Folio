@@ -163,14 +163,76 @@ export class DiagramWidget extends WidgetType {
     let model = this.initialModel ? structuredClone(this.initialModel) : null;
     let previewRevision = 0;
     let previewTimer;
+    let selection = null;
+    let connecting = false;
+    let startNode = null;
+    const reflectCanvas = () => {
+      for (const item of canvas.querySelectorAll("[data-diagram-pick]")) {
+        const kind = item.dataset.diagramPick;
+        const index = Number(item.dataset.diagramIndex);
+        item.setAttribute(
+          "aria-pressed",
+          String(
+            (selection?.kind === kind && selection.index === index) ||
+              (kind === "nodes" && model.nodes[index]?.id === startNode),
+          ),
+        );
+      }
+    };
     const render = async (source = this.source) => {
       const revision = ++previewRevision;
       try {
         const svg = await this.renderer?.(source);
         if (revision !== previewRevision) return;
         if (svg) {
+          const previous = document.activeElement?.closest?.("[data-diagram-pick]");
+          const focusKey = previous && canvas.contains(previous) ? previous.dataset : null;
           canvas.replaceChildren(svg);
           canvas.style.minBlockSize = "";
+          if (model && !this.readOnly) {
+            svg.setAttribute("role", "group");
+            for (const [kind, selector] of [
+              ["nodes", ".md2pdf-mermaid-node[data-node-id]"],
+              ["edges", ".md2pdf-mermaid-edge"],
+            ]) {
+              const elements = Array.from(svg.querySelectorAll(selector));
+              if (kind === "edges" && elements.length !== model.edges.length) continue;
+              elements.forEach((item, position) => {
+                const index =
+                  kind === "nodes"
+                    ? model.nodes.findIndex(({ id }) => id === item.getAttribute("data-node-id"))
+                    : position;
+                if (index < 0) return;
+                const entry = model[kind][index];
+                const label =
+                  kind === "nodes"
+                    ? entry.label
+                    : [
+                        model.nodes.find(({ id }) => id === entry.from)?.label,
+                        model.nodes.find(({ id }) => id === entry.to)?.label,
+                        entry.label,
+                      ]
+                        .filter(Boolean)
+                        .join(" → ");
+                item.setAttribute("aria-label", label);
+                item.setAttribute("role", "button");
+                item.setAttribute("tabindex", "0");
+                item.dataset.diagramPick = kind;
+                item.dataset.diagramIndex = String(index);
+                if (kind === "edges") {
+                  const target = item.querySelector("path")?.cloneNode();
+                  if (target) {
+                    target.removeAttribute("marker-end");
+                    target.classList.add("cm-diagram-edge-hit");
+                    item.prepend(target);
+                  }
+                }
+                if (focusKey?.diagramPick === kind && focusKey.diagramIndex === String(index))
+                  item.focus({ preventScroll: true });
+              });
+            }
+            reflectCanvas();
+          }
           if (source === this.source && !widget.querySelector(".cm-diagram-controls[open]")) {
             view.requestMeasure({
               read: () => (widget.isConnected ? widget.offsetHeight + 16 : 0),
@@ -210,12 +272,22 @@ export class DiagramWidget extends WidgetType {
       return widget;
     }
     const editor = document.createElement("details");
+    let editorDrawn = false;
     editor.className = "cm-diagram-controls";
     const summary = document.createElement("summary");
     summary.textContent = t("Edit diagram", "ویرایش نمودار");
     const items = document.createElement("div");
     const direction = document.createElement("div");
     direction.className = "cm-diagram-direction";
+    const tools = document.createElement("div");
+    tools.className = "cm-diagram-tools";
+    const instruction = document.createElement("span");
+    instruction.setAttribute("role", "status");
+    const visualTools = document.createElement("div");
+    visualTools.className = "cm-diagram-tools-panel";
+    visualTools.hidden = true;
+    visualTools.append(tools, instruction);
+    widget.insertBefore(visualTools, canvas);
     const groups = {};
     for (const [key, label] of [
       ["nodes", t("Nodes", "گره‌ها")],
@@ -279,7 +351,101 @@ export class DiagramWidget extends WidgetType {
       clearTimeout(previewTimer);
       if (valid()) previewTimer = setTimeout(() => void render(diagramSource(model)), 210);
     };
+    const setConnecting = (enabled) => {
+      connecting = enabled;
+      startNode = null;
+      connect.setAttribute("aria-pressed", String(connecting));
+      canvas.classList.toggle("cm-diagram-connecting", connecting);
+      instruction.textContent = connecting
+        ? t("Choose the first node.", "گره مبدأ را انتخاب کن.")
+        : "";
+      reflectCanvas();
+    };
+    const reflectSelection = () => {
+      for (const [kind, group] of Object.entries(groups)) {
+        group.body.classList.toggle("cm-diagram-filtered", selection?.kind === kind);
+        Array.from(group.body.querySelectorAll(".cm-diagram-fields")).forEach((row, index) => {
+          row.classList.toggle(
+            "cm-diagram-field-selected",
+            selection?.kind === kind && selection.index === index,
+          );
+        });
+        if (selection) group.body.parentElement.open = selection.kind === kind;
+      }
+      showAll.hidden = !selection;
+      reflectCanvas();
+      view.requestMeasure();
+    };
+    const pick = (target, focus) => {
+      const kind = target.dataset.diagramPick;
+      const index = Number(target.dataset.diagramIndex);
+      if (!model[kind]?.[index]) return;
+      if (!editor.open) {
+        editor.open = true;
+        draw();
+      }
+      if (connecting) {
+        if (kind !== "nodes") return;
+        const id = model.nodes[index].id;
+        if (!startNode) {
+          startNode = id;
+          instruction.textContent = t("Choose the destination node.", "گره مقصد را انتخاب کن.");
+          reflectCanvas();
+          return;
+        }
+        model.edges.push({ from: startNode, to: id, kind: "-->", label: "" });
+        selection = { kind: "edges", index: model.edges.length - 1 };
+        setConnecting(false);
+        draw();
+        queuePreview();
+      } else {
+        selection = { kind, index };
+        reflectSelection();
+      }
+      if (focus)
+        groups[selection.kind].body.querySelector(".cm-diagram-field-selected input")?.focus();
+    };
+    canvas.addEventListener("click", (event) => {
+      const target = event.target.closest("[data-diagram-pick]");
+      if (target) pick(target, event.detail > 1);
+    });
+    canvas.addEventListener("keydown", (event) => {
+      const target = event.target.closest("[data-diagram-pick]");
+      if (target && ["Enter", " "].includes(event.key)) {
+        event.preventDefault();
+        event.stopPropagation();
+        pick(target, !connecting);
+      } else if (event.key === "Escape" && connecting) {
+        event.stopPropagation();
+        setConnecting(false);
+      }
+    });
+    const addNode = () => {
+      let number = model.nodes.length + 1;
+      while (model.nodes.some((node) => node.id === "node" + number)) number += 1;
+      model.nodes.push({ id: "node" + number, label: t("New node", "گره جدید"), shape: "rect" });
+      selection = { kind: "nodes", index: model.nodes.length - 1 };
+      draw();
+      const label = groups.nodes.body.querySelector(".cm-diagram-field-selected input");
+      label?.focus();
+      label?.select();
+      queuePreview();
+    };
+    button(tools, t("Add node", "افزودن گره"), addNode, "plus");
+    const connect = button(
+      tools,
+      t("Connect nodes", "اتصال گره‌ها"),
+      () => setConnecting(!connecting),
+      "link",
+    );
+    connect.setAttribute("aria-pressed", "false");
+    const showAll = button(tools, t("Show all properties", "نمایش همهٔ ویژگی‌ها"), () => {
+      selection = null;
+      reflectSelection();
+    });
+    showAll.hidden = true;
     const draw = () => {
+      editorDrawn = true;
       direction.replaceChildren();
       for (const [key, { body, count }] of Object.entries(groups)) {
         body.replaceChildren();
@@ -335,6 +501,8 @@ export class DiagramWidget extends WidgetType {
           () => {
             model.nodes = model.nodes.filter((item) => item !== node);
             model.edges = model.edges.filter(({ from, to }) => from !== node.id && to !== node.id);
+            selection = null;
+            setConnecting(false);
             draw();
             queuePreview();
           },
@@ -342,22 +510,6 @@ export class DiagramWidget extends WidgetType {
         );
         groups.nodes.body.append(row);
       }
-      let number = model.nodes.length + 1;
-      while (model.nodes.some((node) => node.id === "node" + number)) number += 1;
-      button(
-        groups.nodes.body,
-        t("Add node", "افزودن گره"),
-        () => {
-          model.nodes.push({
-            id: "node" + number,
-            label: t("New node", "گره جدید"),
-            shape: "rect",
-          });
-          draw();
-          queuePreview();
-        },
-        "plus",
-      );
       for (const edge of model.edges) {
         const row = document.createElement("div");
         row.className = "cm-diagram-fields";
@@ -402,6 +554,7 @@ export class DiagramWidget extends WidgetType {
           t("Remove connection", "حذف اتصال"),
           () => {
             model.edges = model.edges.filter((item) => item !== edge);
+            selection = null;
             draw();
             queuePreview();
           },
@@ -425,7 +578,8 @@ export class DiagramWidget extends WidgetType {
         "plus",
       );
       add.disabled = model.nodes.length < 2;
-      view.requestMeasure();
+      connect.disabled = model.nodes.length < 2;
+      reflectSelection();
     };
     const message = document.createElement("p");
     message.setAttribute("role", "alert");
@@ -468,9 +622,14 @@ export class DiagramWidget extends WidgetType {
     apply.className = "cm-diagram-apply";
     const originalModelSource = diagramSource(model);
     editor.addEventListener("toggle", () => {
-      if (editor.open) draw();
-      else {
+      visualTools.hidden = !editor.open;
+      if (editor.open) {
+        if (!editorDrawn) draw();
+      } else {
+        editorDrawn = false;
         clearTimeout(previewTimer);
+        selection = null;
+        setConnecting(false);
         model = diagramModel(this.source);
         message.textContent = "";
         void render();

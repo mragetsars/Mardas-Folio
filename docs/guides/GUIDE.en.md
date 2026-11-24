@@ -655,6 +655,18 @@ def convert(markdown: str) -> bytes:
     return pdf
 ```
 
+### Added and removed code lines
+
+In Document, open **Code block settings** and enter the lines to add, remove, or highlight. In Source, use `added` and `removed` on a fenced block. Each option accepts individual line numbers and ranges. In this example, the numbers match the displayed lines starting at 10. The Document editor, preview, and PDF all preserve Python syntax highlighting and mark the changes.
+
+```python title="greeting.py" linenos linenostart=10 removed="11" added="12-13" hl_lines="14"
+def greet(name):
+    message = "Hello"
+    message = f"Hello, {name}"
+    print(message)
+    return message
+```
+
 # Mermaid Flowcharts
 
 Mermaid-style flowchart fences are rendered as SVG diagrams during HTML post-processing. The renderer currently focuses on the common project-documentation subset: `flowchart` / `graph`, `TD`, `TB`, `BT`, `LR`, `RL`, rectangle nodes, rounded nodes, circles, diamonds, solid edges, dotted edges, thick edges, and labelled arrows.

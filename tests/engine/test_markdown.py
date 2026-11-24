@@ -105,7 +105,7 @@ def test_delimiter_alignment_defaults_to_auto_and_keeps_bidi_profiles():
     assert not soup.select("[style]")
 
 
-def test_cell_alignment_comments_override_the_delimiter_and_auto_centers_one_word():
+def test_cell_alignment_keeps_overrides_and_centers_complete_one_word_columns():
     result = render_markdown(
         "| <!--folio-align:right--> Title | <!--folio-align:auto--> Value |\n"
         "| --- | ---: |\n"
@@ -125,13 +125,22 @@ def test_cell_alignment_comments_override_the_delimiter_and_auto_centers_one_wor
         None,
         None,
     ]
-    assert "table-cell--auto-centered" in cells[1]["class"]
-    assert "table-cell--auto-centered" in cells[3]["class"]
-    assert "table-cell--auto-centered" in cells[4]["class"]
+    assert "table-cell--auto-left" in cells[1]["class"]
+    assert "table-cell--auto-right" in cells[3]["class"]
+    assert "table-cell--auto-right" in cells[4]["class"]
     assert "table-cell--auto-left" in cells[6]["class"]
     assert "table-cell--auto-right" in cells[7]["class"]
     assert cells[2].strong.get_text() == "فارسی"
     assert "folio-align" not in result.body_html
+
+    result = render_markdown(
+        "| Key | Label | Missing |\n| --- | --- | --- |\n"
+        "| <!--folio-align:right--> **A** | A long label | |\n"
+        "| B | Persian | Present |\n"
+    )
+    soup = BeautifulSoup(result.body_html, "html.parser")
+    assert [cell.get_text() for cell in soup.select(".table-cell--auto-centered")] == ["Key", "B"]
+    assert soup.select_one("tbody td")["align"] == "right"
 
 
 def test_column_width_comment_survives_rendering_with_cell_alignment():
@@ -675,6 +684,25 @@ def test_literal_autolinks_are_created_outside_code_only():
     assert '<a href="https://www.example.com">www.example.com</a>' in result.body_html
     assert '<a href="mailto:dev@example.com">dev@example.com</a>' in result.body_html
     assert '<code dir="ltr">www.code.test</code>' in result.body_html
+
+
+def test_code_fence_change_markers_preserve_numbering_tokens_and_indentation():
+    result = render_markdown(
+        '~~~python title="changes.py" linenos linenostart=10 removed="11" '
+        'added="12-13" hl_lines="12,14"\n'
+        'def greet(name):\n    message = "Hello"\n    message = f"Hi {name}"\n'
+        "    print(message)\n    return message\n~~~\n\n"
+        "~~~diff\n--- a/file\n+++ b/file\n-old\n+new\n~~~\n"
+    )
+    soup = BeautifulSoup(result.body_html, "html.parser")
+    first, second = soup.select(".code-block--changes")
+    assert first.select_one(".code-change--removed").get_text() == '    message = "Hello"'
+    added = first.select(".code-change--added")
+    assert [row.get_text() for row in added] == ['    message = f"Hi {name}"', "    print(message)"]
+    assert added[0].select_one(".hll .s2")
+    assert first.select_one("td.linenos").get_text().split() == ["10", "11", "12", "13", "14"]
+    assert second.select_one(".code-change--removed").get_text() == "-old"
+    assert second.select_one(".code-change--added").get_text() == "+new"
 
 
 def test_code_fence_titles_line_numbers_and_highlight_lines():

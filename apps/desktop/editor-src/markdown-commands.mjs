@@ -20,6 +20,7 @@
 
 import { EditorSelection } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
+import { openMathEditor, updateMath } from "./math-editor.mjs";
 
 /** Line prefixes that identify each block command, for toggling off. */
 const BLOCK_PATTERNS = Object.freeze({
@@ -378,6 +379,27 @@ export function markdownCommandNames() {
 export function runMarkdownCommand(view, name) {
   const command = MARKDOWN_COMMANDS[name];
   if (!command || !view || view.state.readOnly) return false;
+  if (["math-inline", "math-block"].includes(name) && view.dom?.dataset.editorMode === "live") {
+    const display = name === "math-block";
+    const origin = view.state.doc;
+    const { from, to } = view.state.selection.main;
+    const selected = origin.sliceString(from, to);
+    return openMathEditor(view, {
+      display,
+      expression: display ? selected : selected.replace(/\s*\n\s*/g, " "),
+      apply(markup) {
+        if (view.state.doc !== origin) return false;
+        if (!display) return updateMath(view, from, to, markup, selected);
+        if (selected) {
+          const leading = from > 0 && origin.lineAt(from).from !== from ? "\n\n" : "";
+          const trailing = to < origin.length && origin.lineAt(to).to !== to ? "\n\n" : "";
+          return updateMath(view, from, to, leading + markup + trailing, selected);
+        }
+        const { changes } = insertBlock(markup)(view.state);
+        return updateMath(view, changes.from, changes.to, changes.insert, "");
+      },
+    });
+  }
   const transaction = command(view.state);
   if (!transaction) return false;
   view.dispatch(transaction);

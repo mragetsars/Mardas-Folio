@@ -1,5 +1,10 @@
 import { createSettingsPanel } from "./settings-panel.mjs";
-import { DEFAULT_PREFERENCES, writePreferences } from "./preferences.mjs";
+import {
+  DEFAULT_PREFERENCES,
+  WRITING_WIDTH_MIN,
+  WRITING_WIDTH_MAX,
+  writePreferences,
+} from "./preferences.mjs";
 /** Owns this feature's DOM interactions; cross-feature actions are injected. */
 export function createSettingsController({
   state,
@@ -13,6 +18,20 @@ export function createSettingsController({
   const form = $("#settings-form");
   const theme = form.elements.namedItem("theme");
   const accent = form.elements.namedItem("accent");
+  const width = $("#setting-writing-width");
+  const widthOutput = $("#setting-writing-width-value");
+  width.min = WRITING_WIDTH_MIN;
+  width.max = WRITING_WIDTH_MAX;
+  const showWidth = () => {
+    const value = width.valueAsNumber;
+    widthOutput.value = value + "%";
+    width.setAttribute("aria-valuetext", widthOutput.value);
+    width.style.setProperty(
+      "--range-progress",
+      ((value - WRITING_WIDTH_MIN) / (WRITING_WIDTH_MAX - WRITING_WIDTH_MIN)) * 100 + "%",
+    );
+  };
+  width.addEventListener("input", showWidth);
   const settingsPanel = createSettingsPanel(form);
   let resetPending = false;
   function fillSettingsForm(preferences = state.preferences) {
@@ -23,15 +42,16 @@ export function createSettingsController({
     $("#setting-motion").value = preferences.reducedMotion;
     $("#setting-auto-preview").checked = preferences.autoPreview;
     $("#setting-typewriter").checked = preferences.typewriter;
-    if ($("#setting-writing-width")) $("#setting-writing-width").value = preferences.writingWidth;
+    width.value = String(preferences.writingWidth);
+    showWidth();
     $("#setting-locale").value = state.locale;
   }
 
-  function openSettings(section = "settings-appearance") {
+  function openSettings(section = "settings-appearance", initialFocus = "#settings-search") {
     resetPending = false;
     fillSettingsForm();
     settingsPanel.showSection(section);
-    getModalManager().open($("#settings-modal"), { initialFocus: "#settings-search" });
+    getModalManager().open($("#settings-modal"), { initialFocus });
   }
 
   function closeSettings() {
@@ -46,7 +66,7 @@ export function createSettingsController({
       theme: theme.value,
       accent: accent.value,
       documentZoom: Number($("#setting-document-zoom").value),
-      writingWidth: $("#setting-writing-width")?.value || "full",
+      writingWidth: width.valueAsNumber,
       reducedMotion: $("#setting-motion").value,
       autoPreview: $("#setting-auto-preview").checked,
       typewriter: $("#setting-typewriter").checked,

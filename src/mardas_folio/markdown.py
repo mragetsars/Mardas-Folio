@@ -1854,16 +1854,38 @@ def postprocess_soup(
         persian_numeric_cells = 0
         latin_numeric_cells = 0
         mixed_numeric_cells = 0
-        for cell in table.find_all(["th", "td"]):
-            cell_text = cell.get_text(" ", strip=True)
-            rendered_text = "".join(
+        cell_rows = [
+            row.find_all(["th", "td"], recursive=False)
+            for row in table.find_all("tr")
+            if row.find_parent("table") is table
+        ]
+        rendered_cells = {
+            id(cell): "".join(
                 "\n" if getattr(item, "name", None) == "br" else str(item)
                 for item in cell.descendants
                 if (isinstance(item, NavigableString) and not isinstance(item, Comment))
                 or getattr(item, "name", None) == "br"
             )
+            for row in cell_rows
+            for cell in row
+        }
+        # Markdown tables have a cell at each grid position. Merged HTML cells
+        # do not correspond to a single column, so keep their normal alignment.
+        centered_cells = set()
+        if all(
+            not (cell.get("colspan") or cell.get("rowspan")) for row in cell_rows for cell in row
+        ):
+            for column in range(columns):
+                if all(
+                    column < len(row) and len(rendered_cells[id(row[column])].split()) == 1
+                    for row in cell_rows
+                ):
+                    centered_cells.update(id(row[column]) for row in cell_rows)
+        for cell in (cell for row in cell_rows for cell in row):
+            cell_text = cell.get_text(" ", strip=True)
+            rendered_text = rendered_cells[id(cell)]
             if not cell.get("align"):
-                if len(rendered_text.split()) == 1:
+                if id(cell) in centered_cells:
                     _add_classes(cell, "table-cell--auto-centered")
                 else:
                     first_strong = next(
@@ -2365,6 +2387,8 @@ def render_markdown(
                 caption=fence_info["title"] or None,
                 linenos=bool(fence_info["linenos"]),
                 highlight_lines=fence_info["highlight_lines"],
+                added_ranges=fence_info["added_ranges"],
+                removed_ranges=fence_info["removed_ranges"],
                 line_start=int(fence_info.get("line_start") or 1),
                 reference_label=fence_info["reference_label"] or None,
             )

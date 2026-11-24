@@ -92,9 +92,56 @@
 }
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-added {
   background: color-mix(in srgb, var(--ui-success) 14%, var(--ui-panel));
+  --code-change-color: var(--ui-success);
+  --code-change-sign: "+";
 }
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-code-line.cm-code-removed {
   background: color-mix(in srgb, var(--ui-danger) 14%, var(--ui-panel));
+  --code-change-color: var(--ui-danger);
+  --code-change-sign: "−";
+}
+.codemirror-mount
+  .cm-editor[data-editor-mode="live"]
+  .cm-code-line:is(.cm-code-added, .cm-code-removed) {
+  position: relative;
+  box-shadow: inset 2px 0 var(--code-change-color);
+}
+.cm-code-line:is(.cm-code-added, .cm-code-removed)::after {
+  content: var(--code-change-sign);
+  position: absolute;
+  inset-inline-start: 5px;
+  inset-block-start: 0;
+  color: var(--code-change-color);
+  user-select: none;
+  pointer-events: none;
+}
+.document-content .code-change {
+  position: relative;
+  display: inline-block;
+  box-sizing: border-box;
+  min-inline-size: 100%;
+  line-height: inherit;
+  background: color-mix(in srgb, var(--change-color) 15%, transparent);
+  box-shadow: inset 2px 0 var(--change-color);
+}
+.document-content .code-change::before {
+  position: absolute;
+  left: -1em;
+  content: var(--change-sign);
+  color: var(--change-color);
+}
+.document-content .code-change--added {
+  --change-color: var(--ui-success);
+  --change-sign: "+";
+}
+.document-content .code-change--removed {
+  --change-color: var(--ui-danger);
+  --change-sign: "−";
+}
+.document-content .code-change .hll {
+  display: inline;
+  background: transparent;
+  text-decoration: underline;
 }
 .cm-code-language {
   width: auto;

@@ -594,6 +594,18 @@ def convert(markdown: str) -> bytes:
     return pdf
 ```
 
+### خط‌های افزوده و حذف‌شدهٔ کد
+
+در حالت Document، از **تنظیمات بلوک کد** شمارهٔ خط‌های افزوده، حذف‌شده یا برجسته را وارد کنید. در Source از گزینه‌های `added` و `removed` روی حصار بلوک کد استفاده کنید. هر گزینه شماره یا بازهٔ خط می‌پذیرد. در این نمونه، شماره‌ها مطابق شمارهٔ نمایش‌داده‌شده از ۱۰ هستند. ادیتور، پیش‌نمایش و PDF تغییرها را همراه با رنگ‌آمیزی نحوی پایتون نشان می‌دهند.
+
+```python title="greeting.py" linenos linenostart=10 removed="11" added="12-13" hl_lines="14"
+def greet(name):
+    message = "Hello"
+    message = f"Hello, {name}"
+    print(message)
+    return message
+```
+
 # نمودارهای Mermaid
 
 بلوک‌های Mermaid برای flowchart به صورت SVG در HTML میانی رندر می‌شوند و بعد داخل PDF قرار می‌گیرند. تمرکز renderer فعلاً روی زیرمجموعه رایج در مستندات پروژه است: `flowchart` / `graph`، جهت‌های `TD`، `TB`، `BT`، `LR`، `RL`، nodeهای مستطیلی، گرد، دایره‌ای و لوزی، edgeهای ساده، dotted، ضخیم و edgeهای دارای label.

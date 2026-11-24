@@ -34,7 +34,7 @@ def measure(page):
       const rect = selector => document.querySelector(selector).getBoundingClientRect().toJSON();
       const size = selector => parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
       return {width: innerWidth, zoom: Number(document.documentElement.dataset.documentZoom),
-        writingWidth: document.documentElement.dataset.writingWidth,
+        writingWidth: document.documentElement.style.getPropertyValue('--writing-column'),
         pane: rect('.editor-pane'), content: rect('.cm-content'),
         reader: rect('#reading-document'),
         proseSize: size('.cm-content'), readerSize: size('#reading-document'),
@@ -129,19 +129,24 @@ def run(dist: Path, output: Path):
                 if page.locator(region).is_visible():
                     page.locator(close).click()
             before = measure(page)
-            assert before["writingWidth"] == "full", before
+            assert before["writingWidth"] == "100%", before
             assert before["content"]["width"] >= before["pane"]["width"] - 20, before
             assert before["content"]["width"] > 1800, before
             original = page.locator("#markdown-editor").input_value()
             checks = ["legacy-default-migrates-to-full-width", "closed-panels-release-full-canvas"]
 
             page.locator("#document-toggle-width").click()
-            expect(page.locator("html")).to_have_attribute("data-writing-width", "readable")
+            page.locator("#setting-writing-width").fill("37")
+            expect(page.locator("#setting-writing-width-value")).to_have_text("37%")
+            page.locator('#settings-form button[type="submit"]').click()
+            expect(page.locator("#document-width-label")).to_have_text("37%")
             assert measure(page)["content"]["width"] <= 761
             page.screenshot(path=str(output / f"{locale}-{theme}-readable.png"))
             page.locator("#document-toggle-width").click()
-            expect(page.locator("html")).to_have_attribute("data-writing-width", "full")
-            checks.append("readable-column-is-an-explicit-reversible-choice")
+            page.locator("#setting-writing-width").press("End")
+            page.locator('#settings-form button[type="submit"]').click()
+            expect(page.locator("#document-width-label")).to_have_text("100%")
+            checks.append("document-width-slider-applies-and-reverses-an-intermediate-value")
 
             # A growing side panel reduces the canvas, and closing it reclaims
             # the same space rather than leaving an invisible reading column.
@@ -212,7 +217,7 @@ def run(dist: Path, output: Path):
             expect(page.locator("html")).to_have_attribute("data-document-zoom", "85")
             page.reload(wait_until="networkidle")
             expect(page.locator("html")).to_have_attribute("data-document-zoom", "85")
-            expect(page.locator("html")).to_have_attribute("data-writing-width", "full")
+            expect(page.locator("#document-width-label")).to_have_text("100%")
             checks.append("settings-input-does-not-zoom-document-and-size-persists-after-reload")
 
             for width in (840, 390):

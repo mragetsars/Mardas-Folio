@@ -121,9 +121,14 @@ function writeCellMetadata(text, { alignment, width }) {
   return [...marks, text].filter(Boolean).join(" ");
 }
 
-export function autoCellAlignment(text) {
-  const words = text.trim().split(/\s+/u);
-  return words.length === 1 && words[0] ? "center" : "start";
+export function autoColumnAlignment(cells, draft = null) {
+  return cells.length &&
+    cells.every((cell, index) => {
+      const text = index === draft?.row ? draft.text : cell ? tableInlineText(cell) : "";
+      return /^\S+$/u.test(text.trim());
+    })
+    ? "center"
+    : "start";
 }
 
 function selectedCells(model, row, column, selection) {
@@ -777,8 +782,19 @@ class CellEditor {
       button.setAttribute("aria-pressed", String(button.dataset.cellAlignment === alignment));
     }
     if (this.selection.kind === "cell") {
-      const rendered = tableInlineText(this.input);
-      this.input.style.textAlign = alignment === "auto" ? autoCellAlignment(rendered) : alignment;
+      this.input.style.textAlign =
+        alignment === "auto"
+          ? autoColumnAlignment(
+              Array.from(
+                this.table()?.querySelector("table")?.rows || [],
+                (row) => row.cells[this.column],
+              ),
+              {
+                row: this.row,
+                text: tableInlineText(this.input),
+              },
+            )
+          : alignment;
     }
   }
 
