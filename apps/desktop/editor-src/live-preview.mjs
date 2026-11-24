@@ -1,3 +1,4 @@
+import { calloutMarkerAt, eachLine, headingLevel } from "./document-line-layout.mjs";
 import { diagramRenderer } from "./diagram-widget.mjs";
 import { blockDragExtension } from "./block-drag.mjs";
 /**
@@ -20,7 +21,6 @@ import { Decoration, Direction, EditorView, ViewPlugin, WidgetType } from "@code
 import {
   CodeBlockHeaderWidget,
   codeBodyPrefixRanges,
-  codeRowAttributes,
   fencedCodeSpec,
   setCodeWrap,
   wrapsCode,
@@ -107,7 +107,6 @@ const footnoteLabel = Decoration.mark({ class: "cm-md-footnote" });
 const footnoteDefLine = Decoration.line({ class: "cm-md-footnote-def" });
 /* `[ref]: url "title"` likewise. */
 const linkReferenceLine = Decoration.line({ class: "cm-md-link-reference" });
-const mathBlockLine = Decoration.line({ class: "cm-md-math-block" });
 // A Markdown paragraph separator is still a real, navigable source line. It
 // needs a little breathing room, not a second full row of prose. Keep this a
 // line decoration (never a replacement) so typing, selection and undo use the
@@ -247,49 +246,8 @@ const HAS_STRONG_CHARACTER = /[A-Za-zÀ-˿Ͱ-֏֑-߿יִ-﷽ﹰ-ﻼ]/;
 function lineDirection(text) {
   return HAS_STRONG_CHARACTER.test(text) ? autoDirection : neutralDirection;
 }
-const codeLine = Decoration.line({ class: "cm-code-line" });
-
-/** How many `>` markers open a line, which is the quotation's nesting depth. */
-const QUOTE_DEPTH = /^(?:\s*>)+/;
-/** Past this the indent costs more than the nesting communicates. */
-const MAX_QUOTE_DEPTH = 4;
-const quoteLines = new Map();
-
-function quoteLineAt(text) {
-  const marker = QUOTE_DEPTH.exec(text);
-  const depth = marker ? Math.min((marker[0].match(/>/g) || []).length, MAX_QUOTE_DEPTH) : 1;
-  let deco = quoteLines.get(depth);
-  if (!deco) {
-    deco = Decoration.line({ class: `cm-quote-line cm-quote-depth-${depth}` });
-    quoteLines.set(depth, deco);
-  }
-  return deco;
-}
-
-/**
- * A quotation's bar belongs to the quotation, not to each of its lines.
- *
- * Every line carries `dir="auto"`, which is right for the text and wrong for
- * the decoration: a Persian callout's marker line has no strong character left
- * once `[!NOTE]` is hidden, so it resolved left-to-right while the body
- * resolved right-to-left, and the block drew its accent bar down its left edge
- * on one line and its right edge on the next. The block's own direction is
- * decided once, from its whole text, and the bar follows that.
- */
-const rtlBlock = Decoration.line({ class: "cm-md-block-rtl" });
-const FIRST_STRONG_RTL = /[֑-߿יִ-﷽ﹰ-ﻼ]/;
-const FIRST_STRONG_LTR = /[A-Za-zÀ-˿Ͱ-֏]/;
-
-function blockIsRtl(text) {
-  const rtl = FIRST_STRONG_RTL.exec(text);
-  if (!rtl) return false;
-  const ltr = FIRST_STRONG_LTR.exec(text);
-  return !ltr || rtl.index < ltr.index;
-}
-/* An item's own line, so a wrapped one can hang under its text rather than
-   restart under its bullet, and the bullet itself can be told from the text. */
-const listLine = Decoration.line({ class: "cm-md-list-line" });
 const listMark = Decoration.mark({ class: "cm-md-list-mark" });
+const documentTextRun = Decoration.mark({ class: "cm-document-text-run" });
 
 /** The three spellings of one bullet. An ordered marker keeps its number. */
 const BULLET_SPELLINGS = new Set(["-", "*", "+"]);
@@ -302,26 +260,6 @@ function bulletDepth(node) {
   }
   return Math.max(depth, 0);
 }
-const codeOpenLine = Decoration.line({ class: "cm-code-line cm-code-open" });
-const codeCloseLine = Decoration.line({ class: "cm-code-line cm-code-close" });
-const codeUnclosedEndLine = Decoration.line({ class: "cm-code-line cm-code-unclosed-end" });
-const codeOpenOnlyLine = Decoration.line({
-  class: "cm-code-line cm-code-open cm-code-unclosed-end",
-});
-const codeIndentedOpenLine = Decoration.line({ class: "cm-code-line cm-code-indented-open" });
-const codeIndentedCloseLine = Decoration.line({ class: "cm-code-line cm-code-indented-close" });
-const codeIndentedSingleLine = Decoration.line({
-  class: "cm-code-line cm-code-indented-open cm-code-indented-close",
-});
-
-/**
- * Block-level line classes.
- *
- * A rendered document needs vertical rhythm — space above a heading, a rule
- * beside a quotation — and that is a property of the whole line, not of the
- * inline text. Hiding `#` and `>` removes the only cue CSS could otherwise
- * have keyed on, so the block type is carried here instead.
- */
 class SectionFoldWidget extends WidgetType {
   constructor(range, folded, locale) {
     super();
@@ -369,63 +307,8 @@ class SectionFoldWidget extends WidgetType {
   }
 }
 
-const headingLines = new Map([
-  ...[1, 2, 3, 4, 5, 6].map((level) => [
-    `ATXHeading${level}`,
-    Decoration.line({ class: `cm-md-heading cm-md-h${level}` }),
-  ]),
-  // `Title` over `=====` is the same heading as `# Title`, and was being left
-  // at body size with its underline showing: the block classes were keyed on
-  // the ATX node names alone, so a setext heading picked up the inline
-  // highlight style and none of the block rhythm.
-  ["SetextHeading1", Decoration.line({ class: "cm-md-heading cm-md-h1" })],
-  ["SetextHeading2", Decoration.line({ class: "cm-md-heading cm-md-h2" })],
-]);
-
-/**
- * Callout kinds the publishing engine renders as cards.
- *
- * Mirrored from `_localized_labels` in `src/mardas_folio/markdown.py`. A
- * callout the engine will turn into a coloured admonition should not look like
- * an ordinary quotation while it is being written.
- */
-const CALLOUT_KINDS = new Set([
-  "note",
-  "tip",
-  "important",
-  "warning",
-  "caution",
-  "info",
-  "success",
-  "question",
-  "failure",
-  "danger",
-  "bug",
-  "example",
-  "quote",
-  "abstract",
-]);
-
 /** `[^id]:` at the start of a line — mirrors FOOTNOTE_DEF_RE in the engine. */
 const FOOTNOTE_DEF = /^(\[\^[^\]]+\]:)/;
-
-/** `> [!NOTE] optional title` — the marker the engine looks for. */
-const CALLOUT_MARKER = /^(\s*>\s*)(\[!([A-Za-z][A-Za-z0-9_-]*)\][+-]?)\s?/;
-
-const calloutLines = new Map();
-
-function calloutLine(kind, first, last) {
-  const key = `${kind}:${first}:${last}`;
-  if (!calloutLines.has(key)) {
-    calloutLines.set(
-      key,
-      Decoration.line({
-        class: `cm-md-callout cm-md-callout-${kind}${first ? " cm-md-callout-head" : ""}${last ? " cm-md-callout-tail" : ""}`,
-      }),
-    );
-  }
-  return calloutLines.get(key);
-}
 
 class CalloutBadge extends WidgetType {
   constructor(kind) {
@@ -461,13 +344,6 @@ function nodeIsActive(state, active, node) {
   const last = state.doc.lineAt(node.to).number;
   for (let line = first; line <= last; line += 1) if (active.has(line)) return true;
   return false;
-}
-
-/** Run a callback for the start offset of every line a node spans. */
-function eachLine(state, node, callback) {
-  const first = state.doc.lineAt(node.from).number;
-  const last = state.doc.lineAt(node.to).number;
-  for (let line = first; line <= last; line += 1) callback(state.doc.line(line).from);
 }
 
 /** Extend an offset past the spaces that separate a block marker from its text. */
@@ -506,49 +382,8 @@ function buildDecorations(view) {
         }
         // Keep fenced code monospaced even when the surrounding prose is not.
         if (node.name === "FencedCode" || node.name === "CodeBlock") {
-          const opener = state.doc.lineAt(node.from).from;
-          const closer = state.doc.lineAt(node.to).from;
           const fence = fencedCodeSpec(state, node);
           const wrapped = !fence || wrapsCode(state, fence.openerFrom);
-          eachLine(state, node, (at) => {
-            const deco = fence
-              ? at === opener
-                ? fence.closeFrom == null && opener === closer
-                  ? codeOpenOnlyLine
-                  : codeOpenLine
-                : at === closer
-                  ? fence.closeFrom != null
-                    ? codeCloseLine
-                    : codeUnclosedEndLine
-                  : codeLine
-              : opener === closer
-                ? codeIndentedSingleLine
-                : at === opener
-                  ? codeIndentedOpenLine
-                  : at === closer
-                    ? codeIndentedCloseLine
-                    : codeLine;
-            lines.push({ at, deco });
-            const info = fence && codeRowAttributes(state, fence, at);
-            const classes = [
-              info?.number && "cm-code-numbered",
-              info?.highlighted && "cm-code-highlighted",
-              info?.added && "cm-code-added",
-              info?.removed && "cm-code-removed",
-              !wrapped && fence && at >= fence.bodyFrom && at < fence.bodyTo && "cm-code-nowrap",
-            ]
-              .filter(Boolean)
-              .join(" ");
-            if (classes) {
-              lines.push({
-                at,
-                deco: Decoration.line({
-                  class: classes,
-                  attributes: info?.number ? { "data-code-line": info.number } : {},
-                }),
-              });
-            }
-          });
           if (fence) {
             // The code body remains native editable text. Language, fences
             // and copy controls should not turn into Markdown when it gains
@@ -576,9 +411,6 @@ function buildDecorations(view) {
           return false;
         }
         if (node.name === "BlockMath") {
-          eachLine(state, node, (at) => {
-            lines.push({ at, deco: mathBlockLine });
-          });
           if (nodeIsActive(state, active, node)) return false;
           return;
         }
@@ -589,38 +421,10 @@ function buildDecorations(view) {
           return;
         }
         if (node.name === "Blockquote") {
-          // A quotation whose first line names a callout kind is not a
-          // quotation: the engine publishes it as a coloured admonition, and
-          // the editor should say so while it is being written.
           const first = state.doc.lineAt(node.from);
-          const marker = CALLOUT_MARKER.exec(first.text);
-          const kind =
-            marker && CALLOUT_KINDS.has(marker[3].toLowerCase()) ? marker[3].toLowerCase() : null;
-          // One direction for the whole block, so its bar stays on one side.
-          // A callout's kind is always spelled in Latin — `[!NOTE]` — so the
-          // marker is skipped; otherwise every Persian callout would be read
-          // as a left-to-right block on the strength of its own label.
-          const bodyFrom = marker ? first.from + marker[0].length : node.from;
-          const rtl = blockIsRtl(state.doc.sliceString(bodyFrom, node.to));
-          if (!kind) {
-            eachLine(state, node, (at) => {
-              // The engine nests `<blockquote>` inside `<blockquote>`, so a
-              // quote inside a quote has to look deeper here too. Depth comes
-              // from the line's own `>` markers rather than from the node
-              // tree: the outer Blockquote's walk already covers every line,
-              // and the inner one then produces the identical decoration,
-              // which is dropped as a duplicate — which is why a nested quote
-              // used to render flush with the quote containing it.
-              lines.push({ at, deco: quoteLineAt(state.doc.lineAt(at).text) });
-              if (rtl) lines.push({ at, deco: rtlBlock });
-            });
-            return;
-          }
-          const last = state.doc.lineAt(node.to).from;
-          eachLine(state, node, (at) => {
-            lines.push({ at, deco: calloutLine(kind, at === first.from, at === last) });
-            if (rtl) lines.push({ at, deco: rtlBlock });
-          });
+          const callout = calloutMarkerAt(first.text);
+          if (!callout) return;
+          const { kind, marker } = callout;
           const from = first.from + marker[1].length;
           marks.push([
             from,
@@ -629,19 +433,8 @@ function buildDecorations(view) {
           ]);
           return;
         }
-        // Applied whether or not the caret is on the line: an item that
-        // re-indented as the caret arrived would make the list jump while it
-        // is being edited.
-        if (node.name === "ListItem") {
-          eachLine(state, node, (at) => lines.push({ at, deco: listLine }));
-          // fall through: the ListMark inside still needs its own styling
-        }
-
-        const heading = headingLines.get(node.name);
-        if (heading) {
-          const start = state.doc.lineAt(node.from).from;
+        if (headingLevel(node.name)) {
           const header = state.doc.lineAt(node.to);
-          lines.push({ at: start, deco: heading });
           let folded = null;
           foldedRanges(state).between(header.to, header.to, (from, to) => {
             if (from === header.to) folded = { from, to };
@@ -826,8 +619,10 @@ function buildDecorations(view) {
           const spelling = state.doc.sliceString(node.from, node.to);
           if (BULLET_SPELLINGS.has(spelling)) {
             marks.push([
-              node.from,
-              node.to,
+              /^\s*$/.test(state.doc.sliceString(state.doc.lineAt(node.from).from, node.from))
+                ? state.doc.lineAt(node.from).from
+                : node.from,
+              swallowSpace(state, node.to),
               Decoration.replace({ widget: new BulletWidget(bulletDepth(node)) }),
             ]);
             return;
@@ -900,6 +695,13 @@ function buildDecorations(view) {
     for (let pos = from; pos <= to;) {
       const line = state.doc.lineAt(pos);
       lines.push({ at: line.from, deco: lineDirection(line.text) });
+      // CodeMirror uses short, plain ASCII lines as samples of the default
+      // font. Document has larger headings and smaller code rows, so sample
+      // the editor's default styling instead of resetting the height map
+      // whenever a differently sized line scrolls into view.
+      if (/^[ -~]{1,20}$/.test(line.text)) {
+        marks.push([line.from, line.to, documentTextRun]);
+      }
       pos = line.to + 1;
     }
   }
@@ -985,12 +787,6 @@ const livePreviewPlugin = ViewPlugin.fromClass(
         this.atomicRanges = this.decorations.update({
           filter: (_from, _to, value) => Boolean(value.spec.widget || value.spec.mardasAtomic),
         });
-        // Heading lines carry vertical padding, which changes their box height.
-        // CodeMirror maps a click to a position through its height map, so the
-        // map has to be refreshed when those decorations change — otherwise
-        // every line below a heading is offset and the caret lands one line
-        // away from the click.
-        update.view.requestMeasure();
       }
     }
   },

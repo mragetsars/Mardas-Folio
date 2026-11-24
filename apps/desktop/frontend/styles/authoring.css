@@ -9,11 +9,20 @@
   --writing-font-family: var(--app-font);
 }
 
-body[data-view="workspace"] .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-content {
+body[data-view="workspace"]
+  .codemirror-mount
+  .cm-editor[data-editor-mode="live"]
+  :is(.cm-content, .cm-block-drag-copy) {
   font-family: var(--writing-font-family);
   font-size: calc(var(--editor-prose-size) * var(--document-text-scale, 1));
   line-height: var(--writing-line-height);
+}
+body[data-view="workspace"] .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-content {
   padding-block-start: 24px;
+}
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-scroller {
+  /* CodeMirror maintains the position as its virtual document reflows. */
+  overflow-anchor: none;
 }
 
 /* Blank Markdown rows remain DOM lines, with a caret, selection and a real
@@ -35,6 +44,13 @@ body[data-view="workspace"] .codemirror-mount .cm-editor[data-editor-mode="live"
 }
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-list-line {
   padding-block: 0;
+}
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-prose {
+  text-align: justify;
+  text-align-last: start;
+}
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-prose-continuation {
+  text-align-last: justify;
 }
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-line {
   font-style: normal;

@@ -308,6 +308,8 @@ def test_geist_document_controls(
         expect(editor.locator(".cm-code-highlighted")).to_have_attribute("data-code-line", "11")
         expect(editor.locator(".cm-code-removed")).to_have_text("-old")
         expect(editor.locator(".cm-code-added")).to_have_text("+new")
+        # Keep this brief, styled row out of CodeMirror's default font sample.
+        expect(editor.locator(".cm-code-added .cm-document-text-run")).to_have_text("+new")
         task = editor.locator(".cm-md-task")
         expect(task).to_have_css("width", "16px")
         before_task = task.bounding_box()
@@ -418,7 +420,7 @@ def test_geist_document_controls(
         page.keyboard.press("Control+z")
         expect(mirror).to_have_value(SOURCE)
 
-        paragraph = editor.locator(".cm-line", has_text="Paragraph under other topic.")
+        paragraph = editor.locator(".cm-content .cm-line", has_text="Paragraph under other topic.")
         nested = editor.locator(".cm-line", has_text="Nested topic")
         paragraph.hover()
         grip = editor.locator(".cm-block-grip")
@@ -433,7 +435,8 @@ def test_geist_document_controls(
         )
         ghost = editor.locator(".cm-block-drag-ghost")
         marker = editor.locator(".cm-block-drop")
-        expect(ghost).to_contain_text("Paragraph under other topic.")
+        expect(ghost.locator(".cm-md-prose")).to_have_text("Paragraph under other topic.")
+        expect(ghost.locator(".cm-md-prose")).to_have_css("text-align", "justify")
         expect(paragraph).to_have_class(re.compile(r"cm-block-drag-origin"))
         after_heading = marker.bounding_box()
         nested_content = editor.locator(".cm-line", has_text="Nested content.").bounding_box()

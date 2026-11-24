@@ -3012,17 +3012,22 @@ function syncPreviewToEditorLine(line, { center = false } = {}) {
     if (entry.line > line) break;
     active = entry;
   }
-  container
-    .querySelectorAll(".source-active")
-    .forEach((element) => element.classList.remove("source-active"));
   const target =
     container.querySelector(`#${CSS.escape(`preview-${active.id}`)}`) ||
     container.querySelector(`[data-source-line="${active.line}"]`);
   if (!target) return;
-  target.classList.add("source-active");
+  if (!target.classList.contains("source-active")) {
+    container.querySelector(".source-active")?.classList.remove("source-active");
+    target.classList.add("source-active");
+  }
   if (center && !state.previewSyncing) {
     state.previewSyncing = true;
-    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    const frame = container.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
+    container.scrollTo({
+      top: container.scrollTop + rect.top - frame.top - (frame.height - rect.height) / 2,
+      behavior: "smooth",
+    });
     setTimeout(() => {
       state.previewSyncing = false;
     }, 180);

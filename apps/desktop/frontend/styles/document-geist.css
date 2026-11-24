@@ -559,7 +559,7 @@
   block-size: 24px;
   border: 0;
   border-radius: 7px;
-  background: var(--ui-panel-soft);
+  background: transparent;
   color: var(--ui-muted);
   cursor: pointer;
   padding: 2px;
@@ -625,12 +625,9 @@
 .cm-table-actions {
   position: absolute;
   z-index: 12;
-  top: calc(0.9em + 32px);
-  left: -26px;
+  inset-block-start: 32px;
+  inset-inline-end: calc(100% + 5px);
   inline-size: 21px;
-}
-.cm-md-table:dir(rtl) > .cm-table-actions {
-  left: -10px;
 }
 .cm-table-actions-trigger {
   display: grid;

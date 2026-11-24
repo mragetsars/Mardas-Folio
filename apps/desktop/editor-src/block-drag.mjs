@@ -45,6 +45,38 @@ function dropBoundary(view, target, after) {
   return (bottom + top) / 2;
 }
 
+let previewSequence = 0;
+
+/** Preserve rendered markup without giving the preview live controls or duplicate SVG IDs. */
+function copyBlockAppearance(element, namespace) {
+  const copy = element.cloneNode(true);
+  const ids = new Map();
+  for (const item of [copy, ...copy.querySelectorAll("[id]")]) {
+    if (!item.id) continue;
+    const next = namespace + item.id;
+    ids.set(item.id, next);
+    item.id = next;
+  }
+  for (const item of copy.querySelectorAll("*")) {
+    for (const attribute of item.attributes) {
+      if (!attribute.value.includes("#")) continue;
+      const value = attribute.value
+        .replace(/^#(.+)$/, (original, id) => (ids.has(id) ? "#" + ids.get(id) : original))
+        .replace(/url\(#([^)]+)\)/g, (original, id) =>
+          ids.has(id) ? "url(#" + ids.get(id) + ")" : original,
+        );
+      if (value !== attribute.value) attribute.value = value;
+    }
+  }
+  for (const popup of copy.querySelectorAll("[popover]")) popup.remove();
+  const originals = element.querySelectorAll("input, textarea, select");
+  copy.querySelectorAll("input, textarea, select").forEach((control, index) => {
+    control.value = originals[index]?.value ?? "";
+    if (control.type === "checkbox") control.checked = originals[index]?.checked ?? false;
+  });
+  return copy;
+}
+
 /** Swap whole source lines and retain all intervening Markdown and whitespace. */
 export function blockMove(state, source, target, after) {
   if (!source || !target || source.scope !== target.scope) return null;
@@ -93,6 +125,7 @@ export const blockDragExtension = ViewPlugin.fromClass(
       this.ghost = document.createElement("div");
       this.ghost.className = "cm-block-drag-ghost";
       this.ghost.setAttribute("aria-hidden", "true");
+      this.ghost.inert = true;
       this.origin = new Set();
       this.grip.hidden = this.indicator.hidden = this.ghost.hidden = true;
       view.dom.append(this.grip, this.indicator, this.ghost);
@@ -120,7 +153,7 @@ export const blockDragExtension = ViewPlugin.fromClass(
             const x = event.clientX,
               y = event.clientY;
             if (
-              x >= anchor.left &&
+              x >= anchor.left - 6 &&
               x <= anchor.right + 6 &&
               y >= anchor.top &&
               y <= anchor.bottom + (this.targetTable ? 26 : 3)
@@ -152,6 +185,8 @@ export const blockDragExtension = ViewPlugin.fromClass(
           this.drop = blockMove(view.state, this.grab, block, after);
           this.indicator.hidden = !this.drop;
           if (this.drop) {
+            const directionAnchor = widget || targetLine || view.contentDOM;
+            this.indicator.dir = getComputedStyle(directionAnchor).direction;
             this.indicator.style.left = Math.max(0, left - bounds.left) + "px";
             this.indicator.style.width = Math.max(0, right - left) + "px";
             this.indicator.style.top =
@@ -168,7 +203,6 @@ export const blockDragExtension = ViewPlugin.fromClass(
             table?.querySelector("table") || widget?.querySelector("header") || widget || firstLine;
           const rect = (fold || actualBlock)?.getBoundingClientRect();
           const gripHeight = 23;
-          const anchorX = rect?.left ?? left;
           const anchorY = rect
             ? rect.top + (table ? 6 : Math.min(rect.height, 30) / 2 - gripHeight / 2)
             : view.documentTop + first.top + Math.min(first.height, 30) / 2 - gripHeight / 2;
@@ -183,11 +217,13 @@ export const blockDragExtension = ViewPlugin.fromClass(
             table?.classList.add("cm-block-hover");
           }
           this.grip.style.top = anchorY - bounds.top + "px";
-          const gripX =
-            fold && getComputedStyle(firstLine).direction === "rtl"
-              ? rect.right + 4 - bounds.left
-              : anchorX - bounds.left - 26;
+          const directionAnchor = table || firstLine || widget;
+          const rtl = directionAnchor && getComputedStyle(directionAnchor).direction === "rtl";
+          const gripX = rtl
+            ? (rect?.right ?? right) + 5 - bounds.left
+            : (rect?.left ?? left) - bounds.left - 26;
           this.grip.style.left = Math.max(4, Math.min(gripX, bounds.width - 25)) + "px";
+          this.grip.dir = rtl ? "rtl" : "ltr";
           this.grip.hidden = false;
         } else hide();
       };
@@ -253,13 +289,12 @@ export const blockDragExtension = ViewPlugin.fromClass(
           if (this.ghost.hidden) {
             const distance = Math.hypot(event.clientX - this.start.x, event.clientY - this.start.y);
             if (distance < 5) return;
-            this.markOrigin();
-            this.ghost.hidden = false;
+            this.liftBlock();
           }
           const width = this.ghost.offsetWidth;
           const height = this.ghost.offsetHeight;
-          this.ghost.style.left =
-            Math.max(8, Math.min(event.clientX + 14, innerWidth - width - 8)) + "px";
+          const left = this.grip.dir === "rtl" ? event.clientX - width - 14 : event.clientX + 14;
+          this.ghost.style.left = Math.max(8, Math.min(left, innerWidth - width - 8)) + "px";
           this.ghost.style.top =
             Math.max(8, Math.min(event.clientY + 12, innerHeight - height - 8)) + "px";
           this.point = event;
@@ -303,28 +338,50 @@ export const blockDragExtension = ViewPlugin.fromClass(
       });
     }
 
-    markOrigin() {
+    liftBlock() {
       const { view } = this;
-      const lines = [];
+      const material = document.createElement("div");
+      material.className = "cm-block-drag-copy";
+      const namespace = "drag-" + ++previewSequence + "-";
       for (const element of view.contentDOM.children) {
+        if (element.classList.contains("cm-gap")) continue;
         const position = view.posAtDOM(element);
         if (position < this.grab.from || position > this.grab.to) continue;
+        material.append(copyBlockAppearance(element, namespace));
         element.classList.add("cm-block-drag-origin");
         this.origin.add(element);
-        if (lines.length < 4) {
-          const text = (element.querySelector(".cm-diagram > header") || element).innerText?.trim();
-          if (text) lines.push(text);
-        }
       }
-      const first = this.origin.values().next().value;
-      if (first) this.ghost.style.font = getComputedStyle(first).font;
-      this.ghost.textContent = lines.join("\n").slice(0, 420) || this.grip.ariaLabel;
+      const style = getComputedStyle(view.contentDOM);
+
+      material.dir = style.direction;
+      const width =
+        view.contentDOM.clientWidth -
+        parseFloat(style.paddingLeft) -
+        parseFloat(style.paddingRight);
+      material.style.inlineSize = Math.max(1, width) + "px";
+      this.ghost.replaceChildren(material);
+      this.ghost.hidden = false;
+      const height = material.offsetHeight;
+      material.style.zoom = Math.min(
+        1,
+        (innerWidth - 36) / Math.max(1, width),
+        (innerHeight * 0.62) / Math.max(1, height),
+      );
+      const scrollable = ".cm-table-scroll, .cm-code-nowrap";
+      const scrolls = [...this.origin].flatMap((element) => [
+        ...(element.matches(scrollable) ? [element] : []),
+        ...element.querySelectorAll(scrollable),
+      ]);
+      material.querySelectorAll(scrollable).forEach((element, index) => {
+        element.scrollLeft = scrolls[index]?.scrollLeft || 0;
+      });
     }
 
     endDrag() {
       const pointer = this.pointer;
       this.point = this.drop = this.grab = this.pointer = null;
       this.indicator.hidden = this.ghost.hidden = true;
+      this.ghost.replaceChildren();
       this.origin.forEach((element) => element.classList.remove("cm-block-drag-origin"));
       this.origin.clear();
       if (pointer != null && this.grip.hasPointerCapture(pointer))

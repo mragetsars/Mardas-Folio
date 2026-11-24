@@ -1405,9 +1405,14 @@ body {
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-list-line {
-  padding-inline-start: 26px;
-  text-indent: -18px;
-  padding-block: 0.12em;
+  --list-indent: calc(1.45em + var(--list-depth, 0) * 1.15em);
+  position: relative;
+  padding-inline-start: var(--list-indent);
+  text-indent: 0;
+}
+
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-list-ordered {
+  text-indent: -1.05em;
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-list-mark {
@@ -2967,9 +2972,21 @@ html[dir="rtl"] .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-quote-
 }
 
 .codemirror-mount .cm-md-bullet {
-  display: inline-block;
-  min-width: 1ch;
-  color: var(--cm-list);
+  position: absolute;
+  inset-inline-start: calc(var(--list-indent, 1.45em) - 0.95em);
+  inset-block-start: calc(0.5lh - 0.18em);
+  inline-size: 0.36em;
+  block-size: 0.36em;
+  border-radius: 50%;
+  background: var(--ui-text-soft);
+  pointer-events: none;
+}
+.codemirror-mount .cm-md-bullet[data-bullet="ring"] {
+  border: 1px solid var(--ui-text-soft);
+  background: transparent;
+}
+.codemirror-mount .cm-md-bullet[data-bullet="square"] {
+  border-radius: 1px;
 }
 
 body {

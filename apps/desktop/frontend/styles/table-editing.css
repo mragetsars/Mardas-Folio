@@ -183,10 +183,13 @@ body:has(.cm-block-drag-ghost:not([hidden])) .cm-selection-toolbar,
 
 .codemirror-mount .cm-md-table--editable {
   position: relative;
-  padding-inline-end: 16px;
   overflow: visible;
 }
-.cm-md-table--editable > .cm-table-scroll {
+.cm-table-frame {
+  display: flow-root;
+  position: relative;
+}
+.cm-table-frame > .cm-table-scroll {
   overflow-x: auto;
   padding-inline-start: 8px;
   padding-block-start: 8px;
@@ -221,9 +224,9 @@ body:has(.cm-block-drag-ghost:not([hidden])) .cm-selection-toolbar,
 }
 .cm-table-extend[data-table-extend="column"] {
   position: absolute;
-  inset-inline-end: 0;
-  inset-block-start: 0.9em;
-  inset-block-end: calc(0.9em + 20px);
+  inset-inline-start: calc(100% + 4px);
+  inset-block: 0;
+  margin: 0;
   inline-size: 13px;
 }
 .cm-block-grip {
@@ -281,22 +284,34 @@ body:has(.cm-block-drag-ghost:not([hidden])) .cm-selection-toolbar,
   background: var(--ui-page);
   content: "";
 }
+.cm-block-drop:dir(rtl)::before {
+  translate: 50% -50%;
+}
 .cm-block-drag-ghost {
   position: fixed;
   z-index: 150;
-  max-inline-size: min(34rem, calc(100vw - 16px));
-  max-block-size: 9rem;
-  padding: 6px 9px;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-  border: 1px solid var(--ui-border-strong);
-  border-radius: 6px;
+  border-radius: var(--ui-radius-sm);
   color: var(--ui-text);
-  background: var(--ui-panel);
+  background: var(--ui-page);
   box-shadow: var(--ui-shadow-float);
-  opacity: 0.88;
   pointer-events: none;
+}
+.cm-block-drag-copy {
+  overflow: hidden;
+}
+.cm-block-drag-copy .cm-md-table {
+  padding-block: 0;
+}
+.cm-block-drag-copy :is(.cm-table-actions, .cm-table-extend, .cm-table-selection-handle) {
+  display: none;
+}
+.cm-block-drag-copy .cm-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cm-block-drag-copy .cm-code-nowrap {
+  white-space: pre;
 }
 .cm-block-drag-origin {
   opacity: 0.28;

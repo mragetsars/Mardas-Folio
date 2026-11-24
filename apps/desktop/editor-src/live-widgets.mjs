@@ -1,3 +1,4 @@
+import { documentLineLayout } from "./document-line-layout.mjs";
 import { visualMetadataFields, updateVisualMetadata } from "./markdown-frontmatter.mjs";
 /**
  * Block widgets for live preview.
@@ -47,7 +48,7 @@ import {
   tableCellMetadata,
   tableRowCells,
 } from "./table-editing.mjs";
-import { codeBodyText, fencedCodeSpec } from "./code-block-tools.mjs";
+import { codeBodyText, codeWrapState, fencedCodeSpec } from "./code-block-tools.mjs";
 import { diagramRenderer, DiagramWidget } from "./diagram-widget.mjs";
 import { mathAndFootnotes } from "./markdown-extras.mjs";
 
@@ -469,15 +470,17 @@ export class TableWidget extends WidgetType {
       body.append(row);
     });
     if (view && model && !view.state.readOnly) {
+      const frame = document.createElement("div");
+      frame.className = "cm-table-frame";
       const scroller = document.createElement("div");
       scroller.className = "cm-table-scroll";
       scroller.append(table);
-      wrapper.append(
+      frame.append(
         scroller,
         createTableActions(view, model),
-        tableExtendButton(view, model, "row"),
         tableExtendButton(view, model, "column"),
       );
+      wrapper.append(frame, tableExtendButton(view, model, "row"));
     } else wrapper.append(table);
     return wrapper;
   }
@@ -698,8 +701,8 @@ export class BulletWidget extends WidgetType {
   toDOM() {
     const span = document.createElement("span");
     span.className = "cm-md-bullet";
-    // disc, circle, square — the sequence a browser walks as `<ul>` nests.
-    span.textContent = ["\u2022", "\u25e6", "\u25aa"][this.depth % 3];
+    span.dataset.bullet = ["disc", "ring", "square"][this.depth % 3];
+    span.setAttribute("aria-hidden", "true");
     return span;
   }
 
@@ -1081,7 +1084,12 @@ const proseSpacerLine = Decoration.line({ class: "cm-md-prose-spacer" });
 function buildBlockDecorations(state) {
   const active = activeLines(state);
   const items = [];
+  const layout = new Map();
   const verbatim = [];
+  const addLine = (at, decoration) => {
+    if (!layout.has(at)) layout.set(at, new Set());
+    layout.get(at).add(decoration);
+  };
 
   // CodeMirror parses incrementally, so `syntaxTree` covers only what it has
   // reached — on a 60k-character guide that was 6% of the document, and every
@@ -1092,6 +1100,7 @@ function buildBlockDecorations(state) {
 
   tree.iterate({
     enter: (node) => {
+      documentLineLayout(state, node, addLine);
       if (
         ["Frontmatter", "HTMLBlock", "FencedCode", "CodeBlock", "BlockMath", "Table"].includes(
           node.name,
@@ -1234,41 +1243,43 @@ function buildBlockDecorations(state) {
     }
     position += line.length + 1;
   }
-  items.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  // Replaced widgets own their complete span, including any lines from a
+  // surrounding list or quotation.
+  const replaced = items.filter(([from, to]) => to > from);
+  for (const [at, decorations] of layout) {
+    if (replaced.some(([from, to]) => at >= from && at < to)) continue;
+    for (const decoration of decorations) items.push([at, at, decoration]);
+  }
+  items.sort((a, b) => a[0] - b[0] || a[2].startSide - b[2].startSide);
   const builder = new RangeSetBuilder();
   for (const [from, to, decoration] of items) builder.add(from, to, decoration);
   return builder.finish();
 }
 
-let blockWidgetFieldInstance = null;
+// Keep one field for all document states. A mode change or a switch to a
+// different tab must not change which field an existing state advertises.
+const blockWidgetField = StateField.define({
+  create: buildBlockDecorations,
+  update(value, transaction) {
+    const before = transaction.startState;
+    const after = transaction.state;
+    if (
+      !transaction.docChanged &&
+      syntaxTree(before) === syntaxTree(after) &&
+      activeLineKey(before) === activeLineKey(after) &&
+      before.readOnly === after.readOnly &&
+      before.field(codeWrapState, false) === after.field(codeWrapState, false) &&
+      before.facet(mathRenderer) === after.facet(mathRenderer) &&
+      before.facet(diagramRenderer) === after.facet(diagramRenderer)
+    )
+      return value;
+    return buildBlockDecorations(after);
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
 
-/**
- * The block decoration field.
- *
- * It walks only the containers a block can nest in, so its cost is set by how
- * many blocks a document has rather than by how long it is. That is what let
- * the old size bound go: a document is no longer too big to render.
- */
 export function createBlockWidgetField() {
-  blockWidgetFieldInstance = StateField.define({
-    create: buildBlockDecorations,
-    update(value, transaction) {
-      const before = transaction.startState;
-      const after = transaction.state;
-      if (
-        !transaction.docChanged &&
-        syntaxTree(before) === syntaxTree(after) &&
-        activeLineKey(before) === activeLineKey(after) &&
-        before.readOnly === after.readOnly &&
-        before.facet(mathRenderer) === after.facet(mathRenderer) &&
-        before.facet(diagramRenderer) === after.facet(diagramRenderer)
-      )
-        return value;
-      return buildBlockDecorations(after);
-    },
-    provide: (field) => EditorView.decorations.from(field),
-  });
-  return blockWidgetFieldInstance;
+  return blockWidgetField;
 }
 
 /** The set of lines showing their source, as a value cheap to compare. */
@@ -1283,7 +1294,7 @@ function activeLineKey(state) {
 /** Ranges a block widget covers, so the inline layer can skip them. */
 export function blockWidgetRanges(state) {
   const ranges = [];
-  const set = blockWidgetFieldInstance ? state.field(blockWidgetFieldInstance, false) : null;
+  const set = state.field(blockWidgetField, false);
   if (!set) return ranges;
   const cursor = set.iter();
   while (cursor.value) {

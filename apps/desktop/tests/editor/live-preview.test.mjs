@@ -160,10 +160,13 @@ test("a callout is drawn as the card the engine will publish", () => {
   // `> [!WARNING]` becomes a coloured admonition in the PDF. Showing it as an
   // ordinary quotation while it is written means the writer only discovers what
   // they made after exporting.
-  assert.match(source, /CALLOUT_MARKER/);
-  assert.match(source, /cm-md-callout-\$\{kind\}/);
+  const layout = readFileSync(
+    new URL("../../editor-src/document-line-layout.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(layout, /cm-md-callout-/);
   for (const kind of ["note", "tip", "important", "warning", "caution"]) {
-    assert.ok(source.includes(`"${kind}"`), `${kind} is not a recognised callout`);
+    assert.ok(layout.includes(`"${kind}"`), `${kind} is not a recognised callout`);
   }
   assert.match(source, /Decoration\.replace\(\{ widget: new CalloutBadge\(kind\)/);
 });

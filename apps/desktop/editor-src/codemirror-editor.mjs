@@ -472,7 +472,14 @@ export function createCodeMirrorEditorAdapter(
     });
   }
 
-  const scroll = () => onScroll?.(view.scrollDOM.scrollTop);
+  let scrollFrame = 0;
+  const scroll = () => {
+    if (!onScroll || scrollFrame) return;
+    scrollFrame = requestAnimationFrame(() => {
+      scrollFrame = 0;
+      onScroll(view.scrollDOM.scrollTop);
+    });
+  };
   view.scrollDOM.addEventListener("scroll", scroll, { passive: true });
 
   /**
@@ -815,6 +822,7 @@ export function createCodeMirrorEditorAdapter(
       destroyed = true;
       documentStates.clear();
       view.scrollDOM.removeEventListener("scroll", scroll);
+      if (scrollFrame) cancelAnimationFrame(scrollFrame);
       view.dom.removeEventListener("contextmenu", contextMenu);
       view.destroy();
       mount.remove();
