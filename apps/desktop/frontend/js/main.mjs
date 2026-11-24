@@ -3031,7 +3031,7 @@ function syncPreviewToEditorLine(line, { center = false } = {}) {
 
 function syncPreviewFromEditorScroll(scrollTop) {
   const editorElement = editorAdapter?.element || $("#markdown-editor");
-  if (!editorElement || state.previewSyncing) return;
+  if (!editorElement || state.previewSyncing || !contentViewVisible()) return;
   // Wrapped rows and Markdown widgets do not correspond one-for-one with
   // source lines. The textarea fallback has no measured document map.
   const lineHeight = Number.parseFloat(getComputedStyle(editorElement).lineHeight) || 24;

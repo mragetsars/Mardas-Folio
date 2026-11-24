@@ -112,7 +112,6 @@ const mathBlockLine = Decoration.line({ class: "cm-md-math-block" });
 // needs a little breathing room, not a second full row of prose. Keep this a
 // line decoration (never a replacement) so typing, selection and undo use the
 // original buffer and blank lines inside code/math retain their full height.
-const proseSpacerLine = Decoration.line({ class: "cm-md-prose-spacer" });
 
 /**
  * The named character references Markdown documents actually use, plus the
@@ -415,17 +414,45 @@ const CALLOUT_MARKER = /^(\s*>\s*)(\[!([A-Za-z][A-Za-z0-9_-]*)\][+-]?)\s?/;
 
 const calloutLines = new Map();
 
-function calloutLine(kind, first) {
-  const key = `${kind}:${first}`;
+function calloutLine(kind, first, last) {
+  const key = `${kind}:${first}:${last}`;
   if (!calloutLines.has(key)) {
     calloutLines.set(
       key,
       Decoration.line({
-        class: `cm-md-callout cm-md-callout-${kind}${first ? " cm-md-callout-head" : ""}`,
+        class: `cm-md-callout cm-md-callout-${kind}${first ? " cm-md-callout-head" : ""}${last ? " cm-md-callout-tail" : ""}`,
       }),
     );
   }
   return calloutLines.get(key);
+}
+
+class CalloutBadge extends WidgetType {
+  constructor(kind) {
+    super();
+    this.kind = kind;
+  }
+
+  eq(other) {
+    return this.kind === other.kind;
+  }
+
+  toDOM() {
+    const label = document.createElement("span");
+    label.className = "cm-callout-badge";
+    const icon =
+      {
+        tip: "check",
+        success: "check",
+        question: "help",
+        warning: "help",
+        caution: "help",
+        danger: "close",
+        failure: "close",
+      }[this.kind] || "callout";
+    label.append(spriteIcon(icon), this.kind.toUpperCase());
+    return label;
+  }
 }
 
 /** Whether the caret sits anywhere inside a multi-line node. */
@@ -468,7 +495,6 @@ function buildDecorations(view) {
   const marks = [];
   const widgets = [];
   const lines = [];
-  const verbatimRanges = [];
 
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(state).iterate({
@@ -476,12 +502,10 @@ function buildDecorations(view) {
       to,
       enter: (node) => {
         if (node.name === "Frontmatter" || node.name === "HTMLBlock") {
-          verbatimRanges.push([node.from, node.to]);
           return false;
         }
         // Keep fenced code monospaced even when the surrounding prose is not.
         if (node.name === "FencedCode" || node.name === "CodeBlock") {
-          verbatimRanges.push([node.from, node.to]);
           const opener = state.doc.lineAt(node.from).from;
           const closer = state.doc.lineAt(node.to).from;
           const fence = fencedCodeSpec(state, node);
@@ -552,7 +576,6 @@ function buildDecorations(view) {
           return false;
         }
         if (node.name === "BlockMath") {
-          verbatimRanges.push([node.from, node.to]);
           eachLine(state, node, (at) => {
             lines.push({ at, deco: mathBlockLine });
           });
@@ -593,12 +616,17 @@ function buildDecorations(view) {
             });
             return;
           }
+          const last = state.doc.lineAt(node.to).from;
           eachLine(state, node, (at) => {
-            lines.push({ at, deco: calloutLine(kind, at === first.from) });
+            lines.push({ at, deco: calloutLine(kind, at === first.from, at === last) });
             if (rtl) lines.push({ at, deco: rtlBlock });
           });
           const from = first.from + marker[1].length;
-          marks.push([from, from + marker[2].length + (marker[0].endsWith(" ") ? 1 : 0)]);
+          marks.push([
+            from,
+            from + marker[2].length + (marker[0].endsWith(" ") ? 1 : 0),
+            Decoration.replace({ widget: new CalloutBadge(kind) }),
+          ]);
           return;
         }
         // Applied whether or not the caret is on the line: an item that
@@ -872,15 +900,6 @@ function buildDecorations(view) {
     for (let pos = from; pos <= to;) {
       const line = state.doc.lineAt(pos);
       lines.push({ at: line.from, deco: lineDirection(line.text) });
-      // Leave the final insertion row full size, including a new empty
-      // document. All other blank prose rows stay individually editable.
-      if (
-        line.number < state.doc.lines &&
-        !line.text.trim() &&
-        !verbatimRanges.some(([from, to]) => line.from >= from && line.from <= to)
-      ) {
-        lines.push({ at: line.from, deco: proseSpacerLine });
-      }
       pos = line.to + 1;
     }
   }

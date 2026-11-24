@@ -15,17 +15,20 @@ GUIDE_DIAGRAM = re.findall(r"```mermaid\s*\n(.*?)\n```", GUIDE, re.S)[1]
 CODE = 'return_value = "test"\nprint(42)\n# ' + "keep this line visible " * 20
 
 SOURCE = (
-    "---\ntitle: Fixtures\n---\n\n"
-    "# Example document\n\n"
-    "- [ ] Check the figures\n\n"
-    "| Name | Value |\n| --- | ---: |\n| فارسی | 1 |\n| Two words | 2 |\n\n"
-    '~~~{.python .numberLines title="main.py" linenostart=10 hl_lines="11"}\n'
-    f"{CODE}\n~~~\n\n"
-    "~~~diff\n+++ b/main.py\n-old\n+new\n~~~\n\n"
-    "<details><summary>More information</summary><p>Additional text</p></details>\n\n"
-    f"~~~mermaid\n{GUIDE_DIAGRAM}\n~~~\n\n"
-    "## Other topic\n\nParagraph under other topic.\n\n"
-    "### Nested topic\n\nNested content.\n"
+    GUIDE.split("\n---\n", 1)[0]
+    + "\n---\n\n"
+    + (
+        "# Example document\n\n"
+        "- [ ] Check the figures\n\n"
+        "| Name | Value |\n| --- | ---: |\n| فارسی | 1 |\n| Two words | 2 |\n\n"
+        '~~~{.python .numberLines title="main.py" linenostart=10 hl_lines="11"}\n'
+        f"{CODE}\n~~~\n\n"
+        "~~~diff\n+++ b/main.py\n-old\n+new\n~~~\n\n"
+        "<details><summary>More information</summary><p>Additional text</p></details>\n\n"
+        f"~~~mermaid\n{GUIDE_DIAGRAM}\n~~~\n\n"
+        "## Other topic\n\nParagraph under other topic.\n\n"
+        "### Nested topic\n\nNested content.\n"
+    )
 )
 
 
@@ -37,6 +40,8 @@ def test_geist_document_controls(
     engine = EngineService()
     source = tmp_path / "report.md"
     source.write_text(SOURCE, encoding="utf-8")
+    bibliography = ROOT / "docs" / "guides" / "GUIDE.references.bib"
+    (tmp_path / bibliography.name).write_bytes(bibliography.read_bytes())
     html_output = tmp_path / "report.html"
     markdown_output = tmp_path / "report-copy.md"
     json_source = tmp_path / "settings.json"
@@ -197,13 +202,23 @@ def test_geist_document_controls(
         expect(draft).to_be_hidden()
         expect(panel.locator(".cm-table-cell-structure button:visible")).to_have_count(6)
         expect(table.locator(".cm-table-cell-active")).to_have_count(3)
-        panel.locator("[data-cell-alignment=auto]").click()
-        expect(table.locator("td").nth(1)).to_have_css("text-align", "center")
-        expect(source_text).to_have_value(
-            SOURCE.replace("| Value |", "| <!--folio-align:auto--> Value |")
-            .replace("| 1 |", "| <!--folio-align:auto--> 1 |")
-            .replace("| 2 |", "| <!--folio-align:auto--> 2 |")
+        auto = panel.locator("[data-cell-alignment=auto]")
+        expect(auto).to_have_attribute("aria-pressed", "true")
+        expect(auto.locator("use")).to_have_attribute("href", "#icon-align-auto")
+        panel.locator("[data-cell-alignment=right]").click()
+        right_source = (
+            SOURCE.replace("| Value |", "| <!--folio-align:right--> Value |")
+            .replace("| 1 |", "| <!--folio-align:right--> 1 |")
+            .replace("| 2 |", "| <!--folio-align:right--> 2 |")
         )
+        expect(source_text).to_have_value(right_source)
+        table.locator("td").nth(1).click()
+        table.locator("[data-table-select=column]").nth(1).click()
+        auto.click()
+        expect(table.locator("td").nth(1)).to_have_css("text-align", "center")
+        expect(source_text).to_have_value(SOURCE)
+        page.keyboard.press("Control+z")
+        expect(source_text).to_have_value(right_source)
         page.keyboard.press("Control+z")
         expect(source_text).to_have_value(SOURCE)
 
@@ -295,9 +310,11 @@ def test_geist_document_controls(
         expect(editor.locator(".cm-code-added")).to_have_text("+new")
         task = editor.locator(".cm-md-task")
         expect(task).to_have_css("width", "16px")
+        before_task = task.bounding_box()
         task.click()
         mirror = page.locator("#markdown-editor")
         expect(mirror).to_have_value(re.compile(r"\[x\]", re.IGNORECASE))
+        assert task.bounding_box() == before_task
         task.click()
         expect(mirror).to_have_value(SOURCE)
         wrap = editor.locator(".code-wrap-button").first
@@ -329,7 +346,27 @@ def test_geist_document_controls(
         expect(mirror).to_have_value(SOURCE)
         metadata = editor.locator("button.cm-md-frontmatter")
         metadata.press("Enter")
-        expect(editor.locator(".cm-md-frontmatter-block .cm-visual-fields")).to_be_visible()
+        form = editor.locator(".cm-md-frontmatter-block .cm-visual-fields")
+        expect(form).to_be_visible()
+        title = form.locator("[data-metadata-key=title]")
+        expect(title).to_have_value("Mardas Folio Guide")
+        expect(form.locator("textarea[data-metadata-key=summary]")).to_have_value(
+            re.compile("A complete guide")
+        )
+        author = form.locator('[data-metadata-key="authors.1.name"]')
+        author.locator("xpath=ancestor::details").locator("summary").click()
+        expect(author).to_have_value("Mardas Folio Team")
+        title.fill("Folio Guide Edited")
+        author.fill("Documentation Team")
+        form.locator("button[type=submit]").click()
+        expect(mirror).to_have_value(
+            SOURCE.replace('title: "Mardas Folio Guide"', 'title: "Folio Guide Edited"').replace(
+                'name: "Mardas Folio Team"', 'name: "Documentation Team"'
+            )
+        )
+        editor.locator(".cm-content").focus()
+        page.keyboard.press("Control+z")
+        expect(mirror).to_have_value(SOURCE)
         editor.locator(".cm-line", has_text="Example document").click(button="right")
         context_menu = page.locator("#editor-context-menu")
         expect(context_menu).to_be_visible()
@@ -353,7 +390,9 @@ def test_geist_document_controls(
         preview_code.locator(".code-wrap-button").click()
         expect(preview_code.locator("td.code pre")).to_have_css("white-space", "pre-wrap")
         expect(preview.locator(".document-table-scroll table th")).to_have_count(2)
-        expect(preview.locator(".document-table-scroll td").last).to_have_css("text-align", "right")
+        expect(preview.locator(".document-table-scroll td").last).to_have_css(
+            "text-align", "center"
+        )
         page.locator("#workspace-layout-button").click()
         page.locator("#workspace-toggle-preview").click()
 
@@ -365,7 +404,7 @@ def test_geist_document_controls(
         )
         diagram.locator(".cm-diagram-controls > summary").click()
         diagram.locator("input").first.fill("Updated node")
-        expect(diagram.locator("svg")).to_contain_text("Updated node")
+        expect(diagram.locator(".md2pdf-mermaid-svg")).to_contain_text("Updated node")
         expect(mirror).to_have_value(SOURCE)
         diagram.locator(".cm-diagram-group > summary").nth(1).click()
         dotted = diagram.locator(".cm-diagram-group").nth(1).locator(".cm-diagram-fields").last
@@ -373,7 +412,7 @@ def test_geist_document_controls(
         expect(dotted.locator("input")).to_have_value("no")
         dotted.locator("input").fill("try again")
         diagram.locator(".cm-diagram-apply").click()
-        expect(diagram.locator("svg")).to_contain_text("Updated node")
+        expect(diagram.locator(".md2pdf-mermaid-svg")).to_contain_text("Updated node")
         expect(mirror).to_have_value(re.compile(r"-\.->\|try again\| Fix"))
         editor.locator(".cm-content").focus()
         page.keyboard.press("Control+z")

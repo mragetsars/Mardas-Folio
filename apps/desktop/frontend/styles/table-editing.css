@@ -211,9 +211,7 @@ body:has(.cm-block-drag-ghost:not([hidden])) .cm-selection-toolbar,
   font: var(--ui-text-xs)/1 var(--app-font);
   opacity: 0;
 }
-.cm-md-table:hover > .cm-table-extend,
-.cm-md-table[data-active-row] > .cm-table-extend,
-.cm-table-extend:focus-visible {
+.cm-table-extend:is(:hover, :active, :focus-visible) {
   opacity: 1;
 }
 .cm-table-extend:hover,
@@ -224,8 +222,8 @@ body:has(.cm-block-drag-ghost:not([hidden])) .cm-selection-toolbar,
 .cm-table-extend[data-table-extend="column"] {
   position: absolute;
   inset-inline-end: 0;
-  inset-block-start: 24px;
-  inset-block-end: 30px;
+  inset-block-start: 0.9em;
+  inset-block-end: calc(0.9em + 20px);
   inline-size: 13px;
 }
 .cm-block-grip {
@@ -240,8 +238,27 @@ body:has(.cm-block-drag-ghost:not([hidden])) .cm-selection-toolbar,
   background: transparent;
 }
 .cm-block-grip .ui-icon {
-  inline-size: 14px;
-  block-size: 14px;
+  inline-size: 17px;
+  block-size: 17px;
+}
+.cm-table-cell-alignment button {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+}
+.cm-table-cell-alignment .ui-icon,
+.cm-diagram-controls button .ui-icon {
+  inline-size: 16px;
+  block-size: 16px;
+  flex: none;
+}
+.cm-diagram-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
 }
 .cm-block-drop {
   position: absolute;
@@ -431,4 +448,30 @@ body:has(.cm-block-drag-ghost:not([hidden])) .cm-selection-toolbar,
 }
 .cm-visual-fields button {
   cursor: pointer;
+}
+.cm-md-frontmatter-block .cm-visual-fields {
+  max-block-size: min(64vh, 36rem);
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.cm-visual-fields details {
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.cm-visual-fields details > summary {
+  color: var(--ui-text);
+  cursor: pointer;
+}
+.cm-visual-fields details > label {
+  padding-block: 4px;
+}
+.cm-visual-fields input[type="checkbox"] {
+  inline-size: 16px;
+  block-size: 16px;
+  margin: 3px 0;
+  accent-color: var(--ui-accent);
+}
+.cm-diagram-controls button.cm-diagram-delete {
+  color: var(--ui-danger);
 }

@@ -284,8 +284,8 @@
 .codemirror-mount .cm-md-task,
 .document-content .task-list-item > input[type="checkbox"] {
   appearance: none;
-  display: inline-grid;
-  place-items: center;
+  display: inline-block;
+  position: relative;
   box-sizing: border-box;
   inline-size: 16px;
   block-size: 16px;
@@ -295,7 +295,7 @@
   border: 1px solid var(--ui-border-strong);
   border-radius: 4px;
   background: var(--ui-page);
-  vertical-align: -2px;
+  vertical-align: middle;
   text-indent: 0;
 }
 
@@ -312,12 +312,13 @@
     .document-content .task-list-item > input[type="checkbox"]
   ):checked::after {
   content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
   inline-size: 4px;
   block-size: 7px;
-  margin-block-start: -2px;
   border: solid var(--ui-page);
   border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  transform: translate(-50%, -64%) rotate(45deg);
 }
 
 .codemirror-mount .cm-md-task:focus-visible,
@@ -543,18 +544,24 @@
   right: auto;
 }
 
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-heading {
+  position: relative;
+}
 .cm-section-toggle {
+  position: absolute;
+  inset-inline-start: -28px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
   display: inline-grid;
   place-items: center;
   vertical-align: middle;
-  inline-size: 26px;
-  block-size: 26px;
+  inline-size: 24px;
+  block-size: 24px;
   border: 0;
   border-radius: 7px;
   background: var(--ui-panel-soft);
   color: var(--ui-muted);
   cursor: pointer;
-  margin-inline-end: 3px;
   padding: 2px;
 }
 

@@ -89,11 +89,6 @@ function delimiterCells(raw) {
     .map((value) => value.trim());
 }
 
-export function columnAlignment(raw = "") {
-  if (raw.startsWith(":")) return raw.endsWith(":") ? "center" : "left";
-  return raw.endsWith(":") ? "right" : "auto";
-}
-
 const alignments = ["auto", "left", "center", "right"];
 const metadataMarker =
   /^(?:<!--folio-(align:(auto|left|center|right)|width:([1-9][0-9]?|100))-->)\s*/;
@@ -116,8 +111,7 @@ export function tableCellMetadata(raw = "") {
 
 export function tableCellAlignment(model, row, column) {
   const info = tableCellMetadata(model?.rows[row]?.cells[column]?.raw);
-  const inherited = columnAlignment(model?.delimiter?.cells[column]?.raw);
-  return { ...info, alignment: info.alignment || inherited, inherited };
+  return { ...info, alignment: info.alignment || "auto" };
 }
 
 function writeCellMetadata(text, { alignment, width }) {
@@ -138,7 +132,7 @@ function selectedCells(model, row, column, selection) {
   return selection.cells || [[row, column]];
 }
 
-/** Existing GFM column marks remain defaults until a cell receives its own override. */
+/** Folio stores only explicit per-cell alignment as metadata. */
 export function tableCellChanges(model, coordinates, alignment, content) {
   const rows = new Map();
   for (const [row, column] of coordinates) {
@@ -151,7 +145,7 @@ export function tableCellChanges(model, coordinates, alignment, content) {
       alignment == null
         ? raw.slice(0, parsed.prefix) + text
         : writeCellMetadata(text, {
-            alignment: alignment === "auto" && parsed.inherited === "auto" ? null : alignment,
+            alignment: alignment === "auto" ? null : alignment,
             width: parsed.width,
           });
     if (insert === raw) continue;
@@ -549,9 +543,6 @@ class CellEditor {
     alignment.className = "cm-table-cell-alignment";
     alignment.setAttribute("role", "group");
     alignment.setAttribute("aria-label", this.labels.alignment);
-    const alignmentLabel = document.createElement("span");
-    alignmentLabel.textContent = this.labels.alignment;
-    alignment.append(alignmentLabel);
     this.alignments = alignments.map((value) => {
       const control = this.button(
         this.labels[value],
@@ -565,6 +556,8 @@ class CellEditor {
         alignment,
       );
       control.dataset.cellAlignment = value;
+      control.title = control.ariaLabel = this.labels[value];
+      control.replaceChildren(spriteIcon("align-" + value));
       return control;
     });
     this.panel.append(alignment);
@@ -1040,7 +1033,6 @@ class CellEditor {
   close(commit, focus = true) {
     if (!this.panel.isConnected) return;
     if (commit && !this.commit()) return;
-    const anchor = this.anchor();
     this.actionObserver.disconnect();
     for (const [button, disabled] of this.disabledActions)
       button.disabled = disabled || this.view.state.readOnly;
@@ -1069,7 +1061,7 @@ class CellEditor {
     window.removeEventListener("blur", this.windowBlur);
     this.view.scrollDOM.removeEventListener("scroll", this.scroll);
     sessions.delete(this.view);
-    if (focus) anchor?.closest(".cm-md-table")?.focus();
+    if (focus) this.view.focus();
   }
 }
 

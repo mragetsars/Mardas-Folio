@@ -1,3 +1,4 @@
+import { visualMetadataFields, updateVisualMetadata } from "./markdown-frontmatter.mjs";
 /**
  * Block widgets for live preview.
  *
@@ -754,14 +755,31 @@ function editVisualFields(view, source, from, fields, onApply) {
   const fa = document.documentElement.lang.startsWith("fa");
   const form = document.createElement("form");
   form.className = "cm-visual-fields";
-  const values = fields.map(({ name, value, multiline }) => {
+  const groups = new Map();
+  const values = fields.map(({ name, value, multiline, kind, group, key }) => {
     const label = document.createElement("label");
     label.textContent = name;
     const input = document.createElement(multiline ? "textarea" : "input");
     input.dir = "auto";
-    input.value = value;
+    if (kind && kind !== "multiline") input.type = kind;
+    if (kind === "number") input.step = "any";
+    if (kind === "checkbox") input.checked = value;
+    else input.value = value;
+    if (key) input.dataset.metadataKey = key;
     label.append(input);
-    form.append(label);
+    if (!group) form.append(label);
+    else {
+      if (!groups.has(group)) {
+        const section = document.createElement("details");
+        const title = document.createElement("summary");
+        title.textContent = group;
+        section.append(title);
+        form.append(section);
+        groups.set(group, section);
+        section.addEventListener("toggle", () => view.requestMeasure());
+      }
+      groups.get(group).append(label);
+    }
     return input;
   });
   const button = document.createElement("button");
@@ -773,7 +791,9 @@ function editVisualFields(view, source, from, fields, onApply) {
     event.preventDefault();
     const to = from + source.length;
     if (view.state.readOnly || view.state.doc.sliceString(from, to) !== source) return;
-    const insert = onApply(values.map((input) => input.value));
+    const insert = onApply(
+      values.map((input) => (input.type === "checkbox" ? input.checked : input.value)),
+    );
     if (insert !== source)
       view.dispatch({
         changes: { from, to, insert },
@@ -835,35 +855,39 @@ class FrontMatterWidget extends WidgetType {
     block.className = "cm-md-frontmatter-block";
     const wrapper = document.createElement("button");
     wrapper.type = "button";
-    const lines = this.markup.split("\n");
     const fa = document.documentElement.lang.startsWith("fa");
-    const fields = lines.flatMap((line, index) => {
-      const match = /^([a-z]+)(:\s*)(.+)$/.exec(line);
-      if (
-        !match ||
-        !Object.hasOwn(simpleMetadataFields, match[1]) ||
-        /^\s|^['"[{&*!>|]|\s#/.test(match[3]) ||
-        /^\s+\S/.test(lines[index + 1] || "")
-      )
-        return [];
-      return [
-        {
-          name: simpleMetadataFields[match[1]][fa ? 1 : 0],
-          index,
-          value: match[3],
-          key: match[1],
-          prefix: match[1] + match[2],
-        },
-      ];
-    });
-    const form = editVisualFields(view, this.markup, this.from, fields, (values) => {
-      const next = lines.slice();
-      fields.forEach((field, index) => {
-        if (field.value !== values[index])
-          next[field.index] = field.prefix + JSON.stringify(values[index]);
-      });
-      return next.join("\n");
-    });
+    const metadata = visualMetadataFields(this.markup);
+    const labels = {
+      ...simpleMetadataFields,
+      authors: ["Authors", "نویسندگان"],
+      summary: ["Summary", "خلاصه"],
+      name: ["Name", "نام"],
+      email: ["Email", "ایمیل"],
+      role: ["Role", "نقش"],
+      appearance: ["Appearance", "ظاهر"],
+      references: ["References", "مراجع"],
+      citations: ["Citations", "ارجاع‌ها"],
+      branding: ["Branding", "برند"],
+      keywords: ["Keywords", "کلیدواژه‌ها"],
+      dir: ["Direction", "جهت"],
+    };
+    const labelFor = (key) =>
+      Object.hasOwn(labels, key)
+        ? labels[key][fa ? 1 : 0]
+        : key.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+    const fields = metadata.map((field) => ({
+      ...field,
+      key: field.path.join("."),
+      name: field.path
+        .slice(field.path.length > 1 ? 1 : 0)
+        .map(labelFor)
+        .join(" · "),
+      group: field.path.length > 1 ? labelFor(field.path[0]) : null,
+      multiline: field.kind === "multiline",
+    }));
+    const form = editVisualFields(view, this.markup, this.from, fields, (values) =>
+      updateVisualMetadata(this.markup, metadata, values),
+    );
     form.hidden = true;
     wrapper.disabled = this.readOnly || !fields.length;
     wrapper.setAttribute("aria-expanded", "false");
@@ -1052,10 +1076,12 @@ export function parseImage(markup) {
 const SETEXT_HEADINGS = new Set(["SetextHeading1", "SetextHeading2"]);
 
 const PARSE_BUDGET_MS = 100;
+const proseSpacerLine = Decoration.line({ class: "cm-md-prose-spacer" });
 
 function buildBlockDecorations(state) {
   const active = activeLines(state);
   const items = [];
+  const verbatim = [];
 
   // CodeMirror parses incrementally, so `syntaxTree` covers only what it has
   // reached — on a 60k-character guide that was 6% of the document, and every
@@ -1066,6 +1092,13 @@ function buildBlockDecorations(state) {
 
   tree.iterate({
     enter: (node) => {
+      if (
+        ["Frontmatter", "HTMLBlock", "FencedCode", "CodeBlock", "BlockMath", "Table"].includes(
+          node.name,
+        )
+      ) {
+        verbatim.push([node.from, node.to]);
+      }
       if (node.name === "Frontmatter") {
         items.push([
           node.from,
@@ -1186,6 +1219,21 @@ function buildBlockDecorations(state) {
     },
   });
 
+  // Height-affecting empty rows belong to the document's decoration set.
+  // Viewport-only styling changes their heights when the scrolling window moves.
+  let position = 0;
+  let region = 0;
+  for (const line of state.doc.iterLines()) {
+    while (region < verbatim.length && verbatim[region][1] < position) region += 1;
+    if (
+      position + line.length < state.doc.length &&
+      !line.trim() &&
+      (region === verbatim.length || verbatim[region][0] > position)
+    ) {
+      items.push([position, position, proseSpacerLine]);
+    }
+    position += line.length + 1;
+  }
   items.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   const builder = new RangeSetBuilder();
   for (const [from, to, decoration] of items) builder.add(from, to, decoration);
@@ -1202,31 +1250,21 @@ let blockWidgetFieldInstance = null;
  * the old size bound go: a document is no longer too big to render.
  */
 export function createBlockWidgetField() {
-  let renderedFor = "";
   blockWidgetFieldInstance = StateField.define({
-    create(state) {
-      renderedFor = activeLineKey(state);
-      return buildBlockDecorations(state);
-    },
+    create: buildBlockDecorations,
     update(value, transaction) {
-      // A selection only changes what is drawn when it changes *which lines*
-      // are being edited: those show their source, the rest stay rendered.
-      // Rebuilding on every selection meant walking the whole syntax tree to
-      // move the caret one character — 17ms per arrow key on a 195,000
-      // character document, for a result identical to the one discarded.
-      if (!transaction.docChanged) {
-        const key = activeLineKey(transaction.state);
-        if (
-          key === renderedFor &&
-          transaction.startState.facet(mathRenderer) === transaction.state.facet(mathRenderer) &&
-          transaction.startState.facet(diagramRenderer) === transaction.state.facet(diagramRenderer)
-        )
-          return value;
-        renderedFor = key;
-      } else {
-        renderedFor = activeLineKey(transaction.state);
-      }
-      return buildBlockDecorations(transaction.state);
+      const before = transaction.startState;
+      const after = transaction.state;
+      if (
+        !transaction.docChanged &&
+        syntaxTree(before) === syntaxTree(after) &&
+        activeLineKey(before) === activeLineKey(after) &&
+        before.readOnly === after.readOnly &&
+        before.facet(mathRenderer) === after.facet(mathRenderer) &&
+        before.facet(diagramRenderer) === after.facet(diagramRenderer)
+      )
+        return value;
+      return buildBlockDecorations(after);
     },
     provide: (field) => EditorView.decorations.from(field),
   });
@@ -1249,7 +1287,7 @@ export function blockWidgetRanges(state) {
   if (!set) return ranges;
   const cursor = set.iter();
   while (cursor.value) {
-    ranges.push([cursor.from, cursor.to]);
+    if (cursor.to > cursor.from) ranges.push([cursor.from, cursor.to]);
     cursor.next();
   }
   return ranges;

@@ -2297,13 +2297,9 @@ def render_markdown(
                         inline.children.pop(0)
         if width:
             token.attrSet("width", width + "%")
-        legacy_alignment = re.fullmatch(
-            r"\s*text-align:\s*(left|center|right)\s*;?\s*",
-            token.attrs.pop("style", "") or "",
-            flags=re.IGNORECASE,
-        )
-        if alignment is None and legacy_alignment:
-            alignment = legacy_alignment.group(1).lower()
+        # Markdown-it emits column alignment from the separator row as CSS.
+        # Folio uses automatic cell alignment unless the cell carries an override.
+        token.attrs.pop("style", None)
         if alignment in {"left", "center", "right"}:
             token.attrSet("align", alignment)
         return md.renderer.renderToken(tokens, idx, options, env)

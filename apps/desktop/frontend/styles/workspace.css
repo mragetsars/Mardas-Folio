@@ -2154,106 +2154,96 @@ body {
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout {
-  border-left: 2px solid var(--callout-tint, var(--ui-border-strong));
-  padding-left: 14px;
-}
-
-.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout.cm-md-block-rtl {
-  border-left: 0;
-  padding-left: 0;
-  border-right: 2px solid var(--callout-tint, var(--ui-border-strong));
-  padding-right: 14px;
+  border-inline: 1px solid var(--ui-border);
+  padding-inline: 14px;
+  background: color-mix(in srgb, var(--callout-tint, var(--ui-info)) 8%, var(--ui-panel));
+  color: var(--ui-text);
 }
 
 .codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout-head {
-  padding-top: 6px;
-  border-radius: var(--ui-radius) var(--ui-radius) 0 0;
-  font-weight: 700;
+  padding-block-start: 8px;
+  border-block-start: 1px solid var(--ui-border);
+  border-start-start-radius: var(--ui-radius-sm);
+  border-start-end-radius: var(--ui-radius-sm);
 }
 
-.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout-head.cm-md-block-rtl {
-  direction: rtl;
-  unicode-bidi: isolate;
+.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout-tail {
+  padding-block-end: 8px;
+  border-block-end: 1px solid var(--ui-border);
+  border-end-start-radius: var(--ui-radius-sm);
+  border-end-end-radius: var(--ui-radius-sm);
 }
 
-.codemirror-mount .cm-editor[data-editor-mode="live"] .cm-md-callout-head::before {
-  content: var(--callout-label, "NOTE");
-  display: inline-block;
-  margin-inline-end: 8px;
-  color: var(--callout-tint, var(--ui-text-soft));
-  font: 700 var(--ui-text-2xs)/1.8 var(--app-mono);
-  letter-spacing: 0.08em;
-  vertical-align: 1px;
+.cm-callout-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-end: 6px;
+  color: var(--callout-tint, var(--ui-info));
+  font: 650 var(--ui-text-xs)/1.5 var(--app-font);
+  letter-spacing: 0.015em;
+  vertical-align: middle;
+}
+
+.cm-callout-badge .ui-icon {
+  inline-size: 16px;
+  block-size: 16px;
 }
 
 .cm-md-callout-note {
   --callout-tint: var(--ui-info);
-  --callout-label: "NOTE";
 }
 
 .cm-md-callout-info {
   --callout-tint: var(--ui-info);
-  --callout-label: "INFO";
 }
 
 .cm-md-callout-tip {
   --callout-tint: var(--ui-success);
-  --callout-label: "TIP";
 }
 
 .cm-md-callout-success {
   --callout-tint: var(--ui-success);
-  --callout-label: "SUCCESS";
 }
 
 .cm-md-callout-important {
   --callout-tint: var(--ui-special);
-  --callout-label: "IMPORTANT";
 }
 
 .cm-md-callout-example {
   --callout-tint: var(--ui-special);
-  --callout-label: "EXAMPLE";
 }
 
 .cm-md-callout-abstract {
   --callout-tint: var(--ui-special);
-  --callout-label: "ABSTRACT";
 }
 
 .cm-md-callout-question {
   --callout-tint: var(--ui-warning);
-  --callout-label: "QUESTION";
 }
 
 .cm-md-callout-warning {
   --callout-tint: var(--ui-warning);
-  --callout-label: "WARNING";
 }
 
 .cm-md-callout-caution {
   --callout-tint: var(--ui-warning);
-  --callout-label: "CAUTION";
 }
 
 .cm-md-callout-danger {
   --callout-tint: var(--ui-danger);
-  --callout-label: "DANGER";
 }
 
 .cm-md-callout-failure {
   --callout-tint: var(--ui-danger);
-  --callout-label: "FAILURE";
 }
 
 .cm-md-callout-bug {
   --callout-tint: var(--ui-danger);
-  --callout-label: "BUG";
 }
 
 .cm-md-callout-quote {
   --callout-tint: var(--ui-muted);
-  --callout-label: "QUOTE";
 }
 
 .codemirror-mount .cm-md-frontmatter-block {
@@ -4507,7 +4497,7 @@ body[data-view="workspace"] .codemirror-mount .cm-editor[data-editor-mode="live"
   width: 100%;
   max-width: var(--writing-column, 100%);
   margin-inline: auto;
-  padding: 44px 36px 45vh;
+  padding: 44px 54px 45vh;
   font-size: calc(var(--editor-prose-size) * var(--document-text-scale, 1));
   line-height: 1.85;
 }
@@ -4937,33 +4927,27 @@ html[data-focus-mode="true"]
   margin-block-end: 0;
 }
 .document-content blockquote.callout {
-  padding: 0.75em 1em;
+  padding: 0.75em 14px;
   border: 1px solid var(--ui-border);
-  border-inline-start: 3px solid var(--ui-info);
-  border-radius: var(--ui-radius-xs);
-  background: var(--ui-panel-soft);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  background: color-mix(in srgb, var(--callout-tint, var(--ui-info)) 8%, var(--ui-panel));
 }
 .document-content .callout-title {
   display: block;
-  color: var(--ui-info);
+  color: var(--callout-tint, var(--ui-info));
 }
 .document-content :is(.callout-warning, .callout-caution, .callout-question) {
-  border-inline-start-color: var(--ui-warning);
-}
-.document-content :is(.callout-warning, .callout-caution, .callout-question) .callout-title {
-  color: var(--ui-warning);
+  --callout-tint: var(--ui-warning);
 }
 .document-content :is(.callout-danger, .callout-failure, .callout-bug) {
-  border-inline-start-color: var(--ui-danger);
-}
-.document-content :is(.callout-danger, .callout-failure, .callout-bug) .callout-title {
-  color: var(--ui-danger);
+  --callout-tint: var(--ui-danger);
 }
 .document-content :is(.callout-tip, .callout-success) {
-  border-inline-start-color: var(--ui-success);
+  --callout-tint: var(--ui-success);
 }
-.document-content :is(.callout-tip, .callout-success) .callout-title {
-  color: var(--ui-success);
+.document-content :is(.callout-important, .callout-example, .callout-abstract) {
+  --callout-tint: var(--ui-special);
 }
 .document-content blockquote {
   margin-inline: 0;

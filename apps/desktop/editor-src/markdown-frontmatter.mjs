@@ -21,6 +21,8 @@
  * fence is located with a non-consuming look-ahead before any line is taken.
  */
 import { styleTags, tags } from "@lezer/highlight";
+import { yamlLanguage } from "@codemirror/lang-yaml";
+import { parseFrontMatter } from "../frontend/js/core/markdown-analysis.mjs";
 
 const FENCE = /^---[ \t]*$/;
 const ENTRY = /^([ \t]*)([A-Za-z_$][\w.$-]*)([ \t]*:)(.*)$/;
@@ -134,3 +136,92 @@ export const frontmatter = {
     }),
   ],
 };
+
+/** Editable YAML leaves with exact source ranges. Unknown YAML constructs stay intact. */
+export function visualMetadataFields(markup) {
+  const opening = /^---[ \t]*\r?\n/.exec(markup);
+  const closing = /\r?\n---[ \t]*$/.exec(markup);
+  if (!opening || !closing) return [];
+  const offset = opening[0].length;
+  const source = markup.slice(offset, closing.index);
+  const root = yamlLanguage.parser
+    .parse(source)
+    .topNode.getChild("Document")
+    ?.getChild("BlockMapping");
+  if (!root) return [];
+  const { fields: simple } = parseFrontMatter(markup);
+  const fields = [];
+  const slice = (node) => source.slice(node.from, node.to);
+  function visit(node, path) {
+    if (node.name === "Pair") {
+      const key = node.getChild("Key");
+      const value = node.lastChild;
+      if (!key || !value || value === key || value.name === ":") return;
+      const name = slice(key).replace(/^(['"])(.*)\1$/, "$2");
+      visit(value, [...path, name]);
+    } else if (node.name === "BlockMapping" || node.name === "FlowMapping") {
+      for (const pair of node.getChildren("Pair")) visit(pair, path);
+    } else if (node.name === "BlockSequence") {
+      node.getChildren("Item").forEach((item, index) => {
+        if (item.firstChild) visit(item.firstChild, [...path, String(index + 1)]);
+      });
+    } else if (node.name === "FlowSequence") {
+      const parts = [];
+      for (let child = node.firstChild; child; child = child.nextSibling) {
+        if (!["[", "]", ",", "LineComment"].includes(child.name)) parts.push(child);
+      }
+      parts.forEach((value, index) => visit(value, [...path, String(index + 1)]));
+    } else {
+      const raw = slice(node);
+      let value;
+      let kind = "text";
+      if (node.name === "QuotedLiteral" && !raw.includes("\n")) {
+        if (raw.startsWith("'")) value = raw.slice(1, -1).replaceAll("''", "'");
+        else {
+          try {
+            value = JSON.parse(raw);
+          } catch {
+            return;
+          }
+        }
+      } else if (node.name === "Literal" && !/[\r\n]/.test(raw) && !/^(null|~)$/i.test(raw)) {
+        if (/^(true|false|yes|no|on|off)$/i.test(raw)) {
+          kind = "checkbox";
+          value = /^(true|yes|on)$/i.test(raw);
+        } else if (/^[+-]?(?:\d+|\d+\.\d+)$/.test(raw)) {
+          value = raw;
+          kind = "number";
+        } else {
+          value = raw;
+          if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) kind = "date";
+        }
+      } else if (
+        node.name === "BlockLiteral" &&
+        path.length === 1 &&
+        typeof simple[path[0]] === "string"
+      ) {
+        value = simple[path[0]];
+        kind = "multiline";
+      }
+      if (value === undefined) return;
+      fields.push({ path, value, kind, from: offset + node.from, to: offset + node.to });
+    }
+  }
+  visit(root, []);
+  return fields;
+}
+
+export function updateVisualMetadata(markup, fields, values) {
+  let result = markup;
+  for (let index = fields.length - 1; index >= 0; index -= 1) {
+    const { from, to, value, kind } = fields[index];
+    const next = values[index];
+    if (next === value) continue;
+    const insert =
+      kind === "checkbox" || (kind === "number" && next !== "") || (kind === "date" && next)
+        ? String(next)
+        : JSON.stringify(next);
+    result = result.slice(0, from) + insert + result.slice(to);
+  }
+  return result;
+}

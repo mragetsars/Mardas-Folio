@@ -165,8 +165,7 @@ test("a callout is drawn as the card the engine will publish", () => {
   for (const kind of ["note", "tip", "important", "warning", "caution"]) {
     assert.ok(source.includes(`"${kind}"`), `${kind} is not a recognised callout`);
   }
-  // Only the marker is hidden, and only while the caret is elsewhere.
-  assert.match(source, /marks\.push\(\[from, from \+ marker\[2\]\.length/);
+  assert.match(source, /Decoration\.replace\(\{ widget: new CalloutBadge\(kind\)/);
 });
 
 test("front matter uses a visual summary and native field controls", () => {

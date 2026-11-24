@@ -89,7 +89,7 @@ def test_table_and_math():
     assert "math display" in result.body_html
 
 
-def test_markdown_table_alignment_survives_safe_rendering_and_bidi_profiles():
+def test_delimiter_alignment_defaults_to_auto_and_keeps_bidi_profiles():
     result = render_markdown(
         "# Table\n\n"
         "| Left | Center | Right | Default |\n"
@@ -98,13 +98,9 @@ def test_markdown_table_alignment_survives_safe_rendering_and_bidi_profiles():
     )
     soup = BeautifulSoup(result.body_html, "html.parser")
     for row in soup.select("table tr"):
-        assert [cell.get("align") for cell in row.select("th, td")] == [
-            "left",
-            "center",
-            "right",
-            None,
-        ]
+        assert all(cell.get("align") is None for cell in row.select("th, td"))
     assert soup.select_one("tbody td")["dir"] == "rtl"
+    assert "table-cell--auto-right" in soup.select_one("tbody td")["class"]
     assert [(entry["title"], entry["line"]) for entry in result.source_map] == [("Table", 1)]
     assert not soup.select("[style]")
 
@@ -123,13 +119,14 @@ def test_cell_alignment_comments_override_the_delimiter_and_auto_centers_one_wor
         "right",
         None,
         "left",
-        "right",
+        None,
         None,
         "center",
         None,
         None,
     ]
     assert "table-cell--auto-centered" in cells[1]["class"]
+    assert "table-cell--auto-centered" in cells[3]["class"]
     assert "table-cell--auto-centered" in cells[4]["class"]
     assert "table-cell--auto-left" in cells[6]["class"]
     assert "table-cell--auto-right" in cells[7]["class"]

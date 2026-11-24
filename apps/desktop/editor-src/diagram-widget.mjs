@@ -2,8 +2,10 @@ import { Facet, Transaction } from "@codemirror/state";
 import { WidgetType } from "@codemirror/view";
 import { isolateHistory } from "@codemirror/commands";
 import { codeBodyText } from "./code-block-tools.mjs";
+import { spriteIcon } from "../frontend/js/ui/icons.mjs";
 
 export const diagramRenderer = Facet.define({ combine: (values) => values[0] || null });
+const measuredDiagramHeights = new Map();
 
 const shapes = {
   subroutine: ["[[", "]]", "Subroutine", "زیرفرایند"],
@@ -124,6 +126,7 @@ export class DiagramWidget extends WidgetType {
     this.spec = spec;
     this.renderer = renderer;
     this.readOnly = readOnly;
+    this.initialModel = diagramModel(source);
   }
 
   eq(other) {
@@ -136,7 +139,10 @@ export class DiagramWidget extends WidgetType {
   }
 
   get estimatedHeight() {
-    return 210;
+    return (
+      measuredDiagramHeights.get(this.source) ??
+      Math.max(140, Math.min(540, 100 + (this.initialModel?.nodes.length || 2) * 24))
+    );
   }
   ignoreEvent() {
     return true;
@@ -153,7 +159,8 @@ export class DiagramWidget extends WidgetType {
     const canvas = document.createElement("div");
     canvas.className = "cm-diagram-canvas";
     canvas.textContent = t("Rendering diagram…", "در حال نمایش نمودار…");
-    let model = diagramModel(this.source);
+    canvas.style.minBlockSize = Math.max(100, this.estimatedHeight - 75) + "px";
+    let model = this.initialModel ? structuredClone(this.initialModel) : null;
     let previewRevision = 0;
     let previewTimer;
     const render = async (source = this.source) => {
@@ -161,8 +168,21 @@ export class DiagramWidget extends WidgetType {
       try {
         const svg = await this.renderer?.(source);
         if (revision !== previewRevision) return;
-        if (svg) canvas.replaceChildren(svg);
-        else
+        if (svg) {
+          canvas.replaceChildren(svg);
+          canvas.style.minBlockSize = "";
+          if (source === this.source && !widget.querySelector(".cm-diagram-controls[open]")) {
+            view.requestMeasure({
+              read: () => (widget.isConnected ? widget.offsetHeight + 16 : 0),
+              write: (height) => {
+                if (!height) return;
+                if (measuredDiagramHeights.size >= 48 && !measuredDiagramHeights.has(source))
+                  measuredDiagramHeights.delete(measuredDiagramHeights.keys().next().value);
+                measuredDiagramHeights.set(source, height);
+              },
+            });
+          }
+        } else
           canvas.textContent = t(
             "Preview unavailable for this diagram.",
             "پیش‌نمایش این نمودار در دسترس نیست.",
@@ -218,10 +238,13 @@ export class DiagramWidget extends WidgetType {
     const footer = document.createElement("footer");
     editor.append(summary, items, footer);
     widget.append(editor);
-    const button = (parent, label, action) => {
+    const button = (parent, label, action, icon) => {
       const item = document.createElement("button");
       item.type = "button";
-      item.textContent = label;
+      item.ariaLabel = item.title = label;
+      if (icon) item.append(spriteIcon(icon));
+      if (icon !== "trash") item.append(label);
+      else item.classList.add("cm-diagram-delete");
       item.addEventListener("click", action);
       parent.append(item);
       return item;
@@ -306,21 +329,35 @@ export class DiagramWidget extends WidgetType {
             },
           ),
         );
-        button(row, t("Remove node", "حذف گره"), () => {
-          model.nodes = model.nodes.filter((item) => item !== node);
-          model.edges = model.edges.filter(({ from, to }) => from !== node.id && to !== node.id);
-          draw();
-          queuePreview();
-        });
+        button(
+          row,
+          t("Remove node", "حذف گره"),
+          () => {
+            model.nodes = model.nodes.filter((item) => item !== node);
+            model.edges = model.edges.filter(({ from, to }) => from !== node.id && to !== node.id);
+            draw();
+            queuePreview();
+          },
+          "trash",
+        );
         groups.nodes.body.append(row);
       }
       let number = model.nodes.length + 1;
       while (model.nodes.some((node) => node.id === "node" + number)) number += 1;
-      button(groups.nodes.body, t("Add node", "افزودن گره"), () => {
-        model.nodes.push({ id: "node" + number, label: t("New node", "گره جدید"), shape: "rect" });
-        draw();
-        queuePreview();
-      });
+      button(
+        groups.nodes.body,
+        t("Add node", "افزودن گره"),
+        () => {
+          model.nodes.push({
+            id: "node" + number,
+            label: t("New node", "گره جدید"),
+            shape: "rect",
+          });
+          draw();
+          queuePreview();
+        },
+        "plus",
+      );
       for (const edge of model.edges) {
         const row = document.createElement("div");
         row.className = "cm-diagram-fields";
@@ -360,23 +397,33 @@ export class DiagramWidget extends WidgetType {
           ),
         );
         field(row, t("Label", "برچسب"), label);
-        button(row, t("Remove connection", "حذف اتصال"), () => {
-          model.edges = model.edges.filter((item) => item !== edge);
-          draw();
-          queuePreview();
-        });
+        button(
+          row,
+          t("Remove connection", "حذف اتصال"),
+          () => {
+            model.edges = model.edges.filter((item) => item !== edge);
+            draw();
+            queuePreview();
+          },
+          "trash",
+        );
         groups.edges.body.append(row);
       }
-      const add = button(groups.edges.body, t("Add connection", "افزودن اتصال"), () => {
-        model.edges.push({
-          from: model.nodes[0].id,
-          to: model.nodes[1].id,
-          kind: "-->",
-          label: "",
-        });
-        draw();
-        queuePreview();
-      });
+      const add = button(
+        groups.edges.body,
+        t("Add connection", "افزودن اتصال"),
+        () => {
+          model.edges.push({
+            from: model.nodes[0].id,
+            to: model.nodes[1].id,
+            kind: "-->",
+            label: "",
+          });
+          draw();
+          queuePreview();
+        },
+        "plus",
+      );
       add.disabled = model.nodes.length < 2;
       view.requestMeasure();
     };
@@ -386,33 +433,38 @@ export class DiagramWidget extends WidgetType {
     button(footer, t("Cancel", "لغو"), () => {
       editor.open = false;
     });
-    const apply = button(footer, t("Apply diagram changes", "اعمال تغییرات نمودار"), () => {
-      if (view.state.readOnly || codeBodyText(view.state, this.spec) !== this.source) return;
-      if (!valid()) {
-        message.textContent = t(
-          "Enter compatible labels and keep at least one node.",
-          "برچسب سازگار وارد کن و دست‌کم یک گره نگه دار.",
-        );
-        return;
-      }
-      const replacement = diagramSource(model);
-      if (replacement === originalModelSource) {
-        editor.open = false;
-        return;
-      }
-      const insert =
-        replacement
-          .split("\n")
-          .map((line) => this.spec.bodyPrefix + line)
-          .join("\n") + (this.spec.closeFrom == null ? "" : "\n");
-      view.dispatch({
-        changes: { from: this.spec.bodyFrom, to: this.spec.bodyTo, insert },
-        selection: { anchor: this.spec.from },
-        scrollIntoView: true,
-        annotations: [Transaction.userEvent.of("input.diagram"), isolateHistory.of("full")],
-      });
-      view.focus();
-    });
+    const apply = button(
+      footer,
+      t("Apply diagram changes", "اعمال تغییرات نمودار"),
+      () => {
+        if (view.state.readOnly || codeBodyText(view.state, this.spec) !== this.source) return;
+        if (!valid()) {
+          message.textContent = t(
+            "Enter compatible labels and keep at least one node.",
+            "برچسب سازگار وارد کن و دست‌کم یک گره نگه دار.",
+          );
+          return;
+        }
+        const replacement = diagramSource(model);
+        if (replacement === originalModelSource) {
+          editor.open = false;
+          return;
+        }
+        const insert =
+          replacement
+            .split("\n")
+            .map((line) => this.spec.bodyPrefix + line)
+            .join("\n") + (this.spec.closeFrom == null ? "" : "\n");
+        view.dispatch({
+          changes: { from: this.spec.bodyFrom, to: this.spec.bodyTo, insert },
+          selection: { anchor: this.spec.from },
+          scrollIntoView: true,
+          annotations: [Transaction.userEvent.of("input.diagram"), isolateHistory.of("full")],
+        });
+        view.focus();
+      },
+      "check",
+    );
     apply.className = "cm-diagram-apply";
     const originalModelSource = diagramSource(model);
     editor.addEventListener("toggle", () => {

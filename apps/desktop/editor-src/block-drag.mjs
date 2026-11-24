@@ -183,7 +183,11 @@ export const blockDragExtension = ViewPlugin.fromClass(
             table?.classList.add("cm-block-hover");
           }
           this.grip.style.top = anchorY - bounds.top + "px";
-          this.grip.style.left = Math.max(4, anchorX - bounds.left - 26) + "px";
+          const gripX =
+            fold && getComputedStyle(firstLine).direction === "rtl"
+              ? rect.right + 4 - bounds.left
+              : anchorX - bounds.left - 26;
+          this.grip.style.left = Math.max(4, Math.min(gripX, bounds.width - 25)) + "px";
           this.grip.hidden = false;
         } else hide();
       };
@@ -202,7 +206,14 @@ export const blockDragExtension = ViewPlugin.fromClass(
         const target = document.elementFromPoint(point.clientX, point.clientY);
         if (view.contentDOM.contains(target)) find({ ...point, target });
       };
-      view.scrollDOM.addEventListener("scroll", this.reposition, { passive: true });
+      this.onScroll = () => {
+        if (this.scrollFrame) return;
+        this.scrollFrame = requestAnimationFrame(() => {
+          this.scrollFrame = 0;
+          this.reposition();
+        });
+      };
+      view.scrollDOM.addEventListener("scroll", this.onScroll, { passive: true });
       view.dom.addEventListener("pointermove", find);
       view.dom.addEventListener("pointerleave", this.leave);
       this.grip.addEventListener("pointerdown", (event) => {
@@ -342,7 +353,8 @@ export const blockDragExtension = ViewPlugin.fromClass(
     }
 
     destroy() {
-      this.view.scrollDOM.removeEventListener("scroll", this.reposition);
+      this.view.scrollDOM.removeEventListener("scroll", this.onScroll);
+      if (this.scrollFrame) cancelAnimationFrame(this.scrollFrame);
       this.view.dom.removeEventListener("pointermove", this.hover);
       this.view.dom.removeEventListener("pointerleave", this.leave);
       this.view.dom.ownerDocument.removeEventListener("keydown", this.cancelKey, true);

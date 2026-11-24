@@ -85,7 +85,7 @@ test("a one-column table cannot lose its final column", () => {
   );
 });
 
-test("cell and bulk alignment preserve column defaults, content and ragged rows", () => {
+test("cell and bulk alignment default to Auto and preserve existing source", () => {
   const source = "| A | B |\n| --- | ---: |\n| One | Two |\n| Short |\n";
   const first = model(source);
   const updated = apply(
@@ -104,11 +104,12 @@ test("cell and bulk alignment preserve column defaults, content and ragged rows"
   assert.equal(table.delimiter.cells[1].raw, "---:");
   assert.equal(tableCellAlignment(table, 1, 0).alignment, "auto");
   assert.equal(tableCellAlignment(table, 1, 1).alignment, "auto");
-  assert.match(updated, /<!--folio-align:auto--> Two/);
-  assert.match(updated, /Short \| <!--folio-align:auto-->/);
+  assert.equal(updated, source);
   const changed = apply(updated, tableCellChanges(table, [[1, 1]], "right", "**New**"));
   assert.match(changed, /<!--folio-align:right--> \*\*New\*\*/);
-  assert.match(changed, /<!--folio-align:auto--> B/);
+  assert.equal(tableCellAlignment(model(changed), 0, 1).alignment, "auto");
+  const reset = apply(changed, tableCellChanges(model(changed), [[1, 1]], "auto"));
+  assert.equal(reset, source.replace("Two", "**New**"));
 });
 
 test("column moves carry the width and alignment metadata with the cells", () => {

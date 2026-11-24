@@ -33,7 +33,7 @@ const TEXT = {
     block: "Code block",
     language: "Code language",
     plain: "Plain text",
-    edit: "Edit code",
+    edit: "Add code",
     copy: "Copy code",
     copied: "Copied",
     failed: "Copy failed",
@@ -42,7 +42,7 @@ const TEXT = {
     block: "بلوک کد",
     language: "زبان کد",
     plain: "متن ساده",
-    edit: "ویرایش کد",
+    edit: "افزودن کد",
     copy: "کپی کد",
     copied: "کپی شد",
     failed: "کپی نشد",
@@ -375,7 +375,8 @@ export class CodeBlockHeaderWidget extends WidgetType {
           ?.focus({ preventScroll: true });
       });
     });
-    actions.append(edit, wrap, copy);
+    if (spec.bodyFrom === spec.bodyTo && !view.state.readOnly) actions.append(edit);
+    actions.append(wrap, copy);
     const identity = document.createElement("span");
     identity.className = "cm-code-identity";
     if (spec.presentation.title) {
